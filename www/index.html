@@ -358,6 +358,17 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .occ{display:flex;flex-direction:column;gap:6px;padding:4px 0}
 .occ+.occ{border-top:1px dashed var(--line);padding-top:10px}
 @media (max-width:640px){.settle-grid{grid-template-columns:1fr}}
+
+.tech-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;margin-top:4px}
+.pips{display:inline-flex;gap:3px}
+.pips i{width:10px;height:10px;border-radius:3px;background:#DCE5F2;border:1px solid #C6D3E6}
+.pips i.on{background:linear-gradient(180deg,#FFC24A,#F29A12);border-color:#D9860A}
+.pips i.wip{background:#BFD8FF;border-color:#2F7BEA;animation:hqPulse 1.6s infinite}
+.tech small b{color:var(--ink)}
+.rp-big{font-size:18px;font-weight:700;color:#2F6FD6}
+.nuc-note{flex-direction:row;align-items:center;gap:10px;margin-top:10px;background:#FFF4F2!important;border-color:#F3C2BA!important}
+.strike.nuke b{color:var(--bad)}
+@media (max-width:700px){.tb-kpis .k-rp{display:none}}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -511,7 +522,8 @@ body.in-game .toast{top:calc(58px + env(safe-area-inset-top,0px));bottom:auto}
 /* narrower screens */
 @media (max-width:1100px){.tb-kpis .k-gdp{display:none}}
 @media (max-width:940px){.tb-kpis .k-stab{display:none}.tb-who{flex-basis:164px}.tb-time .speeds button{width:34px}.tb-time .clock{min-width:92px}.tb-time .clock-hint{display:none}}
-@media (max-width:820px){.tb-who{flex-basis:44px}.tb-name{display:none}.tile{width:76px}.tb-kpis .kpi{padding:3px 7px}.tb-kpis .kpi .v{font-size:12.5px}.tb-time .speeds button{width:33px}}
+@media (max-width:900px){.tb-who{flex-basis:44px;flex-shrink:0}.tb-name{display:none}}
+@media (max-width:820px){.tile{width:76px}.tb-kpis .kpi{padding:3px 7px}.tb-kpis .kpi .v{font-size:12.5px}.tb-time .speeds button{width:33px}}
 @media (max-height:420px){.topbar{min-height:44px;padding-top:3px;padding-bottom:3px}.tb-btn{width:36px;height:36px}.tb-sec .portrait{width:30px;height:30px}.tile-ic{height:30px}.tile{font-size:10px;gap:2px}.dock{padding-top:4px}#adv-root{bottom:calc(64px + env(safe-area-inset-bottom,0px))}.window{top:6px;bottom:6px}.win-body{padding:10px}.tip{margin-bottom:10px}}
 @media (orientation:portrait) and (max-width:600px){.topbar{flex-wrap:wrap}.tb-who{flex:1 1 0;min-width:0}.tb-name{display:flex}.tb-time .clock{display:none}.tb-kpis{order:3;flex-basis:100%}.dock{justify-content:flex-start}.map-card{width:min(300px,70%)}}
 .start-head{position:relative;background:linear-gradient(135deg,#4A8EF5,#1F5BC8);border-radius:20px;padding:20px 22px;box-shadow:0 10px 30px rgb(20 60 140 / .3);overflow:hidden}
@@ -818,15 +830,18 @@ const BUILDINGS = {
   aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"самолёты на $120 млн в месяц",req:{tech:"aviation"}},
   samplant:{cat:"mil",name:"Завод ПВО и ракет",days:420,cost:0.016,desc:"ПВО, РЭБ, ракетные комплексы и ракеты на $100 млн в месяц",req:{tech:"missile"}},
   shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки на $350 млн в месяц; нужен выход к морю",req:{coast:true}},
+  institute:{cat:"sci",name:"НИИ и университет",days:200,cost:0.004,desc:"+6 очков исследований в месяц; каждый следующий дороже и даёт чуть меньше",scale:0.25,dscale:15},
+  enrich:{cat:"sci",name:"Центр обогащения урана",days:540,cost:0.02,desc:"нужен для ядерной программы; после «Ядерной боеголовки» собирает боезаряды",req:{tech:"nuc_enrich"},max:4},
+  npp:{cat:"sci",name:"Атомная электростанция",days:720,cost:0.03,desc:"электроэнергия +20% и +5% за каждый уровень «Мирного атома»",req:{tech:"nuc_reactor"},use:{metal:2}},
   ammoplant:{cat:"mil",name:"Завод боеприпасов",days:240,cost:0.008,desc:"снаряды, ракеты РСЗО, ПТУР и бомбы каждый месяц"}
 };
-const BUILD_CATS = [["mat","Сырьё и материалы"],["res","Ресурсы"],["ind","Промышленность"],["inf","Инфраструктура"],["mil","Военные заводы"]];
+const BUILD_CATS = [["mat","Сырьё и материалы"],["sci","Наука и атом"],["res","Ресурсы"],["ind","Промышленность"],["inf","Инфраструктура"],["mil","Военные заводы"]];
 // construction materials per object (thousand tonnes)
 const MAT = {farm:{wood:15,steel:10}, oil:{wood:5,steel:30}, mine:{wood:20,steel:15}, power:{wood:10,steel:40},
   sawmill:{wood:0,steel:5}, steelworks:{wood:15,steel:10}, oilrig:{wood:5,steel:30}, goldmine:{wood:20,steel:20},
   factory:{wood:20,steel:50}, chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
-  tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}};
+  tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:80,steel:400}};
 const RAIL_MAT = {wood:80, steel:120};
 Object.entries(MAT).forEach(([k, m]) => { if (BUILDINGS[k]) BUILDINGS[k].mat = m; });
 // stock commodities; price = share of the player's GDP per unit, multiplied by a monthly market index
@@ -923,12 +938,10 @@ const AMMO = {
 const AMMO_SELLERS = ["ru","us","cn","de","fr","tr","ir","in","kr","gb","it","pl"];
 // factory capacity: value of equipment produced per month (bln $), paid at 50 %
 const PLANT_CAP = {tankplant:0.06, heliplant:0.04, aviaplant:0.12, samplant:0.1, shipyard:0.35};
-const GEN_TECH = {ground:{2:"armor",3:"aviation"}, air:{2:"aviation",3:"armsexport"}, ad:{2:"missile",3:"cyber"}, navy:{2:"armor",3:"aviation"}};
-const GEN_TECH_HELI = {2:"rotor",3:"aviation"}, GEN_TECH_DRONE = {2:"drones",3:"rotor"};
 function blocOf(iso){ if (["ru","kz","kg","uz","by","az","ir","in","vn","eg","dz","sy","tm","tj","mn"].includes(iso)) return "east"; if (["cn","pk","kp","mm","bd"].includes(iso)) return "china"; return "west"; }
 const ORIGIN_BLOC = iso => iso === "ru" || iso === "ir" ? "east" : iso === "cn" ? "china" : iso === "tr" ? "any" : "west";
 function hasCoast(iso){ return !LANDLOCKED.has(iso || S.player); }
-function genTech(m){ const k = KINDS[m.kind]; const t = m.kind === "heli" ? GEN_TECH_HELI : (m.kind === "drone" || m.kind === "loiter") ? GEN_TECH_DRONE : GEN_TECH[k.cls]; return m.gen >= 2 ? t[m.gen] : null; }
+function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return m.kind === "heli" ? "rotor" : (m.kind === "drone" || m.kind === "loiter") ? "drones" : {ground:"armor", air:"aviation", ad:"missile", navy:"aviation"}[k.cls]; }
 function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
 function canBuyModel(id){
   const m = MODELS[id];
@@ -946,7 +959,7 @@ function canProduceModel(id){
   if (!objCount(k.plant)) return {ok:false, why:`нужен завод: ${BUILDINGS[k.plant].name}`};
   if (k.cls === "navy" && !hasCoast()) return {ok:false, why:"нет выхода к морю"};
   if (m.req && me().gdp < m.req) return {ok:false, why:`ВВП от ${money(m.req)}`};
-  const t = genTech(m); if (t && !tech(t)) return {ok:false, why:`нужна технология «${TECH.find(x=>x.id===t).name}»`};
+  const t = genTech(m); if (t && tlv(t) < m.gen) return {ok:false, why:`нужно «${TECH_BY[t].name} ${roman(m.gen)}»`};
   const ob = ORIGIN_BLOC(m.origin), o = C()[m.origin];
   if (!(m.origin === S.player || (o && o.owner === "player") || ob === blocOf(S.player) || relOf(m.origin) >= 50)) return {ok:false, why:`лицензия: отношения от +50 с ${partnerName(m.origin)}`};
   return {ok:true};
@@ -989,7 +1002,10 @@ function orderUnits(id, qty){
   toast(`${m.name} ×${qty} в пути, ~${chk.days} дн.`); flashMap(m.origin, "info");
   const o = C()[m.origin]; if (o) o.rel = Math.min(100, o.rel + 1);
 }
+const AMMO_TECH = {shell:"am_shell", rocket:"am_rocket", atgm:"am_atgm", bomb:"am_bomb", sam:"am_sam", missile:"am_missile"};
+function ammoTier(k){ const t = TECH_BY[AMMO_TECH[k]]; return t.tiers[tlv(t.id)]; }
 function orderAmmo(type, qty){
+  if (type === "missile" && !tlv("am_missile")) return toast("Нужно исследование «Ракеты I».");
   const best = ammoSellers()[0]; if (!best) return toast("Никто сейчас не продаёт боеприпасы: нужны отношения от +10 с производителями.");
   const cost = AMMO[type].price*qty*best.price; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
   S.treasury -= cost; S.shipments = S.shipments || [];
@@ -1009,7 +1025,7 @@ function armsExportIncome(){
 function militaryProduction(){
   Object.keys(PLANT_CAP).forEach(pid => {
     const id = S.prod[pid]; if (!id || !objCount(pid)) return;
-    if (id.startsWith("ammo:")){ const t = id.slice(5); const q = Math.floor(plantCap(pid)/AMMO[t].price); if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.ammo[t] = (S.ammo[t]||0) + q; return; }
+    if (id.startsWith("ammo:")){ const t = id.slice(5); if (t === "missile" && !tlv("am_missile")) return; const q = Math.floor(plantCap(pid)/AMMO[t].price); if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.ammo[t] = (S.ammo[t]||0) + q; return; }
     const m = MODELS[id]; if (!m || !canProduceModel(id).ok) return;
     S.prodAcc[pid] = (S.prodAcc[pid]||0) + plantCap(pid);
     let made = 0;
@@ -1039,11 +1055,11 @@ const STRIKES = {
   mobilize:{name:"Мобилизация", desc:"+10% личного состава; рейтинг −4, стабильность −3", cd:60}
 };
 const GROUND_K = new Set(["tank","ifv","apc","sph","mlrs","srbm"]), STRIKE_K = new Set(["attack","bomber","heli","drone","loiter"]);
-function forceStats(units, ammo, share){
+function forceStats(units, ammo, share, foe){
   const st = {g:0, gd:0, air:0, ad:0, airG:0, ew:0, navy:0, loiter:0};
   for (const [id, n0] of Object.entries(units||{})){
     const m = MODELS[id]; if (!m || n0 <= 0) continue;
-    const n = n0*share, k = KINDS[m.kind], amm = k.ammo ? ((ammo[k.ammo]||0) > 0 ? 1 : 0.35) : 1;
+    const n = n0*share, k = KINDS[m.kind], amm = k.ammo ? ((ammo[k.ammo]||0) > 0 ? ammoMult(k.ammo, foe) : 0.35) : 1;
     if (GROUND_K.has(m.kind)){ st.g += m.ga*n*amm; st.gd += m.df*n; }
     else if (m.kind === "fighter"){ st.air += m.aa*n*amm; st.airG += m.ga*n*0.3*amm; }
     else if (m.kind === "loiter"){ st.loiter += n; st.airG += m.ga*n; }
@@ -1051,6 +1067,7 @@ function forceStats(units, ammo, share){
     else if (k.cls === "ad"){ if (m.kind === "ew") st.ew += m.aa*n; else st.ad += m.aa*n*amm; }
     else if (k.cls === "navy"){ st.navy += (m.ga + m.aa)*n; }
   }
+  if (!foe){ st.g *= 1 + 0.08*tlv("am_warhead"); }
   return st;
 }
 function ammoNeedFor(units){
@@ -1090,8 +1107,8 @@ function spendAmmo(ammo, units, mult){
 function warDay(w){
   initWar(w); w.days++;
   const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
-  const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1);
-  const myTroops = freeArmy()*share, thTroops = e.army;
+  const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
+  const myTroops = freeArmy()*share*(1 + 0.1*tlv("am_small")), thTroops = e.army;
   const allies = Object.values(C()).filter(x => x.ally && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*0.6, 0);
   // 1. the sky
   const aM = my.air + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
@@ -1135,7 +1152,7 @@ function warMonth(w){
   // the enemy reinforces and restocks
   Object.keys(w.eu0).forEach(id => { const gap = w.eu0[id] - (w.eu[id]||0); if (gap > 0) w.eu[id] = (w.eu[id]||0) + Math.ceil(gap*0.04); });
   const re = defaultAmmo(w.eu0); Object.keys(re).forEach(k => w.ea[k] = (w.ea[k]||0) + re[k]*0.12);
-  const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1);
+  const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   w.aiMode = th.g + th.airG > (my.g + my.airG)*0.8 || w.progress < -20 ? "attack" : "hold";
   const top = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 3).map(([id,n]) => `${MODELS[id].name} ×${n}`).join(", ");
   const lm = top(w.mLossMy), lt = top(w.mLossTh);
@@ -1146,12 +1163,13 @@ function warMonth(w){
 function doStrike(w, type){
   initWar(w); const e = C()[w.enemy], st = STRIKES[type];
   if ((w.cd[type]||0) > 0) return toast(`Перезарядка: ещё ${w.cd[type]} дн.`);
-  const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1);
+  const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   if (st.ammo) for (const k in st.ammo) if ((S.ammo[k]||0) < st.ammo[k]) return toast(`Не хватает: ${AMMO[k].short}.`);
   let text = "", good = true;
   if (type === "missile" || type === "infra"){
     const fired = st.ammo.missile; S.ammo.missile -= fired;
-    const p = (w.ea.sam||0) > 0 ? clamp(th.ad/(th.ad + 60), 0, 0.8) : 0.05, down = Math.round(fired*p), hits = fired - down;
+    const p = ((w.ea.sam||0) > 0 ? clamp(th.ad/(th.ad + 60), 0, 0.8) : 0.05)*(1 - 0.15*tlv("am_missile")), down = Math.round(fired*p), hits = fired - down;
+    if ([1,2].includes(tlv("am_warhead"))) infamyAdd(1);
     w.ea.sam = Math.max(0, (w.ea.sam||0) - down*1.5);
     if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); w.progress = clamp(w.progress + hits*0.25, -100, 100); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
     else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; w.progress = clamp(w.progress + hits*0.12, -100, 100); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
@@ -1221,7 +1239,7 @@ function viewHQ(){
   if (!S.wars.length) return `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Штаб оживёт, когда начнётся война. Объявить войну можно в карточке страны на карте.</p></div><div class="army-body" style="margin-top:12px">${viewOccupation()}</div>`;
   if (!ui.hqWar || !S.wars.some(w => w.enemy === ui.hqWar)) ui.hqWar = S.wars[0].enemy;
   const w = initWar(S.wars.find(x => x.enemy === ui.hqWar)), e = C()[w.enemy], share = warShare(w);
-  const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1);
+  const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const cmp = (l, a, b) => { const t = a + b || 1; return `<div class="cmp"><span class="num">${Math.round(a).toLocaleString("ru-RU")}</span><div class="cmpbar"><i style="width:${a/t*100}%"></i></div><span class="num">${Math.round(b).toLocaleString("ru-RU")}</span><small>${l}</small></div>`; };
   const need = ammoNeedFor(S.units), amm = Object.entries(AMMO).filter(([k]) => need[k] > 0).map(([k,a]) => { const days = need[k] > 0 ? (S.ammo[k]||0)/(need[k]/30*share*(WAR_MODES[w.mode].ammo)) : 999; return `<span class="pill ${days < 14 ? "bad" : days < 45 ? "warn" : "good"}">${a.short}: ${days > 365 ? "много" : Math.floor(days) + " дн."}</span>`; }).join("");
   const loss = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id,n]) => `<span>${MODELS[id].name} <b class="num">${n}</b></span>`).join("") || `<span class="muted">нет</span>`;
@@ -1239,6 +1257,7 @@ function viewHQ(){
       ${S.wars.length > 1 ? `<div class="row"><span>Приоритет фронта</span><span class="seg">${[1,2,3].map(v => `<button data-warprio="${v}" aria-pressed="${w.prio===v}">${["Низкий","Обычный","Высокий"][v-1]}</button>`).join("")}</span></div><div class="label">На этот фронт идёт ${Math.round(share*100)}% армии.</div>` : ""}
     </div>
     <div class="panel"><h3>Удары и решения</h3>
+      ${tlv("nuc_bomb") ? `<div class="row strike nuke"><span><b>☢ Ядерный удар</b><br><small class="muted">боеголовок: ${S.nukes||0}. Противник капитулирует, но весь мир разорвёт с вами отношения на годы</small></span><button class="btn danger sm" data-nuke="${w.enemy}" ${(S.nukes||0) > 0 && nukeReach(w.enemy) ? "" : "disabled"}>${ui.nukeArm === w.enemy ? "ПОДТВЕРДИТЬ" : (S.nukes||0) > 0 ? (nukeReach(w.enemy) ? "Приказ" : "не достаёт") : "нет боеголовок"}</button></div>` : ""}
       ${Object.entries(STRIKES).map(([id, st]) => { const cd = w.cd[id]||0; return `<div class="row strike"><span><b>${st.name}</b><br><small class="muted">${st.desc}</small></span><button class="btn ${cd ? "" : "primary"} sm" data-strike="${id}" ${cd ? "disabled" : ""}>${cd ? `через ${cd} дн.` : "Приказ"}</button></div>`; }).join("")}
     </div>
     <div class="panel"><h3>Соотношение сил</h3>
@@ -1287,7 +1306,7 @@ function settleVictory(iso, choice){
     e.owner = "player"; e.ally = false; e.trade = false; e.sanction = false; e.sanctionsUs = false; e.puppet = false;
     me().army += e.army*0.2;
     Object.entries((w && w.eu) || defaultUnits(e, e.tech)).forEach(([id,n]) => { S.units[id] = (S.units[id]||0) + Math.round(n*0.3); });
-    infamyAdd(18 + 25*Math.min(1, big));
+    infamyAdd(18 + 25*Math.min(1, big)); S.rp += 30*e.tech; addLog(`Трофейные разработки: +${30*e.tech} очков исследований.`);
     Object.values(C()).forEach(x => { if (!x.owner && x.region === e.region) x.rel -= 15; });
     S.mods.push({stat:"approval", v:6, left:6});
     addLog(`${e.name}: страна присоединена, нужен гарнизон ${troops(garrisonNeed(S.occupied[iso]))}`);
@@ -1403,7 +1422,7 @@ function occupationTurn(){
   S.infamy = Math.max(0, (S.infamy||0) - 0.6);
   if (S.infamy > 15) Object.values(C()).forEach(x => { if (!x.owner && !x.puppet && !x.ally) x.rel = clamp(x.rel - S.infamy*0.015, -100, 100); });
   if (S.infamy > 50 && !(me().worldSanctions > 0) && Math.random() < (ideo("auth") ? 0.06 : 0.04)){ me().worldSanctions = 24; addLog("Совет наций ввёл санкции против вас за агрессию."); advise("dipl", "Совет наций ввёл против нас санкции на 2 года из-за репутации агрессора.", {mood:"alert", tab:"diplomacy"}); }
-  if (S.infamy > 55 && Math.random() < 0.025*(S.infamy - 50)/10){
+  if (S.infamy > 55 && Math.random() < 0.025*(S.infamy - 50)/10*(deterrence() ? 0.3 : 1)){
     const foes = Object.values(C()).filter(x => !x.owner && !x.ally && !x.puppet && canReach(x) && x.rel < 0 && !S.wars.some(w => w.enemy === x.id)).sort((a,b) => aiPower(b) - aiPower(a)).slice(0, 3);
     if (foes.length >= 2 && foes.reduce((a,x) => a + aiPower(x), 0) > myPower()*0.6){
       foes.forEach(x => { startWar(x.id, false); x.rel = -100; x.trade = false; });
@@ -1448,33 +1467,159 @@ const LAWS = [
   {id:"pension",name:"Повышение пенсионного возраста",desc:"расходы −1% ВВП в год, −7 к рейтингу",appr:-7,cost:-0.01},
   {id:"curfew",name:"Комендантский час",desc:"+12 к стабильности, −8 к рейтингу, рост −0,7% в год",appr:-8,stab:12,growth:-0.0006}
 ];
+// Technologies with levels. Each level is bought with research points (ОИ) and then takes time.
+// eff: effect strength per level (index = level); old formulas use tech(id) as this multiplier.
+const TECH_EFF = [0, 0.5, 0.85, 1.15, 1.45, 1.75];
 const TECH = [
-  {id:"egov",br:"econ",tier:1,cost:30,name:"Цифровые госуслуги",desc:"сбор налогов +5%"},
-  {id:"automation",br:"econ",tier:2,cost:60,name:"Автоматизация производства",desc:"заводы дают +50% роста и прибыли"},
-  {id:"fintech",br:"econ",tier:3,cost:100,name:"Финтех и электронные платежи",desc:"доход от торговли +20%, налоги +5%"},
-  {id:"ai",br:"econ",tier:4,cost:160,name:"Искусственный интеллект",desc:"рост ВВП +1,5% в год"},
-  {id:"smartgrid",br:"res",tier:1,cost:30,name:"Умные энергосети",desc:"электроэнергия +10%"},
-  {id:"agro",br:"res",tier:2,cost:60,name:"Точное земледелие",desc:"продовольствие +20%"},
-  {id:"deep",br:"res",tier:3,cost:100,name:"Глубокая добыча",desc:"нефть и газ +20%, руда +20%"},
-  {id:"fusion",br:"res",tier:4,cost:160,name:"Термоядерный синтез",desc:"электроэнергия +40%, рост ВВП +0,5% в год"},
-  {id:"telemed",br:"soc",tier:1,cost:30,name:"Телемедицина",desc:"рейтинг +2"},
-  {id:"vaccines",br:"soc",tier:2,cost:60,name:"Вакцины нового поколения",desc:"рейтинг +2, прирост населения"},
-  {id:"gene",br:"soc",tier:3,cost:100,name:"Генная терапия",desc:"рейтинг +3, рост ВВП +0,3% в год"},
-  {id:"longevity",br:"soc",tier:4,cost:160,name:"Продление жизни",desc:"рейтинг +5, прирост населения"},
-  {id:"comms",br:"def",tier:1,cost:30,name:"Цифровая связь войск",desc:"боевая мощь +10%"},
-  {id:"drones",br:"def",tier:2,cost:60,name:"Беспилотники",desc:"боевая мощь +20%"},
-  {id:"missile",br:"def",tier:3,cost:100,name:"Противоракетная оборона",desc:"мощь +20%, на вас нападают вдвое реже"},
-  {id:"cyber",br:"def",tier:4,cost:160,name:"Кибервойска",desc:"мощь +20%, сила врага в войне −10%"},
-  {id:"armor",br:"mil",tier:1,cost:40,name:"Современная бронетехника",desc:"открывает танковый завод"},
-  {id:"rotor",br:"mil",tier:2,cost:70,name:"Вертолётостроение",desc:"открывает вертолётный завод"},
-  {id:"aviation",br:"mil",tier:3,cost:120,name:"Авиастроение",desc:"открывает авиазавод"},
-  {id:"armsexport",br:"mil",tier:4,cost:170,name:"Экспорт вооружений",desc:"доход от экспорта техники +50%"},
-  {id:"geo",br:"geo",tier:1,cost:30,name:"Геологоразведка",desc:"открывает добычу и продажу нефти, нефтяные вышки"},
-  {id:"gold",br:"geo",tier:2,cost:55,name:"Золотодобыча",desc:"открывает добычу и продажу золота, золотые прииски"},
-  {id:"refining",br:"geo",tier:3,cost:90,name:"Нефтепереработка",desc:"нефть продаётся на 35% дороже"},
-  {id:"exchange",br:"geo",tier:4,cost:140,name:"Сырьевая биржа",desc:"всё сырьё продаётся на 15% дороже"}
+  {id:"egov",br:"econ",tier:1,max:5,cost:60,days:90,name:"Цифровые госуслуги",fx:"сбор налогов +#%",v:5},
+  {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"прибыль и рост заводов +#%, военные заводы быстрее",v:50},
+  {id:"fintech",br:"econ",tier:3,max:5,cost:220,days:200,name:"Финтех и электронные платежи",fx:"торговля +#1%, налоги +#2%",v:[20,5]},
+  {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост ВВП +#% в год",v:1.5},
+  {id:"smartgrid",br:"res",tier:1,max:5,cost:60,days:90,name:"Умные энергосети",fx:"электроэнергия +#%",v:10},
+  {id:"agro",br:"res",tier:2,max:5,cost:120,days:140,name:"Точное земледелие",fx:"продовольствие +#%",v:20},
+  {id:"deep",br:"res",tier:3,max:5,cost:220,days:200,name:"Глубокая добыча",fx:"нефть, газ и руда +#%",v:20},
+  {id:"fusion",br:"res",tier:4,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"электроэнергия +#1%, рост ВВП +#2% в год",v:[40,0.5],req:{nuc_reactor:2}},
+  {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"рейтинг +#",v:2},
+  {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"рейтинг +#, прирост населения",v:2},
+  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"рейтинг +#1, рост ВВП +#2% в год",v:[3,0.3]},
+  {id:"longevity",br:"soc",tier:4,max:5,cost:380,days:280,name:"Продление жизни",fx:"рейтинг +#, прирост населения",v:5},
+  {id:"comms",br:"def",tier:1,max:5,cost:70,days:100,name:"Цифровая связь войск",fx:"боевая мощь +#%",v:10},
+  {id:"drones",br:"def",tier:2,max:3,cost:140,days:150,name:"Беспилотники",fx:"мощь +#%; ур. 2–3 — дроны 2–3 поколения",v:20},
+  {id:"missile",br:"def",tier:3,max:3,cost:240,days:220,name:"Ракетостроение и ПРО",fx:"мощь +#%, нападают реже; ур. 2–3 — ПВО 2–3 поколения",v:20},
+  {id:"cyber",br:"def",tier:4,max:5,cost:400,days:280,name:"Кибервойска",fx:"мощь +#1%, сила врага −#2%",v:[20,10]},
+  {id:"armor",br:"mil",tier:1,max:3,cost:80,days:120,name:"Современная бронетехника",fx:"бронетанковый завод; ур. 2–3 — наземная техника 2–3 поколения",v:0},
+  {id:"rotor",br:"mil",tier:2,max:3,cost:150,days:160,name:"Вертолётостроение",fx:"вертолётный завод; ур. 2–3 — вертолёты 2–3 поколения",v:0},
+  {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — самолёты и корабли 2–3 поколения",v:0},
+  {id:"armsexport",br:"mil",tier:4,max:5,cost:360,days:260,name:"Экспорт вооружений",fx:"доход от экспорта техники +#%",v:50},
+  {id:"geo",br:"geo",tier:1,max:5,cost:60,days:90,name:"Геологоразведка",fx:"открывает нефть; базовая добыча нефти ×#",v:1,lin:true},
+  {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"открывает золото; базовая добыча золота ×#",v:1,lin:true},
+  {id:"refining",br:"geo",tier:3,max:5,cost:200,days:190,name:"Нефтепереработка",fx:"нефть дороже на #%",v:35},
+  {id:"exchange",br:"geo",tier:4,max:5,cost:320,days:250,name:"Сырьевая биржа",fx:"всё сырьё дороже на #%",v:15},
+  // ammunition & missiles: each level unlocks a stronger type
+  {id:"am_small",br:"ammo",tier:1,max:2,cost:50,days:80,name:"Патроны",tiers:["стандартные","бронебойные","нового поколения"],fx:"пехота +#%",v:10,lin:true,ammo:true},
+  {id:"am_shell",br:"ammo",tier:1,max:3,cost:70,days:100,name:"Артиллерийские снаряды",tiers:["122 мм","152/155 мм","активно-реактивные","высокоточные «Краснополь» / Excalibur"],fx:"артиллерия и танки +#%",v:18,lin:true,ammo:true},
+  {id:"am_atgm",br:"ammo",tier:2,max:2,cost:120,days:140,name:"Противотанковые ракеты",tiers:["2-го поколения","3-го поколения «выстрелил и забыл»","тандемные"],fx:"БМП и вертолёты +#%",v:20,lin:true,ammo:true,req:{am_small:1}},
+  {id:"am_rocket",br:"ammo",tier:2,max:2,cost:120,days:140,name:"Ракеты для РСЗО",tiers:["стандартные","дальнобойные","управляемые GMLRS"],fx:"РСЗО +#%",v:20,lin:true,ammo:true,req:{am_shell:1}},
+  {id:"am_bomb",br:"ammo",tier:2,max:2,cost:130,days:150,name:"Авиабомбы",tiers:["свободнопадающие","планирующие УПАБ","высокоточные JDAM"],fx:"ударная авиация и дроны +#%",v:20,lin:true,ammo:true,req:{am_shell:1}},
+  {id:"am_sam",br:"ammo",tier:3,max:2,cost:200,days:200,name:"Зенитные ракеты",tiers:["стандартные","нового поколения","перехватчики"],fx:"ПВО +#%",v:15,lin:true,ammo:true,req:{am_rocket:1}},
+  {id:"am_warhead",br:"ammo",tier:3,max:3,cost:220,days:220,name:"Боевые части",tiers:["фугасные","кассетные","термобарические","проникающие"],fx:"удар по земле +#%; ур. 1–2 портят репутацию при ударах",v:8,lin:true,ammo:true,req:{am_shell:2}},
+  {id:"am_missile",br:"ammo",tier:4,max:3,cost:300,days:260,name:"Ракеты",tiers:["нет","крылатые «Калибр» / Tomahawk","баллистические «Искандер»","гиперзвуковые «Кинжал»"],fx:"ракеты: закупка и производство, сбивают реже на #%",v:15,lin:true,ammo:true,req:{am_rocket:2}},
+  // nuclear programme
+  {id:"nuc_enrich",br:"nuc",tier:1,max:3,cost:350,days:300,name:"Обогащение урана",fx:"ур. 1 — центр обогащения; ур. 3 — оружейный уран",v:0,lvReq:{2:{bld:"enrich"}},nuke:true},
+  {id:"nuc_reactor",br:"nuc",tier:2,max:3,cost:300,days:280,name:"Мирный атом",fx:"АЭС: +#% электроэнергии каждая",v:25,lin:true,req:{nuc_enrich:1}},
+  {id:"nuc_bomb",br:"nuc",tier:3,max:1,cost:1600,days:420,name:"Ядерная боеголовка",fx:"центры обогащения собирают боеголовки",v:0,req:{nuc_enrich:3, nuc_reactor:1},nuke:true},
+  {id:"nuc_carrier",br:"nuc",tier:4,max:3,cost:500,days:300,name:"Носители ядерного оружия",fx:"ур. 1 — тактические, 2 — средней дальности, 3 — МБР (любая точка мира)",v:0,req:{am_missile:2},nuke:true}
 ];
-const BRANCHES = [["geo","Недра и сырьё"],["econ","Экономика"],["res","Ресурсы и энергия"],["soc","Общество"],["def","Оборона"],["mil","ВПК"]];
+const BRANCHES = [["geo","Недра и сырьё"],["econ","Экономика"],["res","Ресурсы и энергия"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["ammo","Боеприпасы и ракеты"],["nuc","Ядерная программа"]];
+const TECH_BY = Object.fromEntries(TECH.map(t => [t.id, t]));
+function tlv(id){ return (S && S.rlv && S.rlv[id]) || 0; }
+function tech(id){ return TECH_EFF[Math.min(5, tlv(id))]; }
+function techCostLv(t, lv){ return Math.round(t.cost*Math.pow(1.8, lv-1)); }
+function techDaysLv(t, lv){ return Math.round(t.days*(1 + 0.45*(lv-1))); }
+function researching(id){ return (S.rq||[]).find(q => q.id === id); }
+function researchSlots(){ const n = objCount("institute"); return 1 + (n >= 3 ? 1 : 0) + (n >= 8 ? 1 : 0); }
+function techReqFail(t, lv){
+  if (lv > t.max) return "максимальный уровень";
+  if (t.req && lv === 1) for (const [id, l] of Object.entries(t.req)) if (tlv(id) < l) return `нужно: ${TECH_BY[id].name} ${roman(l)}`;
+  if (!t.req && t.tier > 1){ const prev = TECH.find(x => x.br === t.br && x.tier === t.tier-1); const need = Math.max(1, lv-1); if (prev && tlv(prev.id) < need) return `нужно: ${prev.name} ${roman(need)}`; }
+  const lr = t.lvReq && t.lvReq[lv]; if (lr && lr.bld && !objCount(lr.bld)) return `нужна постройка: ${BUILDINGS[lr.bld].name}`;
+  return null;
+}
+const roman = n => ["","I","II","III","IV","V"][n] || n;
+function fxText(t, lv){
+  if (!lv) return "";
+  const f = n => (Math.round(n*10)/10).toString().replace(".", ",");
+  const val = v => t.lin ? v*lv : v*TECH_EFF[lv];
+  let s = t.fx;
+  if (Array.isArray(t.v)) s = s.replace("#1", f(val(t.v[0]))).replace("#2", f(val(t.v[1])));
+  else if (t.id === "geo" || t.id === "gold") s = s.replace("#", f(1 + 0.25*(lv-1)));
+  else s = s.replace("#", f(val(t.v)));
+  if (t.tiers) s = `${t.tiers[lv]} · ${s}`;
+  return s;
+}
+function techAvailable(t){ const lv = tlv(t.id) + 1; return lv <= t.max && !researching(t.id) && !techReqFail(t, lv); }
+function sciIdle(){ return (S.rq||[]).length < researchSlots() && TECH.some(t => techAvailable(t) && S.rp >= techCostLv(t, tlv(t.id)+1)); }
+function rpIncome(){
+  const parts = {base:4, edu:S.capital.edu/8, fund:S.science*6, inst:institutePoints(), pacts:pactPoints()};
+  const mult = (ideo("tech") ? 1.3 : 1);
+  return {parts, mult, total:(parts.base + parts.edu + parts.fund + parts.inst + parts.pacts)*mult};
+}
+function rpMonthly(){ return rpIncome().total; }
+function institutePoints(){ const n = objCount("institute"), d = 0.95; return 6*(d < 1 ? (1 - Math.pow(d, n))/(1 - d) : n); }
+function pactPoints(){ return Object.values(C()).filter(x => x.sci && !x.owner && x.rel >= 30).reduce((a,x) => a + 2 + x.tech, 0); }
+function startResearch(id){
+  const t = TECH_BY[id], lv = tlv(id) + 1, cost = techCostLv(t, lv);
+  const why = techReqFail(t, lv); if (why) return toast(why);
+  if (researching(id)) return;
+  if ((S.rq||[]).length >= researchSlots()) return toast(`Все лаборатории заняты. Больше направлений — больше НИИ (3 НИИ — 2 направления, 8 — 3).`);
+  if (S.rp < cost) return toast(`Не хватает очков исследований: нужно ${cost}, есть ${Math.floor(S.rp)}.`);
+  S.rp -= cost; const days = techDaysLv(t, lv);
+  S.rq.push({id, lv, left:days, total:days});
+  addLog(`Начато исследование «${t.name} ${roman(lv)}»: ${days} дн.`);
+  if (t.nuke && !S.flags.nucStarted){ S.flags.nucStarted = true; infamyAdd(8); advise("dipl", "Мир заметил нашу ядерную программу. Ждите вопросов от МАГАТЭ и давления соседей.", {mood:"alert"}); }
+  sfx("open");
+}
+function researchDay(){
+  if (!S.rq || !S.rq.length) return;
+  S.rq.forEach(q => q.left -= 1);
+  S.rq.filter(q => q.left <= 0).forEach(q => {
+    const t = TECH_BY[q.id]; S.rlv[q.id] = q.lv;
+    addLog(`Открыто: «${t.name} ${roman(q.lv)}» — ${fxText(t, q.lv)}.`);
+    advise("sec", `Учёные докладывают: «${t.name} ${roman(q.lv)}» готово. ${fxText(t, q.lv)}.`, {tab:"science"});
+    if (q.id === "nuc_bomb"){ advise("gen", "Ядерная боеголовка создана. Центры обогащения начнут собирать боезаряды. Это меняет всё, господин президент.", {mood:"alert", tab:"hq"}); infamyAdd(15); }
+    sfx("success"); dirty = true;
+  });
+  S.rq = S.rq.filter(q => q.left > 0);
+}
+function boostResearch(i){
+  const q = S.rq[i]; if (!q || q.boosted) return;
+  rewardAd("Награда: исследование на 25% быстрее", () => { q.left = Math.max(1, Math.round(q.left - q.total*0.25)); q.boosted = true; toast(`${TECH_BY[q.id].name}: −25% времени`); });
+}
+function adPoints(){
+  if ((S.rpAdCd||0) > 0) return;
+  rewardAd("Награда: гранты учёным", () => { const v = Math.round(25 + rpMonthly()*1.5); S.rp += v; S.rpAdCd = 3; floatText(S.player, `+${v} ОИ`, "cargo"); });
+}
+// ammunition quality multipliers for combat
+function ammoMult(kind, foe){
+  if (foe) return 1 + 0.08*((foe.tech||1) - 1);
+  const L = id => tlv(id);
+  return {shell:1 + 0.18*L("am_shell"), rocket:1 + 0.2*L("am_rocket"), atgm:1 + 0.2*L("am_atgm"), bomb:1 + 0.2*L("am_bomb"), sam:1 + 0.15*L("am_sam"), missile:1}[kind] || 1;
+}
+// nuclear arsenal
+function nukeTurn(){
+  if (!tlv("nuc_bomb") || !objCount("enrich")) return;
+  S.nukeAcc = (S.nukeAcc||0) + objCount("enrich")/6;
+  while (S.nukeAcc >= 1){ S.nukeAcc -= 1; S.nukes = (S.nukes||0) + 1; addLog(`Собрана ядерная боеголовка. Всего в арсенале: ${S.nukes}.`); infamyAdd(2); }
+}
+function nukeReach(iso){ const c = tlv("nuc_carrier"); if (!c) return false; if (c >= 3) return true; const x = C()[iso]; return !!x && canReach(x); }
+function deterrence(){ return (S.nukes||0) > 0 && tlv("nuc_carrier") > 0; }
+function enrichStrikeTurn(){
+  if (!objCount("enrich")) return;
+  const hostile = Object.values(C()).filter(x => !x.owner && x.rel < -50 && aiPower(x) > myPower()*0.5);
+  if (!hostile.length || Math.random() > 0.025) return;
+  const x = pick(hostile), ad = forceStats(S.units, S.ammo, 1).ad, p = clamp(ad/(ad + 400), 0, 0.85);
+  if (Math.random() < p){ addLog(`ПВО отразило удар страны ${x.name} по центру обогащения.`); advise("gen", `${x.name} пыталась уничтожить наш центр обогащения. ПВО отразило удар.`, {}); return; }
+  S.buildings.enrich = Math.max(0, objCount("enrich") - 1);
+  S.rq.forEach(q => { if (TECH_BY[q.id].nuke) q.left = Math.min(q.total, q.left + 60); });
+  flashMap(S.player, "bad"); sfx("boom");
+  addLog(`${x.name} нанесла авиаудар по центру обогащения: объект уничтожен, ядерная программа отброшена назад.`);
+  advise("gen", `Удар по центру обогащения! ${x.name} разрушила объект. Ядерные исследования задержаны на 2 месяца.`, {mood:"alert", tab:"build"});
+}
+function nuclearStrike(w){
+  if (!(S.nukes > 0)) return toast("В арсенале нет боеголовок.");
+  if (!nukeReach(w.enemy)) return toast("Носители не достают до цели: нужен более высокий уровень «Носителей».");
+  if (!ui.nukeArm || ui.nukeArm !== w.enemy){ ui.nukeArm = w.enemy; toast("Ядерный удар — необратимое решение. Нажмите ещё раз для подтверждения."); render(); return; }
+  ui.nukeArm = null;
+  const e = C()[w.enemy]; S.nukes--;
+  e.gdp *= 0.55; e.pop *= 0.92; e.army *= 0.4;
+  S.infamy = 100; me().worldSanctions = 60;
+  Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id){ x.rel = clamp(x.rel - 60, -100, 100); x.trade = false; if (x.ally && x.rel < 30) x.ally = false; } });
+  S.mods.push({stat:"approval", v: ideo("auth") ? -10 : -20, left:24}, {stat:"stability", v:-15, left:12});
+  w.progress = 100;
+  addLog(`☢ Нанесён ядерный удар по стране ${e.name}. Мир в ужасе: санкции на 5 лет, отношения со всеми разорваны.`);
+  flashMap(e.id, "bad"); sfx("boom"); setTimeout(() => sfx("boom"), 400); buzz(400);
+  warOutcomes(); dirty = true;
+}
 const IDEOLOGIES = [
   {id:"dem",name:"Демократия",party:"Демократический союз",desc:"рейтинг +5, стабильность −5, торговые договоры дают на 25% больше"},
   {id:"tech",name:"Технократия",party:"Партия прогресса",desc:"наука +30%, рост ВВП +0,4% в год, рейтинг −3"},
@@ -1491,7 +1636,7 @@ const SCENARIOS = [
   {id:"lastchance",name:"Последний шанс",desc:"Долг 140% ВВП, выборы через год, рейтинг 42%."}
 ];
 const OPS = [
-  {id:"spy",name:"Промышленный шпионаж",pts:2,desc:"+15 очков к текущему исследованию"},
+  {id:"spy",name:"Промышленный шпионаж",pts:2,desc:"крадёт очки исследований: чем развитее цель, тем больше"},
   {id:"sabotage",name:"Диверсия на производстве",pts:4,desc:"ВВП цели −2%, армия −3%"},
   {id:"opposition",name:"Поддержка оппозиции",pts:5,desc:"ВВП цели −1%, шанс 25% на смену власти в вашу пользу"},
   {id:"coup",name:"Государственный переворот",pts:10,desc:"только соседи с ВВП вдвое меньше вашего: страна станет союзником"}
@@ -1534,13 +1679,13 @@ function speed3MinutesLeft(){ return premium.speed3Until ? Math.max(0, Math.ceil
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
 const SAVE_KEY = "president-proto-v1";
 const MONTHS_GEN = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
-const SPEED_MS = {1:2000, 2:1000, 3:333}; // ms per in-game day: month = 60 s / 30 s / 10 s
+const SPEED_MS = {1:15000, 2:5000, 3:2000}; // ms per in-game day: 4 / 12 / 30 days per minute
 
 /* ---------- Helpers ---------- */
 const COLOR_IC = new Set(["ship","drone","ammo","wood", "steel", "oil", "gold", "food", "power", "metal", "factory", "bridge", "road", "metro", "plane", "port", "tank", "heli", "jet", "sam", "budget", "gdp", "approval", "stability", "balance", "debt", "build", "economy", "trade", "politics", "army", "science", "intel", "diplomacy", "summary", "trophy", "alert", "rail", "map"]);
 const ic = (name, cls="") => COLOR_IC.has(name) ? `<svg class="ci ${cls}" aria-hidden="true"><use href="#c-${name}"/></svg>` : `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const iref = name => COLOR_IC.has(name) ? "c-" + name : "i-" + name;
-const BUILD_ICON = {shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
+const BUILD_ICON = {institute:"science",enrich:"power",npp:"power",shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
 const UNIT_ICON = {tank:"tank",heli:"heli",fighter:"jet",sam:"sam"};
 const $ = (sel, root=document) => root.querySelector(sel);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -1589,6 +1734,8 @@ function migrate(s){
   if (!s.ammo) s.ammo = defaultAmmo(s.units);
   if (!s.prod) s.prod = {}; if (!s.prodAcc) s.prodAcc = {}; if (!s.prodExport) s.prodExport = {};
   if (!s.armyTab) s.armyTab = "ground";
+  if (!s.rlv){ s.rlv = {}; Object.keys((s.research && s.research.done) || {}).forEach(id => { if (TECH_BY[id]) s.rlv[id] = Math.min(2, TECH_BY[id].max); }); s.rp = 120 + Object.values((s.research && s.research.prog) || {}).reduce((a,v)=>a+v,0)*0.5; s.rq = []; }
+  if (s.rp === undefined) s.rp = 120; if (!s.rq) s.rq = [];
   if (!s.occupied){ s.occupied = {}; Object.values(s.countries).forEach(x => { if (x.owner === "player" && x.id !== s.player) s.occupied[x.id] = {iso:x.id, share:1, res:25, integ:0.6, damage:0.1, garrison:1, policy:"normal", gdpFull:x.gdp*0.6, added:x.gdp*0.6, pop:x.pop, since:0, unrest:0}; }); }
   if (s.infamy === undefined) s.infamy = Object.keys(s.occupied).length*15;
   if (!s.puppets) s.puppets = {};
@@ -1638,7 +1785,7 @@ function checkAchievements(){
   if (!S || !S.countries) return;
   const c = me();
   if (Object.values(S.laws).some(Boolean)) unlock("first_law");
-  const nt = Object.keys(S.research.done).length;
+  const nt = TECH.filter(t => tlv(t.id) > 0).length;
   if (nt>=8) unlock("tech8"); if (nt>=TECH.length) unlock("tech16");
   if (S.capital.edu>=95) unlock("edu");
   if (S.treasury > c.gdp*0.2) unlock("rich");
@@ -1653,16 +1800,13 @@ function checkAchievements(){
   if (S.turn>=120 && !S.flags.everWar) unlock("peace");
   if (S.terms>=2) unlock("veteran");
 }
-function tech(id){ return S.research && S.research.done[id] ? 1 : 0; }
-function rpMonthly(){ return (1 + S.capital.edu/15 + S.science*2) * (ideo("tech")?1.3:1); }
 function scienceCost(){ return me().gdp/12 * 0.005 * S.science; }
-function techAvailable(tc){ return !tech(tc.id) && (tc.tier===1 || TECH.some(x=>x.br===tc.br && x.tier===tc.tier-1 && tech(x.id))); }
 function lawSum(key){ return LAWS.filter(l=>lawOn(l.id) && l[key]).reduce((a,l)=>a+l[key],0); }
 function selfSuff(r){
   const c = me(); let v = c.prof[r]*100 + S.annexBonus[r];
   const b = RES.find(x=>x.id===r).build; v += S.buildings[b]*15;
   Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*S.buildings[id]; });
-  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion"); }
+  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + objCount("npp")*(20 + 5*tlv("nuc_reactor")); }
   if (r==="food") v += 20*tech("agro");
   if (r==="oil" || r==="metal") v += 20*tech("deep");
   v += modSum(r);
@@ -1754,8 +1898,8 @@ function baseOut(r){
   const c = me();
   if (r==="wood") return 10*woodProf(S.player);
   if (r==="steel") return 8*c.prof.metal*(selfSuff("metal") < 60 ? 0.5 : 1);
-  if (r==="oil") return 4*c.prof.oil;
-  return 0.8*goldProf(S.player);
+  if (r==="oil") return 4*c.prof.oil*(1 + 0.25*(tlv("geo")-1));
+  return 0.8*goldProf(S.player)*(1 + 0.25*(tlv("gold")-1));
 }
 // each next producer yields a bit less (deposits deplete): k-th object gives out * decay^k
 function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0]; return b.out[r]*outMult(r)*Math.pow(b.decay||1, buildN(id)); }
@@ -2034,6 +2178,8 @@ function nextMonth(){
   // 6. wars, occupation, infamy
   warTurn();
   occupationTurn();
+  nukeTurn(); enrichStrikeTurn();
+  if (S.rpAdCd > 0) S.rpAdCd--;
 
   // 6b. intelligence, council, ideology cooldown
   S.intel.pts = Math.min(20, S.intel.pts + S.intel.level*0.8 + 0.2);
@@ -2115,7 +2261,7 @@ function aiTurn(){
     if (!c.sanctionsUs && c.rel < -50 && Math.random() < 0.04){ c.sanctionsUs = true; addLog(`${c.name} ввела санкции против вас.`); }
     if (c.sanctionsUs && c.rel > -20 && Math.random() < 0.15){ c.sanctionsUs = false; addLog(`${c.name} сняла санкции.`); }
     // war declared on us
-    if (!S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(tech("missile")?0.5:1)){
+    if (!S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(tech("missile")?0.6:1)*(deterrence() ? 0.15 : 1)){
       startWar(c.id, false);
       c.rel = -100; c.trade = false; c.ally = false;
       addLog(`⚠ ${c.name} объявила вам войну!`);
@@ -2208,7 +2354,6 @@ function opChance(op, target){
 function opAllowed(op, target){
   if (!target || target.owner) return false;
   if (op.id==="coup" && !(canReach(target) && target.gdp < me().gdp*0.5)) return false;
-  if (op.id==="spy" && !S.research.current) return false;
   return S.intel.pts >= op.pts && S.treasury >= improveCost();
 }
 function runOp(opId, targetId){
@@ -2217,7 +2362,7 @@ function runOp(opId, targetId){
   S.intel.pts -= op.pts; S.treasury -= improveCost();
   if (Math.random() < opChance(op.id, x)){
     S.intel.ok++;
-    if (op.id==="spy"){ S.research.prog[S.research.current] = (S.research.prog[S.research.current]||0) + 15; addLog(`Агенты добыли технологии в стране ${x.name}: +15 очков науки.`); }
+    if (op.id==="spy"){ const v = 15 + x.tech*8; S.rp += v; addLog(`Агенты добыли разработки в стране ${x.name}: +${v} очков исследований.`); }
     if (op.id==="sabotage"){ x.gdp *= 0.98; x.army *= 0.97; addLog(`Диверсия в стране ${x.name} удалась.`); }
     if (op.id==="opposition"){ x.gdp *= 0.99; if (Math.random()<0.25){ x.rel = Math.max(x.rel, 40); addLog(`В стране ${x.name} к власти пришла дружественная вам оппозиция.`); } else addLog(`Оппозиция в стране ${x.name} усилилась.`); }
     if (op.id==="coup"){ x.rel = 80; x.ally = true; x.trade = true; x.sanction = false; x.sanctionsUs = false; S.flags.coup = true; addLog(`Переворот в стране ${x.name}: новое правительство — ваш союзник.`); }
@@ -2261,6 +2406,21 @@ const EVENTS = [
      {label:"Поднять зарплаты бюджетникам", hint:"−0,2% ВВП, рейтинг +4", apply(){ S.treasury -= me().gdp*0.002; S.mods.push({stat:"approval",v:4,left:6}); }},
      {label:"Разогнать полицией", hint:"стабильность +3, рейтинг −7", apply(){ S.mods.push({stat:"stability",v:3,left:4},{stat:"approval",v:-7,left:8}); }},
      {label:"Долгие переговоры", hint:"рост −0,1% в месяц на 2 месяца", apply(){ S.mods.push({stat:"growth",v:-0.001,left:2}); }}
+   ]},
+  {id:"iaea", title:"МАГАТЭ требует инспекций", text:"Международное агентство по атомной энергии требует допустить инспекторов на наши ядерные объекты. Мир внимательно следит за ответом.", cond(){ return S.flags.nucStarted && !S.flags.iaea; },
+   options:[
+     {label:"Допустить инспекторов", hint:"репутация агрессора −6, ядерные исследования медленнее на 40 дней", apply(){ S.flags.iaea = true; infamyAdd(-6); S.rq.forEach(q => { if (TECH_BY[q.id].nuke) q.left += 40; }); }},
+     {label:"Отказать", hint:"репутация агрессора +10, возможны санкции, рейтинг +2", apply(){ S.flags.iaea = true; infamyAdd(10); S.mods.push({stat:"approval",v:2,left:6}); if (Math.random() < 0.5){ me().worldSanctions = 24; addLog("Совет наций ввёл санкции из-за ядерной программы."); } }}
+   ]},
+  {id:"nobel", title:"Нобелевская премия", text:"Наш физик получил Нобелевскую премию. Университеты получают волну заявок со всего мира.",
+   options:[
+     {label:"Создать фонд имени лауреата", hint:"−0,2% ВВП, +60 очков исследований", apply(){ S.treasury -= me().gdp*0.002; S.rp += 60; }},
+     {label:"Просто поздравить", hint:"+20 очков исследований, рейтинг +1", apply(){ S.rp += 20; S.mods.push({stat:"approval",v:1,left:6}); }}
+   ]},
+  {id:"braindrain", title:"Утечка мозгов", text:"Учёные уезжают за границу: там платят втрое больше. Академия наук просит поднять зарплаты.", cond(){ return S.rp > 40; },
+   options:[
+     {label:"Поднять зарплаты учёным", hint:"−0,3% ВВП из бюджета", apply(){ S.treasury -= me().gdp*0.003; }},
+     {label:"Ничего не делать", hint:"−30 очков исследований, образование −3", apply(){ S.rp = Math.max(0, S.rp - 30); S.capital.edu = Math.max(0, S.capital.edu - 3); }}
    ]},
   {id:"it", title:"IT-бум", text:"Местные стартапы привлекают инвесторов. Отрасль просит налоговых льгот.",
    options:[
@@ -2414,7 +2574,7 @@ const ADVISORS = {
   intel:{name:"Олег Ветров", role:"Директор спецслужб"},
   dipl: {name:"Марина Королёва", role:"Министр иностранных дел"}
 };
-const EVENT_ADVISOR = {drought:"econ", scandal:"sec", investor:"econ", strike:"econ", it:"econ", quake:"sec", oilprice:"econ", flu:"sec", imf:"econ", border:"gen", olympics:"sec", migrants:"dipl", harvest:"econ", students:"sec"};
+const EVENT_ADVISOR = {iaea:"dipl", nobel:"sec", braindrain:"sec", drought:"econ", scandal:"sec", investor:"econ", strike:"econ", it:"econ", quake:"sec", oilprice:"econ", flu:"sec", imf:"econ", border:"gen", olympics:"sec", migrants:"dipl", harvest:"econ", students:"sec"};
 const portrait = (id, size, mood) => PORTRAITS(id, size, mood);
 function advHead(who, mood, size){ const a = ADVISORS[who]; return `<div class="adv-head">${portrait(who, size||56, mood)}<span><b>${a.name}</b><small>${a.role}</small></span></div>`; }
 
@@ -2492,7 +2652,7 @@ function advisorsTurn(){
   const r = S.council.res; if (r && !r.notified){ r.notified = true; advise("dipl", `Совет наций голосует: «${resName(r)}». Ваш голос считается за два — решите, как голосуем.`, {tab:"diplomacy"}); }
   const friend = Object.values(C()).find(x => !x.owner && !x.ally && x.rel >= 60 && !S.wars.some(w=>w.enemy===x.id));
   if (friend) advise("dipl", `${friend.name} готова к военному союзу. Отношения отличные — стоит закрепить.`, {tab:"diplomacy", key:"ally-"+friend.id, cd:12});
-  if (!S.research.current && TECH.some(techAvailable)) advise("sec", "Учёные сидят без задания. Выберите следующее исследование.", {tab:"science", key:"sci", cd:3});
+  if (sciIdle()) advise("sec", `Лаборатория простаивает, а очков исследований уже ${Math.floor(S.rp)}. Выберите исследование.`, {tab:"science", key:"sci", cd:3});
   if (!ideo("auth") && [12,6,2].includes(S.electionIn)) advise("sec", `До выборов ${S.electionIn} мес. Рейтинг сейчас ${pct(S.approval)} — ${S.approval >= 50 ? "держим курс" : "этого не хватит для победы"}.`, {tab:"politics", mood: S.approval < 50 ? "alert" : null});
 }
 function advisorTip(tab){
@@ -2504,7 +2664,7 @@ function advisorTip(tab){
   else if (tab === "army"){ who = "gen"; const t = Object.values(C()).filter(x=>!x.owner && canReach(x) && !x.ally).sort((p,q)=>aiPower(q)-aiPower(p))[0]; text = S.wars.length ? `Идёт война. Каждая единица техники на счету — свои заводы делают её на 30% дешевле.` : t ? `Сильнейший сосед — ${t.name}: мощь ${Math.round(aiPower(t))} против наших ${Math.round(myPower())}. ${aiPower(t) > myPower() ? "Нам есть куда расти." : "Мы сильнее."}` : "Границы спокойны."; mood = S.wars.length ? "alert" : null; }
   else if (tab === "intel"){ who = "intel"; text = S.intel.pts >= 4 ? `Агентов готово: ${Math.floor(S.intel.pts)}. Выберите цель и операцию — о результате доложу лично.` : `Агенты готовятся. Больше финансирования — быстрее подготовка и выше успех.`; }
   else if (tab === "diplomacy"){ who = "dipl"; const allies = Object.values(C()).filter(x=>x.ally && !x.owner).length, deals = Object.values(C()).filter(x=>x.trade && !x.owner).length; text = S.council.res ? `В Совете наций идёт голосование — не забудьте отдать голос.` : `У нас ${allies} союзников и ${deals} торговых договоров. Страны с отношениями от +20 готовы торговать.`; }
-  else if (tab === "science"){ who = "sec"; const cur = S.research.current && TECH.find(x=>x.id===S.research.current); text = cur ? `Учёные работают над «${cur.name}». Больше финансирования и образования — быстрее открытия.` : "Учёные ждут задания. Советую начать с «Геологоразведки»: нефть принесёт хороший доход."; mood = cur ? null : "alert"; }
+  else if (tab === "science"){ who = "sec"; const busy = (S.rq||[]).length; text = busy ? `Идёт исследований: ${busy} из ${researchSlots()}. Очки копятся каждый день: больше НИИ, финансирования и научных союзов — быстрее прогресс.` : "Лаборатории пусты. Выберите исследование — очки уже накоплены."; mood = busy ? null : "alert"; }
   else if (tab === "politics"){ who = "sec"; text = majority() ? `Ваша партия контролирует парламент — законы проходят свободно. Рейтинг ${pct(S.approval)}.` : `Большинства в парламенте нет: каждый закон стоит уступок коалиции. Поднимите рейтинг — сейчас ${pct(S.approval)}.`; }
   else if (tab === "hq"){ who = "gen"; const w = S.wars.find(x => x.enemy === ui.hqWar) || S.wars[0]; text = !w ? "Войн нет, господин президент." : w.air < 0.4 ? "Небо за противником: без господства в воздухе штурмовики и вертолёты гибнут. Нужны истребители и ПВО." : w.progress < 0 ? "Противник давит. Перейдите в оборону, пополните технику и боеприпасы." : "Фронт держится. Наступайте, но следите за запасом снарядов."; mood = w && (w.progress < 0 || w.air < 0.4) ? "alert" : null; }
   else if (tab === "summary"){ who = "sec"; text = ideo("auth") ? "Выборов нет, но следите за стабильностью: ниже 15% три месяца — революция." : `До выборов ${S.electionIn} мес., рейтинг ${pct(S.approval)}. Для победы нужно 50%.`; }
@@ -2707,6 +2867,7 @@ function act(name, arg){
       S.treasury -= cost; p.rel = clamp(p.rel + 12, -100, 100); p.improveCd = 3; toast(`Отношения с ${shortName(arg)} улучшены.`); break;
     }
     case "ptrade": { const p = partner(arg); p.trade = !p.trade; if (!p.trade) p.rel -= 8; addLog(p.trade ? `Подписано торговое соглашение с ${shortName(arg)}.` : `Торговое соглашение с ${shortName(arg)} расторгнуто.`); break; }
+    case "scipact": { const t = C()[arg]; t.sci = !t.sci; addLog(t.sci ? `Подписан договор о научном сотрудничестве с ${t.name}.` : `Научный союз с ${t.name} расторгнут.`); if (!t.sci) t.rel -= 5; break; }
     case "import": {
       const [iso, r, q] = arg.split(":"), key = iso+":"+r, before = S.imports[key] || 0;
       if (+q > 0 && !canContract(iso).ok) return toast("Закупка невозможна: " + canContract(iso).why + ".");
@@ -2733,11 +2894,9 @@ function act(name, arg){
 
 /* ---------- Daily progress: research, construction, railways ---------- */
 function dayTick(){
-  if (S.research.current){
-    const rc = S.research.current, tc = TECH.find(x=>x.id===rc);
-    S.research.prog[rc] = (S.research.prog[rc]||0) + rpMonthly()/30;
-    if (S.research.prog[rc] >= tc.cost){ S.research.done[rc] = true; S.research.current = null; addLog(`Открыта технология «${tc.name}»: ${tc.desc}.`); advise("sec", `Учёные докладывают: открыта технология «${tc.name}» — ${tc.desc}. Какое исследование следующее?`, {tab:"science"}); sfx("success"); dirty = true; }
-  }
+  S.rp += rpMonthly()/30;
+  researchDay();
+  if ((S.day||1) % 5 === 0) save();
   Object.keys(COMMOD).forEach(r => { S.stock[r] += prodOf(r)/30; });
   shipTick();
   if (S.wars.length){ S.wars.forEach(warDay); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map") updateWarMap(); }
@@ -2784,7 +2943,9 @@ function updateLive(){
   if (ui.tab === "map" || document.getElementById("map-fx")) moveCargo();
   document.querySelectorAll("[data-qprog]").forEach(el => { const q = S.queue[+el.dataset.qprog]; if (q) el.style.width = ((1 - q.left/q.total)*100).toFixed(1)+"%"; });
   document.querySelectorAll("[data-qdays]").forEach(el => { const q = S.queue[+el.dataset.qdays]; if (q) el.textContent = Math.ceil(q.left) + " дн."; });
-  const rc = S.research.current; if (rc){ const tc = TECH.find(x=>x.id===rc), pr = S.research.prog[rc]||0; document.querySelectorAll("[data-rprog]").forEach(el => el.style.width = Math.min(100, pr/tc.cost*100).toFixed(1)+"%"); document.querySelectorAll("[data-rdays]").forEach(el => el.textContent = `${Math.floor(pr)} / ${tc.cost} · осталось ~${Math.max(1, Math.ceil((tc.cost-pr)/(rpMonthly()/30)))} дн.`); }
+  document.querySelectorAll("[data-rqprog]").forEach(el => { const q = S.rq[+el.dataset.rqprog]; if (q) el.style.width = ((1 - q.left/q.total)*100).toFixed(1) + "%"; });
+  document.querySelectorAll("[data-rqdays]").forEach(el => { const q = S.rq[+el.dataset.rqdays]; if (q) el.textContent = Math.ceil(q.left) + " дн."; });
+  document.querySelectorAll("[data-rp]").forEach(el => el.textContent = Math.floor(S.rp).toLocaleString("ru-RU"));
 }
 function updateClock(){
   if (!S || !S.countries) return;
@@ -2795,7 +2956,7 @@ function updateClock(){
 }
 requestAnimationFrame(tick);
 setInterval(() => { const tEl = document.querySelector('[data-speed="3"] .timer'); if (tEl) tEl.textContent = speed3MinutesLeft() + "м"; }, 30000);
-document.addEventListener("visibilitychange", () => { if (document.hidden) pauseFor("hidden"); else resumeAfter("hidden"); });
+document.addEventListener("visibilitychange", () => { if (document.hidden){ pauseFor("hidden"); if (S && S.countries) save(); } else resumeAfter("hidden"); });
 document.addEventListener("keydown", e => {
   if (e.code!=="Space" || /INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName) || !S || !S.countries) return;
   e.preventDefault(); setSpeed(ui.speed===0 ? ui.resumeSpeed : 0);
@@ -2810,7 +2971,7 @@ const WIN = {build:["Стройка","build","#F2A93B"], economy:["Эконом�
 const VIEWS = () => ({build:viewBuild, summary:viewSummary, economy:viewEconomy, trade:viewTrade, science:viewScience, politics:viewPolitics, army:viewArmy, intel:viewIntel, diplomacy:viewDiplomacy, settings:viewSettings, hq:viewHQ});
 function dockBadge(id){
   const b = budget();
-  if (id==="science" && !S.research.current && TECH.some(techAvailable)) return `<i class="badge">!</i>`;
+  if (id==="science" && sciIdle()) return `<i class="badge">!</i>`;
   if (id==="army" && S.wars.length) return `<i class="badge bad">${S.wars.length}</i>`;
   if (id==="economy" && b.net < 0) return `<i class="badge bad">!</i>`;
   if (id==="build" && S.queue.length < maxSlots()) return `<i class="badge soft">${maxSlots()-S.queue.length}</i>`;
@@ -2841,6 +3002,7 @@ function render(){
         <button class="kpi" data-tab="economy" data-kpi="treasury"><span class="label">${ic("budget","sm")}Бюджет</span><span class="v">${money(S.treasury).replace(" $","")}</span></button>
         <button class="kpi k-gdp" data-tab="economy"><span class="label">${ic("gdp","sm")}ВВП</span><span class="v">${money(c.gdp).replace(" $","")}</span></button>
         <button class="kpi" data-tab="politics" data-kpi="approval"><span class="label">${ic("approval","sm")}Рейтинг</span><span class="v ${S.approval<50?"warn":""}">${pct(S.approval)}</span></button>
+        <button class="kpi k-rp" data-tab="science"><span class="label">${ic("science","sm")}Наука</span><span class="v"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span> ОИ</span></button>
         <button class="kpi k-stab" data-tab="politics"><span class="label">${ic("stability","sm")}Стабильность</span><span class="v ${S.stability<35?"down":""}">${pct(S.stability)}</span></button>
         <button class="kpi" data-tab="economy"><span class="label">${ic("balance","sm")}В месяц</span><span class="v ${b.net>=0?"up":"down"}">${b.net>=0?"+":""}${money(b.net).replace(" $","")}</span></button>
       </div>
@@ -2851,9 +3013,9 @@ function render(){
         </div>
         <div class="speeds" role="group" aria-label="Скорость времени">
           <button data-speed="0" aria-pressed="${ui.speed===0}" aria-label="Пауза" title="Пауза (пробел)"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg></button>
-          <button data-speed="1" aria-pressed="${ui.speed===1}" aria-label="Скорость 1" title="1×: месяц за минуту"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l9 6-9 6z"/></svg></button>
-          <button data-speed="2" aria-pressed="${ui.speed===2}" aria-label="Скорость 2" title="2×: месяц за 30 секунд"><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2l8 6-8 6zM10 2l8 6-8 6z"/></svg></button>
-          <button data-speed="3" aria-pressed="${ui.speed===3}" aria-label="Скорость 3${speed3Unlocked()?"":" (платно)"}" title="3×: месяц за 10 секунд" class="${speed3Unlocked()?"":"locked"}"><svg viewBox="0 0 26 16" aria-hidden="true"><path d="M1 2l8 6-8 6zM9 2l8 6-8 6zM17 2l8 6-8 6z"/></svg>${speed3Unlocked()?(premium.speed3?"":`<span class="timer num">${speed3MinutesLeft()}м</span>`):`<svg class="lock" viewBox="0 0 12 14" aria-hidden="true"><path d="M3 6V4a3 3 0 0 1 6 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1.5 0h3V4a1.5 1.5 0 0 0-3 0z"/></svg>`}</button>
+          <button data-speed="1" aria-pressed="${ui.speed===1}" aria-label="Скорость 1" title="1×: 4 дня в минуту"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2l9 6-9 6z"/></svg></button>
+          <button data-speed="2" aria-pressed="${ui.speed===2}" aria-label="Скорость 2" title="2×: 12 дней в минуту"><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M2 2l8 6-8 6zM10 2l8 6-8 6z"/></svg></button>
+          <button data-speed="3" aria-pressed="${ui.speed===3}" aria-label="Скорость 3${speed3Unlocked()?"":" (платно)"}" title="3×: 30 дней в минуту" class="${speed3Unlocked()?"":"locked"}"><svg viewBox="0 0 26 16" aria-hidden="true"><path d="M1 2l8 6-8 6zM9 2l8 6-8 6zM17 2l8 6-8 6z"/></svg>${speed3Unlocked()?(premium.speed3?"":`<span class="timer num">${speed3MinutesLeft()}м</span>`):`<svg class="lock" viewBox="0 0 12 14" aria-hidden="true"><path d="M3 6V4a3 3 0 0 1 6 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1.5 0h3V4a1.5 1.5 0 0 0-3 0z"/></svg>`}</button>
         </div>
       </div>
       <button class="tb-btn tb-sec" data-tab="summary" aria-label="Секретарь: сводка и сообщения">${portrait("sec", 34)}${unread ? `<i class="badge">${unread>9?"9+":unread}</i>` : ""}</button>
@@ -2908,7 +3070,7 @@ function viewSummary(){
       <div><div class="row"><span class="label">Рейтинг</span><span class="num">${pct(S.approval)}</span></div>${spark(S.hist.appr, "var(--accent)")}</div>
       <div class="row"><span>Население</span><span class="num">${people(c.pop)}</span></div>
       <div class="row"><span>Место в мире по ВВП</span><span class="num">№ ${rank}</span></div>
-      <div class="row"><span>Технологий открыто</span><span class="num">${Object.keys(S.research.done).length} / ${TECH.length}</span></div>
+      <div class="row"><span>Уровней технологий</span><span class="num">${TECH.reduce((a,t)=>a+tlv(t.id),0)} / ${TECH.reduce((a,t)=>a+t.max,0)}</span></div>
       <div class="row"><span>Сроков отработано</span><span class="num">${S.terms}</span></div>
     </div>
     <div class="panel">
@@ -3031,39 +3193,41 @@ function viewBuild(){
 }
 
 function viewScience(){
-  const cur = S.research.current ? TECH.find(x=>x.id===S.research.current) : null;
-  const curProg = cur ? (S.research.prog[cur.id]||0) : 0;
-  const months = tc => Math.max(1, Math.ceil((tc.cost - (S.research.prog[tc.id]||0)) / (rpMonthly()/30)));
-  const card = tc => {
-    const done = tech(tc.id), avail = techAvailable(tc), active = S.research.current===tc.id, prog = S.research.prog[tc.id]||0;
-    return `<div class="tech ${done?"done":avail?"avail":"locked"} ${active?"active":""}">
-      <div class="row"><b>${tc.name}</b><span class="label num">${tc.tier}</span></div>
-      <small>${tc.desc}</small>
-      ${done ? `<span class="pill good">Открыто</span>`
-        : avail ? `<div class="bar"><i style="width:${Math.min(100,prog/tc.cost*100)}%"></i></div>
-          <div class="row"><span class="label num">${Math.floor(prog)} / ${tc.cost} · ~${months(tc)} дн.</span>
-          <button class="btn ${active?"":"primary"}" data-research="${tc.id}" ${active?"disabled":""}>${active?"Идёт":"Исследовать"}</button></div>`
-        : `<span class="label">Нужна предыдущая технология ветки</span>`}
+  const inc = rpIncome(), slots = researchSlots(), f1 = v => (Math.round(v*10)/10).toString().replace(".", ",");
+  const card = t => {
+    const lv = tlv(t.id), nx = lv + 1, q = researching(t.id), maxed = lv >= t.max;
+    const why = maxed ? null : techReqFail(t, nx), cost = maxed ? 0 : techCostLv(t, nx);
+    const pips = Array.from({length:t.max}, (_, k) => `<i class="${k < lv ? "on" : q && k === lv ? "wip" : ""}"></i>`).join("");
+    return `<div class="tech ${lv ? "done" : ""} ${q ? "active" : ""} ${!lv && why ? "locked" : ""}">
+      <div class="row"><b>${t.name}</b><span class="pips">${pips}</span></div>
+      ${lv ? `<small><b>Сейчас (${roman(lv)}):</b> ${fxText(t, lv)}</small>` : ""}
+      ${maxed ? `<span class="pill good">Максимум</span>` : q ? `<div class="bar high"><i style="width:${(1-q.left/q.total)*100}%"></i></div><span class="label num">Ур. ${roman(q.lv)} · осталось ${Math.ceil(q.left)} дн.</span>`
+        : `<small class="muted"><b>Ур. ${roman(nx)}:</b> ${fxText(t, nx)}</small>
+          <div class="row"><span class="label num">${cost} ОИ · ${techDaysLv(t, nx)} дн.</span>
+          ${why ? `<small class="down">${why}</small>` : `<button class="btn ${S.rp >= cost && (S.rq||[]).length < slots ? "primary" : ""} sm" data-research="${t.id}" ${S.rp >= cost && (S.rq||[]).length < slots ? "" : "disabled"}>Исследовать</button>`}</div>`}
     </div>`;
   };
+  const tab = ui.sciTab || "geo";
   return `<div class="grid2">
     <div class="panel">
-      <h3>Исследования</h3>
-      <div class="row"><span>Очки науки в месяц <small class="muted">· начисляются каждый день</small></span><span class="num">${rpMonthly().toFixed(1).replace(".",",")}</span></div>
-      <div class="label">1 базово + образование (${(S.capital.edu/15).toFixed(1).replace(".",",")}) + финансирование (${S.science*2})</div>
+      <div class="row"><h3>Очки исследований</h3><span class="num rp-big"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span> ОИ</span></div>
+      <div class="row"><span>Приток в месяц</span><span class="num up">+${f1(inc.total)}</span></div>
+      <div class="bstats"><span>База <b>${f1(inc.parts.base)}</b></span><span>Образование <b>${f1(inc.parts.edu)}</b></span><span>Финансирование <b>${f1(inc.parts.fund)}</b></span><span>НИИ ×${objCount("institute")} <b>${f1(inc.parts.inst)}</b></span><span>Научные союзы <b>${f1(inc.parts.pacts)}</b></span>${inc.mult > 1 ? `<span>Технократия <b>×1,3</b></span>` : ""}</div>
       <div class="row"><span>Финансирование науки <small class="muted">· 0,5% ВВП в год за уровень</small></span><span class="seg" role="group" aria-label="Финансирование науки">
         ${[0,1,2,3].map(l=>`<button data-science="${l}" aria-pressed="${S.science===l}">${["0","Мин","Норм","Макс"][l]}</button>`).join("")}</span></div>
+      <div class="btns"><button class="btn" data-tab="build" data-buildcat-go="sci">${ic("science","sm")} Построить НИИ</button><button class="btn ad-btn" data-rpad ${(S.rpAdCd||0) > 0 ? "disabled" : ""}>${ic("play","sm")} ${(S.rpAdCd||0) > 0 ? `Гранты через ${S.rpAdCd} мес.` : `+${Math.round(25 + rpMonthly()*1.5)} ОИ за рекламу`}</button></div>
+      <div class="label">Ещё очки дают научные союзы с развитыми странами (карточка страны), промышленный шпионаж и трофеи после побед.</div>
     </div>
     <div class="panel">
-      <h3>Сейчас</h3>
-      ${cur ? `<b>${cur.name}</b><small class="muted">${cur.desc}</small>
-        <div class="bar high"><i data-rprog style="width:${Math.min(100,curProg/cur.cost*100)}%"></i></div>
-        <div class="label num" data-rdays>${Math.floor(curProg)} / ${cur.cost} · осталось ~${months(cur)} дн.</div>
-        ${S.research.boosted === cur.id ? `<span class="label">Ускорено рекламой</span>` : `<button class="btn ad-btn" data-boostsci style="align-self:flex-start">${ic("play","sm")} +25% за рекламу</button>`}`
-        : `<p class="muted" style="margin:0">Ничего не исследуется. Выберите технологию ниже — прогресс по ней сохраняется, даже если переключиться.</p>`}
+      <div class="row"><h3>Лаборатории</h3><span class="num">${(S.rq||[]).length} / ${slots}</span></div>
+      ${(S.rq||[]).length ? S.rq.map((q, i) => { const t = TECH_BY[q.id]; return `<div class="qitem"><div class="row"><b>${t.name} ${roman(q.lv)}</b><span class="num muted" data-rqdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar high"><i data-rqprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div>${q.boosted ? `<span class="label">Ускорено</span>` : `<button class="btn ad-btn sm" data-rqboost="${i}">${ic("play","sm")} −25% времени за рекламу</button>`}</div>`; }).join("") : `<p class="muted" style="margin:0">Лаборатории свободны. Выберите технологию ниже: сначала оплачиваете очками, потом идёт время.</p>`}
+      <div class="label">Параллельных исследований: 1, с 3 НИИ — 2, с 8 НИИ — 3.</div>
     </div>
   </div>
-  <div class="tech-tree">${BRANCHES.map(([br,name]) => `<div class="branch"><h3>${name}</h3>${TECH.filter(x=>x.br===br).map(card).join("")}</div>`).join("")}</div>`;
+  <div class="filters" style="margin-top:12px">${BRANCHES.map(([br, name]) => `<button class="chip" data-scitab="${br}" aria-pressed="${tab===br}">${name}</button>`).join("")}</div>
+  <div class="tech-row">${TECH.filter(x => x.br === tab).map(card).join("")}</div>
+  ${tab === "nuc" ? `<div class="panel nuc-note">${ic("alert")} <span>Ядерная программа поднимает репутацию агрессора, вызывает вопросы МАГАТЭ и может спровоцировать удар по вашим центрам обогащения. Зато бомба сдерживает врагов. Боеголовок в арсенале: <b class="num">${S.nukes||0}</b>.</span></div>` : ""}
+  ${tab === "ammo" ? `<div class="label" style="margin-top:8px">Каждый уровень открывает более мощный тип боеприпаса: техника этого вида бьёт сильнее. Крылатые ракеты нельзя купить или произвести без «Ракет I».</div>` : ""}`;
 }
 
 function viewIntel(){
@@ -3185,10 +3349,10 @@ function viewArmy(){
     const need = ammoNeedMonth(), sellers = ammoSellers();
     body = `<div class="panel"><div class="row"><h3>${ic("ammo")} Склад боеприпасов</h3>${sellers[0] ? `<span class="label">Поставщик: ${flag(sellers[0].iso)} ${esc(partnerName(sellers[0].iso))}, ~${sellers[0].days} дн.</span>` : `<span class="label down">Нет поставщиков (нужны отношения от +10)</span>`}</div>
       ${Object.entries(AMMO).map(([k,a]) => { const have = S.ammo[k]||0, months = need[k] > 0 ? have/need[k] : Infinity;
-        return `<div class="stock"><div class="row"><b>${a.name}</b><span class="num">${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}</span></div>
+        return `<div class="stock"><div class="row"><b>${a.name} <small class="muted">· ${ammoTier(k)}</small></b><span class="num">${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}</span></div>
           <div class="bar ${months<2?"low":months<5?"mid":"high"}"><i style="width:${Math.min(100, (isFinite(months)?months:12)/12*100)}%"></i></div>
           <div class="row"><small class="muted">${isFinite(months) ? `Хватит примерно на ${months < 1 ? "меньше месяца" : Math.floor(months) + " мес."} войны` : "Сейчас не расходуется"}</small>
-          <button class="btn sm" data-act="buyammo" data-arg="${k}" ${!sellers[0] || S.treasury < a.price*a.batch*(sellers[0]?sellers[0].price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(sellers[0]?sellers[0].price:1.2))}</button></div></div>`; }).join("")}
+          ${k === "missile" && !tlv("am_missile") ? `<small class="down">нужно исследование «Ракеты I»</small>` : ""}<button class="btn sm" data-act="buyammo" data-arg="${k}" ${(k === "missile" && !tlv("am_missile")) || !sellers[0] || S.treasury < a.price*a.batch*(sellers[0]?sellers[0].price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(sellers[0]?sellers[0].price:1.2))}</button></div></div>`; }).join("")}
       <div class="label">На войне каждый бой тратит боеприпасы. Кончатся снаряды — артиллерия замолчит. Свой завод боеприпасов строится в разделе «Стройка → Военные заводы».</div></div>`;
   } else {
     const plants = [...Object.keys(PLANT_CAP), "ammoplant"];
@@ -3218,6 +3382,7 @@ function dipRow(x){
       ${atWar ? "" : `<div class="dip-actions">
         <button class="btn" data-act="improve" data-arg="${x.id}" ${x.improveCd>0||S.treasury<improveCost()?"disabled":""}>${x.improveCd>0?`Улучшить (через ${x.improveCd})`:`Улучшить отношения · ${money(improveCost())}`}</button>
         <button class="btn" data-act="trade" data-arg="${x.id}" ${!x.trade && (x.rel<20||x.sanction)?"disabled":""}>${x.trade?"Расторгнуть торговлю":"Торговый договор (от +20)"}</button>
+        <button class="btn" data-act="scipact" data-arg="${x.id}" ${!x.sci && (x.rel<40 || Object.values(C()).filter(q=>q.sci).length>=4) ? "disabled" : ""} title="+${2 + x.tech} ОИ в месяц">${x.sci ? "Разорвать научный союз" : `Научный союз (от +40) · +${2 + x.tech} ОИ`}</button>
         <button class="btn" data-act="ally" data-arg="${x.id}" ${!x.ally && x.rel<60?"disabled":""}>${x.ally?"Выйти из союза":"Союз (от +60)"}</button>
         <button class="btn" data-act="sanction" data-arg="${x.id}">${x.sanction?"Снять санкции":"Санкции"}</button>
         ${S.rails[x.id] ? (S.rails[x.id].done ? `<span class="pill good">Ж/д: +${money(railIncome(x.id))}/мес</span>` : `<span class="pill state">Ж/д строится: ${Math.ceil(S.rails[x.id].left)} дн.</span>`)
@@ -3364,7 +3529,7 @@ function floatText(iso, text, kind){
 /* living map: trade & rail routes, contracts, war fronts, own buildings, event ripples */
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
-const PIN_ICON = {shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
+const PIN_ICON = {institute:"science",enrich:"power",npp:"power",shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
 function buildingPins(){
   const list = []; Object.keys(BUILDINGS).forEach(id => { for (let i = 0; i < Math.min(objCount(id), 4); i++) list.push(id); });
   if (!list.length) return "";
@@ -3725,11 +3890,6 @@ function boostBuild(i){
   const q = S.queue[i]; if (!q || q.boosted) return;
   rewardAd("Награда: стройка на 30 дней быстрее", () => { q.left = Math.max(1, q.left - 30); q.boosted = true; toast(`${BUILDINGS[q.type].name}: −30 дней`); });
 }
-function boostScience(){
-  const rc = S.research.current; if (!rc || S.research.boosted === rc) return;
-  const tc = TECH.find(x=>x.id===rc);
-  rewardAd("Награда: +25% к текущему исследованию", () => { S.research.prog[rc] = (S.research.prog[rc]||0) + tc.cost*0.25; S.research.boosted = rc; toast(`${tc.name}: +25%`); });
-}
 function showAd(){
   pauseFor("ad");
   let n = 3;
@@ -3746,7 +3906,7 @@ function showSpeedOffer(){
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="sp-title"><div class="sheet">
     <span class="stamp">Премиум</span>
     <h2 id="sp-title">Скорость ×3</h2>
-    <p style="margin:0">Месяц за 10 секунд вместо 30. Удобно, когда страна работает как часы и хочется быстрее дойти до выборов, исследований и побед.</p>
+    <p style="margin:0">30 дней в минуту вместо 12. Удобно, когда страна работает как часы и хочется быстрее дойти до выборов, исследований и побед.</p>
     <div class="choices">
       ${IAP_ENABLED ? `<button class="choice" data-buy="speed3"><b>Открыть навсегда · 149 ₽</b><small>Разовая покупка. Работает во всех партиях.</small></button>` : ""}
       <button class="choice" data-adspeed><b>Посмотреть рекламу · ${AD_SPEED_MINUTES} минут ×3</b><small>Бесплатно, можно повторять.</small></button>
@@ -3789,13 +3949,13 @@ document.addEventListener("click", e => {
   if (t.dataset.startregion){ ui.startRegion = t.dataset.startregion; renderStart(); return; }
   if (t.dataset.dipregion){ ui.dipRegion = t.dataset.dipregion; render(); return; }
   if (t.dataset.hqgo) ui.hqWar = t.dataset.hqgo;
+  if (t.dataset.buildcatGo) S.buildCat = t.dataset.buildcatGo;
   if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
   if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
   if (t.dataset.setting){ settings[t.dataset.setting] = !settings[t.dataset.setting]; settingsSave(); sfx("tap"); if (t.dataset.setting === "music"){ if (settings.music) musicStart(); else musicStop(); } render(); return; }
   if (t.dataset.tut){ const v = t.dataset.tut; if (v === "skip" || v === "done") tutDone(); else if (v === "restart"){ ui.tab = "map"; render(); showTutorial(0); } else showTutorial(+v.split(":")[1]); return; }
   if (t.dataset.boost !== undefined){ boostBuild(+t.dataset.boost); return; }
-  if (t.hasAttribute("data-boostsci")){ boostScience(); return; }
   if (t.hasAttribute("data-closereport")){ closeModal(); resumeAfter("report"); return; }
   if (t.hasAttribute("data-more")){ ui.more = !ui.more; render(); return; }
   if (t.hasAttribute("data-legend")){ ui.legend = !ui.legend; render(); return; }
@@ -3826,7 +3986,11 @@ document.addEventListener("click", e => {
   if (t.dataset.vote){ S.council.res.myVote = t.dataset.vote==="abstain" ? null : t.dataset.vote; save(); render(); return; }
   if (t.hasAttribute("data-propose")){ S.treasury -= improveCost()*2; S.council.res = {type:"sanctions", target:ui.propTarget, left:3, proposer:"player", myVote:"yes"}; S.council.propCd = 12; addLog(`Вы внесли в Совет наций резолюцию о санкциях против ${C()[ui.propTarget].name}.`); save(); render(); return; }
   if (t.dataset.ideology){ S.ideology = t.dataset.ideology; S.ideoCd = 24; S.mods.push({stat:"stability",v:-20,left:6},{stat:"approval",v:-5,left:6}); if (ideo("nat")) Object.values(C()).forEach(x=>{ if(!x.owner) x.rel -= 10; }); addLog(`Государство перешло к идеологии «${IDEOLOGIES.find(i=>i.id===S.ideology).name}».`); save(); render(); return; }
-  if (t.dataset.research){ S.research.current = t.dataset.research; save(); render(); return; }
+  if (t.dataset.research){ startResearch(t.dataset.research); save(); render(); return; }
+  if (t.dataset.scitab){ ui.sciTab = t.dataset.scitab; render(); return; }
+  if (t.dataset.rqboost !== undefined){ boostResearch(+t.dataset.rqboost); return; }
+  if (t.hasAttribute("data-rpad")){ adPoints(); return; }
+  if (t.dataset.nuke){ const w = S.wars.find(x => x.enemy === t.dataset.nuke); if (w) nuclearStrike(w); save(); render(); return; }
   if (t.dataset.science !== undefined){ S.science = +t.dataset.science; save(); render(); return; }
   if (t.dataset.sector){ S.sectors[t.dataset.sector] = +t.dataset.level; save(); render(); return; }
   if (t.dataset.law){ if (!majority()){ S.mods.push({stat:"approval",v:-2,left:6}); addLog("Без большинства в парламенте закон прошёл только через уступки коалиции: рейтинг −2."); } S.laws[t.dataset.law] = !S.laws[t.dataset.law]; addLog(`${S.laws[t.dataset.law]?"Принят":"Отменён"} закон «${LAWS.find(l=>l.id===t.dataset.law).name}».`); checkAchievements(); save(); render(); return; }
