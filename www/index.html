@@ -843,6 +843,12 @@ use.cu{fill:#000;stroke:none}
 .cb-orgs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-top:6px}
 .cb-orgs span{font:700 10px var(--f-body);letter-spacing:.04em;padding:2px 7px;border-radius:99px;background:rgb(255 255 255 / .15);border:1px solid rgb(255 255 255 / .3)}
 .cb-orgs span.mine{background:#FFD24A;color:#3A2400;border-color:#FFD24A}
+
+/* ---- intelligence ---- */
+.net-row{padding:6px 0;border-top:1px dashed #E3EAF5}
+.net-dots{display:inline-flex;gap:4px}
+.net-dots i{width:12px;height:12px;border-radius:50%;background:#DCE5F2;border:1px solid #C6D1E2}
+.net-dots i.on{background:linear-gradient(180deg,#5AA9FF,#1F4E9C);border-color:#1F4E9C}
 </style>
 
 
@@ -1926,7 +1932,7 @@ function migrate(s){
   if (!s.progs) s.progs = [];
   Object.values(s.countries).forEach(x => { if (x.emb === undefined) x.emb = !!(x.trade || x.ally || x.rel >= 30); });
   if (!s.orgs){ s.orgs = {}; ORGS.forEach(o => { if (o.members.includes(s.player)){ s.orgs[o.id] = true; o.members.forEach(i => { const x = s.countries[i]; if (x && i !== s.player && !x.owner) x.rel = Math.min(100, x.rel + (o.kind === "mil" ? 15 : o.kind === "econ" ? 10 : 4)); }); } }); }
-  if (!s.orgCd) s.orgCd = {}; if (!s.relig) s.relig = "secular";
+  if (!s.orgCd) s.orgCd = {}; if (!s.net) s.net = {}; if (!s.relig) s.relig = "secular";
   if (!s.loans) s.loans = {}; if (!s.invest) s.invest = {}; if (!s.abroad) s.abroad = {};
   if (!s.econTab) s.econTab = "budget"; if (!s.govTab) s.govTab = "min";
   if (s === S) syncMin(); else { const keep = S; S = s; syncMin(); S = keep; }
@@ -2355,6 +2361,7 @@ function nextMonth(){
   facMonth();
   dipMonth();
   orgMonth();
+  intelMonth();
   if (S.religCd > 0) S.religCd--;
 
 
@@ -2380,7 +2387,7 @@ function nextMonth(){
   Object.values(C()).forEach(x => {
     if (x.owner || x.rel > -40) return;
     if (Math.random() < 0.012*S.aggr){
-      if (Math.random() < S.intel.level*0.25) addLog(`Контрразведка сорвала диверсию агентов страны ${x.name}.`);
+      if (Math.random() < ciLevel() || (x.expelled||0) > 0) addLog(`Контрразведка сорвала диверсию агентов страны ${x.name}.`);
       else { c.gdp *= 0.995; addLog(`Агенты страны ${x.name} устроили диверсию: ВВП −0,5%.`); flashMap(S.player, "bad"); advise("intel", `Диверсия! Агенты страны ${x.name} ударили по нашей промышленности. Усильте контрразведку.`, {tab:"intel", mood:"alert", key:"sabot", cd:3}); }
     }
     if (x.worldSanctions > 0) x.worldSanctions--;
@@ -2541,7 +2548,7 @@ function resolveCouncil(){
   K.res = null; K.next = rnd(4,7)|0;
 }
 function opChance(op, target){
-  let p = 0.45 + 0.1*S.intel.level + 0.1*tech("cyber") - 0.07*target.tech + 0.015*minDelta("security");
+  let p = 0.45 + 0.1*S.intel.level + 0.1*tech("cyber") - 0.07*target.tech + 0.015*minDelta("security") + 0.06*netLvl(target.id);
   if (op==="coup") p *= 0.5;
   return clamp(p, 0.05, 0.9);
 }
@@ -2556,6 +2563,7 @@ function runOp(opId, targetId){
   S.intel.pts -= op.pts; S.treasury -= improveCost();
   if (Math.random() < opChance(op.id, x)){
     S.intel.ok++;
+    if (op.id==="influence"){ x.rel = clamp(x.rel + 6, -100, 100); addLog(`Информационная кампания в стране ${x.name}: наш образ улучшился.`); }
     if (op.id==="spy"){ const v = 15 + x.tech*8; S.rp += v; addLog(`Агенты добыли разработки в стране ${x.name}: +${v} очков исследований.`); }
     if (op.id==="sabotage"){ x.gdp *= 0.98; x.army *= 0.97; addLog(`Диверсия в стране ${x.name} удалась.`); }
     if (op.id==="opposition"){ x.gdp *= 0.99; if (Math.random()<0.25){ x.rel = Math.max(x.rel, 40); addLog(`В стране ${x.name} к власти пришла дружественная вам оппозиция.`); } else addLog(`Оппозиция в стране ${x.name} усилилась.`); }
@@ -2945,6 +2953,7 @@ const OP_LINES = {
   spy:{ok:["Чертежи у нас, господин президент. Учёные уже разбирают материалы.","Агент «Сокол» вышел на связь. Документы переданы в институт."]},
   sabotage:{ok:["Их завод стоит. Восстановление займёт месяцы.","Тихо и чисто. Следов не осталось."]},
   opposition:{ok:["Оппозиция получила деньги и эфир. Улицы закипают."], flip:["Режим пал. Новое правительство смотрит в нашу сторону."]},
+  influence:{ok:["Статьи вышли, эфиры прошли. Там о нас стали говорить теплее.","Кампания сработала: опросы показывают рост симпатий к нашей стране."]},
   coup:{ok:["Дворец взят. Новый лидер уже звонил — благодарит за поддержку."]},
   exposed:["Наших людей взяли. Скандал уже в новостях — придётся оправдываться.","Провал. Агент раскрыт, их посольство вручило ноту протеста."],
   clean:["Не вышло, но мы ушли без следов. Никто ничего не докажет.","Объект усилил охрану. Отступили без потерь."]
@@ -3884,29 +3893,91 @@ function viewScience(){
   ${tab === "ammo" ? `<div class="label" style="margin-top:8px">Каждый уровень открывает более мощный тип боеприпаса: техника этого вида бьёт сильнее. Крылатые ракеты нельзя купить или произвести без «Ракет I».</div>` : ""}`;
 }
 
+/* ================= Intelligence service: networks, reports, operations, counter-intelligence ================= */
+OPS.push({id:"influence", name:"Информационная кампания", pts:2, desc:"улучшает образ вашей страны: отношения +6"});
+function netLvl(iso){ return (S.net && S.net[iso]) || 0; }
+function ciLevel(){ return clamp(S.intel.level*0.22 + 0.03*minDelta("security") + ((S.ciBoost||0) > 0 ? 0.2 : 0), 0, 0.9); }
+function netCost(){ return improveCost()*0.5; }
+function netGrow(iso){
+  const x = C()[iso]; if (!x || x.owner) return;
+  if (netLvl(iso) >= 5) return toast("Сеть уже максимальная.");
+  if (S.intel.pts < 2 || S.treasury < netCost()) return toast("Не хватает агентов или денег.");
+  S.intel.pts -= 2; S.treasury -= netCost(); if (!S.net) S.net = {};
+  if (Math.random() < 0.85 - 0.04*x.tech){ S.net[iso] = netLvl(iso) + 1; addLog(`Агентурная сеть в стране ${x.name} расширена до уровня ${S.net[iso]}.`); }
+  else { x.rel = clamp(x.rel - 8, -100, 100); addLog(`Вербовка в стране ${x.name} сорвалась: связной задержан, отношения −8.`); }
+  save(); render();
+}
+function intelReport(iso){
+  const x = C()[iso], n = netLvl(iso); if (!x) return "";
+  if (!n) return `<p class="muted" style="margin:0">Агентуры в этой стране нет — данные только из открытых источников. Расширьте сеть, чтобы видеть больше.</p>`;
+  const err = [0.5, 0.3, 0.2, 0.12, 0.06, 0.02][n], est = v => { const h = (hashIso(iso + S.turn) % 100)/100 - 0.5; return v*(1 + h*err*2); };
+  const intent = x.rel < -65 && aiPower(x) > myPower()*1.3 ? ["down","может напасть: настроены враждебно и сильнее нас"] : x.rel < -40 ? ["warn","враждебны, но к войне не готовы"] : x.rel > 40 ? ["up","настроены дружественно"] : ["muted","угрозы не видно"];
+  return `<div class="bstats"><span>Мощь армии ≈ <b class="num">${Math.round(est(aiPower(x))).toLocaleString("ru-RU")}</b></span><span>Личный состав ≈ <b class="num">${troops(est(x.army))}</b></span><span>Технологии <b class="num">${x.tech}/5</b></span><span>ВВП ≈ <b class="num">${money(est(x.gdp))}</b></span></div>
+    <div class="row"><span>Намерения</span><span class="${intent[0]}">${intent[1]}</span></div>
+    ${n >= 3 ? `<div class="row"><span>Отношение их руководства к нам</span><span class="num">${x.rel > 0 ? "+" : ""}${Math.round(x.rel)}</span></div>` : ""}
+    ${n >= 4 ? `<div class="row"><span>Их санкции</span><span>${x.sanctionsUs ? "действуют против нас" : "нет"}</span></div>` : ""}
+    <small class="muted">Точность данных ±${Math.round(err*100)}%: чем сильнее сеть, тем точнее.</small>`;
+}
+function intelMonth(){
+  if ((S.ciBoost||0) > 0) S.ciBoost--;
+  Object.keys(S.net||{}).forEach(iso => { const x = C()[iso];
+    if (!x || x.owner){ delete S.net[iso]; return; }
+    S.rp += S.net[iso] >= 2 ? 0.4*S.net[iso]*x.tech : 0;
+    if (Math.random() < 0.015*x.tech){ S.net[iso] = Math.max(0, S.net[iso] - 1); addLog(`Контрразведка страны ${x.name} вскрыла часть нашей сети: уровень ${S.net[iso]}.`); if (!S.net[iso]) delete S.net[iso]; } });
+  // foreign espionage against us
+  Object.values(C()).forEach(x => {
+    if (x.owner || x.rel > -25 || (x.expelled||0) > 0){ if (x.expelled > 0) x.expelled--; return; }
+    if (Math.random() < 0.02*S.aggr){
+      if (Math.random() < ciLevel()){ (S.ciLog = S.ciLog || []).unshift({d:dateStr(), iso:x.id, caught:true}); addLog(`Контрразведка раскрыла шпионов страны ${x.name}.`); advise("intel", `Мы взяли шпионскую сеть страны ${x.name}. Можно выслать их дипломатов — во вкладке «Контрразведка».`, {tab:"intel"}); }
+      else { const v = Math.round(5 + x.tech*3); S.rp = Math.max(0, S.rp - v); (S.ciLog = S.ciLog || []).unshift({d:dateStr(), iso:x.id, caught:false, rp:v}); addLog(`Утечка: агенты страны ${x.name} похитили наши разработки (−${v} ОИ).`); }
+      S.ciLog = S.ciLog.slice(0, 8);
+    }
+  });
+}
+function expel(iso){
+  const x = C()[iso]; if (!x || (x.expelled||0) > 0) return;
+  x.expelled = 6; x.rel = clamp(x.rel - 10, -100, 100); S.mods.push({stat:"approval", v:2, left:3});
+  addLog(`Дипломаты страны ${x.name} высланы. Их разведка на полгода парализована.`); save(); render();
+}
+function ciBoost(){
+  if ((S.ciBoost||0) > 0 || S.treasury < improveCost()) return;
+  S.treasury -= improveCost(); S.ciBoost = 6; addLog("Запущена проверка госаппарата: контрразведка усилена на полгода."); save(); render();
+}
+function opCards(x){
+  return `<div class="dgrid">${OPS.map(op => { const ok = opAllowed(op, x);
+    return `<button class="dcard ${ok ? "" : "off"}" data-opx="${op.id}:${x.id}" ${ok ? "" : "disabled"}>
+      <span class="dc-pic" style="background:radial-gradient(circle at 30% 25%,#3A4F70,#141F3D)">${ic(op.id === "spy" ? "science" : op.id === "influence" ? "diplomacy" : op.id === "opposition" ? "users" : op.id === "coup" ? "politics" : "factory", "lg")}</span>
+      <b>${op.name}</b><small>${op.desc} · ${op.pts} агентов · успех ${Math.round(opChance(op.id, x)*100)}%</small></button>`; }).join("")}</div>`;
+}
 function viewIntel(){
-  const targets = Object.values(C()).filter(x=>!x.owner).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
+  const tab = ui.itab || "net";
+  const targets = Object.values(C()).filter(x => !x.owner).sort((a,b) => a.name.localeCompare(b.name, "ru"));
   if (!ui.intelTarget || !C()[ui.intelTarget] || C()[ui.intelTarget].owner) ui.intelTarget = targets[0] && targets[0].id;
   const x = C()[ui.intelTarget];
-  return `<div class="grid2">
-    <div class="panel">
-      <h3>Агентура</h3>
-      <div class="row"><span>Агенты готовы к операциям</span><span class="num">${S.intel.pts.toFixed(1).replace(".",",")} / 20</span></div>
+  const head = `<div class="panel"><div class="row"><h3>Агенты: <span class="num">${S.intel.pts.toFixed(1).replace(".",",")} / 20</span></h3>
+      <span class="seg" role="group" aria-label="Финансирование спецслужб">${[0,1,2,3].map(l=>`<button data-intellevel="${l}" aria-pressed="${S.intel.level===l}">${["0","Мин","Норм","Макс"][l]}</button>`).join("")}</span></div>
       <div class="bar"><i style="width:${S.intel.pts/20*100}%"></i></div>
-      <div class="row"><span>Финансирование <small class="muted">· 0,3% ВВП в год за уровень</small></span><span class="seg" role="group" aria-label="Финансирование спецслужб">
-        ${[0,1,2,3].map(l=>`<button data-intellevel="${l}" aria-pressed="${S.intel.level===l}">${["0","Мин","Норм","Макс"][l]}</button>`).join("")}</span></div>
-      <div class="label">Уровень ускоряет подготовку агентов, повышает успех операций и даёт ${S.intel.level*25}% шанс сорвать вражескую диверсию.</div>
-      <div class="row"><span>Успешных операций</span><span class="num">${S.intel.ok}</span></div>
-    </div>
-    <div class="panel">
-      <h3>Операция</h3>
-      <label class="label" for="intel-target">Цель</label>
-      <select id="intel-target" class="select" data-inteltarget>${targets.map(c=>`<option value="${c.id}" ${c.id===ui.intelTarget?"selected":""}>${esc(c.name)}</option>`).join("")}</select>
-      ${x ? OPS.map(op => `<div class="row"><span><b>${op.name}</b><br><small class="muted">${op.desc} · ${op.pts} агентов · успех ${Math.round(opChance(op.id,x)*100)}%</small></span>
-        <button class="btn" data-op="${op.id}" ${opAllowed(op,x)?"":"disabled"}>${money(improveCost())}</button></div>`).join("") : ""}
-      <div class="label">Провал раскрывается в половине случаев: отношения с целью −25 и скандал дома.</div>
-    </div>
-  </div>`;
+      <div class="bstats"><span>Успешных операций <b class="num">${S.intel.ok}</b></span><span>Сетей за рубежом <b class="num">${Object.keys(S.net||{}).length}</b></span><span>Контрразведка <b class="num">${Math.round(ciLevel()*100)}%</b></span><span>Расход <b class="down num">−${money(intelCost())}</b>/мес</span></div></div>`;
+  const tabs = `<div class="filters gov-tabs">${[["net","Агентура","users"],["rep","Разведка","intel"],["ops","Операции","alert"],["ci","Контрразведка","stability"]].map(([t,l,i]) => `<button class="chip" data-itab="${t}" aria-pressed="${tab===t}">${ic(i,"sm")}${l}</button>`).join("")}</div>`;
+  const pickT = `<select class="select" data-inteltarget aria-label="Страна">${targets.map(c=>`<option value="${c.id}" ${c.id===ui.intelTarget?"selected":""}>${esc(c.name)}${netLvl(c.id) ? ` · сеть ${netLvl(c.id)}` : ""}</option>`).join("")}</select>`;
+  let body = "";
+  if (tab === "net"){
+    const nets = Object.entries(S.net||{}).filter(([i]) => C()[i]).sort((a,b) => b[1]-a[1]);
+    body = `<div class="panel"><div class="row">${pickT}<button class="btn primary" data-netgrow="${ui.intelTarget}" ${S.intel.pts < 2 || S.treasury < netCost() || netLvl(ui.intelTarget) >= 5 ? "disabled" : ""}>Расширить сеть · 2 агента · ${money(netCost())}</button></div>
+      <div class="label">Сеть в стране (до 5 уровней) повышает успех операций на 6% за уровень, даёт точную разведку, а с уровня 2 — донесения: очки исследований каждый месяц. Развитые страны чаще вскрывают чужих агентов.</div>
+      ${nets.length ? nets.map(([i, l]) => `<div class="row net-row"><span>${flag(i)} ${esc(C()[i].name)}</span><span class="net-dots">${[1,2,3,4,5].map(k => `<i class="${k <= l ? "on" : ""}"></i>`).join("")}</span><button class="btn sm" data-ctry="${i}" data-ctabgo="intel">Открыть ›</button></div>`).join("") : `<p class="muted" style="margin:0">Агентурных сетей пока нет.</p>`}</div>`;
+  } else if (tab === "rep"){
+    body = `<div class="panel"><div class="row">${pickT}<span class="num muted">сеть ${netLvl(ui.intelTarget)}/5</span></div>${x ? `<h3>${flag(x.id)} ${esc(x.name)}: разведсводка</h3>${intelReport(x.id)}` : ""}</div>`;
+  } else if (tab === "ops"){
+    body = `<div class="panel"><div class="row">${pickT}<span class="num muted">сеть ${netLvl(ui.intelTarget)}/5 · +${netLvl(ui.intelTarget)*6}% к успеху</span></div><div class="label">Провал раскрывается в половине случаев: отношения с целью −25 и скандал дома.</div></div>${x ? opCards(x) : ""}`;
+  } else {
+    const hostile = Object.values(C()).filter(c => !c.owner && c.rel <= -25).sort((a,b) => a.rel - b.rel);
+    body = `<div class="panel"><div class="row"><h3>Контрразведка: ${Math.round(ciLevel()*100)}%</h3><button class="btn" data-ciboost ${(S.ciBoost||0) > 0 || S.treasury < improveCost() ? "disabled" : ""}>${(S.ciBoost||0) > 0 ? `Проверка идёт: ${S.ciBoost} мес.` : `Проверка госаппарата · ${money(improveCost())}`}</button></div>
+      <div class="label">Шанс поймать чужих агентов. Растёт от финансирования спецслужб и Службы безопасности (Власть → Министерства). Враждебные страны (отношения ниже −25) пытаются красть наши разработки.</div>
+      ${hostile.length ? hostile.map(c => `<div class="row net-row"><span>${flag(c.id)} ${esc(c.name)} <small class="muted">${Math.round(c.rel)}</small></span>${(c.expelled||0) > 0 ? `<span class="pill state">дипломаты высланы: ${c.expelled} мес.</span>` : `<button class="btn sm" data-expel="${c.id}">Выслать дипломатов</button>`}</div>`).join("") : `<p class="muted" style="margin:0">Враждебных разведок не видно.</p>`}
+      ${(S.ciLog||[]).length ? `<h3>Последние случаи</h3>${S.ciLog.map(e => `<div class="row"><small class="muted">${e.d}</small><small class="${e.caught ? "up" : "down"}">${e.caught ? "раскрыты агенты" : `утечка −${e.rp} ОИ`} · ${esc(partnerName(e.iso))}</small></div>`).join("")}` : ""}</div>`;
+  }
+  return head + tabs + body;
 }
 
 function viewIdeology(){
@@ -4545,7 +4616,7 @@ function viewCountry(){
   if (!x) return `${countryBanner(id)}${partnerCard(id)}`;
   if (x.owner) return `${countryBanner(id)}${dipRow(x)}`;
   const tab = ui.ctab || "dip", atWar = S.wars.some(w => w.enemy === id);
-  const tabs = `<div class="filters gov-tabs">${[["dip","Дипломатия","diplomacy"],["aid","Помощь","approval"],["mil","Военное","army"],["trade","Торговля","trade"]].map(([t,l,i]) => `<button class="chip" data-ctab="${t}" aria-pressed="${tab===t}">${ic(i,"sm")}${l}</button>`).join("")}</div>`;
+  const tabs = `<div class="filters gov-tabs">${[["dip","Дипломатия","diplomacy"],["aid","Помощь","approval"],["mil","Военное","army"],["trade","Торговля","trade"],["intel","Разведка","intel"]].map(([t,l,i]) => `<button class="chip" data-ctab="${t}" aria-pressed="${tab===t}">${ic(i,"sm")}${l}</button>`).join("")}</div>`;
   let cards = [];
   if (atWar) cards = [];
   else if (tab === "dip") cards = [
@@ -4568,6 +4639,8 @@ function viewCountry(){
     {dataAct:"sanction", arg:id, icon:"debt", title: x.sanction ? "Снять санкции" : "Ввести санкции", sub: x.sanction ? "отношения +10" : "отношения −30, торговля и союз прекращаются", on:x.sanction, tone:"bad"}];
   const [face, word] = relWord(x.rel);
   const body = atWar ? `<div class="panel"><div class="row"><b class="down">Идёт война с этой страной</b><button class="btn primary" data-tab="hq" data-hqgo="${id}">${ic("army","sm")} Штаб</button></div><div class="btns"><button class="btn" data-act="peace" data-arg="${id}">Мирные переговоры</button></div></div>`
+    : tab === "intel" ? `<div class="panel"><div class="row"><h3>Агентура: уровень ${netLvl(id)}/5</h3><button class="btn primary" data-netgrow="${id}" ${S.intel.pts < 2 || S.treasury < netCost() || netLvl(id) >= 5 ? "disabled" : ""}>Расширить сеть · ${money(netCost())}</button></div>
+        <div class="bstats"><span>Агентов готово <b class="num">${S.intel.pts.toFixed(1).replace(".",",")}</b></span><span>Бонус к операциям <b class="num">+${netLvl(id)*6}%</b></span></div>${intelReport(id)}</div>${opCards(x)}`
     : tab === "trade" ? `<div class="panel">${S.rails[id] ? (S.rails[id].done ? `<div class="row"><span>Железная дорога работает</span><span class="num up">+${money(railIncome(id))}/мес</span></div>` : `<div class="row"><span>Железная дорога строится</span><span class="num">${Math.ceil(S.rails[id].left)} дн.</span></div>`) : canReach(x) ? `<div class="row"><span>Железная дорога: доход ~${money(railIncome(id))}/мес <small class="muted">· от +40</small></span><button class="btn" data-act="rail" data-arg="${id}" ${x.rel<40||S.treasury<railTotal()||!railMatOk()?"disabled":""}>${money(railTotal())} + ${RAIL_MAT.steel} стали, ${RAIL_MAT.wood} древесины</button></div>` : ""}${tradeBlock(id)}</div>`
     : `<div class="dgrid">${cards.map(dcard).join("")}</div>
        ${tab === "mil" && canReach(x) && !x.ally ? `<div class="panel war-zone"><div class="row"><span><b>Объявить войну</b> <small class="muted">${x.nap ? "· нарушит пакт о ненападении: репутация агрессора +10" : S.council.banned[id] ? "· нарушит резолюцию Совета наций" : "· весь мир это запомнит"}</small></span>
@@ -4893,6 +4966,11 @@ document.addEventListener("click", e => {
   if (t.dataset.scenario){ ui.scenario = t.dataset.scenario; renderStart(); return; }
   if (t.dataset.intellevel !== undefined){ S.intel.level = +t.dataset.intellevel; save(); render(); return; }
   if (t.dataset.op){ runOp(t.dataset.op, ui.intelTarget); return; }
+  if (t.dataset.opx){ const [o, i] = t.dataset.opx.split(":"); runOp(o, i); return; }
+  if (t.dataset.netgrow){ netGrow(t.dataset.netgrow); return; }
+  if (t.dataset.itab){ ui.itab = t.dataset.itab; render(); return; }
+  if (t.dataset.expel){ expel(t.dataset.expel); return; }
+  if (t.dataset.ciboost !== undefined){ ciBoost(); return; }
   if (t.dataset.vote){ S.council.res.myVote = t.dataset.vote==="abstain" ? null : t.dataset.vote; save(); render(); return; }
   if (t.hasAttribute("data-propose")){ S.treasury -= improveCost()*2; S.council.res = {type:"sanctions", target:ui.propTarget, left:3, proposer:"player", myVote:"yes"}; S.council.propCd = 12; addLog(`Вы внесли в Совет наций резолюцию о санкциях против ${C()[ui.propTarget].name}.`); save(); render(); return; }
   if (t.dataset.ideology){ S.ideology = t.dataset.ideology; S.ideoCd = 24; S.mods.push({stat:"stability",v:-20,left:6},{stat:"approval",v:-5,left:6}); if (ideo("nat")) Object.values(C()).forEach(x=>{ if(!x.owner) x.rel -= 10; }); addLog(`Государство перешло к идеологии «${IDEOLOGIES.find(i=>i.id===S.ideology).name}».`); save(); render(); return; }
@@ -4911,7 +4989,7 @@ document.addEventListener("click", e => {
   if (t.dataset.relig){ setRelig(t.dataset.relig); return; }
   if (t.dataset.ctab){ ui.ctab = t.dataset.ctab; ui.warConfirm = null; render(); return; }
   if (t.dataset.warconfirm !== undefined){ ui.warConfirm = t.dataset.warconfirm || null; render(); return; }
-  if (t.dataset.ctry){ ui.ctry = t.dataset.ctry; ui.ctab = "dip"; ui.mapSel = t.dataset.ctry; ui.tab = "country"; render(); return; }
+  if (t.dataset.ctry){ ui.ctry = t.dataset.ctry; ui.ctab = t.dataset.ctabgo || "dip"; ui.mapSel = t.dataset.ctry; ui.tab = "country"; render(); return; }
   if (t.dataset.faccat){ S.facCat = t.dataset.faccat; save(); render(); return; }
   if (t.dataset.buildmode){ S.buildMode = t.dataset.buildmode; save(); render(); return; }
   if (t.dataset.govtab){ const [k, v] = t.dataset.govtab.split(":"); S[k] = v; save(); render(); return; }
