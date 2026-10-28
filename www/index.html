@@ -191,6 +191,8 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-
 @media (prefers-reduced-motion:reduce){.m-war{animation:none}}
 .m-minor{fill:#182A47;stroke:#2A4570}
 .sw.m-minor{background:#182A47;border-color:#2A4570}
+.sw.ln-trade,.sw.ln-contract,.sw.ln-rail,.sw.ln-war{height:0;width:16px;border:0;border-top:2.5px dashed;border-radius:0;vertical-align:3px}
+.sw.ln-trade{border-top-color:#5AA9FF}.sw.ln-contract{border-top:2.5px dotted #39D0C3}.sw.ln-rail{border-top:3px solid #F2A93B}.sw.ln-war{border-top-color:#FF5D5D}
 #map-labels{pointer-events:none;font-family:var(--f-body);font-weight:600;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#081224;stroke-linejoin:round;fill:#8FA4C4;letter-spacing:.02em}
 #map-labels .lb-game{fill:#DCE6F5}
 #map-labels .lb-me{fill:#FFE0A8}
@@ -258,6 +260,29 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:8px;font-size:13px;z-index:30;max-width:90%}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
+
+.ad-btn{border-color:rgb(247 201 72 / .55);color:var(--warn);display:inline-flex;align-items:center;gap:6px;align-self:flex-start}
+/* living map */
+#map-fx{pointer-events:none}
+#map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
+#worldmap #map-fx .fx-trade{stroke:#5AA9FF;stroke-width:1.6;stroke-dasharray:5 6;opacity:.85;animation:fxDash 1.4s linear infinite}
+#worldmap #map-fx .fx-contract{stroke:#39D0C3;stroke-width:2;stroke-dasharray:2 7;opacity:.95;animation:fxDash .9s linear infinite}
+#worldmap #map-fx .fx-rail{stroke:#F2A93B;stroke-width:2.6;opacity:.9}
+#worldmap #map-fx .fx-rail.wip{stroke-dasharray:3 5;opacity:.6}
+#worldmap #map-fx .fx-war{stroke:#FF5D5D;stroke-width:2.6;stroke-dasharray:10 6;animation:fxDash .6s linear infinite;filter:drop-shadow(0 0 3px rgb(255 93 93 / .8))}
+@keyframes fxDash{to{stroke-dashoffset:-22}}
+#worldmap #map-fx .fx-arrow{fill:#FF5D5D;stroke:#2A0A0F;stroke-width:1}
+#worldmap #map-fx .fx-front{fill:rgb(255 93 93 / .2);stroke:#FF5D5D;stroke-width:1.5;animation:fxPulse 1.4s ease-in-out infinite}
+.fx-swords{stroke:#FFD0D0!important;stroke-width:2!important;vector-effect:none!important}
+@keyframes fxPulse{50%{fill:rgb(255 93 93 / .45)}}
+.fx-bld{fill:#0D1A2E;stroke:#F2A93B;stroke-width:1.4}
+.fx-bld-ic{color:#F2A93B;fill:none;stroke:#F2A93B;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fx-n{font:700 9px var(--f-data);fill:#FFE0A8;paint-order:stroke;stroke:#081224;stroke-width:3}
+.fx-rip{fill:none;stroke-width:2.5;transform-box:fill-box;transform-origin:center;animation:fxRip 1.4s ease-out 3}
+.fx-rip.r2{animation-delay:.45s}
+.fx-flash.good .fx-rip{stroke:#39D0C3} .fx-flash.bad .fx-rip{stroke:#FF5D5D} .fx-flash.info .fx-rip{stroke:#5AA9FF}
+@keyframes fxRip{from{transform:scale(.4);opacity:1}to{transform:scale(2.6);opacity:0}}
+@media (prefers-reduced-motion:reduce){.fx-trade,.fx-contract,.fx-war,.fx-front,.fx-rip{animation:none}}
 /* ===== Game shell: status bar · map stage with windows · ministry dock =====
    One fixed screen (the Android app is landscape-only); portrait still works, the dock scrolls sideways. */
 body.in-game{overflow:hidden;background-attachment:scroll}
@@ -396,7 +421,7 @@ body.in-game .toast{top:calc(58px + env(safe-area-inset-top,0px));bottom:auto}
 </style>
 
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></symbol><symbol id="i-summary" viewBox="0 0 24 24"><path d="M3 14a9 9 0 0 1 18 0 M12 14l4-4 M7 19h10"/></symbol><symbol id="i-economy" viewBox="0 0 24 24"><path d="M3 20h18 M5 16l5-5 4 3 6-7 M15 7h5v5"/></symbol><symbol id="i-science" viewBox="0 0 24 24"><path d="M9 3h6 M10 3v6L4.5 18.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3 M7 15h10"/></symbol><symbol id="i-politics" viewBox="0 0 24 24"><path d="M3 21h18 M5 21V10 M9.5 21V10 M14.5 21V10 M19 21V10 M2 10l10-6 10 6z"/></symbol><symbol id="i-army" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z M9 12l2 2 4-4"/></symbol><symbol id="i-intel" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></symbol><symbol id="i-diplomacy" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></symbol><symbol id="i-budget" viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-4v4 M16 14h2"/></symbol><symbol id="i-gdp" viewBox="0 0 24 24"><path d="M4 20V11 M10 20V4 M16 20v-7 M3 20h18"/></symbol><symbol id="i-approval" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol><symbol id="i-stability" viewBox="0 0 24 24"><path d="M12 3v18 M5 7h14 M5 7l-3 7h6z M19 7l-3 7h6z M8 21h8"/></symbol><symbol id="i-debt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6"/></symbol><symbol id="i-balance" viewBox="0 0 24 24"><path d="M4 12h16 M12 4v16"/></symbol><symbol id="i-food" viewBox="0 0 24 24"><path d="M12 21V8 M12 8c-2 0-4-2-4-5 2 0 4 2 4 5zm0 0c2 0 4-2 4-5-2 0-4 2-4 5z M12 14c-2 0-4-2-4-4 2 0 4 1.5 4 4zm0 0c2 0 4-2 4-4-2 0-4 1.5-4 4z"/></symbol><symbol id="i-oil" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></symbol><symbol id="i-metal" viewBox="0 0 24 24"><path d="M4 18l3-8h10l3 8z M7 10l2-4h6l2 4"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M3 21V11l5 3v-3l5 3V7l5 3v11z M3 21h18 M18 10V4h2v7"/></symbol><symbol id="i-bridge" viewBox="0 0 24 24"><path d="M2 16h20 M4 16v4 M20 16v4 M2 11c3 0 5 5 10 5s7-5 10-5 M8 13.5V16 M16 13.5V16"/></symbol><symbol id="i-road" viewBox="0 0 24 24"><path d="M8 3L5 21 M16 3l3 18 M12 4v3 M12 10v3 M12 16v3"/></symbol><symbol id="i-metro" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z M5 10h14 M8 21l2-4 M16 21l-2-4 M9 13.5h.01 M15 13.5h.01"/></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol><symbol id="i-port" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M12 8v13 M5 13a7 7 0 0 0 14 0 M3 13h4 M17 13h4"/></symbol><symbol id="i-tank" viewBox="0 0 24 24"><path d="M3 15h18l-2 4H5z M6 15v-3h10v3 M16 12.5l5-2 M9 12V9.5h4V12"/></symbol><symbol id="i-heli" viewBox="0 0 24 24"><path d="M3 6h14 M10 6v3 M5 12a5 3 0 0 1 5-3h3a4 4 0 0 1 4 4v1H7a2 2 0 0 1-2-2z M17 12h4l1-2 M9 14l-1 3 M13 14l1 3 M6 17h10"/></symbol><symbol id="i-jet" viewBox="0 0 24 24"><path d="M12 2l2 7 8 4v2l-8-2-1 5 3 2v1l-4-1-4 1v-1l3-2-1-5-8 2v-2l8-4z"/></symbol><symbol id="i-sam" viewBox="0 0 24 24"><path d="M4 20h16 M7 20l3-6h4l3 6 M12 14V9 M8 6a6 6 0 0 1 8 0 M10 8a3 3 0 0 1 4 0"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z M12 10v5 M12 18h.01"/></symbol><symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z M8 6H4a3 3 0 0 0 4 4 M16 6h4a3 3 0 0 1-4 4 M12 13v4 M8 21h8 M9 17h6"/></symbol><symbol id="i-rail" viewBox="0 0 24 24"><path d="M7 3l-3 18 M17 3l3 18 M5.5 7h13 M5 12h14 M4.3 17h15.4"/></symbol><symbol id="i-council" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M8 12h8 M12 8v8"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14 M5 12h14"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7 M5 10v10h14V10"/></symbol><symbol id="i-wood" viewBox="0 0 24 24"><path d="M4 8h12a4 4 0 0 1 0 8H4a4 4 0 0 1 0-8z M4 8a4 4 0 0 0 0 8 M4 10.5a1.5 1.5 0 1 0 0 3 M9 11h5 M8 14h4"/></symbol><symbol id="i-steel" viewBox="0 0 24 24"><path d="M5 4h14 M5 20h14 M12 4v16 M8 4v2h8V4 M8 20v-2h8v2"/></symbol><symbol id="i-gold" viewBox="0 0 24 24"><path d="M3 19l2-5h6l2 5z M11 19l2-5h6l2 5z M7 14l2-5h6l2 5"/></symbol><symbol id="i-trade" viewBox="0 0 24 24"><path d="M4 8h14l-4-4 M20 16H6l4 4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M5 6h14 M5 12h14 M5 18h14"/></symbol><symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3 M18 3v4h-4 M20 12a8 8 0 0 1-14 5.3 M6 21v-4h4"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12 M18 6L6 18"/></symbol><symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2 1.2l-.3 2h-4l-.3-2a7 7 0 0 1-2-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7 7 0 0 1 2-1.2l.3-2h4l.3 2a7 7 0 0 1 2 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 3z"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21a7 7 0 0 1 14 0 M16 3a4 4 0 0 1 0 8 M18 14a6 6 0 0 1 4 7"/></symbol></defs></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></symbol><symbol id="i-summary" viewBox="0 0 24 24"><path d="M3 14a9 9 0 0 1 18 0 M12 14l4-4 M7 19h10"/></symbol><symbol id="i-economy" viewBox="0 0 24 24"><path d="M3 20h18 M5 16l5-5 4 3 6-7 M15 7h5v5"/></symbol><symbol id="i-science" viewBox="0 0 24 24"><path d="M9 3h6 M10 3v6L4.5 18.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3 M7 15h10"/></symbol><symbol id="i-politics" viewBox="0 0 24 24"><path d="M3 21h18 M5 21V10 M9.5 21V10 M14.5 21V10 M19 21V10 M2 10l10-6 10 6z"/></symbol><symbol id="i-army" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z M9 12l2 2 4-4"/></symbol><symbol id="i-intel" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></symbol><symbol id="i-diplomacy" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></symbol><symbol id="i-budget" viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-4v4 M16 14h2"/></symbol><symbol id="i-gdp" viewBox="0 0 24 24"><path d="M4 20V11 M10 20V4 M16 20v-7 M3 20h18"/></symbol><symbol id="i-approval" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol><symbol id="i-stability" viewBox="0 0 24 24"><path d="M12 3v18 M5 7h14 M5 7l-3 7h6z M19 7l-3 7h6z M8 21h8"/></symbol><symbol id="i-debt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6"/></symbol><symbol id="i-balance" viewBox="0 0 24 24"><path d="M4 12h16 M12 4v16"/></symbol><symbol id="i-food" viewBox="0 0 24 24"><path d="M12 21V8 M12 8c-2 0-4-2-4-5 2 0 4 2 4 5zm0 0c2 0 4-2 4-5-2 0-4 2-4 5z M12 14c-2 0-4-2-4-4 2 0 4 1.5 4 4zm0 0c2 0 4-2 4-4-2 0-4 1.5-4 4z"/></symbol><symbol id="i-oil" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></symbol><symbol id="i-metal" viewBox="0 0 24 24"><path d="M4 18l3-8h10l3 8z M7 10l2-4h6l2 4"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M3 21V11l5 3v-3l5 3V7l5 3v11z M3 21h18 M18 10V4h2v7"/></symbol><symbol id="i-bridge" viewBox="0 0 24 24"><path d="M2 16h20 M4 16v4 M20 16v4 M2 11c3 0 5 5 10 5s7-5 10-5 M8 13.5V16 M16 13.5V16"/></symbol><symbol id="i-road" viewBox="0 0 24 24"><path d="M8 3L5 21 M16 3l3 18 M12 4v3 M12 10v3 M12 16v3"/></symbol><symbol id="i-metro" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z M5 10h14 M8 21l2-4 M16 21l-2-4 M9 13.5h.01 M15 13.5h.01"/></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol><symbol id="i-port" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M12 8v13 M5 13a7 7 0 0 0 14 0 M3 13h4 M17 13h4"/></symbol><symbol id="i-tank" viewBox="0 0 24 24"><path d="M3 15h18l-2 4H5z M6 15v-3h10v3 M16 12.5l5-2 M9 12V9.5h4V12"/></symbol><symbol id="i-heli" viewBox="0 0 24 24"><path d="M3 6h14 M10 6v3 M5 12a5 3 0 0 1 5-3h3a4 4 0 0 1 4 4v1H7a2 2 0 0 1-2-2z M17 12h4l1-2 M9 14l-1 3 M13 14l1 3 M6 17h10"/></symbol><symbol id="i-jet" viewBox="0 0 24 24"><path d="M12 2l2 7 8 4v2l-8-2-1 5 3 2v1l-4-1-4 1v-1l3-2-1-5-8 2v-2l8-4z"/></symbol><symbol id="i-sam" viewBox="0 0 24 24"><path d="M4 20h16 M7 20l3-6h4l3 6 M12 14V9 M8 6a6 6 0 0 1 8 0 M10 8a3 3 0 0 1 4 0"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z M12 10v5 M12 18h.01"/></symbol><symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z M8 6H4a3 3 0 0 0 4 4 M16 6h4a3 3 0 0 1-4 4 M12 13v4 M8 21h8 M9 17h6"/></symbol><symbol id="i-rail" viewBox="0 0 24 24"><path d="M7 3l-3 18 M17 3l3 18 M5.5 7h13 M5 12h14 M4.3 17h15.4"/></symbol><symbol id="i-council" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M8 12h8 M12 8v8"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14 M5 12h14"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7 M5 10v10h14V10"/></symbol><symbol id="i-wood" viewBox="0 0 24 24"><path d="M4 8h12a4 4 0 0 1 0 8H4a4 4 0 0 1 0-8z M4 8a4 4 0 0 0 0 8 M4 10.5a1.5 1.5 0 1 0 0 3 M9 11h5 M8 14h4"/></symbol><symbol id="i-steel" viewBox="0 0 24 24"><path d="M5 4h14 M5 20h14 M12 4v16 M8 4v2h8V4 M8 20v-2h8v2"/></symbol><symbol id="i-gold" viewBox="0 0 24 24"><path d="M3 19l2-5h6l2 5z M11 19l2-5h6l2 5z M7 14l2-5h6l2 5"/></symbol><symbol id="i-trade" viewBox="0 0 24 24"><path d="M4 8h14l-4-4 M20 16H6l4 4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M5 6h14 M5 12h14 M5 18h14"/></symbol><symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3 M18 3v4h-4 M20 12a8 8 0 0 1-14 5.3 M6 21v-4h4"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12 M18 6L6 18"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M10 8.5l6 3.5-6 3.5z"/></symbol><symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2 1.2l-.3 2h-4l-.3-2a7 7 0 0 1-2-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7 7 0 0 1 2-1.2l.3-2h4l.3 2a7 7 0 0 1 2 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 3z"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21a7 7 0 0 1 14 0 M16 3a4 4 0 0 1 0 8 M18 14a6 6 0 0 1 4 7"/></symbol></defs></svg>
 <div id="app" class="wrap"></div>
 <div id="modal-root"></div>
 
@@ -985,6 +1010,7 @@ function nextMonth(){
   // 5. world
   const warsBefore = S.wars.map(w=>w.enemy);
   aiTurn();
+  S.wars.filter(w=>!warsBefore.includes(w.enemy)).forEach(w => flashMap(w.enemy, "bad"));
   S.wars.filter(w=>!warsBefore.includes(w.enemy)).forEach(w => advise("gen", `Тревога! ${C()[w.enemy].name} объявила нам войну. Войска приведены в готовность — жду приказов.`, {tab:"army", mood:"alert"}));
 
   // 6. wars
@@ -996,7 +1022,7 @@ function nextMonth(){
     if (x.owner || x.rel > -40) return;
     if (Math.random() < 0.012*S.aggr){
       if (Math.random() < S.intel.level*0.25) addLog(`Контрразведка сорвала диверсию агентов страны ${x.name}.`);
-      else { c.gdp *= 0.995; addLog(`Агенты страны ${x.name} устроили диверсию: ВВП −0,5%.`); }
+      else { c.gdp *= 0.995; addLog(`Агенты страны ${x.name} устроили диверсию: ВВП −0,5%.`); flashMap(S.player, "bad"); advise("intel", `Диверсия! Агенты страны ${x.name} ударили по нашей промышленности. Усильте контрразведку.`, {tab:"intel", mood:"alert", key:"sabot", cd:3}); }
     }
     if (x.worldSanctions > 0) x.worldSanctions--;
   });
@@ -1489,6 +1515,7 @@ const OP_LINES = {
   clean:["Не вышло, но мы ушли без следов. Никто ничего не докажет.","Объект усилил охрану. Отступили без потерь."]
 };
 function showOpReport(op, x, outcome, result){
+  flashMap(x.id, outcome === "ok" || outcome === "flip" ? "info" : "bad");
   pauseFor("report");
   const ok = outcome === "ok" || outcome === "flip", line = pick(outcome === "flip" ? OP_LINES.opposition.flip : ok ? OP_LINES[op.id].ok : OP_LINES[outcome]);
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="op-title"><div class="sheet dossier">
@@ -1552,7 +1579,7 @@ function act(name, arg){
       if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
       S.treasury -= cost; t.rel = clamp(t.rel + 12, -100, 100); t.improveCd = 3; toast(`Отношения с ${t.name} улучшены.`); break;
     }
-    case "trade": { const t=C()[arg]; t.trade = !t.trade; addLog(t.trade ? `Подписано торговое соглашение с ${t.name}.` : `Торговое соглашение с ${t.name} расторгнуто.`); if(!t.trade) t.rel -= 10; break; }
+    case "trade": { const t=C()[arg]; t.trade = !t.trade; if (t.trade) flashMap(t.id, "good"); addLog(t.trade ? `Подписано торговое соглашение с ${t.name}.` : `Торговое соглашение с ${t.name} расторгнуто.`); if(!t.trade) t.rel -= 10; break; }
     case "ally": { const t=C()[arg]; t.ally = !t.ally; addLog(t.ally ? `Заключён военный союз с ${t.name}.` : `Союз с ${t.name} расторгнут.`); if(!t.ally) t.rel -= 20; break; }
     case "sanction": {
       const t=C()[arg]; t.sanction = !t.sanction;
@@ -1562,7 +1589,7 @@ function act(name, arg){
     }
     case "war": {
       const t=C()[arg];
-      S.wars.push({enemy:t.id, progress:0, months:0});
+      S.wars.push({enemy:t.id, progress:0, months:0}); flashMap(t.id, "bad");
       t.rel = -100; t.trade=false; t.ally=false;
       Object.values(C()).forEach(x => { if (!x.owner && x.id!==t.id){ x.rel -= x.region===t.region ? 12 : 4; if (x.ally && x.rel<30) x.ally=false; } });
       S.mods.push({stat:"approval",v:-5,left:3});
@@ -1612,6 +1639,7 @@ function act(name, arg){
       const [iso, r, q] = arg.split(":"), key = iso+":"+r, before = S.contracts[key] || 0;
       if (+q > 0 && !canContract(iso).ok) return toast("Контракт невозможен: " + canContract(iso).why + ".");
       if (+q > 0) S.contracts[key] = +q; else delete S.contracts[key];
+      if (!before && +q > 0) flashMap(iso, "good");
       if (!before && +q > 0) addLog(`Подписан контракт: ${q} ${COMMOD[r].unit} ${COMMOD[r].gen} в месяц для страны ${partnerName(iso)}.`);
       if (before && !(+q)) addLog(`Контракт на поставку ${COMMOD[r].gen} в страну ${partnerName(iso)} расторгнут.`);
       break;
@@ -1632,7 +1660,7 @@ function dayTick(){
   const speed = selfSuff("metal") < 60 ? 0.5 : 1;
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
-  done.forEach(q => { S.buildings[q.type]++; addLog(`Построено: ${BUILDINGS[q.type].name}.`); advise("econ", `Объект сдан: ${BUILDINGS[q.type].name}. Уже работает на страну.`, {tab:"build"}); dirty = true; });
+  done.forEach(q => { S.buildings[q.type]++; addLog(`Построено: ${BUILDINGS[q.type].name}.`); advise("econ", `Объект сдан: ${BUILDINGS[q.type].name}. Уже работает на страну.`, {tab:"build"}); flashMap(S.player, "good"); dirty = true; });
   if (done.length) S.queue = S.queue.filter(q=>q.left>0);
   Object.keys(S.rails).forEach(id => { const r = S.rails[id]; if (!r.done){ r.left -= 1; if (r.left<=0){ r.done = true; addLog(`Открыта железная дорога в страну ${C()[id].name}.`); toast(`Железная дорога: ${C()[id].name}`); dirty = true; } } });
 }
@@ -1876,7 +1904,7 @@ function viewBuild(){
   return `<div class="grid2">
     <div class="panel">
       <div class="row"><h3>Сейчас строится</h3><span class="num">Площадок занято: ${S.queue.length} / ${maxSlots()}</span></div>
-      ${S.queue.length ? `<div class="queue">${S.queue.map((q,i)=>`<div class="qitem"><div class="row"><b class="bname">${ic(BUILD_ICON[q.type])}${BUILDINGS[q.type].name}</b><span class="num muted" data-qdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar"><i data-qprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div></div>`).join("")}</div>` : `<p class="muted" style="margin:0">Сейчас ничего не строится.</p>`}
+      ${S.queue.length ? `<div class="queue">${S.queue.map((q,i)=>`<div class="qitem"><div class="row"><b class="bname">${ic(BUILD_ICON[q.type])}${BUILDINGS[q.type].name}</b><span class="num muted" data-qdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar"><i data-qprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div>${q.boosted ? `<span class="label">Ускорено</span>` : q.left > 31 ? `<button class="btn ad-btn" data-boost="${i}">${ic("play","sm")} −30 дней за рекламу</button>` : ""}</div>`).join("")}</div>` : `<p class="muted" style="margin:0">Сейчас ничего не строится.</p>`}
       ${selfSuff("metal")<60 && S.queue.length ? `<div class="label down">Нехватка руды: стройки идут вдвое медленнее.</div>` : ""}
       <div class="label">Площадок: 2 + 1 за каждые 34 единицы инфраструктуры. Каждой стройке нужны древесина и сталь; если своих не хватает — докупим по импорту, на 60% дороже.</div>
     </div>
@@ -1941,7 +1969,8 @@ function viewScience(){
       <h3>Сейчас</h3>
       ${cur ? `<b>${cur.name}</b><small class="muted">${cur.desc}</small>
         <div class="bar high"><i data-rprog style="width:${Math.min(100,curProg/cur.cost*100)}%"></i></div>
-        <div class="label num" data-rdays>${Math.floor(curProg)} / ${cur.cost} · осталось ~${months(cur)} дн.</div>`
+        <div class="label num" data-rdays>${Math.floor(curProg)} / ${cur.cost} · осталось ~${months(cur)} дн.</div>
+        ${S.research.boosted === cur.id ? `<span class="label">Ускорено рекламой</span>` : `<button class="btn ad-btn" data-boostsci style="align-self:flex-start">${ic("play","sm")} +25% за рекламу</button>`}`
         : `<p class="muted" style="margin:0">Ничего не исследуется. Выберите технологию ниже — прогресс по ней сохраняется, даже если переключиться.</p>`}
     </div>
   </div>
@@ -2143,7 +2172,7 @@ function viewMap(){
       <div class="bstats"><span>ВВП <b class="num">${money(x.gdp)}</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
       <p class="muted" style="margin:0">Нажмите на другую страну, чтобы увидеть отношения и действия.</p></div>`;
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} Выбранная страна</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
-  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"]];
+  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Экспортный контракт"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap" id="map-wrap">${svg}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button><button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
@@ -2196,8 +2225,48 @@ function attachLabels(){
     t.textContent = partnerName(iso);
     lg.appendChild(t);
   });
+  const fx = document.createElementNS("http://www.w3.org/2000/svg", "g"); fx.id = "map-fx";
+  fx.innerHTML = fxMarkup();
+  g.appendChild(fx);
   g.appendChild(lg);
   updateLabels();
+}
+/* living map: trade & rail routes, contracts, war fronts, own buildings, event ripples */
+const FLASH_MS = 4200;
+function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
+function fxCurve(a, b){
+  const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1, off = Math.min(70, len*0.22);
+  const cx = mx - dy/len*off, cy = my + dx/len*off;
+  return {d:`M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`, ang: Math.atan2(b.y-cy, b.x-cx)*180/Math.PI};
+}
+const mark = (x, y, inner, cls, rot) => `<g class="fx-mark ${cls||""}" data-x="${x.toFixed(1)}" data-y="${y.toFixed(1)}"${rot!=null?` data-r="${rot.toFixed(1)}"`:""}>${inner}</g>`;
+function fxMarkup(){
+  if (!LABELS || !S) return "";
+  const home = LABELS[S.player]; if (!home) return "";
+  let lines = "", marks = "";
+  const contractIsos = [...new Set(allContracts().map(c=>c.iso))];
+  Object.values(C()).forEach(x => {
+    if (x.id === S.player || x.owner) return;
+    const L = LABELS[x.id]; if (!L) return;
+    const cv = fxCurve(home, L);
+    if (S.wars.some(w=>w.enemy===x.id)){
+      lines += `<path class="fx-war" d="${cv.d}"/>`;
+      marks += mark(L.x, L.y, `<path class="fx-arrow" d="M-9,-7 L4,0 L-9,7 L-5,0z"/>`, "", cv.ang) + mark(L.x, L.y, `<circle r="12" class="fx-front"/><path d="M-5,-5L5,5M5,-5L-5,5" class="fx-swords"/>`, "fx-off");
+    } else if (S.rails[x.id]) lines += `<path class="fx-rail ${S.rails[x.id].done?"":"wip"}" d="${cv.d}"/>`;
+    else if (x.trade) lines += `<path class="fx-trade" d="${cv.d}"/>`;
+  });
+  contractIsos.forEach(iso => { const L = LABELS[iso]; if (!L || S.wars.some(w=>w.enemy===iso)) return; lines += `<path class="fx-contract" d="${fxCurve(L, home).d}"/>`; });
+  Object.values(S.partners||{}).length && Object.entries(S.partners).forEach(([iso,p]) => { const L = LABELS[iso]; if (p.trade && L && !C()[iso] && !contractIsos.includes(iso)) lines += `<path class="fx-trade" d="${fxCurve(home, L).d}"/>`; });
+  // own buildings: badges under the capital label
+  const groups = [["wood",["sawmill"]],["steel",["steelworks"]],["oil",["oilrig","oil"]],["gold",["goldmine"]],["factory",["factory","chem","auto","chips"]],["bridge",["bridge","highway","metro","airport","port"]],["tank",["tankplant","heliplant","aviaplant","samplant"]]]
+    .map(([icn, ids]) => [icn, ids.reduce((a,id)=>a+objCount(id),0)]).filter(([,n])=>n>0);
+  groups.forEach(([icn, n], i) => {
+    const dx = (i - (groups.length-1)/2) * 23;
+    marks += mark(home.x, home.y, `<g transform="translate(${dx} -20)"><circle r="9.5" class="fx-bld"/><use href="#i-${icn}" x="-6" y="-6" width="12" height="12" class="fx-bld-ic"/>${n>1?`<text x="8" y="-6" class="fx-n">${n}</text>`:""}</g>`, "");
+  });
+  // ripples for fresh events
+  (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS).forEach(f => { const L = LABELS[f.iso]; if (L) marks += mark(L.x, L.y, `<circle r="14" class="fx-rip"/><circle r="14" class="fx-rip r2"/>`, "fx-flash " + f.kind); });
+  return `<g class="fx-lines">${lines}</g><g class="fx-marks">${marks}</g>`;
 }
 function scheduleLabels(){ if (lblRaf) return; lblRaf = requestAnimationFrame(() => { lblRaf = 0; updateLabels(); }); }
 function updateLabels(){
@@ -2224,6 +2293,8 @@ function updateLabels(){
     }
     it.t.style.display = ok ? "" : "none";
   });
+  const s = (upp/k).toFixed(4);
+  document.querySelectorAll("#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
 }
 let resizeT = 0, lastLand = LAND.matches;
 window.addEventListener("resize", () => {
@@ -2423,6 +2494,26 @@ function showEnd(){
     <button class="btn primary" data-act="restart">Новая игра</button>
   </div></div>`;
 }
+// rewarded video placeholder: replaced by AdMob rewarded ads in the store build
+const IAP_ENABLED = false;   // Google Play merchant accounts are not available in Kyrgyzstan: everything premium is unlocked by ads
+function rewardAd(note, done){
+  pauseFor("ad");
+  let n = 3;
+  const draw = () => { modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><div class="sheet"><div class="ad">
+    <span class="stamp">Рекламный ролик</span><span class="count num">${n}</span>
+    <span class="muted">${esc(note)}</span><span class="label">Тестовая версия: настоящая реклама подключится перед публикацией.</span></div></div></div>`; };
+  draw();
+  const t = setInterval(() => { n--; if (n > 0) return draw(); clearInterval(t); closeModal(); done(); save(); render(); resumeAfter("ad"); sfx("success"); }, 1000);
+}
+function boostBuild(i){
+  const q = S.queue[i]; if (!q || q.boosted) return;
+  rewardAd("Награда: стройка на 30 дней быстрее", () => { q.left = Math.max(1, q.left - 30); q.boosted = true; toast(`${BUILDINGS[q.type].name}: −30 дней`); });
+}
+function boostScience(){
+  const rc = S.research.current; if (!rc || S.research.boosted === rc) return;
+  const tc = TECH.find(x=>x.id===rc);
+  rewardAd("Награда: +25% к текущему исследованию", () => { S.research.prog[rc] = (S.research.prog[rc]||0) + tc.cost*0.25; S.research.boosted = rc; toast(`${tc.name}: +25%`); });
+}
 function showAd(){
   pauseFor("ad");
   let n = 3;
@@ -2441,10 +2532,10 @@ function showSpeedOffer(){
     <h2 id="sp-title">Скорость ×3</h2>
     <p style="margin:0">Месяц за 10 секунд вместо 30. Удобно, когда страна работает как часы и хочется быстрее дойти до выборов, исследований и побед.</p>
     <div class="choices">
-      <button class="choice" data-buy="speed3"><b>Открыть навсегда · 149 ₽</b><small>Разовая покупка. Работает во всех партиях.</small></button>
+      ${IAP_ENABLED ? `<button class="choice" data-buy="speed3"><b>Открыть навсегда · 149 ₽</b><small>Разовая покупка. Работает во всех партиях.</small></button>` : ""}
       <button class="choice" data-adspeed><b>Посмотреть рекламу · ${AD_SPEED_MINUTES} минут ×3</b><small>Бесплатно, можно повторять.</small></button>
     </div>
-    <p class="label" style="margin:0">Прототип: оплата и реклама — заглушки, настоящие подключаются в Android-версии.</p>
+    <p class="label" style="margin:0">Тестовая версия: настоящая реклама подключится перед публикацией.</p>
     <button class="btn" data-close-offer>Не сейчас</button>
   </div></div>`;
 }
@@ -2486,6 +2577,8 @@ document.addEventListener("click", e => {
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
   if (t.dataset.setting){ settings[t.dataset.setting] = !settings[t.dataset.setting]; settingsSave(); sfx("tap"); render(); return; }
   if (t.dataset.tut){ const v = t.dataset.tut; if (v === "skip" || v === "done") tutDone(); else if (v === "restart"){ ui.tab = "map"; render(); showTutorial(0); } else showTutorial(+v.split(":")[1]); return; }
+  if (t.dataset.boost !== undefined){ boostBuild(+t.dataset.boost); return; }
+  if (t.hasAttribute("data-boostsci")){ boostScience(); return; }
   if (t.hasAttribute("data-closereport")){ closeModal(); resumeAfter("report"); return; }
   if (t.hasAttribute("data-more")){ ui.more = !ui.more; render(); return; }
   if (t.hasAttribute("data-legend")){ ui.legend = !ui.legend; render(); return; }
