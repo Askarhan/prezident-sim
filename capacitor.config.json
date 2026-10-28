@@ -1,0 +1,10 @@
+{
+  "appId": "com.askarhan.kabinet",
+  "appName": "Кабинет президента",
+  "webDir": "www",
+  "backgroundColor": "#0A1120",
+  "android": {
+    "backgroundColor": "#0A1120",
+    "allowMixedContent": false
+  }
+}

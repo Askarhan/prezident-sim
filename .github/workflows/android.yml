@@ -1,0 +1,65 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Bundle world map
+        run: npm run map
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Icons and splash
+        run: npx capacitor-assets generate --android --iconBackgroundColor '#0A1120' --iconBackgroundColorDark '#0A1120' --splashBackgroundColor '#0A1120' --splashBackgroundColorDark '#0A1120'
+
+      - name: Landscape only
+        run: |
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/' android/app/src/main/AndroidManifest.xml
+          grep -n "screenOrientation" android/app/src/main/AndroidManifest.xml
+
+      - name: Sync web code
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kabinet-prezidenta-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish APK to the apk branch
+        run: |
+          mkdir out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/kabinet-prezidenta-debug.apk
+          cd out
+          git init -q
+          git checkout -q -b apk
+          git add .
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "APK build ${{ github.run_number }} (${{ github.sha }})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" apk
