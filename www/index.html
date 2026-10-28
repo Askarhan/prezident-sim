@@ -828,6 +828,21 @@ use.cu{fill:#000;stroke:none}
 .dc-on{position:absolute;right:6px;top:6px;width:20px;height:20px;border-radius:50%;background:#1FB57A;color:#fff;font:700 12px/20px var(--f-body);font-style:normal}
 .war-zone{margin-top:10px;border-color:#F0B4AE}
 @media (max-width:700px){ .cbanner{grid-template-columns:56px 1fr 56px} .cb-flag{width:52px;height:36px} }
+
+/* ---- organisations ---- */
+.org-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:10px}
+.org{background:#fff;border:1px solid #DCE5F2;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:7px;box-shadow:0 2px 6px rgb(20 40 80 / .06)}
+.org.on{border-color:#1FB57A;box-shadow:0 0 0 2px rgb(31 181 122 / .22)}
+.org-head{display:flex;gap:10px;align-items:center}
+.org-head>div{display:flex;flex-direction:column;min-width:0}
+.org-head b{font-size:15px}
+.org-head small{font-size:11px}
+.org-badge{flex:none;filter:drop-shadow(0 3px 4px rgb(0 0 0 / .25))}
+.org-flags{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.org small{font-size:12px;line-height:1.35}
+.cb-orgs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-top:6px}
+.cb-orgs span{font:700 10px var(--f-body);letter-spacing:.04em;padding:2px 7px;border-radius:99px;background:rgb(255 255 255 / .15);border:1px solid rgb(255 255 255 / .3)}
+.cb-orgs span.mine{background:#FFD24A;color:#3A2400;border-color:#FFD24A}
 </style>
 
 
@@ -1226,7 +1241,7 @@ function initWar(w){
 }
 function startWar(enemyId, byUs){
   const w = initWar({enemy:enemyId, progress:0, months:0, mode: byUs ? "attack" : "defend"});
-  S.wars.push(w); return w;
+  S.wars.push(w); if (!byUs && S.orgs) orgDefenders(w); return w;
 }
 function warShare(w){ const sum = S.wars.reduce((a,x)=>a + (x.prio||2), 0) || 1; return (w.prio||2)/sum; }
 function warEvent(w, text, kind){ w.events = [{d:dateStr(), text, kind:kind||""}, ...(w.events||[])].slice(0, 8); }
@@ -1910,6 +1925,8 @@ function migrate(s){
   if (!s.fac) initFacilities(s);
   if (!s.progs) s.progs = [];
   Object.values(s.countries).forEach(x => { if (x.emb === undefined) x.emb = !!(x.trade || x.ally || x.rel >= 30); });
+  if (!s.orgs){ s.orgs = {}; ORGS.forEach(o => { if (o.members.includes(s.player)){ s.orgs[o.id] = true; o.members.forEach(i => { const x = s.countries[i]; if (x && i !== s.player && !x.owner) x.rel = Math.min(100, x.rel + (o.kind === "mil" ? 15 : o.kind === "econ" ? 10 : 4)); }); } }); }
+  if (!s.orgCd) s.orgCd = {}; if (!s.relig) s.relig = "secular";
   if (!s.loans) s.loans = {}; if (!s.invest) s.invest = {}; if (!s.abroad) s.abroad = {};
   if (!s.econTab) s.econTab = "budget"; if (!s.govTab) s.govTab = "min";
   if (s === S) syncMin(); else { const keep = S; S = s; syncMin(); S = keep; }
@@ -2069,7 +2086,7 @@ function baseOut(r){
 function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0]; return b.out[r]*outMult(r)*Math.pow(b.decay||1, buildN(id)); }
 function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1; return b.out[r]*outMult(r)*(d < 1 ? (1 - Math.pow(d, n))/(1 - d) : n); }
 function prodOf(r){ let v = baseOut(r); Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.out && b.out[r]) v += objOutTotal(id); }); return v*(1 + lawSum("res")); }
-function priceMult(r){ return 1 + 0.15*tech("exchange") + (r==="oil" ? 0.35*tech("refining") : 0); }
+function priceMult(r){ return 1 + 0.15*tech("exchange") + (r==="oil" ? 0.35*tech("refining") + (inOrg("opec") ? 0.12 : 0) : 0); }
 function sellAdj(){ return 1 + lawSum("sell") + 0.01*minDelta("trade"); }
 function buyAdj(){ return Math.max(0.5, 1 + lawSum("buy") - 0.01*minDelta("trade")); }
 function commodPrice(r){ return me().gdp*COMMOD[r].price*S.market[r]*priceMult(r)*sellAdj(); }
@@ -2121,7 +2138,7 @@ function supplyProf(iso, r){ const x = C()[iso]; if (x) return r==="wood" ? wood
 function sells(iso, r){ return IMPORTABLE.includes(r) && supplyProf(iso, r) >= 0.9; }
 function travelDays(iso){ const a = LABELS && LABELS[S.player], b = LABELS && LABELS[iso]; if (!a || !b) return 30; return Math.round(clamp(6 + Math.hypot(a.x-b.x, a.y-b.y)*0.12, 6, 75)); }
 // buying is always dearer than selling on the exchange, so goods cannot be flipped for profit
-function importPriceFrom(iso, r){ return commodPrice(r) / sellAdj() * buyAdj() * (1.3 - clamp((supplyProf(iso, r)-1)*0.2, -0.1, 0.2)) * (1 + travelDays(iso)*0.003) / priceMult(r); }
+function importPriceFrom(iso, r){ return commodPrice(r) / sellAdj() * buyAdj() * orgImportAdj(iso) * (1.3 - clamp((supplyProf(iso, r)-1)*0.2, -0.1, 0.2)) * (1 + travelDays(iso)*0.003) / priceMult(r); }
 function suppliers(r){
   const pool = [...Object.keys(C()), ...Object.keys(MINOR_GDP).filter(i => MINOR_GDP[i] >= 20 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
   return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:travelDays(i)})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
@@ -2238,7 +2255,7 @@ function budget(){
     else trade += m*0.00009*bal * (Object.values(C()).some(x=>x.sanctionsUs) ? 1.5 : 1);
   });
   const deals = Object.values(C()).filter(x=>x.trade && !x.owner).length;
-  trade += m * 0.002 * deals * (1 + (K.infra-33)/150) * (ideo("dem")?1.25:1) * (1 + 0.1*objCount("airport")) * (1 + 0.02*minDelta("foreign") + lawSum("deal"));
+  trade += m * 0.002 * deals * (1 + (K.infra-33)/150) * (ideo("dem")?1.25:1) * (1 + 0.1*objCount("airport")) * (1 + 0.02*minDelta("foreign") + lawSum("deal") + orgDealBonus());
   trade += minorTradeIncome();
   const commod = commodProjection();
   const imports = allImports().reduce((a,x)=>a + x.q*importPriceFrom(x.iso, x.r), 0);
@@ -2255,7 +2272,7 @@ function budget(){
   const laws = m * lawSum("cost");
   const interest = S.debt * 0.045 / 12 * clamp(1 - 0.02*minDelta("finance"), 0.6, 1.3);
   const war = m * 0.012 * S.wars.length;
-  const loans = loanIncome() + investIncome(), dipl = dipUpkeep();
+  const loans = loanIncome() + investIncome(), dipl = dipUpkeep() + orgDues();
   const income = taxes + Math.max(0,trade) + objects + rail + arms + commod + tourism + loans;
   const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + milprod + dipl + Math.max(0,-trade);
   return {taxes, tourism, loans, dipl, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
@@ -2275,7 +2292,7 @@ function growthMonthly(){
   g -= 0.0008*Object.values(C()).filter(x=>x.sanctionsUs).length;
   g -= 0.002*S.wars.length;
   g -= 0.0006*deficits();
-  g += lawSum("growth") + facFx("growth");
+  g += lawSum("growth") + facFx("growth") + orgGrowth() + (relig("secular") ? 0.00008 : relig("trad") ? -0.00008 : 0);
   g += modSum("growth");
   if (S.debt > me().gdp) g -= 0.001;
   return g;
@@ -2283,7 +2300,7 @@ function growthMonthly(){
 function approvalTarget(){
   let t = 60 - taxPain();
   { const pb = powerBalance(); if (pb < 0) t -= Math.min(10, -pb*0.08); }
-  t += facFx("appr") + 0.3*minDelta("housing") + 0.35*minDelta("culture") + 0.25*minDelta("sport") + 0.3*minDelta("ecology") + 0.2*minDelta("emergency") + 0.3*Math.min(10, objCount("solar"));
+  t += (inOrg("g20") ? 1 : 0) + (relig("dialog") ? 2 : relig("trad") ? 1 : 0) + facFx("appr") + 0.3*minDelta("housing") + 0.35*minDelta("culture") + 0.25*minDelta("sport") + 0.3*minDelta("ecology") + 0.2*minDelta("emergency") + 0.3*Math.min(10, objCount("solar"));
   const K = S.capital;
   t += (K.health-33)*0.12 + (K.edu-33)*0.03 + (K.infra-33)*0.03 + (S.sectors.health-1)*1.5 - (S.sectors.police-1)*1;
   t -= S.wars.length*(ideo("nat")?5:10) + deficits()*3;
@@ -2294,7 +2311,7 @@ function approvalTarget(){
 }
 function stabilityTarget(){
   let t = 25 + S.approval*0.5 + (S.capital.police-33)*0.15 + (S.sectors.police-1)*2 + lawSum("stab") + modSum("stability")
-    + 0.5*minDelta("guard") + 0.3*minDelta("security") + 0.2*minDelta("justice") + 0.2*minDelta("emergency") + facFx("stab");
+    + 0.5*minDelta("guard") + 0.3*minDelta("security") + 0.2*minDelta("justice") + 0.2*minDelta("emergency") + facFx("stab") + (relig("trad") ? 4 : 0);
   t -= S.wars.length*4;
   t += ideo("dem")?-5 : ideo("auth")?15 : 0;
   return clamp(t, 0, 100);
@@ -2337,6 +2354,8 @@ function nextMonth(){
   SECTORS.forEach(s => { S.capital[s.id] += (S.sectors[s.id]*33.3 - S.capital[s.id]) * s.rate; });
   facMonth();
   dipMonth();
+  orgMonth();
+  if (S.religCd > 0) S.religCd--;
 
 
   // 4. politics
@@ -2427,7 +2446,7 @@ function aiTurn(){
     c.gdp *= 1 + rnd(0.0006, 0.0026) - (c.sanction ? 0.0012 : 0) - (c.worldSanctions>0 ? 0.0015 : 0);
     // relations drift toward a baseline
     const base = c.ally ? 60 : c.trade ? 25 : 0;
-    c.rel += (base - c.rel) * 0.02 + rnd(-1.2,1.2) + 0.15*minDelta("foreign") + lawSum("rel") + (c.emb ? 0.3 : 0) + (S.abroad && S.abroad[c.id] ? 0.6 : 0);
+    c.rel += (base - c.rel) * 0.02 + rnd(-1.2,1.2) + 0.15*minDelta("foreign") + lawSum("rel") + orgRelBonus(c.id) + (relig("dialog") ? 0.1 : 0) + (c.emb ? 0.3 : 0) + (S.abroad && S.abroad[c.id] ? 0.6 : 0);
     if (S.wars.some(w=>w.enemy===c.id)) c.rel = -100;
     c.rel = clamp(c.rel,-100,100);
     if (c.trade && c.rel < 0){ c.trade = false; addLog(`${c.name} разорвала торговое соглашение.`); }
@@ -2436,7 +2455,7 @@ function aiTurn(){
     if (!c.sanctionsUs && c.rel < -50 && Math.random() < 0.04){ c.sanctionsUs = true; addLog(`${c.name} ввела санкции против вас.`); }
     if (c.sanctionsUs && c.rel > -20 && Math.random() < 0.15){ c.sanctionsUs = false; addLog(`${c.name} сняла санкции.`); }
     // war declared on us
-    if (!c.nap && !S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(1 + lawSum("aggro"))*(tech("missile")?0.6:1)*(deterrence() ? 0.15 : 1)){
+    if (!c.nap && !S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(1 + lawSum("aggro"))*orgDeterr(c)*(tech("missile")?0.6:1)*(deterrence() ? 0.15 : 1)){
       startWar(c.id, false);
       c.rel = -100; c.trade = false; c.ally = false;
       addLog(`⚠ ${c.name} объявила вам войну!`);
@@ -3003,7 +3022,7 @@ function act(name, arg){
       break;
     }
     case "war": {
-      const t=C()[arg]; ui.warConfirm = null;
+      const t=C()[arg]; ui.warConfirm = null; orgOnAttack(t.id);
       if (t.nap){ t.nap = false; infamyAdd(10); Object.values(C()).forEach(x => { if (!x.owner && x.id !== t.id) x.rel -= 5; }); addLog(`Вы нарушили пакт о ненападении с ${t.name}. Мир больше не верит вашему слову.`); }
       t.emb = false;
       startWar(t.id, true); flashMap(t.id, "bad"); ui.hqWar = t.id;
@@ -3499,6 +3518,7 @@ function viewSociety(){
       ${S.mods.filter(m=>["approval","stability"].includes(m.stat)).length ? `<div class="label">Временные эффекты</div>${S.mods.filter(m=>["approval","stability"].includes(m.stat)).map(m=>`<div class="row"><span>${m.stat==="approval"?"Рейтинг":"Стабильность"} ${m.v>0?"+":""}${m.v}</span><span class="num muted">ещё ${m.left} мес.</span></div>`).join("")}` : ""}
     </div>
     ${viewIdeology()}
+    ${viewReligion()}
   </div>`;
 }
 function viewPolitics(){
@@ -3528,7 +3548,7 @@ function viewEconomy(){
         <tr><td>Торговля и экспорт</td><td class="${b.trade>=0?"up":"down"}">${b.trade>=0?"+":""}${money(b.trade)}</td></tr>
         <tr><td><button class="linkbtn" data-tab="politics" data-govtab-go="min">Министерства и ведомства ›</button></td><td class="down">−${money(b.sectors)}</td></tr>
         ${b.science? `<tr><td>Наука</td><td class="down">−${money(b.science)}</td></tr>`:""}
-        ${b.dipl? `<tr><td>Посольства и контингенты</td><td class="down">−${money(b.dipl)}</td></tr>`:""}
+        ${b.dipl? `<tr><td>Посольства, взносы, контингенты</td><td class="down">−${money(b.dipl)}</td></tr>`:""}
         ${b.intel? `<tr><td>Спецслужбы</td><td class="down">−${money(b.intel)}</td></tr>`:""}
         <tr><td>Армия</td><td class="down">−${money(b.army)}</td></tr>
         ${b.laws? `<tr><td>Законы</td><td class="${b.laws>0?"down":"up"}">${b.laws>0?"−":"+"}${money(Math.abs(b.laws))}</td></tr>`:""}
@@ -3906,7 +3926,7 @@ function viewCouncil(){
   const targets = Object.values(C()).filter(x=>!x.owner).sort((a,b)=>a.name.localeCompare(b.name,"ru"));
   if (!ui.propTarget || !C()[ui.propTarget] || C()[ui.propTarget].owner) ui.propTarget = targets[0] && targets[0].id;
   return `<div class="panel">
-    <div class="row"><h3>Совет наций</h3>${Object.keys(K.banned).length ? `<span class="label">Запрещено нападать: ${Object.keys(K.banned).map(id=>esc(C()[id].name)).join(", ")}</span>` : ""}</div>
+    <div class="row"><h3>Совет Безопасности ООН</h3>${Object.keys(K.banned).length ? `<span class="label">Запрещено нападать: ${Object.keys(K.banned).map(id=>esc(C()[id].name)).join(", ")}</span>` : ""}</div>
     ${r ? `<div class="resolution">
         <span class="stamp">Голосование через ${r.left} мес. · ${r.proposer==="player"?"ваша инициатива":"инициатива совета"}</span>
         <b>${esc(resName(r))}</b>
@@ -4560,16 +4580,129 @@ function countryBanner(id){
   return `<div class="cbanner">${fl("l")}<div class="cb-mid">
       <h2>${esc(partnerName(id))}${cap ? ` · ${esc(cap[0])}` : ""}</h2>
       <div class="cb-stats"><span>${ic("gdp","sm")}<b class="num">${money(partnerGdp(id))}</b></span>${x ? `<span>${ic("army","sm")}<b class="num">${Math.round(aiPower(x)).toLocaleString("ru-RU")}</b></span><span>${ic("users","sm")}<b class="num">${people(x.pop)}</b></span>` : ""}<span class="cb-rel"><i>${face}</i>${word} <b class="num">(${rel > 0 ? "+" : ""}${Math.round(rel)})</b></span></div>
+      ${x && orgsOf(id).length ? `<div class="cb-orgs">${orgsOf(id).map(o => `<span class="${inOrg(o.id) ? "mine" : ""}" title="${esc(o.full)}">${esc(o.name)}</span>`).join("")}</div>` : ""}
       ${tags.length ? `<div class="cb-tags">${tags.map(t => `<span class="pill ${/против нас|Наши санкции/.test(t) ? "bad" : "good"}">${t}</span>`).join("")}</div>` : ""}
     </div>${fl("r")}</div>`;
 }
 
+/* ================= International organisations and state–religion policy ================= */
+const ORGS = [
+  {id:"csto", name:"ОДКБ", full:"Организация Договора о коллективной безопасности", kind:"mil", col:"#C0392B", members:["ru","kz","kg","by"], regions:["СНГ"], rival:"nato", minRel:20,
+    fx:"на вас нападают в 2 раза реже; при нападении союзники по блоку вступают в войну"},
+  {id:"nato", name:"НАТО", full:"Организация Североатлантического договора", kind:"mil", col:"#1F4E9C", members:["us","ca","gb","fr","de","it","es","pl","tr"], regions:["Европа","Америка"], rival:"csto", minRel:30,
+    fx:"на вас нападают в 2 раза реже; при нападении союзники по блоку вступают в войну"},
+  {id:"eaeu", name:"ЕАЭС", full:"Евразийский экономический союз", kind:"econ", col:"#2E7D4F", members:["ru","kz","kg","by"], regions:["СНГ"], rival:"eu", minRel:20,
+    fx:"закупки у участников −10%, торговые договоры +15%, рост ВВП +0,1% в год"},
+  {id:"eu", name:"Евросоюз", full:"Европейский союз", kind:"econ", col:"#2D6FD0", members:["de","fr","it","es","pl"], regions:["Европа"], rival:"eaeu", minRel:35, ideo:"dem",
+    fx:"закупки у участников −10%, торговые договоры +15%, рост ВВП +0,15% в год; нужна демократия"},
+  {id:"asean", name:"АСЕАН", full:"Ассоциация государств Юго-Восточной Азии", kind:"econ", col:"#F2A93B", members:["id","vn"], only:["id","vn"], minRel:20,
+    fx:"закупки у участников −10%, торговые договоры +15%, рост ВВП +0,1% в год"},
+  {id:"cis", name:"СНГ", full:"Содружество Независимых Государств", kind:"pol", col:"#5AA9FF", members:["ru","kz","kg","uz","by","az"], regions:["СНГ"], minRel:0,
+    fx:"отношения с участниками +0,3 в месяц"},
+  {id:"sco", name:"ШОС", full:"Шанхайская организация сотрудничества", kind:"pol", col:"#39A0D0", members:["cn","ru","kz","kg","uz","in","pk","ir","by"], regions:["СНГ","Азия","Ближний Восток"], minRel:15,
+    fx:"отношения с участниками +0,3 в месяц, торговые договоры +5%"},
+  {id:"brics", name:"БРИКС", full:"Объединение БРИКС", kind:"pol", col:"#E67E22", members:["br","ru","in","cn","za","eg","ir","id"], minRel:20, minGdp:300,
+    fx:"торговые договоры +10%, рост ВВП +0,05% в год, отношения с участниками +0,2 в месяц; ВВП от 300 млрд $"},
+  {id:"g20", name:"G20", full:"«Большая двадцатка»", kind:"pol", col:"#7A3A9C", members:["ar","au","br","ca","cn","fr","de","in","id","it","jp","kr","mx","ru","sa","za","tr","gb","us"], minRel:0, minGdp:600,
+    fx:"рейтинг +1, отношения с участниками +0,1 в месяц; ВВП от 600 млрд $"},
+  {id:"opec", name:"ОПЕК", full:"Организация стран — экспортёров нефти", kind:"oil", col:"#3A3F2C", members:["sa","ir","ng"], minRel:10, minOil:1.5,
+    fx:"нефть продаётся на 12% дороже; нужны большие запасы нефти"},
+  {id:"au", name:"Африканский союз", full:"Африканский союз", kind:"pol", col:"#1FB57A", members:["eg","ng","za"], regions:["Африка"], also:["eg"], minRel:0,
+    fx:"отношения с участниками +0,3 в месяц"},
+  {id:"arab", name:"Лига арабских государств", full:"Лига арабских государств", kind:"pol", col:"#2E7D4F", members:["sa","eg"], only:["sa","eg"], minRel:0,
+    fx:"отношения с участниками +0,3 в месяц"}
+];
+const ORG_BY = Object.fromEntries(ORGS.map(o => [o.id, o]));
+const ORG_DUES = {mil:0.0008, econ:0.0004, pol:0.0002, oil:0.0002};
+function inOrg(id){ return !!(S.orgs && S.orgs[id]); }
+function orgMembers(o){ return o.members.filter(i => i !== S.player && C()[i] && !C()[i].owner); }
+function orgsOf(iso){ return ORGS.filter(o => iso === S.player ? inOrg(o.id) : o.members.includes(iso)); }
+function sharedOrg(iso, kind){ return ORGS.some(o => inOrg(o.id) && (!kind || o.kind === kind) && o.members.includes(iso)); }
+function orgCanJoin(o){
+  if (inOrg(o.id)) return {ok:false, why:"вы уже участник"};
+  const x = me();
+  if (o.only && !o.only.includes(S.player)) return {ok:false, why:"только для стран региона"};
+  if (o.regions && !o.regions.includes(x.region) && !(o.also||[]).includes(S.player)) return {ok:false, why:`только для региона: ${o.regions.join(", ")}`};
+  if (o.rival && inOrg(o.rival)) return {ok:false, why:`несовместимо с членством в ${ORG_BY[o.rival].name}`};
+  if (o.ideo && !ideo(o.ideo)) return {ok:false, why:"нужна демократия"};
+  if (o.minGdp && x.gdp < o.minGdp) return {ok:false, why:`нужен ВВП от ${money(o.minGdp)}`};
+  if (o.minOil && x.prof.oil < o.minOil) return {ok:false, why:"мало нефти"};
+  const ms = orgMembers(o);
+  if (ms.some(i => S.wars.some(w => w.enemy === i))) return {ok:false, why:"вы воюете с участником"};
+  const avg = ms.length ? ms.reduce((a,i)=>a + C()[i].rel, 0)/ms.length : 100;
+  if (avg < o.minRel) return {ok:false, why:`средние отношения с участниками ${Math.round(avg)}, нужно от +${o.minRel}`};
+  if (S.orgCd && S.orgCd[o.id] > 0) return {ok:false, why:`повторная заявка через ${S.orgCd[o.id]} мес.`};
+  return {ok:true};
+}
+function orgJoin(id){
+  const o = ORG_BY[id], chk = orgCanJoin(o); if (!chk.ok) return toast(chk.why);
+  if (!S.orgs) S.orgs = {}; S.orgs[id] = true;
+  orgMembers(o).forEach(i => C()[i].rel = clamp(C()[i].rel + 8, -100, 100));
+  if (o.rival) orgMembers(ORG_BY[o.rival]).forEach(i => { if (!o.members.includes(i)) C()[i].rel = clamp(C()[i].rel - 12, -100, 100); });
+  addLog(`${me().name} вступила в организацию «${o.full}».`); advise("dipl", `Мы приняты в ${o.name}. ${o.fx[0].toUpperCase() + o.fx.slice(1)}.`, {tab:"diplomacy"}); sfx("success");
+  save(); render();
+}
+function orgLeave(id, quiet){
+  const o = ORG_BY[id]; if (!inOrg(id)) return;
+  delete S.orgs[id]; if (!S.orgCd) S.orgCd = {}; S.orgCd[id] = 12;
+  orgMembers(o).forEach(i => C()[i].rel = clamp(C()[i].rel - 10, -100, 100));
+  addLog(quiet ? `${me().name} исключена из организации «${o.full}».` : `${me().name} вышла из организации «${o.full}».`);
+  if (!quiet){ save(); render(); }
+}
+function orgDues(){ const m = me().gdp/12; return ORGS.filter(o => inOrg(o.id)).reduce((a,o) => a + m*ORG_DUES[o.kind], 0); }
+function orgDeterr(c){ return ORGS.some(o => inOrg(o.id) && o.kind === "mil" && !o.members.includes(c.id)) ? 0.5 : ORGS.some(o => inOrg(o.id) && o.kind === "mil") ? 0.2 : 1; }
+function orgRelBonus(iso){ let v = 0; ORGS.forEach(o => { if (inOrg(o.id) && o.members.includes(iso)) v += o.id === "brics" ? 0.2 : o.id === "g20" ? 0.1 : o.kind === "pol" ? 0.3 : 0.15; }); return v; }
+function orgDealBonus(){ let v = 0; ORGS.forEach(o => { if (inOrg(o.id)) v += o.kind === "econ" ? 0.15 : o.id === "brics" ? 0.1 : o.id === "sco" ? 0.05 : 0; }); return v; }
+function orgGrowth(){ let v = 0; ORGS.forEach(o => { if (inOrg(o.id)) v += o.id === "eu" ? 0.000125 : o.kind === "econ" ? 0.00008 : o.id === "brics" ? 0.00004 : 0; }); return v; }
+function orgImportAdj(iso){ return ORGS.some(o => inOrg(o.id) && o.kind === "econ" && o.members.includes(iso)) ? 0.9 : 1; }
+function orgDefenders(w){ const out = []; ORGS.forEach(o => { if (inOrg(o.id) && o.kind === "mil" && !o.members.includes(w.enemy)) orgMembers(o).forEach(i => { if (!out.includes(i) && i !== w.enemy) out.push(i); }); }); if (out.length){ w.joined = [...new Set([...(w.joined||[]), ...out])]; addLog(`Союзники по блоку вступают в войну на вашей стороне: ${out.map(i=>C()[i].name).join(", ")}.`); } }
+function orgOnAttack(target){ ORGS.forEach(o => { if (inOrg(o.id) && o.members.includes(target)){ orgLeave(o.id, true); infamyAdd(6); } }); }
+function orgMonth(){
+  if (S.orgCd) Object.keys(S.orgCd).forEach(k => { if (S.orgCd[k] > 0) S.orgCd[k]--; });
+  ORGS.forEach(o => { if (inOrg(o.id) && ((o.ideo && !ideo(o.ideo)) || (o.minGdp && me().gdp < o.minGdp*0.7))) { orgLeave(o.id, true); } });
+}
+function orgBadge(o, size){ const sz = size || 54; return `<svg class="org-badge" viewBox="0 0 60 60" width="${sz}" height="${sz}" aria-hidden="true"><circle cx="30" cy="30" r="28" fill="${o.col}"/><circle cx="30" cy="30" r="23" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.5" stroke-dasharray="2 3"/><text x="30" y="${o.name.length > 5 ? 34 : 35}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="${o.name.length > 6 ? 8 : o.name.length > 4 ? 11 : 14}" fill="#fff">${esc(o.name.length > 8 ? o.name.split(" ").map(w=>w[0]).join("").toUpperCase() : o.name)}</text></svg>`; }
+function viewOrgs(){
+  const card = o => { const mine = inOrg(o.id), chk = orgCanJoin(o), ms = o.members.filter(i => C()[i] || MINOR_GDP[i] !== undefined);
+    return `<div class="org ${mine ? "on" : ""}">
+      <div class="org-head">${orgBadge(o)}<div><b>${esc(o.name)}</b><small class="muted">${esc(o.full)}</small></div></div>
+      <div class="org-flags">${ms.map(i => `<span title="${esc(partnerName(i))}">${flag(i)}</span>`).join("")}${mine ? `<span class="pill good">и вы</span>` : ""}</div>
+      <small>${o.fx}</small>
+      <div class="row"><small class="muted">взнос ${money(me().gdp/12*ORG_DUES[o.kind]/30)}/день</small>
+        ${mine ? `<button class="btn sm" data-orgleave="${o.id}">Выйти</button>` : `<button class="btn ${chk.ok ? "primary" : ""} sm" data-orgjoin="${o.id}" ${chk.ok ? "" : "disabled"}>Вступить</button>`}</div>
+      ${!mine && !chk.ok ? `<small class="down">${chk.why}</small>` : ""}
+    </div>`; };
+  return `<div class="panel"><div class="row"><h3>Международные организации</h3><span class="num muted">Вы в ${ORGS.filter(o=>inOrg(o.id)).length} из ${ORGS.length}</span></div>
+    <div class="label">Военные блоки защищают, экономические союзы удешевляют торговлю, политические — сближают с участниками. ОДКБ и НАТО, ЕАЭС и Евросоюз несовместимы. Нападение на участника своей организации — исключение и удар по репутации.</div></div>
+    <div class="org-grid">${ORGS.map(card).join("")}</div>`;
+}
+
+const RELIG = [
+  {id:"secular", name:"Светское государство", desc:"религия отделена от государства: рост ВВП +0,1% в год"},
+  {id:"dialog", name:"Свобода вероисповедания и диалог", desc:"рейтинг +2, отношения со всеми странами +0,1 в месяц"},
+  {id:"trad", name:"Поддержка традиционных конфессий", desc:"стабильность +4, рейтинг +1, рост ВВП −0,1% в год"}
+];
+function relig(id){ return (S.relig || "secular") === id; }
+function viewReligion(){
+  return `<div class="panel" style="grid-column:1/-1">
+    <h3>Государство и религия</h3>
+    <div class="ideo-grid">${RELIG.map(r => `<button class="ideo ${relig(r.id) ? "on" : ""}" data-relig="${r.id}" ${relig(r.id) || (S.religCd||0) > 0 ? "disabled" : ""}><b>${r.name}</b><small>${r.desc}</small>${relig(r.id) ? `<span class="pill good">Сейчас</span>` : ""}</button>`).join("")}</div>
+    <div class="label">${(S.religCd||0) > 0 ? `Сменить курс можно через ${S.religCd} мес.` : "Смена курса: рейтинг −3 на полгода, следующая смена — через год."}</div>
+  </div>`;
+}
+function setRelig(id){ if (relig(id) || (S.religCd||0) > 0) return; S.relig = id; S.religCd = 12; S.mods.push({stat:"approval", v:-3, left:6}); addLog(`Новый курс в отношениях государства и религии: «${RELIG.find(r=>r.id===id).name}».`); save(); render(); }
+
 function viewDiplomacy(){
+  const tab = ui.dtab || "list";
+  return `<div class="filters gov-tabs">${[["list","Страны","diplomacy"],["orgs","Организации","users"],["un","ООН","politics"]].map(([t,l,i]) => `<button class="chip" data-dtab="${t}" aria-pressed="${tab===t}">${ic(i,"sm")}${l}</button>`).join("")}</div>`
+    + (tab === "orgs" ? viewOrgs() : tab === "un" ? viewCouncil() : viewDipList());
+}
+function viewDipList(){
   const list = Object.values(C()).filter(x=>x.id!==S.player).filter(x=>ui.dipRegion==="Все" || x.region===ui.dipRegion)
     .sort((a,b)=> (a.owner?1:0)-(b.owner?1:0) || b.gdp-a.gdp);
   const row = dipRow;
   return `<div class="panel infamy-strip"><div class="row"><span><b>Репутация агрессора</b> <small class="muted">— чем выше, тем хуже к вам относятся, ниже — чем реже вы нападаете</small></span><span class="num ${(S.infamy||0) > 50 ? "down" : (S.infamy||0) > 25 ? "warn" : "up"}">${Math.round(S.infamy||0)} / 100</span></div><div class="bar ${(S.infamy||0) > 50 ? "low" : (S.infamy||0) > 25 ? "mid" : "high"}"><i style="width:${S.infamy||0}%"></i></div></div>
-  <div style="height:12px"></div>${viewCouncil()}<div class="panel" style="margin-top:14px">
+  <div class="panel" style="margin-top:14px">
     <div class="filters">${["Все",...REGIONS].map(r=>`<button class="chip" data-dipregion="${r}" aria-pressed="${ui.dipRegion===r}">${r}</button>`).join("")}</div>
     ${list.map(row).join("") || `<p class="muted">В этом регионе нет других стран.</p>`}
   </div>`;
@@ -4772,6 +4905,10 @@ document.addEventListener("click", e => {
   if (t.dataset.sector){ S.sectors[t.dataset.sector] = +t.dataset.level; save(); render(); return; }
   if (t.dataset.prog){ startProg(t.dataset.prog); return; }
   if (t.dataset.dip){ dipAct(t.dataset.dip, ui.ctry); return; }
+  if (t.dataset.dtab){ ui.dtab = t.dataset.dtab; render(); return; }
+  if (t.dataset.orgjoin){ orgJoin(t.dataset.orgjoin); return; }
+  if (t.dataset.orgleave){ orgLeave(t.dataset.orgleave); return; }
+  if (t.dataset.relig){ setRelig(t.dataset.relig); return; }
   if (t.dataset.ctab){ ui.ctab = t.dataset.ctab; ui.warConfirm = null; render(); return; }
   if (t.dataset.warconfirm !== undefined){ ui.warConfirm = t.dataset.warconfirm || null; render(); return; }
   if (t.dataset.ctry){ ui.ctry = t.dataset.ctry; ui.ctab = "dip"; ui.mapSel = t.dataset.ctry; ui.tab = "country"; render(); return; }
