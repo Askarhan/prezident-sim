@@ -319,6 +319,18 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 @keyframes floatKpi{0%{opacity:0}15%{opacity:1}100%{opacity:0;transform:translate(-50%,120%)}}
 .float.at-kpi{animation-name:floatKpi}
 @media (prefers-reduced-motion:reduce){.float{animation-duration:1.2s}}
+
+.armytabs{margin:10px 0;position:sticky;top:-12px;z-index:2;background:#F2F6FC;padding:6px 0}
+.army-head{gap:6px}
+.army-body{display:flex;flex-direction:column;gap:12px}
+.unit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.ucard{border:1px solid var(--line);border-radius:12px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;background:#F7FAFE}
+.ucard.have{border-color:#9CC3F5;background:#F1F7FF}
+.ucard b{font-size:13.5px}
+.gen{font:700 10px var(--f-data);padding:2px 6px;border-radius:6px;white-space:nowrap}
+.gen.g1{background:#E8EDF5;color:#5A6B88} .gen.g2{background:#E2EEFF;color:#2F6FD6} .gen.g3{background:#FFF0D2;color:#B37000}
+.ustats{display:flex;flex-wrap:wrap;gap:4px 10px;font:600 12px var(--f-data);color:#4A5B7A}
+.chip.off{opacity:.5}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -694,7 +706,7 @@ use.cu{fill:#000;stroke:none}
 <symbol id="c-trophy" viewBox="0 0 24 24"><path d="M7 3h10v6a5 5 0 0 1-10 0z" fill="url(#g-gold)" stroke="#8A5A00" stroke-width=".9"/><path d="M7 5H3.5a3.5 3.5 0 0 0 4 4.5M17 5h3.5a3.5 3.5 0 0 1-4 4.5" stroke="#8A5A00" stroke-width="1.3" fill="none"/><path d="M12 14v4" stroke="#8A5A00" stroke-width="2"/><rect x="7.5" y="18" width="9" height="3.5" rx="1" fill="url(#g-brick)" stroke="#6E2E15" stroke-width=".8"/><path d="M9.5 5v3.5" stroke="#FFF6C7" stroke-width="1.4" stroke-linecap="round"/></symbol>
 <symbol id="c-alert" viewBox="0 0 24 24"><path d="M12 2.8l10 17.6H2z" fill="url(#g-gold)" stroke="#8A5A00" stroke-width=".9" stroke-linejoin="round"/><path d="M12 9v5.5" stroke="#3A2A0A" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1.3" fill="#3A2A0A"/></symbol>
 <symbol id="c-rail" viewBox="0 0 24 24"><path d="M7 2l-4 20M17 2l4 20" stroke="#5B6578" stroke-width="2" stroke-linecap="round"/><path d="M5.6 6h12.8M4.9 10.5h14.2M4.1 15h15.8M3.4 19.5h17.2" stroke="#8A5428" stroke-width="2" stroke-linecap="round"/></symbol>
-<symbol id="c-map" viewBox="0 0 24 24"><path d="M2.5 6l6-3 7 3 6-3v15l-6 3-7-3-6 3z" fill="#F6F1E7" stroke="#8A7A5A" stroke-width=".9" stroke-linejoin="round"/><path d="M8.5 3v15M15.5 6v15" stroke="#B9A57E" stroke-width=".9"/><path d="M4 9c2 0 2 2 4 2M10 13c2 0 3-2 5-1.5" stroke="#5FD38D" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="18" cy="10" r="2" fill="url(#g-red)"/></symbol>
+<symbol id="c-ship" viewBox="0 0 24 24"><path d="M2 15h20l-2.5 5H5z" fill="url(#g-dark)" stroke="#11141B" stroke-width=".8" stroke-linejoin="round"/><path d="M6 15v-3h9l2 3" fill="#8C9DB3" stroke="#3F4C5E" stroke-width=".8"/><path d="M9 12V8h3v4" fill="#AAB8CA" stroke="#3F4C5E" stroke-width=".7"/><path d="M10.5 8V4.5M8.5 5.5h4" stroke="#3F4C5E" stroke-width=".9"/><path d="M15 13.5l5-2" stroke="#3F4C5E" stroke-width="1.2" stroke-linecap="round"/><circle cx="12" cy="17.4" r=".8" fill="#FFE27A"/><circle cx="8" cy="17.4" r=".8" fill="#FFE27A"/><path d="M1 22c3-1.2 5 1.2 8 0s5 1.2 8 0 4 1 6 0" stroke="#2D7BE0" stroke-width="1.3" fill="none" stroke-linecap="round"/></symbol><symbol id="c-drone" viewBox="0 0 24 24"><path d="M12 6l1.4 5H22v1.6l-8.6 1.2-.8 3.7 2.6 1.3v1.2l-2.6-.4-2.6.4v-1.2l2.6-1.3-.8-3.7L2 12.6V11h8.6z" fill="url(#g-steel)" stroke="#3F4C5E" stroke-width=".8" stroke-linejoin="round"/><circle cx="12" cy="7.2" r="1.3" fill="#2B3240"/><path d="M5 11.6h3M16 11.6h3" stroke="#fff" stroke-width=".9" opacity=".7"/></symbol><symbol id="c-ammo" viewBox="0 0 24 24"><g stroke="#6E4A0A" stroke-width=".8"><path d="M5 9c0-3 1.2-5.5 2.5-6.5C8.8 3.5 10 6 10 9v11H5z" fill="url(#g-gold)"/><path d="M14 9c0-3 1.2-5.5 2.5-6.5C17.8 3.5 19 6 19 9v11h-5z" fill="url(#g-gold)"/></g><rect x="4.6" y="14" width="5.8" height="2" fill="#B4522F"/><rect x="13.6" y="14" width="5.8" height="2" fill="#B4522F"/><path d="M6.6 6.5v6M15.6 6.5v6" stroke="#FFF6C7" stroke-width="1" stroke-linecap="round"/><rect x="3.5" y="20" width="17" height="2" rx=".8" fill="#5B6578"/></symbol><symbol id="c-map" viewBox="0 0 24 24"><path d="M2.5 6l6-3 7 3 6-3v15l-6 3-7-3-6 3z" fill="#F6F1E7" stroke="#8A7A5A" stroke-width=".9" stroke-linejoin="round"/><path d="M8.5 3v15M15.5 6v15" stroke="#B9A57E" stroke-width=".9"/><path d="M4 9c2 0 2 2 4 2M10 13c2 0 3-2 5-1.5" stroke="#5FD38D" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="18" cy="10" r="2" fill="url(#g-red)"/></symbol>
 </defs></svg>
 <div id="app" class="wrap"></div>
 <div id="modal-root"></div>
@@ -774,10 +786,12 @@ const BUILDINGS = {
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
   airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от торговых договоров +10%; максимум 3",deal:0.1,max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"экспорт +5%; максимум 2",trade:0.05,max:2},
-  tankplant:{cat:"mil",name:"Танковый завод",days:360,cost:0.012,desc:"20 танков в месяц, покупка танков −30%",req:{tech:"armor"},make:{unit:"tank",n:20}},
-  heliplant:{cat:"mil",name:"Вертолётный завод",days:420,cost:0.014,desc:"5 вертолётов в месяц, покупка −30%",req:{tech:"rotor"},make:{unit:"heli",n:5}},
-  aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"2 истребителя в месяц, покупка −30%",req:{tech:"aviation"},make:{unit:"fighter",n:2}},
-  samplant:{cat:"mil",name:"Завод ПВО",days:420,cost:0.016,desc:"2 комплекса ПВО в месяц, покупка −30%",req:{tech:"missile"},make:{unit:"sam",n:2}}
+  tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО на $60 млн в месяц",req:{tech:"armor"}},
+  heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны на $40 млн в месяц",req:{tech:"rotor"}},
+  aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"самолёты на $120 млн в месяц",req:{tech:"aviation"}},
+  samplant:{cat:"mil",name:"Завод ПВО и ракет",days:420,cost:0.016,desc:"ПВО, РЭБ, ракетные комплексы и ракеты на $100 млн в месяц",req:{tech:"missile"}},
+  shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки на $350 млн в месяц; нужен выход к морю",req:{coast:true}},
+  ammoplant:{cat:"mil",name:"Завод боеприпасов",days:240,cost:0.008,desc:"снаряды, ракеты РСЗО, ПТУР и бомбы каждый месяц"}
 };
 const BUILD_CATS = [["mat","Сырьё и материалы"],["res","Ресурсы"],["ind","Промышленность"],["inf","Инфраструктура"],["mil","Военные заводы"]];
 // construction materials per object (thousand tonnes)
@@ -785,7 +799,7 @@ const MAT = {farm:{wood:15,steel:10}, oil:{wood:5,steel:30}, mine:{wood:20,steel
   sawmill:{wood:0,steel:5}, steelworks:{wood:15,steel:10}, oilrig:{wood:5,steel:30}, goldmine:{wood:20,steel:20},
   factory:{wood:20,steel:50}, chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
-  tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}};
+  tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}};
 const RAIL_MAT = {wood:80, steel:120};
 Object.entries(MAT).forEach(([k, m]) => { if (BUILDINGS[k]) BUILDINGS[k].mat = m; });
 // stock commodities; price = share of the player's GDP per unit, multiplied by a monthly market index
@@ -807,12 +821,181 @@ const MINOR_GDP = {"_0":4,"_1":10,"_2":3,ua:180,md:16,ge:30,am:24,tj:12,tm:60,mn
   ma:140,dz:240,tn:50,ly:50,sd:30,ss:5,et:160,er:2,dj:4,so:11,ke:110,ug:50,tz:80,rw:14,bi:3,cd:65,cg:15,ga:20,gq:12,cm:50,cf:3,td:13,ne:17,ml:20,bf:20,mr:10,sn:31,gm:2,gw:2,gn:23,sl:4,lr:4,ci:80,gh:76,tg:9,bj:20,ao:85,zm:28,zw:35,mw:13,mz:20,mg:16,bw:20,na:13,sz:5,ls:2};
 const SHORT_NAMES = {"_0":"Сев. Кипр","_1":"Косово","_2":"Сомалиленд",cd:"ДР Конго",cg:"Конго",cf:"ЦАР",ae:"ОАЭ",kp:"КНДР",do:"Доминикана",ba:"Босния и Герц.",mk:"Сев. Македония",ss:"Юж. Судан",gq:"Экв. Гвинея",tf:"Фр. Южные терр.",eh:"Зап. Сахара",sb:"Соломоновы о-ва",ps:"Палестина",ci:"Кот-д’Ивуар",tl:"Вост. Тимор",fk:"Фолкленды",bs:"Багамы",tt:"Тринидад и Тобаго",pg:"Папуа — Н. Гвинея",nc:"Н. Каледония",xk:"Косово",mm:"Мьянма",cz:"Чехия",us:"США",gb:"Великобритания"};
 // price and upkeep in billions $ per unit; power per unit (1000 soldiers = 1)
-const UNITS = {
-  tank:{name:"Танки",price:0.005,upkeep:0.0006,power:0.5,batch:20,plant:"tankplant"},
-  heli:{name:"Ударные вертолёты",price:0.02,upkeep:0.002,power:0.9,batch:5,plant:"heliplant"},
-  fighter:{name:"Истребители",price:0.06,upkeep:0.005,power:3,batch:2,plant:"aviaplant"},
-  sam:{name:"Комплексы ПВО",price:0.05,upkeep:0.004,power:2,batch:2,plant:"samplant"}
+
+/* ---------- Armed forces: real equipment, ammunition, defence industry ---------- */
+const UCLS = [["ground","Сухопутные"],["air","Авиация"],["ad","ПВО и РЭБ"],["navy","Флот"],["ammo","Боеприпасы"],["prod","Производство"]];
+// kind: class, icon, purchase batch, factory, steel per unit, ammo it fires
+const KINDS = {
+  tank:{name:"Танки",cls:"ground",icon:"tank",batch:10,plant:"tankplant",steel:6,ammo:"shell"},
+  ifv:{name:"БМП",cls:"ground",icon:"tank",batch:10,plant:"tankplant",steel:3,ammo:"atgm"},
+  apc:{name:"БТР",cls:"ground",icon:"tank",batch:10,plant:"tankplant",steel:2},
+  sph:{name:"Самоходные гаубицы",cls:"ground",icon:"tank",batch:6,plant:"tankplant",steel:5,ammo:"shell"},
+  mlrs:{name:"РСЗО",cls:"ground",icon:"tank",batch:6,plant:"tankplant",steel:3,ammo:"rocket"},
+  srbm:{name:"Тактические ракетные комплексы",cls:"ground",icon:"sam",batch:2,plant:"samplant",steel:4,ammo:"missile"},
+  fighter:{name:"Истребители",cls:"air",icon:"jet",batch:2,plant:"aviaplant",steel:4,ammo:"sam"},
+  attack:{name:"Штурмовики",cls:"air",icon:"jet",batch:2,plant:"aviaplant",steel:3,ammo:"bomb"},
+  bomber:{name:"Бомбардировщики",cls:"air",icon:"jet",batch:1,plant:"aviaplant",steel:8,ammo:"missile"},
+  heli:{name:"Ударные вертолёты",cls:"air",icon:"heli",batch:4,plant:"heliplant",steel:2,ammo:"atgm"},
+  drone:{name:"Ударные дроны",cls:"air",icon:"drone",batch:4,plant:"heliplant",steel:1,ammo:"bomb"},
+  loiter:{name:"Дроны-камикадзе",cls:"air",icon:"drone",batch:50,plant:"heliplant",steel:0.05},
+  transport:{name:"Транспортная авиация",cls:"air",icon:"plane",batch:1,plant:"aviaplant",steel:8},
+  shorad:{name:"ПВО ближнего радиуса",cls:"ad",icon:"sam",batch:2,plant:"samplant",steel:3,ammo:"sam"},
+  mrsam:{name:"ПВО среднего радиуса",cls:"ad",icon:"sam",batch:1,plant:"samplant",steel:5,ammo:"sam"},
+  lrsam:{name:"ПВО дальнего радиуса",cls:"ad",icon:"sam",batch:1,plant:"samplant",steel:10,ammo:"sam"},
+  ew:{name:"Радиоэлектронная борьба",cls:"ad",icon:"sam",batch:1,plant:"samplant",steel:2},
+  corvette:{name:"Корветы",cls:"navy",icon:"ship",batch:1,plant:"shipyard",steel:120,ammo:"missile"},
+  frigate:{name:"Фрегаты",cls:"navy",icon:"ship",batch:1,plant:"shipyard",steel:250,ammo:"missile"},
+  destroyer:{name:"Эсминцы",cls:"navy",icon:"ship",batch:1,plant:"shipyard",steel:500,ammo:"missile"},
+  sub:{name:"Подводные лодки",cls:"navy",icon:"ship",batch:1,plant:"shipyard",steel:200,ammo:"missile"},
+  carrier:{name:"Авианосцы",cls:"navy",icon:"ship",batch:1,plant:"shipyard",steel:2000}
 };
+// id: [kind, name, origin country, generation, price (bln $), power, vs ground, vs air, defence, min GDP of the owner]
+const MODEL_ROWS = [
+  ["t72","tank","Т-72Б3","ru",1,0.003,0.5,6,0,6],["t90","tank","Т-90М","ru",2,0.0045,0.75,9,0,9],["armata","tank","Т-14 «Армата»","ru",3,0.009,1.1,12,0,13],
+  ["m1a1","tank","M1A1 Abrams","us",1,0.0045,0.6,8,0,8],["leo","tank","Leopard 2A7","de",2,0.008,0.9,10,0,11],["abrams","tank","M1A2 SEPv3 Abrams","us",3,0.01,1.05,11,0,12],
+  ["type96","tank","Тип 96","cn",1,0.0025,0.45,6,0,5],["ztz99","tank","ZTZ-99A","cn",2,0.005,0.8,9,0,9],
+  ["bmp2","ifv","БМП-2","ru",1,0.0012,0.22,3,1,3],["bmp3","ifv","БМП-3","ru",2,0.002,0.32,5,1,4],
+  ["marder","ifv","Marder 1A5","de",1,0.0018,0.25,4,1,4],["bradley","ifv","M2A4 Bradley","us",2,0.0035,0.4,6,1,6],["zbd04","ifv","ZBD-04A","cn",2,0.002,0.3,5,1,4],
+  ["btr82","apc","БТР-82А","ru",1,0.0008,0.12,2,0,2],["m113","apc","M113","us",1,0.0007,0.1,1,0,2],["stryker","apc","Stryker","us",2,0.0045,0.2,3,0,4],["zsl92","apc","ZSL-92","cn",1,0.0007,0.1,2,0,2],
+  ["akacia","sph","2С3 «Акация»","ru",1,0.002,0.35,7,0,3],["msta","sph","2С19 «Мста-С»","ru",2,0.004,0.55,10,0,4],
+  ["paladin","sph","M109A7 Paladin","us",2,0.006,0.6,10,0,5],["pzh","sph","PzH 2000","de",3,0.012,0.8,13,0,5],["plz05","sph","PLZ-05","cn",2,0.004,0.55,10,0,4],
+  ["grad","mlrs","БМ-21 «Град»","ru",1,0.0015,0.35,8,0,2],["tornado","mlrs","«Торнадо-С»","ru",2,0.006,0.65,13,0,3],
+  ["m270","mlrs","M270 MLRS","us",2,0.008,0.7,13,0,3],["himars","mlrs","M142 HIMARS","us",3,0.0055,0.85,15,0,3],["phl03","mlrs","PHL-03","cn",2,0.005,0.6,12,0,3],
+  ["tochka","srbm","«Точка-У»","ru",1,0.015,0.9,16,0,2],["iskander","srbm","«Искандер-М»","ru",2,0.05,2.2,30,0,3],
+  ["mig29","fighter","МиГ-29","ru",1,0.025,1.8,4,10,5],["su35","fighter","Су-35С","ru",2,0.065,3.2,8,16,8],["su57","fighter","Су-57","ru",3,0.1,4.6,11,22,11],
+  ["f16","fighter","F-16C","us",1,0.03,2,5,11,5],["f15ex","fighter","F-15EX Eagle II","us",2,0.09,3.4,9,17,8],["f35","fighter","F-35A","us",3,0.11,4.8,12,22,12],
+  ["j10","fighter","J-10C","cn",2,0.04,2.8,7,14,6],["j20","fighter","J-20","cn",3,0.11,4.4,10,21,11],
+  ["su25","attack","Су-25СМ3","ru",1,0.012,1.4,10,1,5],["a10","attack","A-10C Thunderbolt II","us",2,0.02,1.8,13,1,7],
+  ["su34","bomber","Су-34","ru",2,0.05,3,18,4,7,800],["tu22","bomber","Ту-22М3","ru",3,0.2,5.5,34,0,8,1500],["b1b","bomber","B-1B Lancer","us",3,0.3,6,38,0,9,8000],
+  ["mi24","heli","Ми-24П","ru",1,0.012,0.8,6,1,3],["ka52","heli","Ка-52","ru",2,0.016,1.2,9,2,5],["ah1z","heli","AH-1Z Viper","us",2,0.03,1.3,9,2,5],["apache","heli","AH-64E Apache","us",3,0.035,1.6,12,2,6],["z10","heli","Z-10","cn",2,0.015,1.1,8,1,4],
+  ["tb2","drone","Bayraktar TB2","tr",1,0.005,0.45,5,0,1],["reaper","drone","MQ-9 Reaper","us",2,0.03,0.9,9,0,2],["wingloong","drone","Wing Loong II","cn",2,0.015,0.7,7,0,1],
+  ["shahed","loiter","Shahed-136","ir",1,0.00003,0.012,0.4,0,0],["lancet","loiter","«Ланцет-3»","ru",2,0.00004,0.016,0.6,0,0],["switchblade","loiter","Switchblade 600","us",2,0.00006,0.018,0.7,0,0],
+  ["il76","transport","Ил-76МД","ru",1,0.05,0.2,0,0,4],["c130","transport","C-130J Super Hercules","us",1,0.07,0.25,0,0,4],["y20","transport","Y-20","cn",2,0.06,0.25,0,0,4],
+  ["tor","shorad","«Тор-М2»","ru",1,0.012,0.9,1,9,4],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.2,2,12,4],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.2,0,13,3],["hq17","shorad","HQ-17","cn",2,0.012,1,1,10,3],
+  ["buk","mrsam","«Бук-М2»","ru",1,0.03,1.6,0,15,4],["nasams","mrsam","NASAMS","us",2,0.04,1.8,0,18,4],["hq16","mrsam","HQ-16","cn",2,0.03,1.6,0,16,4],
+  ["s300","lrsam","С-300ПМУ2","ru",1,0.12,2.6,0,24,5],["s400","lrsam","С-400 «Триумф»","ru",2,0.3,4,0,36,6],["s500","lrsam","С-500 «Прометей»","ru",3,0.7,6,0,50,7,1500],
+  ["patriot","lrsam","Patriot PAC-3","us",2,0.4,4.2,0,38,6],["thaad","lrsam","THAAD","us",3,0.8,6,0,52,7,5000],["hq9","lrsam","HQ-9B","cn",2,0.2,3.6,0,33,6],
+  ["krasukha","ew","«Красуха-4»","ru",2,0.02,0.8,0,4,3],["compass","ew","EC-37B Compass Call","us",3,0.12,1.2,0,6,4],
+  ["k20380","corvette","Корвет пр. 20380","ru",1,0.25,3.5,8,10,20],["type056","corvette","Корвет Тип 056","cn",1,0.1,2.5,6,7,15],
+  ["gorshkov","frigate","Фрегат «Адмирал Горшков»","ru",2,0.5,6.5,16,20,35],["fremm","frigate","Фрегат FREMM","fr",2,0.8,7,16,22,38],["type054a","frigate","Фрегат Тип 054A","cn",2,0.35,5.5,13,18,30],
+  ["burke","destroyer","Эсминец Arleigh Burke","us",3,2,14,30,40,70,3000],["type055","destroyer","Эсминец Тип 055","cn",3,1,12,28,36,65,3000],
+  ["kilo","sub","ПЛ «Варшавянка» 636.3","ru",1,0.3,5,18,0,25],["type214","sub","ПЛ Type 214","de",2,0.5,6,20,0,28],["yasen","sub","АПЛ «Ясень-М»","ru",3,1.6,12,40,0,45,1500],["virginia","sub","АПЛ Virginia","us",3,3,14,44,0,50,5000],
+  ["nimitz","carrier","Авианосец Nimitz","us",3,13,48,60,60,200,15000],["fujian","carrier","Авианосец «Фуцзянь»","cn",3,8,40,50,50,170,10000]
+];
+const MODELS = {};
+MODEL_ROWS.forEach(([id, kind, name, origin, gen, price, pw, ga, aa, df, req]) => { MODELS[id] = {id, kind, name, origin, gen, price, pw, ga, aa, df, req:req||0}; });
+const LANDLOCKED = new Set(["kz","kg","uz","by","az"]);
+const AMMO = {
+  shell:{name:"Артиллерийские снаряды",short:"снаряды",unit:"тыс. шт",price:0.004,batch:20,steel:4},
+  rocket:{name:"Ракеты для РСЗО",short:"ракеты РСЗО",unit:"шт",price:0.00008,batch:500,steel:0.02},
+  atgm:{name:"Противотанковые ракеты (ПТУР)",short:"ПТУР",unit:"шт",price:0.00012,batch:200,steel:0.005},
+  bomb:{name:"Управляемые авиабомбы",short:"бомбы",unit:"шт",price:0.00004,batch:500,steel:0.03},
+  sam:{name:"Зенитные ракеты",short:"зенитные ракеты",unit:"шт",price:0.0012,batch:50,steel:0.05},
+  missile:{name:"Крылатые и баллистические ракеты",short:"ракеты",unit:"шт",price:0.002,batch:10,steel:0.1}
+};
+const AMMO_SELLERS = ["ru","us","cn","de","fr","tr","ir","in","kr","gb","it","pl"];
+// factory capacity: value of equipment produced per month (bln $), paid at 50 %
+const PLANT_CAP = {tankplant:0.06, heliplant:0.04, aviaplant:0.12, samplant:0.1, shipyard:0.35};
+const GEN_TECH = {ground:{2:"armor",3:"aviation"}, air:{2:"aviation",3:"armsexport"}, ad:{2:"missile",3:"cyber"}, navy:{2:"armor",3:"aviation"}};
+const GEN_TECH_HELI = {2:"rotor",3:"aviation"}, GEN_TECH_DRONE = {2:"drones",3:"rotor"};
+function blocOf(iso){ if (["ru","kz","kg","uz","by","az","ir","in","vn","eg","dz","sy","tm","tj","mn"].includes(iso)) return "east"; if (["cn","pk","kp","mm","bd"].includes(iso)) return "china"; return "west"; }
+const ORIGIN_BLOC = iso => iso === "ru" || iso === "ir" ? "east" : iso === "cn" ? "china" : iso === "tr" ? "any" : "west";
+function hasCoast(iso){ return !LANDLOCKED.has(iso || S.player); }
+function genTech(m){ const k = KINDS[m.kind]; const t = m.kind === "heli" ? GEN_TECH_HELI : (m.kind === "drone" || m.kind === "loiter") ? GEN_TECH_DRONE : GEN_TECH[k.cls]; return m.gen >= 2 ? t[m.gen] : null; }
+function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
+function canBuyModel(id){
+  const m = MODELS[id];
+  if (m.req && me().gdp < m.req) return {ok:false, why:`только для стран с ВВП от ${money(m.req)}`};
+  if (KINDS[m.kind].cls === "navy" && !hasCoast()) return {ok:false, why:"нет выхода к морю"};
+  const o = C()[m.origin];
+  if (m.origin === S.player || (o && o.owner === "player")) return {ok:false, own:true, why:"ваша разработка: только своё производство"};
+  const chk = canContract(m.origin); if (!chk.ok) return {ok:false, why:chk.why};
+  const need = m.gen >= 3 ? 55 : m.gen === 2 ? 25 : 5;
+  if (relOf(m.origin) < need && !(o && o.ally)) return {ok:false, why:`нужны отношения от +${need} с ${partnerName(m.origin)}`};
+  return {ok:true, price:m.price*1.15, days:travelDays(m.origin)};
+}
+function canProduceModel(id){
+  const m = MODELS[id], k = KINDS[m.kind];
+  if (!objCount(k.plant)) return {ok:false, why:`нужен завод: ${BUILDINGS[k.plant].name}`};
+  if (k.cls === "navy" && !hasCoast()) return {ok:false, why:"нет выхода к морю"};
+  if (m.req && me().gdp < m.req) return {ok:false, why:`ВВП от ${money(m.req)}`};
+  const t = genTech(m); if (t && !tech(t)) return {ok:false, why:`нужна технология «${TECH.find(x=>x.id===t).name}»`};
+  const ob = ORIGIN_BLOC(m.origin), o = C()[m.origin];
+  if (!(m.origin === S.player || (o && o.owner === "player") || ob === blocOf(S.player) || relOf(m.origin) >= 50)) return {ok:false, why:`лицензия: отношения от +50 с ${partnerName(m.origin)}`};
+  return {ok:true};
+}
+function unitsPower(units){ return Object.entries(units||{}).reduce((a,[id,n]) => a + (MODELS[id] ? MODELS[id].pw*n : 0), 0); }
+function unitsUpkeepYear(units){ return Object.entries(units||{}).reduce((a,[id,n]) => a + (MODELS[id] ? modelUpkeep(MODELS[id])*n : 0), 0); }
+// starting equipment generated from the old army size, the country's bloc, tech and coastline
+function defaultUnits(c, techLvl){
+  const bloc = blocOf(c.id), a = c.army, big = c.gdp >= 1000;
+  techLvl = clamp(techLvl + (c.gdp >= 1500 ? 1 : 0) + (c.gdp >= 10000 ? 1 : 0), 1, 3);
+  const pick = (kind, wanted) => { const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kind && (ORIGIN_BLOC(m.origin) === bloc || (bloc === "china" && m.origin === "cn") || ORIGIN_BLOC(m.origin) === "any") && (!m.req || c.gdp >= m.req));
+    const fallback = ms.length || KINDS[kind].cls === "navy" ? ms : MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kind && m.gen === 1);
+    return fallback.filter(m => m.gen <= Math.min(3, techLvl)).sort((x,y)=>x.gen-y.gen).slice(wanted); };
+  const u = {};
+  const add = (kind, total) => { total = Math.round(total); if (total <= 0) return; const ms = pick(kind, 0); if (!ms.length) return; const top = ms[ms.length-1], low = ms[0]; if (top === low) u[top.id] = (u[top.id]||0) + total; else { u[low.id] = (u[low.id]||0) + Math.round(total*0.6); u[top.id] = (u[top.id]||0) + Math.round(total*0.4); } };
+  add("tank", a*1.6); add("ifv", a*1.8); add("apc", a*1.2); add("sph", a*0.4); add("mlrs", a*0.3);
+  if (bloc === "east" && big) add("srbm", a*0.01);
+  add("fighter", a*0.18); add("attack", a*0.05); if (big) add("bomber", a*0.02);
+  add("heli", a*0.2); add("drone", a*0.05); add("loiter", a*0.8); add("transport", a*0.015);
+  add("shorad", a*0.03); add("mrsam", a*0.02); add("lrsam", a*0.012); if (big) add("ew", a*0.006);
+  if (hasCoast(c.id)){ add("corvette", c.gdp/800); add("frigate", c.gdp/1500); add("sub", c.gdp/1200); if (c.gdp >= 3000) add("destroyer", c.gdp/1200); if (c.gdp >= 15000) add("carrier", 1 + c.gdp/12000); }
+  return u;
+}
+function defaultAmmo(units){
+  const n = k => Object.entries(units).filter(([id]) => MODELS[id] && MODELS[id].kind === k).reduce((a,[,v])=>a+v, 0);
+  return {shell: Math.round((n("tank")+n("sph"))*0.05), rocket: n("mlrs")*60, atgm: (n("ifv")+n("heli"))*6, bomb: (n("attack")+n("drone")+n("bomber"))*40,
+    sam: (n("shorad")+n("mrsam")+n("lrsam")+n("fighter"))*8, missile: n("srbm")*6 + (n("corvette")+n("frigate")+n("destroyer")+n("sub"))*8 + n("bomber")*4};
+}
+function ammoNeedMonth(){ // rough consumption in a month of war, shown as a guide
+  const u = S.units, by = k => Object.entries(u).filter(([id]) => MODELS[id] && KINDS[MODELS[id].kind].ammo === k).reduce((a,[id,v]) => a + v*(MODELS[id].kind==="tank"||MODELS[id].kind==="ifv"?0.3:1), 0);
+  return {shell: by("shell")*0.02, rocket: by("rocket")*12, atgm: by("atgm")*1.5, bomb: by("bomb")*8, sam: by("sam")*2, missile: by("missile")*1.5};
+}
+function ammoSellers(){ return AMMO_SELLERS.filter(i => i !== S.player && C()[i] && canContract(i).ok && relOf(i) >= 10).map(i => ({iso:i, days:travelDays(i), price:1.2 + travelDays(i)*0.003})).sort((a,b)=>a.price-b.price); }
+function orderUnits(id, qty){
+  const m = MODELS[id], chk = canBuyModel(id); if (!chk.ok) return toast(chk.why);
+  const cost = chk.price*qty; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
+  S.treasury -= cost; S.shipments = S.shipments || [];
+  S.shipments.push({id:shipId(), from:m.origin, to:S.player, r:id, qty, left:chk.days, total:chk.days, dir:"in", cat:"unit"});
+  addLog(`Закуплено: ${m.name} ×${qty} в стране ${partnerName(m.origin)} за ${money(cost)}. Доставка ~${chk.days} дн.`);
+  toast(`${m.name} ×${qty} в пути, ~${chk.days} дн.`); flashMap(m.origin, "info");
+  const o = C()[m.origin]; if (o) o.rel = Math.min(100, o.rel + 1);
+}
+function orderAmmo(type, qty){
+  const best = ammoSellers()[0]; if (!best) return toast("Никто сейчас не продаёт боеприпасы: нужны отношения от +10 с производителями.");
+  const cost = AMMO[type].price*qty*best.price; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
+  S.treasury -= cost; S.shipments = S.shipments || [];
+  S.shipments.push({id:shipId(), from:best.iso, to:S.player, r:type, qty, left:best.days, total:best.days, dir:"in", cat:"ammo"});
+  addLog(`Заказано: ${AMMO[type].short} ${qty} ${AMMO[type].unit} в стране ${partnerName(best.iso)} за ${money(cost)}.`);
+  toast(`Боеприпасы в пути из страны ${partnerName(best.iso)}, ~${best.days} дн.`); flashMap(best.iso, "info");
+}
+function plantCap(pid){ return PLANT_CAP[pid]*objCount(pid)*(1 + 0.5*tech("automation")); }
+function prodChoices(pid){ return MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => KINDS[m.kind].plant === pid); }
+function prodSpendMonthly(){ return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && objCount(pid) ? plantCap(pid)*0.5 : 0), 0) + (objCount("ammoplant") ? ammoPlantCost() : 0); }
+function ammoPlantOut(){ const n = objCount("ammoplant")*(1 + 0.5*tech("automation")); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
+function ammoPlantCost(){ const o = ammoPlantOut(); return Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].price*0.5, 0); }
+function armsExportIncome(){
+  if (!armsBuyers().length) return 0;
+  return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && S.prodExport[pid] && objCount(pid) ? plantCap(pid)*0.9*(1 + 0.5*tech("armsexport")) : 0), 0);
+}
+function militaryProduction(){
+  Object.keys(PLANT_CAP).forEach(pid => {
+    const id = S.prod[pid]; if (!id || !objCount(pid)) return;
+    if (id.startsWith("ammo:")){ const t = id.slice(5); const q = Math.floor(plantCap(pid)/AMMO[t].price); if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.ammo[t] = (S.ammo[t]||0) + q; return; }
+    const m = MODELS[id]; if (!m || !canProduceModel(id).ok) return;
+    S.prodAcc[pid] = (S.prodAcc[pid]||0) + plantCap(pid);
+    let made = 0;
+    while (S.prodAcc[pid] >= m.price){
+      if (S.stock.steel < KINDS[m.kind].steel){ addLog(`${BUILDINGS[pid].name}: выпуск остановлен — не хватает стали.`); S.prodAcc[pid] = Math.min(S.prodAcc[pid], m.price); break; }
+      S.stock.steel -= KINDS[m.kind].steel; S.prodAcc[pid] -= m.price; made++;
+    }
+    if (made && !(S.prodExport[pid] && armsBuyers().length)){ S.units[id] = (S.units[id]||0) + made; }
+  });
+  if (objCount("ammoplant")){ const o = ammoPlantOut(); const steel = Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].steel, 0);
+    if (S.stock.steel >= steel){ S.stock.steel -= steel; Object.entries(o).forEach(([k,q]) => S.ammo[k] = (S.ammo[k]||0) + q); } else addLog("Завод боеприпасов простаивает: не хватает стали."); }
+}
+
 const SECTORS = [
   {id:"health",name:"Здравоохранение",hint:"рейтинг и население",pay:"~1 год",rate:0.08},
   {id:"edu",name:"Образование",hint:"рост ВВП и сбор налогов",pay:"~1,5 года",rate:0.06},
@@ -918,10 +1101,10 @@ const MONTHS_GEN = ["января","февраля","марта","апреля",
 const SPEED_MS = {1:2000, 2:1000, 3:333}; // ms per in-game day: month = 60 s / 30 s / 10 s
 
 /* ---------- Helpers ---------- */
-const COLOR_IC = new Set(["wood", "steel", "oil", "gold", "food", "power", "metal", "factory", "bridge", "road", "metro", "plane", "port", "tank", "heli", "jet", "sam", "budget", "gdp", "approval", "stability", "balance", "debt", "build", "economy", "trade", "politics", "army", "science", "intel", "diplomacy", "summary", "trophy", "alert", "rail", "map"]);
+const COLOR_IC = new Set(["ship","drone","ammo","wood", "steel", "oil", "gold", "food", "power", "metal", "factory", "bridge", "road", "metro", "plane", "port", "tank", "heli", "jet", "sam", "budget", "gdp", "approval", "stability", "balance", "debt", "build", "economy", "trade", "politics", "army", "science", "intel", "diplomacy", "summary", "trophy", "alert", "rail", "map"]);
 const ic = (name, cls="") => COLOR_IC.has(name) ? `<svg class="ci ${cls}" aria-hidden="true"><use href="#c-${name}"/></svg>` : `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const iref = name => COLOR_IC.has(name) ? "c-" + name : "i-" + name;
-const BUILD_ICON = {sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
+const BUILD_ICON = {shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
 const UNIT_ICON = {tank:"tank",heli:"heli",fighter:"jet",sam:"sam"};
 const $ = (sel, root=document) => root.querySelector(sel);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -966,7 +1149,10 @@ function migrate(s){
   if (!s.day) s.day = 1;
   Object.keys(BUILDINGS).forEach(k => { if (s.buildings[k]===undefined) s.buildings[k] = 0; });
   (s.queue||[]).forEach(q => { if (q.total===undefined){ q.left = q.left*30; q.total = BUILDINGS[q.type].days; } });
-  if (!s.units){ const a = s.countries[s.player].army; s.units = {tank:Math.round(a*2), heli:Math.round(a*0.3), fighter:Math.round(a*0.25), sam:Math.round(a*0.05)}; }
+  if (!s.units || s.units.tank !== undefined || s.units.fighter !== undefined){ const c0 = s.countries[s.player]; s.units = defaultUnits(c0, c0.tech); }
+  if (!s.ammo) s.ammo = defaultAmmo(s.units);
+  if (!s.prod) s.prod = {}; if (!s.prodAcc) s.prodAcc = {}; if (!s.prodExport) s.prodExport = {};
+  if (!s.armyTab) s.armyTab = "ground";
   if (!s.rails) s.rails = {};
   if (!s.armsExport) s.armsExport = {};
   if (!s.buildCat) s.buildCat = "ind";
@@ -1191,7 +1377,8 @@ function suppliers(r){
   const pool = [...Object.keys(C()), ...Object.keys(MINOR_GDP).filter(i => MINOR_GDP[i] >= 20 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
   return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:travelDays(i)})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
 }
-function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r).reduce((a,x)=>a+x.qty, 0); }
+function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r && !x.cat).reduce((a,x)=>a+x.qty, 0); }
+function cargoIcon(x){ return x.cat === "unit" ? KINDS[MODELS[x.r].kind].icon : x.cat === "ammo" ? "ammo" : x.r; }
 function shipId(){ S.shipSeq = (S.shipSeq||0) + 1; return S.shipSeq; }
 function orderGoods(iso, r, qty, quiet){
   qty = Math.ceil(qty); if (qty <= 0) return false;
@@ -1229,7 +1416,9 @@ function shipTick(){
   S.shipments.forEach(x => x.left -= 1);
   const arrived = S.shipments.filter(x => x.left <= 0);
   arrived.forEach(x => {
-    if (x.dir === "in"){ S.stock[x.r] += x.qty; floatText(S.player, `+${x.qty} ${COMMOD[x.r].gen}`, "cargo"); sfx("cargo"); flashMap(S.player, "good"); }
+    if (x.dir === "in" && x.cat === "unit"){ S.units[x.r] = (S.units[x.r]||0) + x.qty; floatText(S.player, `+${x.qty} ${MODELS[x.r].name}`, "cargo"); sfx("cargo"); flashMap(S.player, "good"); }
+    else if (x.dir === "in" && x.cat === "ammo"){ S.ammo[x.r] = (S.ammo[x.r]||0) + x.qty; floatText(S.player, `+${x.qty} ${AMMO[x.r].short}`, "cargo"); sfx("cargo"); }
+    else if (x.dir === "in"){ S.stock[x.r] += x.qty; floatText(S.player, `+${x.qty} ${COMMOD[x.r].gen}`, "cargo"); sfx("cargo"); flashMap(S.player, "good"); }
     else if (x.value){ S.treasury += x.value; S.commodMonth = (S.commodMonth||0) + x.value; floatText(x.to, `+${money(x.value)}`, "cash"); sfx("cash"); }
   });
   // a soft whoosh when a shipment is about to arrive
@@ -1263,6 +1452,7 @@ function canBuild(id){
   const b = BUILDINGS[id], r = b.req || {}, n = objCount(id) + queued(id);
   if (r.tech && !tech(r.tech)) return {ok:false, why:`нужна технология «${TECH.find(x=>x.id===r.tech).name}»`};
   if (r.res) for (const k in r.res) if (selfSuff(k) < r.res[k]) return {ok:false, why:`нужно ${RES.find(x=>x.id===k).name.toLowerCase()} от ${r.res[k]}%`};
+  if (r.coast && !hasCoast()) return {ok:false, why:"нужен выход к морю"};
   if (r.pop && me().pop < r.pop) return {ok:false, why:`нужно население от ${r.pop} млн`};
   if (r.cap) for (const k in r.cap) if (S.capital[k] < r.cap[k]) return {ok:false, why:`нужно накопленное ${k==="edu"?"образование":"инфраструктура"} ${r.cap[k]}`};
   if (b.max && n >= b.max) return {ok:false, why:`максимум ${b.max}`};
@@ -1273,22 +1463,13 @@ function canBuild(id){
   if (S.treasury < buildCost(id)) return {ok:false, why:"не хватает денег"};
   return {ok:true};
 }
-function armyUpkeepMonthly(){ const u = S.units; return me().army*0.004*gdppc()/12 + Object.entries(UNITS).reduce((a,[k,d])=>a + (u[k]||0)*d.upkeep/12, 0); }
+function armyUpkeepMonthly(){ return me().army*0.004*gdppc()/12 + unitsUpkeepYear(S.units)/12; }
 function techMult(t){ return 1 + 0.25*t; }
-function rawPower(){ const u = S.units; return me().army + Object.entries(UNITS).reduce((a,[k,d])=>a + (u[k]||0)*d.power, 0); }
+function rawPower(){ return me().army + unitsPower(S.units); }
 function myPower(){ return rawPower() * techMult(me().tech) * (0.6 + 0.4*S.stability/100) * (1 + 0.1*tech("comms") + 0.2*tech("drones") + 0.2*tech("missile") + 0.2*tech("cyber")) * (ideo("nat")?1.2:1); }
 function aiPower(c){ return c.army * 3 * techMult(c.tech); }
-function hasPlant(unit){ return objCount(UNITS[unit].plant) > 0; }
-function unitPrice(unit){ return UNITS[unit].price * (hasPlant(unit) ? 0.7 : 1.3); }
+
 function armsBuyers(){ return Object.values(C()).filter(x=>!x.owner && x.rel>=40 && !S.wars.some(w=>w.enemy===x.id)); }
-function armsExportIncome(){
-  if (!armsBuyers().length) return 0;
-  return Object.values(BUILDINGS).filter(b=>b.make).reduce((a,b) => {
-    const id = Object.keys(BUILDINGS).find(k=>BUILDINGS[k]===b);
-    if (!S.armsExport[b.make.unit]) return a;
-    return a + objCount(id)*b.make.n*UNITS[b.make.unit].price*0.9*(1 + 0.5*tech("armsexport"));
-  }, 0);
-}
 function railIncome(id){ const x = C()[id]; if (!x || x.owner || x.rel < 0) return 0; return Math.min(me().gdp, x.gdp)/12*0.004; }
 function railCost(){ return me().gdp*0.012; }
 function railTotal(){ return railCost(); }
@@ -1316,6 +1497,7 @@ function budget(){
   const rail = Object.keys(S.rails).filter(id=>S.rails[id].done).reduce((a,id)=>a + railIncome(id), 0);
   const arms = armsExportIncome();
   const science = scienceCost();
+  const milprod = prodSpendMonthly();
   const sectors = SECTORS.reduce((a,s)=>a + m*0.01*S.sectors[s.id], 0) * (ideo("soc")?0.8:1);
   const intel = intelCost();
   const army = armyUpkeepMonthly();
@@ -1323,8 +1505,8 @@ function budget(){
   const interest = S.debt * 0.045 / 12;
   const war = m * 0.012 * S.wars.length;
   const income = taxes + Math.max(0,trade) + objects + rail + arms + commod;
-  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + Math.max(0,-trade);
-  return {taxes, trade, objects, upkeep, rail, arms, commod, imports, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
+  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + milprod + Math.max(0,-trade);
+  return {taxes, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
 }
 function growthMonthly(){
   let g = 0.0015;
@@ -1390,7 +1572,7 @@ function nextMonth(){
 
   // 2. construction delays, military production, railways
   S.queue.forEach(q => { if (Math.random() < 0.08){ const d = 20 + (Math.random()*25|0); q.left += d; q.total += d; addLog(`Стройка «${BUILDINGS[q.type].name}» задерживается на ${d} дн.: подрядчик сорвал сроки.`); } });
-  Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.make && objCount(id) && !(S.armsExport[b.make.unit] && armsBuyers().length)) S.units[b.make.unit] += objCount(id)*b.make.n; });
+  militaryProduction();
   Object.keys(S.rails).forEach(id => { if (S.rails[id].done && C()[id] && !C()[id].owner) C()[id].rel = Math.min(100, C()[id].rel + 0.5); });
 
   // 3. growth
@@ -1517,7 +1699,7 @@ function warTurn(){
     const e = C()[w.enemy];
     if (w.progress >= 100){
       e.owner = "player"; e.ally=false; e.trade=false; e.sanction=false; e.sanctionsUs=false;
-      meC.gdp += e.gdp*0.6; meC.pop += e.pop; meC.army += e.army*0.3; S.units.tank += Math.round(e.army*0.6); S.units.heli += Math.round(e.army*0.08);
+      meC.gdp += e.gdp*0.6; meC.pop += e.pop; meC.army += e.army*0.3; Object.entries(defaultUnits(e, e.tech)).forEach(([id,n]) => { S.units[id] = (S.units[id]||0) + Math.round(n*0.25); });
       RES.forEach(r => { if (e.prof[r.id] > 1) S.annexBonus[r.id] += Math.min(40,(e.prof[r.id]-1)*30); });
       S.wars = S.wars.filter(x=>x!==w);
       Object.values(C()).forEach(x => { if (!x.owner && x.region===e.region) x.rel -= 15; });
@@ -1843,8 +2025,12 @@ function advise(who, text, o){
   advQueue.push(m); if (advQueue.length > 4) advQueue = advQueue.slice(-4);
   if (!advShown) showNextAdvice();
 }
+function flushAdvice(){
+  if (advShown && (ui.tab !== "map" || modalRoot.innerHTML)){ clearTimeout(advTimer); advQueue.unshift(advShown); advShown = null; advRoot.innerHTML = ""; return; }
+  if (!advShown && advQueue.length && ui.tab === "map" && !modalRoot.innerHTML) setTimeout(showNextAdvice, 400); }
 function showNextAdvice(){
   clearTimeout(advTimer);
+  if (S && S.countries && (ui.tab !== "map" || modalRoot.innerHTML)){ advShown = null; advRoot.innerHTML = ""; return; }
   advShown = advQueue.shift() || null;
   if (!advShown || !document.body.classList.contains("in-game")){ advRoot.innerHTML = ""; advShown = null; return; }
   const m = advShown, a = ADVISORS[m.who];
@@ -2062,13 +2248,11 @@ function act(name, arg){
       else { toast(`${t.name} отклонила мирное предложение.`); }
       break;
     }
-    case "buyunit": {
-      const u = UNITS[arg], cost = unitPrice(arg)*u.batch;
-      if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
-      S.treasury -= cost; S.units[arg] += u.batch; toast(`Закуплено: ${u.name.toLowerCase()} +${u.batch}`); break;
-    }
-    case "sellunit": { const u = UNITS[arg]; const n = Math.min(S.units[arg], u.batch); S.units[arg] -= n; S.treasury += n*u.price*0.4; toast(`Списано и продано: ${n}`); break; }
-    case "armsexport": { S.armsExport[arg] = !S.armsExport[arg]; break; }
+    case "buyunit": { orderUnits(arg, KINDS[MODELS[arg].kind].batch); break; }
+    case "sellunit": { const m = MODELS[arg], n = Math.min(S.units[arg]||0, KINDS[m.kind].batch); if (n < 1) return; S.units[arg] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); break; }
+    case "buyammo": { orderAmmo(arg, AMMO[arg].batch); break; }
+    case "prodset": { const [pid, id] = arg.split("|"); S.prod[pid] = S.prod[pid] === id ? null : id; S.prodAcc[pid] = 0; break; }
+    case "prodexport": { S.prodExport[arg] = !S.prodExport[arg]; break; }
     case "rail": {
       const x = C()[arg], cost = railTotal();
       if (!railMatOk()) return toast(`Нужно ${RAIL_MAT.steel} стали и ${RAIL_MAT.wood} древесины на складе.`);
@@ -2254,6 +2438,7 @@ function render(){
   ui.lastTab = ui.tab;
   kpiFlash();
   attachMap();
+  flushAdvice();
 }
 function kpiFlash(){
   const now = {treasury:S.treasury, approval:S.approval}, prev = ui.kpiPrev;
@@ -2350,6 +2535,7 @@ function viewEconomy(){
         ${b.intel? `<tr><td>Спецслужбы</td><td class="down">−${money(b.intel)}</td></tr>`:""}
         <tr><td>Армия</td><td class="down">−${money(b.army)}</td></tr>
         ${b.laws? `<tr><td>Законы</td><td class="${b.laws>0?"down":"up"}">${b.laws>0?"−":"+"}${money(Math.abs(b.laws))}</td></tr>`:""}
+        ${b.milprod? `<tr><td>Военное производство</td><td class="down">−${money(b.milprod)}</td></tr>`:""}
         ${b.imports? `<tr><td>Закупка материалов</td><td class="down">−${money(b.imports)}</td></tr>`:""}
         ${b.upkeep? `<tr><td>Содержание объектов</td><td class="down">−${money(b.upkeep)}</td></tr>`:""}
         <tr><td>Проценты по долгу</td><td class="down">−${money(b.interest)}</td></tr>
@@ -2397,7 +2583,7 @@ function viewBuild(){
           <small class="muted">${b.desc}</small>
           <div class="bstats">
             ${outR ? `<span>Выпуск <b class="num">+${outQ.toFixed(outQ<10?1:0).replace(".",",")}</b> ${COMMOD[outR].unit}/мес</span>` : ""}
-            ${inc ? `<span>Доход${outR?" при продаже":""} <b class="up num">+${money(inc)}</b>/мес</span>` : b.cat==="res" ? `<span>Доход через экспорт ресурса</span>` : b.make ? `<span>Выпуск: <b class="num">${b.make.n}</b> ${UNITS[b.make.unit].name.toLowerCase()}/мес</span>` : ""}
+            ${inc ? `<span>Доход${outR?" при продаже":""} <b class="up num">+${money(inc)}</b>/мес</span>` : b.cat==="res" ? `<span>Доход через экспорт ресурса</span>` : ""}
             <span>Содержание <b class="down num">−${money(up)}</b>/мес</span>
             ${pay ? `<span>Окупаемость <b class="num">~${pay} мес.</b></span>` : ""}
             <span>Срок <b class="num">${buildDays(id)} дн.</b></span>
@@ -2533,49 +2719,61 @@ function viewPolitics(){
 }
 
 function viewArmy(){
-  const c = me();
+  const c = me(), tab = S.armyTab || "ground";
   const wars = S.wars.map(w => { const e = C()[w.enemy]; const p = (w.progress+100)/2; return `<div class="panel">
-    <div class="row"><h3>Война: ${esc(e.name)}</h3><span class="pill ${w.progress>=0?"good":"bad"}">${w.months} мес.</span></div>
+    <div class="row"><h3>Война: ${flag(e.id)} ${esc(e.name)}</h3><span class="pill ${w.progress>=0?"good":"bad"}">${w.months} мес.</span></div>
     <div class="row"><span class="label">Мы</span><span class="num">${w.progress>0?"+":""}${Math.round(w.progress)}</span><span class="label">Противник</span></div>
     <div class="bar ${w.progress>=0?"high":"low"}"><i style="width:${p}%"></i></div>
     <div class="row"><span class="muted">Наша сила ${Math.round(myPower())} против ${Math.round(aiPower(e))}</span>
-    <button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress<-30?"disabled":""}>Предложить мир</button></div>
-    <div class="label">+100 — страна захвачена, −100 — поражение и тяжёлый мир.</div></div>`; }).join("");
-  const unitRow = (k,u) => { const price = unitPrice(k)*u.batch, own = hasPlant(k);
-    return `<div class="unit">
-      <div class="row"><b class="bname">${ic(UNIT_ICON[k],"lg")}${u.name}</b><span class="num">${S.units[k].toLocaleString("ru-RU")}</span></div>
-      <div class="bstats"><span>Сила <b class="num">${Math.round(S.units[k]*u.power)}</b></span><span>Содержание <b class="down num">−${money(S.units[k]*u.upkeep/12)}</b>/мес</span><span class="${own?"up":"muted"}">${own?"своё производство −30%":"импорт +30%"}</span></div>
-      <div class="row"><button class="btn" data-act="sellunit" data-arg="${k}" ${S.units[k]<1?"disabled":""}>Списать ${u.batch}</button><button class="btn primary" data-act="buyunit" data-arg="${k}" ${S.treasury<price?"disabled":""}>+${u.batch} · ${money(price)}</button></div>
-    </div>`; };
-  const plants = Object.entries(BUILDINGS).filter(([id,b])=>b.make && objCount(id));
-  const buyers = armsBuyers();
-  return `<div class="grid2">
-    <div class="panel">
-      <h3>Вооружённые силы</h3>
-      <div class="row"><span>Личный состав</span><span class="num">${troops(c.army)}</span></div>
-      <div class="row"><span>Боевая мощь</span><span class="num">${Math.round(myPower())}</span></div>
-      <div class="row"><span>Технологии армии</span><span class="num">уровень ${c.tech} / 5</span></div>
-      <div class="row"><span>Содержание всего</span><span class="num down">${money(armyUpkeepMonthly())} / мес.</span></div>
-      <div class="row"><span>Набрать +${troops(recruitAmount())}</span><button class="btn" data-act="recruit" ${S.treasury<recruitCost()?"disabled":""}>${money(recruitCost())}</button></div>
-      <div class="row"><span>Сократить личный состав на 5%</span><button class="btn" data-act="disband">Сократить</button></div>
-      <div class="row"><span>Модернизация до уровня ${Math.min(5,c.tech+1)}</span><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Максимум":money(techCost())}</button></div>
-    </div>
-    <div class="panel">
-      <h3>Техника</h3>
-      ${Object.entries(UNITS).map(([k,u])=>unitRow(k,u)).join("")}
-    </div>
-    <div class="panel">
-      <h3>Военная промышленность</h3>
-      ${plants.length ? plants.map(([id,b]) => { const u = b.make.unit, exp = S.armsExport[u];
-        return `<div class="row"><span><b>${b.name}</b> ×${objCount(id)}<br><small class="muted">${objCount(id)*b.make.n} ${UNITS[u].name.toLowerCase()} в месяц → ${exp?"на экспорт":"в свою армию"}</small></span>
-          <button class="btn" data-act="armsexport" data-arg="${u}">${exp?"Оставлять себе":"Продавать на экспорт"}</button></div>`; }).join("")
-        : `<p class="muted" style="margin:0">Своих военных заводов нет. Откройте ветку «ВПК» во вкладке «Наука» и постройте заводы в разделе «Стройки → Военные заводы».</p>`}
-      <div class="label">${buyers.length ? `Покупатели (отношения от +40): ${buyers.slice(0,6).map(x=>esc(x.name)).join(", ")}${buyers.length>6?"…":""}. Экспорт сейчас: <span class="up num">+${money(armsExportIncome())}</span>/мес.` : "Покупателей нет: нужны страны с отношениями от +40."}</div>
-    </div>
-    ${wars || `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Каждая война: −10 к рейтингу, −2,4% роста ВВП в год и расходы 1,2% ВВП в год. Союзники помогают армией. Воевать можно со странами своего и соседних регионов.</p></div>`}
-  </div>`;
+    <button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress<-30?"disabled":""}>Предложить мир</button></div></div>`; }).join("");
+  const head = `<div class="panel army-head">
+      <div class="row"><h3>Вооружённые силы</h3><span class="num">Мощь ${Math.round(myPower()).toLocaleString("ru-RU")}</span></div>
+      <div class="bstats"><span>Личный состав <b class="num">${troops(c.army)}</b></span><span>Техники <b class="num">${Object.values(S.units).reduce((a,b)=>a+b,0).toLocaleString("ru-RU")}</b></span><span>Содержание <b class="down num">−${money(armyUpkeepMonthly())}</b>/мес</span><span>Модернизация <b class="num">${c.tech}/5</b></span></div>
+      <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button></div>
+    </div>`;
+  const tabs = `<div class="filters armytabs">${UCLS.map(([id,l]) => `<button class="chip" data-armytab="${id}" aria-pressed="${tab===id}">${l}</button>`).join("")}</div>`;
+  let body = "";
+  if (["ground","air","ad","navy"].includes(tab)){
+    if (tab === "navy" && !hasCoast()) body = `<div class="panel"><p class="muted" style="margin:0">У страны нет выхода к морю — флот недоступен. Его можно получить, присоединив прибрежную страну.</p></div>`;
+    else body = Object.entries(KINDS).filter(([,k]) => k.cls === tab).map(([kid, k]) => {
+      const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kid);
+      const have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0);
+      return `<div class="panel"><div class="row"><h3>${ic(k.icon)} ${k.name}</h3><span class="num">${have.toLocaleString("ru-RU")} ед.</span></div>
+        <div class="unit-grid">${ms.map(m => { const n = S.units[m.id]||0, buy = canBuyModel(m.id), prod = canProduceModel(m.id);
+          return `<div class="ucard ${n?"have":""}">
+            <div class="row"><b>${flag(m.origin)} ${m.name}</b><span class="gen g${m.gen}">${m.gen} пок.</span></div>
+            <div class="ustats"><span title="Удар по наземным целям">⚔ ${m.ga}</span><span title="Удар по воздушным целям">✈ ${m.aa}</span><span title="Защита">🛡 ${m.df}</span><span>${money(m.price)}</span></div>
+            <div class="row"><span class="num ${n?"":"muted"}">В строю: <b>${n.toLocaleString("ru-RU")}</b></span>${n ? `<small class="muted">−${money(modelUpkeep(m)*n/12)}/мес</small>` : ""}</div>
+            <div class="btns">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*k.batch ? "disabled" : ""}>+${k.batch} · ${money(buy.price*k.batch)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}
+              ${n ? `<button class="btn sm" data-act="sellunit" data-arg="${m.id}">Списать ${Math.min(n, k.batch)}</button>` : ""}</div>
+            ${prod.ok ? `<small class="up">Можно производить у себя</small>` : ""}
+          </div>`; }).join("")}</div></div>`; }).join("");
+  } else if (tab === "ammo"){
+    const need = ammoNeedMonth(), sellers = ammoSellers();
+    body = `<div class="panel"><div class="row"><h3>${ic("ammo")} Склад боеприпасов</h3>${sellers[0] ? `<span class="label">Поставщик: ${flag(sellers[0].iso)} ${esc(partnerName(sellers[0].iso))}, ~${sellers[0].days} дн.</span>` : `<span class="label down">Нет поставщиков (нужны отношения от +10)</span>`}</div>
+      ${Object.entries(AMMO).map(([k,a]) => { const have = S.ammo[k]||0, months = need[k] > 0 ? have/need[k] : Infinity;
+        return `<div class="stock"><div class="row"><b>${a.name}</b><span class="num">${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}</span></div>
+          <div class="bar ${months<2?"low":months<5?"mid":"high"}"><i style="width:${Math.min(100, (isFinite(months)?months:12)/12*100)}%"></i></div>
+          <div class="row"><small class="muted">${isFinite(months) ? `Хватит примерно на ${months < 1 ? "меньше месяца" : Math.floor(months) + " мес."} войны` : "Сейчас не расходуется"}</small>
+          <button class="btn sm" data-act="buyammo" data-arg="${k}" ${!sellers[0] || S.treasury < a.price*a.batch*(sellers[0]?sellers[0].price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(sellers[0]?sellers[0].price:1.2))}</button></div></div>`; }).join("")}
+      <div class="label">На войне каждый бой тратит боеприпасы. Кончатся снаряды — артиллерия замолчит. Свой завод боеприпасов строится в разделе «Стройка → Военные заводы».</div></div>`;
+  } else {
+    const plants = [...Object.keys(PLANT_CAP), "ammoplant"];
+    body = plants.map(pid => { const n = objCount(pid), b = BUILDINGS[pid];
+      if (pid === "ammoplant") return `<div class="panel"><div class="row"><h3>${ic("ammo")} ${b.name}</h3><span class="num">×${n}</span></div>
+        ${n ? `<div class="bstats">${Object.entries(ammoPlantOut()).map(([k,q])=>`<span>${AMMO[k].short} <b class="num">+${Math.round(q).toLocaleString("ru-RU")}</b>/мес</span>`).join("")}<span>Стоимость <b class="down num">−${money(ammoPlantCost())}</b>/мес</span></div>` : `<p class="muted" style="margin:0">Нет завода. Строится в «Стройка → Военные заводы».</p>`}</div>`;
+      const sel = S.prod[pid], cap = n ? plantCap(pid) : 0;
+      const choices = prodChoices(pid), opts = choices.map(m => { const ok = canProduceModel(m.id); return `<button class="chip ${ok.ok?"":"off"}" data-act="prodset" data-arg="${pid}|${m.id}" aria-pressed="${sel===m.id}" ${ok.ok?"":`disabled title="${esc(ok.why)}"`}>${m.name}${ok.ok ? ` · ${Math.max(0, cap/m.price).toFixed(cap/m.price<1?2:0).replace(".",",")}/мес` : ""}</button>`; }).join("")
+        + (pid === "samplant" ? ["sam","missile"].map(t => `<button class="chip" data-act="prodset" data-arg="${pid}|ammo:${t}" aria-pressed="${sel==="ammo:"+t}" ${n?"":"disabled"}>${AMMO[t].short} · ${n ? Math.floor(cap/AMMO[t].price).toLocaleString("ru-RU") : 0}/мес</button>`).join("") : "");
+      return `<div class="panel"><div class="row"><h3>${ic(BUILD_ICON[pid]||"factory")} ${b.name}</h3><span class="num">×${n}</span></div>
+        ${n ? `<div class="bstats"><span>Мощность <b class="num">${money(cap)}</b>/мес</span><span>Расход <b class="down num">−${sel ? money(cap*0.5) : "0 $"}</b>/мес + сталь</span></div>
+          <div class="filters">${opts}</div>
+          ${sel ? `<div class="row"><span>${S.prodExport[pid] ? "Продукция уходит на экспорт" : "Продукция идёт в свою армию"}${S.prodExport[pid] && armsBuyers().length ? ` · <span class="up num">+${money(cap*0.9*(1+0.5*tech("armsexport")))}/мес</span>` : ""}</span><button class="btn sm" data-act="prodexport" data-arg="${pid}">${S.prodExport[pid] ? "Оставлять себе" : "Продавать на экспорт"}</button></div>` : `<div class="label">Выберите, что выпускать.</div>`}`
+          : `<p class="muted" style="margin:0">Нет завода. ${b.desc}. Строится в «Стройка → Военные заводы».</p>`}</div>`; }).join("")
+      + `<div class="label" style="margin-top:4px">Производить можно технику своего блока, а чужую — по лицензии, при отношениях от +50 со страной-разработчиком. Новые поколения открывает наука (ветки «ВПК» и «Оборона»).</div>`;
+  }
+  return `${head}${wars ? `<div class="grid2" style="margin-top:10px">${wars}</div>` : ""}${tabs}<div class="army-body">${body}</div>`;
 }
-
 function dipRow(x){
     if (x.owner) return `<div class="dip-row"><div class="dip-name"><b>${esc(x.name)}</b><span class="muted">${x.region}</span></div><div></div><span class="pill good">Под вашим контролем</span></div>`;
     const atWar = S.wars.some(w=>w.enemy===x.id);
@@ -2730,7 +2928,7 @@ function floatText(iso, text, kind){
 /* living map: trade & rail routes, contracts, war fronts, own buildings, event ripples */
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
-const PIN_ICON = {sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
+const PIN_ICON = {shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
 function buildingPins(){
   const list = []; Object.keys(BUILDINGS).forEach(id => { for (let i = 0; i < Math.min(objCount(id), 4); i++) list.push(id); });
   if (!list.length) return "";
@@ -2787,8 +2985,8 @@ function fxMarkup(){
   (S.shipments||[]).forEach(x => {
     const A = LABELS[x.from], B = LABELS[x.to]; if (!A || !B) return;
     const g = fxGeom(A, B), t = 1 - x.left/x.total, pt = qbez(g, t);
-    if (x.dir === "in" && !importQty(x.from, x.r)) lines += `<path class="fx-import faint" d="${fxCurve(A, B).d}"/>`;
-    marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="8.5" class="fx-cg"/><use href="#${iref(x.r)}" x="-6" y="-6" width="12" height="12" class="cu"/></g>`;
+    if (x.dir === "in" && (x.cat || !importQty(x.from, x.r))) lines += `<path class="fx-import faint" d="${fxCurve(A, B).d}"/>`;
+    marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="8.5" class="fx-cg"/><use href="#${iref(cargoIcon(x))}" x="-6" y="-6" width="12" height="12" class="cu"/></g>`;
   });
   Object.values(S.partners||{}).length && Object.entries(S.partners).forEach(([iso,p]) => { const L = LABELS[iso]; if (p.trade && L && !C()[iso] && !contractIsos.includes(iso)) lines += `<path class="fx-trade" d="${fxCurve(home, L).d}"/>`; });
   // own buildings: badges under the capital label
@@ -3027,7 +3225,7 @@ function renderStart(){
 }
 
 /* ---------- Modals ---------- */
-function closeModal(){ modalRoot.innerHTML = ""; }
+function closeModal(){ modalRoot.innerHTML = ""; if (typeof flushAdvice === "function") flushAdvice(); }
 function showReport(){
   if (!S.last) return;
   const d = S.last.d;
@@ -3168,6 +3366,7 @@ document.addEventListener("click", e => {
   if (t.dataset.mapmode){ ui.mapMode = t.dataset.mapmode; render(); return; }
   if (t.dataset.resmode){ ui.resMode = t.dataset.resmode; render(); return; }
   if (t.dataset.mapgo){ ui.tab = "map"; ui.mapSel = t.dataset.mapgo; ui.cardHidden = false; ui.mapFocus = t.dataset.mapgo; render(); window.scrollTo(0,0); return; }
+  if (t.dataset.armytab){ S.armyTab = t.dataset.armytab; save(); render(); return; }
   if (t.dataset.buildcat){ S.buildCat = t.dataset.buildcat; save(); render(); return; }
   if (t.dataset.scenario){ ui.scenario = t.dataset.scenario; renderStart(); return; }
   if (t.dataset.intellevel !== undefined){ S.intel.level = +t.dataset.intellevel; save(); render(); return; }
