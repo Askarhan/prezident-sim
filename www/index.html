@@ -349,6 +349,15 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .cmpbar{height:9px;border-radius:5px;background:#EC5A5A;overflow:hidden}
 .cmpbar i{display:block;height:100%;background:#2F7BEA}
 .cmp-head{display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+.m-puppet{fill:#D8C3F5}
+.sw.m-puppet{background:#D8C3F5;border-color:#9E7AD6}
+.sheet.wide{max-width:860px!important}
+.settle-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.choice.settle small{display:block;margin-top:2px}
+.occ{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.occ+.occ{border-top:1px dashed var(--line);padding-top:10px}
+@media (max-width:640px){.settle-grid{grid-template-columns:1fr}}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -1082,7 +1091,7 @@ function warDay(w){
   initWar(w); w.days++;
   const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
   const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1);
-  const myTroops = me().army*share, thTroops = e.army;
+  const myTroops = freeArmy()*share, thTroops = e.army;
   const allies = Object.values(C()).filter(x => x.ally && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*0.6, 0);
   // 1. the sky
   const aM = my.air + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
@@ -1118,6 +1127,7 @@ function warDay(w){
     if (performance.now() - (ui.alarmT||0) > 20000){ ui.alarmT = performance.now(); advise("gen", `Ракетный удар! ${e.name} выпустила ${fired} ракет, ПВО сбило ${down}. ${hits ? `Попаданий: ${hits}.` : "Все отражены."}`, {tab:"hq", mood: hits > down ? "alert" : null}); sfx("alarm"); }
   }
   Object.keys(w.cd).forEach(k => { if (w.cd[k] > 0) w.cd[k]--; });
+  if (w.peaceCd > 0) w.peaceCd--;
 }
 function warMonth(w){
   initWar(w); const e = C()[w.enemy];
@@ -1144,7 +1154,7 @@ function doStrike(w, type){
     const p = (w.ea.sam||0) > 0 ? clamp(th.ad/(th.ad + 60), 0, 0.8) : 0.05, down = Math.round(fired*p), hits = fired - down;
     w.ea.sam = Math.max(0, (w.ea.sam||0) - down*1.5);
     if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); w.progress = clamp(w.progress + hits*0.25, -100, 100); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
-    else { e.gdp *= 1 - 0.0012*hits; w.progress = clamp(w.progress + hits*0.12, -100, 100); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
+    else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; w.progress = clamp(w.progress + hits*0.12, -100, 100); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
     good = hits >= down;
   } else if (type === "air"){
     if (my.airG < 20) return toast("Нет ударной авиации: нужны штурмовики, бомбардировщики, вертолёты или дроны.");
@@ -1186,7 +1196,7 @@ function updateWarMap(){
   S.wars.forEach(w => {
     const g = warGradient(w); if (!g) return;
     let gr = document.getElementById("occ-" + g.iso);
-    const a = g.mine ? "#F5A524" : "#D94848", b = g.mine ? "#EC5A5A" : "#F5A524";
+    const a = g.mine ? "#F5A524" : "#D94848", b = g.partial ? "#F6B7AA" : g.mine ? "#EC5A5A" : "#F5A524";
     if (!gr){ gr = document.createElementNS(NS, "linearGradient"); gr.id = "occ-" + g.iso; gr.setAttribute("gradientUnits", "userSpaceOnUse"); for (let i = 0; i < 4; i++) gr.appendChild(document.createElementNS(NS, "stop")); defs.appendChild(gr); }
     [["x1",g.x1],["y1",g.y1],["x2",g.x2],["y2",g.y2]].forEach(([k,v]) => gr.setAttribute(k, v.toFixed(1)));
     const st = gr.querySelectorAll("stop"), offs = [0, g.f, g.f, 1], cols = [a, a, b, b];
@@ -1208,7 +1218,7 @@ function warGradient(w){
     front: {x: tgt.x - dx*ext + dx*2*ext*Math.abs(p)/100, y: tgt.y - dy*ext + dy*2*ext*Math.abs(p)/100}};
 }
 function viewHQ(){
-  if (!S.wars.length) return `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Штаб оживёт, когда начнётся война. Объявить войну можно в карточке страны на карте.</p></div>`;
+  if (!S.wars.length) return `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Штаб оживёт, когда начнётся война. Объявить войну можно в карточке страны на карте.</p></div><div class="army-body" style="margin-top:12px">${viewOccupation()}</div>`;
   if (!ui.hqWar || !S.wars.some(w => w.enemy === ui.hqWar)) ui.hqWar = S.wars[0].enemy;
   const w = initWar(S.wars.find(x => x.enemy === ui.hqWar)), e = C()[w.enemy], share = warShare(w);
   const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1);
@@ -1233,15 +1243,193 @@ function viewHQ(){
     </div>
     <div class="panel"><h3>Соотношение сил</h3>
       <div class="cmp-head"><span>Мы</span><span>Противник</span></div>
-      ${cmp("удар по земле", my.g, th.g)}${cmp("оборона", my.gd, th.gd)}${cmp("авиация", my.air, th.air)}${cmp("ПВО", my.ad, th.ad)}${cmp("ударная авиация и дроны", my.airG, th.airG)}${cmp("личный состав, тыс.", me().army*share, e.army)}
+      ${cmp("удар по земле", my.g, th.g)}${cmp("оборона", my.gd, th.gd)}${cmp("авиация", my.air, th.air)}${cmp("ПВО", my.ad, th.ad)}${cmp("ударная авиация и дроны", my.airG, th.airG)}${cmp("личный состав, тыс.", freeArmy()*share, e.army)}
     </div>
     <div class="panel"><h3>Боеприпасы</h3><div class="dip-tags">${amm || `<span class="muted">не расходуются</span>`}</div>
       <div class="label">Сколько дней боёв хватит в текущем режиме. Кончатся — техника этого типа бьёт втрое слабее.</div>
       <button class="btn" data-tab="army" style="align-self:flex-start" onclick="void 0">${ic("ammo","sm")} К складу и закупке</button></div>
     <div class="panel"><h3>Потери за войну</h3><div class="row"><b>Наши</b><span class="muted num">личный состав −${troops(w.troopsLost)}</span></div><div class="bstats">${loss(w.lossMy)}</div><div class="row"><b>Противника</b></div><div class="bstats">${loss(w.lossTh)}</div></div>
     <div class="panel"><h3>Сводки с фронта</h3><ul class="news">${(w.events||[]).map(ev => `<li><span class="when">${esc(ev.d)}</span><span class="${ev.kind==="bad"?"down":ev.kind==="good"?"up":""}">${esc(ev.text)}</span></li>`).join("") || `<li><span class="muted">Пока тихо.</span></li>`}</ul>
-      <button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress < -30 ? "disabled" : ""}>Предложить мир</button></div>
+      <button class="btn primary" data-act="peace" data-arg="${e.id}">Мирные переговоры</button></div>
+  </div>
+  <div class="army-body" style="margin-top:12px">${viewOccupation()}</div>`;
+}
+
+/* ---------- After the war: settlements, occupation, puppets, infamy ---------- */
+const OCC_POLICY = {
+  normal:{name:"Обычное управление", hint:"без особых мер"},
+  rebuild:{name:"Программа восстановления", hint:"стоит денег; интеграция быстрее, люди лояльнее, разрушения чинятся"},
+  self:{name:"Местное самоуправление", hint:"сопротивление падает, но доход на 30% ниже"},
+  iron:{name:"Жёсткий режим", hint:"быстро гасит восстания; мир возмущён, при демократии падает рейтинг"}
+};
+const GARRISON_LV = [[0.5,"Мало"],[1,"Норма"],[2,"Много"]];
+function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1), 0, 100); }
+function garrisonNeed(o){ const e = C()[o.iso]; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2); }
+function garrisonOf(o){ return garrisonNeed(o)*(o.garrison || 1); }
+function garrisonTotal(){ return Object.values(S.occupied||{}).reduce((a,o) => a + garrisonOf(o), 0); }
+function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal()); }
+function occIncomeTarget(o){ return o.gdpFull*(0.3 + 0.7*o.integ)*(o.policy === "self" ? 0.7 : 1)*(1 - 0.4*o.damage); }
+function rebuildCost(o){ return o.gdpFull/12*0.006; }
+function occupy(iso, share, w){
+  const e = C()[iso];
+  const o = {iso, share, res: clamp(30 + share*20 - (ideo("nat") ? 8 : 0), 10, 60), integ:0, damage: clamp(0.2 + (w && w.days ? Math.min(0.4, w.days/600) : 0.2), 0.1, 0.6),
+    garrison:1, policy:"normal", gdpFull: e.gdp*share*0.9, added:0, pop: e.pop, since: S.turn, unrest:0};
+  o.added = occIncomeTarget(o); me().gdp += o.added; me().pop += e.pop*share;
+  RES.forEach(r => { if (e.prof[r.id] > 1) S.annexBonus[r.id] += Math.min(40, (e.prof[r.id]-1)*30)*share; });
+  S.occupied = S.occupied || {}; S.occupied[iso] = o;
+  return o;
+}
+function settleVictory(iso, choice){
+  const e = C()[iso], w = S.pendingVictory && S.pendingVictory.w;
+  const big = e.gdp/Math.max(1, me().gdp);
+  if (choice === "annex"){
+    occupy(iso, 1, w);
+    e.owner = "player"; e.ally = false; e.trade = false; e.sanction = false; e.sanctionsUs = false; e.puppet = false;
+    me().army += e.army*0.2;
+    Object.entries((w && w.eu) || defaultUnits(e, e.tech)).forEach(([id,n]) => { S.units[id] = (S.units[id]||0) + Math.round(n*0.3); });
+    infamyAdd(18 + 25*Math.min(1, big));
+    Object.values(C()).forEach(x => { if (!x.owner && x.region === e.region) x.rel -= 15; });
+    S.mods.push({stat:"approval", v:6, left:6});
+    addLog(`${e.name}: страна присоединена, нужен гарнизон ${troops(garrisonNeed(S.occupied[iso]))}`);
+    advise("gen", `${e.name} — наша. Держите гарнизон и следите за сопротивлением: партизаны уже готовятся.`, {tab:"hq"});
+  } else if (choice === "puppet"){
+    e.puppet = true; e.ally = true; e.trade = true; e.rel = 70; e.sanction = false; e.sanctionsUs = false; e.army *= 0.6;
+    S.puppets = S.puppets || {}; S.puppets[iso] = {loyal:60, since:S.turn};
+    infamyAdd(10 + 10*Math.min(1, big));
+    addLog(`В стране ${e.name} к власти пришло лояльное вам правительство. Дань: ${money(e.gdp*0.1/12)} в месяц.`);
+    advise("dipl", `${e.name} теперь наш сателлит: платит дань и голосует с нами. Но если мы ослабнем — может взбунтоваться.`, {tab:"diplomacy"});
+  } else if (choice === "contrib"){
+    const sum = e.gdp*0.15; S.treasury += sum; e.gdp *= 0.9; e.rel = -60; e.contribUntil = S.turn + 60;
+    infamyAdd(6);
+    addLog(`${e.name} выплатила контрибуцию: ${money(sum)}. 5 лет её закупки у нас на 15% дороже для неё.`);
+    floatText(S.player, `+${money(sum)}`, "cash big"); sfx("cash");
+  } else {
+    infamyAdd(-15); e.rel = 15; Object.values(C()).forEach(x => { if (!x.owner && x.id !== iso) x.rel = Math.min(100, x.rel + 6); });
+    S.mods.push({stat:"stability", v:3, left:6});
+    addLog(`Великодушный мир с ${e.name}: мир уважает ваше решение.`);
+  }
+  S.pendingVictory = null; closeModal(); save(); render(); resumeAfter("victory");
+}
+function showVictory(){
+  const v = S.pendingVictory; if (!v) return;
+  const e = C()[v.iso]; pauseFor("victory");
+  const opt = (id, title, plus, minus) => `<button class="choice settle" data-settle="${id}"><b>${title}</b><small class="up">+ ${plus}</small><small class="down">− ${minus}</small></button>`;
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="vic-title"><div class="sheet event wide">
+    <span class="stamp">${ic("trophy","sm")} Капитуляция · ${MONTHS[S.month]} ${S.year}</span>
+    ${advHead("gen", null, 64)}
+    <h2 id="vic-title">${flag(e.id)} ${esc(e.name)} капитулировала</h2>
+    <blockquote>«Противник подписал капитуляцию, господин президент. Решайте, что будет с этой страной.»</blockquote>
+    <div class="choices settle-grid">
+      ${opt("annex","Аннексия", `вся экономика (${money(e.gdp)}), население, ресурсы, трофеи`, "гарнизон, сопротивление, интеграция годами, сильный удар по репутации")}
+      ${opt("puppet","Марионеточное правительство", `дань ${money(e.gdp*0.1/12)}/мес, союзник, голос в совете`, "может взбунтоваться, если ослабнете; репутация хуже")}
+      ${opt("contrib","Контрибуция", `сразу ${money(e.gdp*0.15)} и выгодная торговля 5 лет`, "страна остаётся врагом")}
+      ${opt("mercy","Великодушный мир", "репутация в мире растёт, отношения со всеми лучше", "ничего не получаете")}
+    </div>
+  </div></div>`;
+  sfx("success");
+}
+function peaceTerms(w){
+  const p = w.progress, e = C()[w.enemy], t = [];
+  if (p >= 25) t.push({id:"land", title:`Забрать ${Math.round(p)}% территории`, desc:`${money(e.gdp*p/100)} экономики и население этих земель; нужен гарнизон`, chance: clamp(0.15 + p/110, 0, 0.95)});
+  if (p >= 10) t.push({id:"pay", title:"Контрибуция", desc:`${money(e.gdp*0.05*(p/50))} сразу`, chance: clamp(0.35 + p/140, 0, 0.95)});
+  t.push({id:"white", title:"Белый мир", desc:"все остаются при своём", chance: clamp(0.45 + p/200, 0.05, 0.95)});
+  if (p < 0) t.push({id:"concede", title:"Уступить", desc:`заплатить ${money(me().gdp*0.03*(-p/50))} и выйти из войны`, chance: 0.9});
+  return t;
+}
+function showPeace(iso){
+  const w = S.wars.find(x => x.enemy === iso); if (!w) return;
+  const e = C()[iso]; pauseFor("peace");
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><div class="sheet">
+    <span class="stamp">Мирные переговоры</span>${advHead("dipl", null, 56)}
+    <h2>${flag(iso)} ${esc(e.name)}</h2>
+    <p class="muted" style="margin:0">Чем лучше положение на фронте, тем больше можно потребовать. Если откажут — придётся ждать месяц.</p>
+    <div class="choices">${peaceTerms(w).map(t => `<button class="choice" data-peace="${t.id}" data-iso="${iso}" ${w.peaceCd > 0 ? "disabled" : ""}><b>${t.title} · шанс ${Math.round(t.chance*100)}%</b><small>${t.desc}</small></button>`).join("")}</div>
+    ${w.peaceCd > 0 ? `<div class="label down">Противник отклонил прошлое предложение. Новые переговоры через ${w.peaceCd} дн.</div>` : ""}
+    <button class="btn" data-closepeace>Продолжить войну</button>
+  </div></div>`;
+}
+function tryPeace(iso, id){
+  const w = S.wars.find(x => x.enemy === iso), e = C()[iso], t = peaceTerms(w).find(x => x.id === id);
+  if (Math.random() > t.chance){ w.peaceCd = 30; toast(`${e.name} отклонила условия.`); closeModal(); resumeAfter("peace"); render(); return; }
+  S.wars = S.wars.filter(x => x !== w); e.rel = -50;
+  if (id === "land"){ const share = w.progress/100; occupy(iso, share, w); e.gdp *= 1 - share*0.9; e.pop *= 1 - share; e.army *= 0.7; e.rel = -80; infamyAdd(8 + 12*share); addLog(`Мир с ${e.name}: к нам отходит ${Math.round(share*100)}% её территории.`); }
+  else if (id === "pay"){ const sum = e.gdp*0.05*(w.progress/50); S.treasury += sum; floatText(S.player, `+${money(sum)}`, "cash big"); infamyAdd(3); addLog(`Мир с ${e.name}: получена контрибуция ${money(sum)}.`); }
+  else if (id === "concede"){ const sum = me().gdp*0.03*(-w.progress/50); S.treasury -= sum; S.mods.push({stat:"approval", v:-6, left:6}); addLog(`Мир с ${e.name}: мы заплатили ${money(sum)}.`); }
+  else addLog(`Подписан белый мир со страной ${e.name}.`);
+  sfx("success"); closeModal(); resumeAfter("peace"); save(); render();
+}
+const OCC_EVENTS = [
+  [o => o.res > 55, o => { me().gdp *= 0.996; return `Партизаны взорвали железнодорожный мост на территории ${partnerName(o.iso)}: экономика −0,4%.`; }, "intel"],
+  [o => o.res > 65, o => { const ids = Object.keys(S.units).filter(id => MODELS[id] && GROUND_K.has(MODELS[id].kind)); let lost = 0; ids.slice(0,3).forEach(id => { const l = Math.min(S.units[id], 1 + Math.floor(S.units[id]*0.004)); S.units[id] -= l; lost += l; }); return `Нападение на гарнизон в ${partnerName(o.iso)}: потеряно ${lost} единиц техники.`; }, "gen"],
+  [o => o.res < 45 && o.integ < 0.8, o => { o.res = Math.max(0, o.res - 10); return `Местный политик в ${partnerName(o.iso)} предложил сотрудничество: сопротивление −10.`; }, "sec"],
+  [o => (S.infamy||0) > 50, o => { S.mods.push({stat:"approval", v:-3, left:4}); Object.values(C()).forEach(x => { if (!x.owner) x.rel -= 3; }); return `Международный трибунал рассматривает дело об оккупации ${partnerName(o.iso)}: отношения со всеми −3.`; }, "dipl"],
+  [o => o.res > 40, o => { S.mods.push({stat:"stability", v:-2, left:3}); return `Беженцы с оккупированной территории (${partnerName(o.iso)}) уходят за границу. Стабильность −2.`; }, "sec"]
+];
+function occupationTurn(){
+  const meC = me();
+  Object.values(S.occupied || {}).slice().forEach(o => {
+    const e = C()[o.iso];
+    const gr = o.garrison || 1, pol = o.policy;
+    let d = 1.2 - (gr - 1)*3.2 - (gr < 1 ? -3 : 0) + o.damage*4 + (S.infamy||0)*0.02 - (ideo("nat") ? 1.2 : 0);
+    if (pol === "rebuild") d -= 1.6*(ideo("dem") ? 1.5 : 1);
+    if (pol === "self") d -= 2.8;
+    if (pol === "iron"){ d -= 5.5; infamyAdd(0.8); if (!ideo("auth")) S.mods.push({stat:"approval", v: ideo("dem") ? -2 : -1, left:1}); }
+    if (o.integ > 0.6) d -= 1.5;
+    o.res = clamp(o.res + d + rnd(-1.5, 1.5), 0, 100);
+    if (o.res < 40) o.integ = Math.min(1, o.integ + (pol === "rebuild" ? 0.035 : 0.02)*(1 - o.damage*0.5));
+    if (pol === "rebuild"){ S.treasury -= rebuildCost(o); o.damage = Math.max(0, o.damage - 0.05); } else o.damage = Math.max(0, o.damage - 0.008);
+    const tgt = occIncomeTarget(o)*(o.res > 70 ? 0.8 : 1); meC.gdp += tgt - o.added; o.added = tgt;
+    if (Math.random() < 0.18){ const evs = OCC_EVENTS.filter(([c]) => c(o)); if (evs.length){ const [, f, who] = pick(evs); const txt = f(o); addLog(txt); advise(who, txt, {tab:"hq", mood: who === "gen" || who === "intel" ? "alert" : null}); } }
+    o.unrest = o.res >= 92 ? (o.unrest||0) + 1 : 0;
+    if (o.res >= 80 && o.unrest === 0) advise("gen", `Сопротивление в ${partnerName(o.iso)} на пределе (${Math.round(o.res)}%). Усильте гарнизон или смените режим — иначе восстание.`, {tab:"hq", mood:"alert", key:"res-"+o.iso, cd:3});
+    if (o.unrest >= 3){
+      meC.gdp = Math.max(meC.gdp*0.5, meC.gdp - o.added); delete S.occupied[o.iso];
+      if (e){ e.owner = null; e.rel = -90; e.army = Math.max(e.army, 10); if (o.share >= 1){ e.gdp = o.gdpFull/0.9*0.7; } }
+      flashMap(o.iso, "bad"); sfx("alarm");
+      addLog(`Восстание! ${partnerName(o.iso)} вернула независимость.`);
+      advise("gen", `Восстание в ${partnerName(o.iso)}: наши войска выбиты, страна снова независима.`, {mood:"alert"});
+    }
+    if (o.integ >= 1 && o.res < 15 && !o.referendum){ o.referendum = true; S.mods.push({stat:"approval", v:4, left:6}); addLog(`Референдум в ${partnerName(o.iso)}: жители проголосовали за вхождение в состав страны. Сопротивление сошло на нет.`); advise("sec", `Референдум в ${partnerName(o.iso)} прошёл в нашу пользу: территория полностью интегрирована.`, {}); }
+  });
+  // puppets
+  Object.entries(S.puppets || {}).slice().forEach(([iso, pp]) => {
+    const e = C()[iso]; if (!e || e.owner){ delete S.puppets[iso]; return; }
+    S.treasury += e.gdp*0.1/12;
+    const ratio = myPower()/Math.max(1, aiPower(e));
+    pp.loyal = clamp(pp.loyal + (ratio > 3 ? 0.8 : ratio > 1.5 ? 0 : -3) - (S.infamy||0)*0.015 + rnd(-1,1), 0, 100);
+    if (pp.loyal < 15){ delete S.puppets[iso]; e.puppet = false; e.ally = false; e.rel = -45; addLog(`${e.name} свергла марионеточное правительство и вышла из-под вашего влияния.`); advise("dipl", `${e.name} больше не наш сателлит: новое правительство враждебно.`, {mood:"alert"}); }
+  });
+  // infamy: decays, spoils relations, triggers sanctions and coalitions
+  S.infamy = Math.max(0, (S.infamy||0) - 0.6);
+  if (S.infamy > 15) Object.values(C()).forEach(x => { if (!x.owner && !x.puppet && !x.ally) x.rel = clamp(x.rel - S.infamy*0.015, -100, 100); });
+  if (S.infamy > 50 && !(me().worldSanctions > 0) && Math.random() < (ideo("auth") ? 0.06 : 0.04)){ me().worldSanctions = 24; addLog("Совет наций ввёл санкции против вас за агрессию."); advise("dipl", "Совет наций ввёл против нас санкции на 2 года из-за репутации агрессора.", {mood:"alert", tab:"diplomacy"}); }
+  if (S.infamy > 55 && Math.random() < 0.025*(S.infamy - 50)/10){
+    const foes = Object.values(C()).filter(x => !x.owner && !x.ally && !x.puppet && canReach(x) && x.rel < 0 && !S.wars.some(w => w.enemy === x.id)).sort((a,b) => aiPower(b) - aiPower(a)).slice(0, 3);
+    if (foes.length >= 2 && foes.reduce((a,x) => a + aiPower(x), 0) > myPower()*0.6){
+      foes.forEach(x => { startWar(x.id, false); x.rel = -100; x.trade = false; });
+      addLog(`⚠ Коалиция против агрессора: ${foes.map(x => x.name).join(", ")} объявили вам войну.`);
+      advise("gen", `Коалиция! ${foes.map(x => x.name).join(", ")} одновременно объявили нам войну. Это ответ на нашу агрессию.`, {tab:"hq", mood:"alert"}); sfx("alarm");
+    }
+  }
+}
+function occCard(o){
+  const e = C()[o.iso], need = garrisonNeed(o);
+  return `<div class="occ"><div class="row"><b>${flag(o.iso)} ${esc(partnerName(o.iso))}${o.share < 1 ? ` · ${Math.round(o.share*100)}% территории` : ""}</b><span class="pill ${o.res > 70 ? "bad" : o.res > 40 ? "warn" : "good"}">сопротивление ${Math.round(o.res)}%</span></div>
+    <div class="row"><small>Сопротивление</small><small class="num">${o.unrest ? `<span class="down">восстание через ${3 - o.unrest} мес.!</span>` : ""}</small></div><div class="bar ${o.res > 70 ? "low" : o.res > 40 ? "mid" : "high"}"><i style="width:${o.res}%"></i></div>
+    <div class="row"><small>Интеграция</small><small class="num">${Math.round(o.integ*100)}% · доход ${money(o.added/12)}/мес из ${money(o.gdpFull/12)}</small></div><div class="bar high"><i style="width:${o.integ*100}%"></i></div>
+    <div class="row"><small>Разрушения</small><small class="num">${Math.round(o.damage*100)}%</small></div>
+    <div class="row"><span>Гарнизон <small class="muted">${troops(garrisonOf(o))} из армии</small></span><span class="seg">${GARRISON_LV.map(([v,l]) => `<button data-garrison="${o.iso}:${v}" aria-pressed="${(o.garrison||1)===v}">${l}</button>`).join("")}</span></div>
+    <div class="modes">${Object.entries(OCC_POLICY).map(([id,pp]) => `<button class="choice ${o.policy===id?"on":""}" data-occpol="${o.iso}:${id}"><b>${pp.name}</b><small>${pp.hint}${id==="rebuild" ? ` · ${money(rebuildCost(o))}/мес` : ""}</small></button>`).join("")}</div>
   </div>`;
+}
+function viewOccupation(){
+  const occ = Object.values(S.occupied || {}), pup = Object.entries(S.puppets || {});
+  const inf = S.infamy || 0;
+  return `<div class="panel"><div class="row"><h3>Репутация агрессора</h3><span class="num ${inf > 50 ? "down" : inf > 25 ? "warn" : "up"}">${Math.round(inf)} / 100</span></div>
+      <div class="bar ${inf > 50 ? "low" : inf > 25 ? "mid" : "high"}"><i style="width:${inf}%"></i></div>
+      <div class="label">${inf > 55 ? "Опасно: соседи могут собрать коалицию, Совет наций вводит санкции." : inf > 25 ? "Мир настороже: отношения со всеми медленно портятся." : "Вас считают предсказуемым партнёром."} Снижается со временем и после великодушного мира.</div></div>
+    ${occ.length ? `<div class="panel"><h3>Оккупированные территории</h3>${occ.map(occCard).join("")}<div class="label">Гарнизоны всего: ${troops(garrisonTotal())} — эти войска не воюют на фронтах.</div></div>` : ""}
+    ${pup.length ? `<div class="panel"><h3>Сателлиты</h3>${pup.map(([iso,pp]) => `<div class="row"><span>${flag(iso)} <b>${esc(partnerName(iso))}</b><br><small class="muted">дань ${money(C()[iso].gdp*0.1/12)}/мес</small></span><span class="num ${pp.loyal < 35 ? "down" : "up"}">лояльность ${Math.round(pp.loyal)}%</span></div>`).join("")}<div class="label">Лояльность держится, пока вы сильнее сателлита минимум в полтора раза.</div></div>` : ""}`;
 }
 
 const SECTORS = [
@@ -1401,6 +1589,9 @@ function migrate(s){
   if (!s.ammo) s.ammo = defaultAmmo(s.units);
   if (!s.prod) s.prod = {}; if (!s.prodAcc) s.prodAcc = {}; if (!s.prodExport) s.prodExport = {};
   if (!s.armyTab) s.armyTab = "ground";
+  if (!s.occupied){ s.occupied = {}; Object.values(s.countries).forEach(x => { if (x.owner === "player" && x.id !== s.player) s.occupied[x.id] = {iso:x.id, share:1, res:25, integ:0.6, damage:0.1, garrison:1, policy:"normal", gdpFull:x.gdp*0.6, added:x.gdp*0.6, pop:x.pop, since:0, unrest:0}; }); }
+  if (s.infamy === undefined) s.infamy = Object.keys(s.occupied).length*15;
+  if (!s.puppets) s.puppets = {};
   if (!s.rails) s.rails = {};
   if (!s.armsExport) s.armsExport = {};
   if (!s.buildCat) s.buildCat = "ind";
@@ -1587,7 +1778,7 @@ function demandPrem(iso, r){
   return ((hashIso(iso+r) % 40) - 8) / 100;
 }
 function premium_(iso, r){ return demandPrem(iso,r) + (tradeOn(iso) ? 0.1 : 0) + relOf(iso)/1000; }
-function contractPrice(iso, r){ return commodPrice(r)*(1 + premium_(iso,r)); }
+function contractPrice(iso, r){ const x = C()[iso]; return commodPrice(r)*(1 + premium_(iso,r) + (x && x.contribUntil > S.turn ? 0.15 : 0)); }
 function partnerCap(iso){ const g = partnerGdp(iso); return g < 40 ? 1 : g < 300 ? 2 : 3; }
 function canContract(iso){
   if (iso === S.player) return {ok:false, why:"это вы"};
@@ -1713,7 +1904,7 @@ function canBuild(id){
 }
 function armyUpkeepMonthly(){ return me().army*0.004*gdppc()/12 + unitsUpkeepYear(S.units)/12; }
 function techMult(t){ return 1 + 0.25*t; }
-function rawPower(){ return me().army + unitsPower(S.units); }
+function rawPower(){ return (S.occupied ? freeArmy() : me().army) + unitsPower(S.units); }
 function myPower(){ return rawPower() * techMult(me().tech) * (0.6 + 0.4*S.stability/100) * (1 + 0.1*tech("comms") + 0.2*tech("drones") + 0.2*tech("missile") + 0.2*tech("cyber")) * (ideo("nat")?1.2:1); }
 function aiPower(c){ return c.army * 3 * techMult(c.tech); }
 
@@ -1840,8 +2031,9 @@ function nextMonth(){
   S.wars.filter(w=>!warsBefore.includes(w.enemy)).forEach(w => flashMap(w.enemy, "bad"));
   S.wars.filter(w=>!warsBefore.includes(w.enemy)).forEach(w => advise("gen", `Тревога! ${C()[w.enemy].name} объявила нам войну. Войска приведены в готовность — жду приказов.`, {tab:"army", mood:"alert"}));
 
-  // 6. wars
+  // 6. wars, occupation, infamy
   warTurn();
+  occupationTurn();
 
   // 6b. intelligence, council, ideology cooldown
   S.intel.pts = Math.min(20, S.intel.pts + S.intel.level*0.8 + 0.2);
@@ -1940,12 +2132,11 @@ function warOutcomes(){
   S.wars.slice().forEach(w => {
     const e = C()[w.enemy];
     if (w.progress >= 100){
-      e.owner = "player"; e.ally=false; e.trade=false; e.sanction=false; e.sanctionsUs=false;
-      meC.gdp += e.gdp*0.6; meC.pop += e.pop; meC.army += e.army*0.3; Object.entries(defaultUnits(e, e.tech)).forEach(([id,n]) => { S.units[id] = (S.units[id]||0) + Math.round(n*0.25); });
-      RES.forEach(r => { if (e.prof[r.id] > 1) S.annexBonus[r.id] += Math.min(40,(e.prof[r.id]-1)*30); });
       S.wars = S.wars.filter(x=>x!==w);
-      Object.values(C()).forEach(x => { if (!x.owner && x.region===e.region) x.rel -= 15; });
-      addLog(`Победа! ${e.name} переходит под ваш контроль.`); advise("gen", `Победа, господин президент! ${e.name} капитулировала.`, {tab:"map"}); sfx("success"); dirty = true;
+      if (S.pendingVictory){ e.rel = -60; addLog(`${e.name} вышла из войны.`); return; }
+      S.pendingVictory = {iso:e.id, w:{eu:w.eu, days:w.days}};
+      addLog(`Победа! ${e.name} капитулировала.`); dirty = true;
+      setTimeout(showVictory, 50);
     } else if (w.progress <= -100){
       S.wars = S.wars.filter(x=>x!==w);
       meC.gdp *= 0.85; S.treasury = Math.max(0, S.treasury - meC.gdp*0.02);
@@ -2483,16 +2674,10 @@ function act(name, arg){
       Object.values(C()).forEach(x => { if (!x.owner && x.id!==t.id){ x.rel -= x.region===t.region ? 12 : 4; if (x.ally && x.rel<30) x.ally=false; } });
       S.mods.push({stat:"approval",v:-5,left:3});
       if (S.council.banned[t.id]){ S.mods.push({stat:"approval",v:-15,left:12}); Object.values(C()).forEach(x=>{ if(!x.owner) x.rel -= 20; }); addLog(`Нападение на ${t.name} нарушает резолюцию Совета наций: весь мир осуждает вас.`); }
-      addLog(`Вы объявили войну стране ${t.name}.`);
+      addLog(`Вы объявили войну стране ${t.name}.`); infamyAdd(S.council.banned[t.id] ? 18 : 9);
       ui.tab = "hq"; sfx("alarm"); break;
     }
-    case "peace": {
-      const w = S.wars.find(x=>x.enemy===arg), t = C()[arg];
-      const chance = 0.45 + w.progress/200;
-      if (Math.random() < chance){ S.wars = S.wars.filter(x=>x!==w); t.rel = -50; addLog(`Подписан мир со страной ${t.name}.`); toast("Мир подписан."); }
-      else { toast(`${t.name} отклонила мирное предложение.`); }
-      break;
-    }
+    case "peace": { showPeace(arg); return; }
     case "buyunit": { orderUnits(arg, KINDS[MODELS[arg].kind].batch); break; }
     case "sellunit": { const m = MODELS[arg], n = Math.min(S.units[arg]||0, KINDS[m.kind].batch); if (n < 1) return; S.units[arg] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); break; }
     case "buyammo": { orderAmmo(arg, AMMO[arg].batch); break; }
@@ -2571,6 +2756,7 @@ function setSpeed(v){
   if (!S || S.over) return;
   if (v===3 && !speed3Unlocked()){ showSpeedOffer(); return; }
   if (S.pendingEvent && v>0){ showReport(); return; }
+  if (S.pendingVictory && v>0){ showVictory(); return; }
   ui.speed = v; if (v>0) ui.resumeSpeed = v;
   pausedBy = null; lastTs = performance.now(); updateClock();
 }
@@ -2580,7 +2766,7 @@ function tick(ts){
   requestAnimationFrame(tick);
   if (!lastTs) lastTs = ts;
   const dt = Math.min(ts - lastTs, 1000); lastTs = ts;
-  if (!S || !S.countries || S.over || ui.speed===0 || S.pendingEvent) return;
+  if (!S || !S.countries || S.over || ui.speed===0 || S.pendingEvent || S.pendingVictory) return;
   if (ui.speed===3 && !speed3Unlocked()){ ui.speed = 2; ui.resumeSpeed = 2; toast("Время ×3 за рекламу закончилось. Скорость ×2."); render(); }
   acc += dt;
   const msDay = SPEED_MS[ui.speed];
@@ -2971,11 +3157,12 @@ function viewArmy(){
     <div class="row"><span class="label">Мы</span><span class="num">${w.progress>0?"+":""}${Math.round(w.progress)}</span><span class="label">Противник</span></div>
     <div class="bar ${w.progress>=0?"high":"low"}"><i style="width:${p}%"></i></div>
     <div class="row"><span class="muted">Наша сила ${Math.round(myPower())} против ${Math.round(aiPower(e))}</span>
-    <div class="btns"><button class="btn primary" data-tab="hq" onclick="void 0" data-hqgo="${e.id}">${ic("army","sm")} Штаб</button><button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress<-30?"disabled":""}>Предложить мир</button></div></div></div>`; }).join("");
+    <div class="btns"><button class="btn primary" data-tab="hq" onclick="void 0" data-hqgo="${e.id}">${ic("army","sm")} Штаб</button><button class="btn" data-act="peace" data-arg="${e.id}">Мирные переговоры</button></div></div></div>`; }).join("");
   const head = `<div class="panel army-head">
       <div class="row"><h3>Вооружённые силы</h3><span class="num">Мощь ${Math.round(myPower()).toLocaleString("ru-RU")}</span></div>
       <div class="bstats"><span>Личный состав <b class="num">${troops(c.army)}</b></span><span>Техники <b class="num">${Object.values(S.units).reduce((a,b)=>a+b,0).toLocaleString("ru-RU")}</b></span><span>Содержание <b class="down num">−${money(armyUpkeepMonthly())}</b>/мес</span><span>Модернизация <b class="num">${c.tech}/5</b></span></div>
-      <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button></div>
+      <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button><button class="btn" data-tab="hq">${ic("army","sm")} Штаб и оккупация</button></div>
+      ${garrisonTotal() ? `<div class="label">В гарнизонах: ${troops(garrisonTotal())}. На фронтах доступно: ${troops(freeArmy())}.</div>` : ""}
     </div>`;
   const tabs = `<div class="filters armytabs">${UCLS.map(([id,l]) => `<button class="chip" data-armytab="${id}" aria-pressed="${tab===id}">${l}</button>`).join("")}</div>`;
   let body = "";
@@ -3021,9 +3208,9 @@ function viewArmy(){
   return `${head}${wars ? `<div class="grid2" style="margin-top:10px">${wars}</div>` : ""}${tabs}<div class="army-body">${body}</div>`;
 }
 function dipRow(x){
-    if (x.owner) return `<div class="dip-row"><div class="dip-name"><b>${esc(x.name)}</b><span class="muted">${x.region}</span></div><div></div><span class="pill good">Под вашим контролем</span></div>`;
+    if (x.owner) return S.occupied && S.occupied[x.id] ? occCard(S.occupied[x.id]) : `<div class="dip-row"><div class="dip-name"><b>${flag(x.id)} ${esc(x.name)}</b><span class="muted">${x.region}</span></div><div></div><span class="pill good">Под вашим контролем</span></div>`;
     const atWar = S.wars.some(w=>w.enemy===x.id);
-    const tags = [x.ally&&`<span class="pill good">Союз</span>`, x.trade&&`<span class="pill state">Торговля</span>`, x.sanction&&`<span class="pill warn">Наши санкции</span>`, x.sanctionsUs&&`<span class="pill bad">Санкции против нас</span>`, atWar&&`<span class="pill bad">Война</span>`].filter(Boolean).join("");
+    const tags = [x.puppet&&`<span class="pill state">Сателлит · лояльность ${Math.round((S.puppets[x.id]||{loyal:0}).loyal)}%</span>`, x.ally&&!x.puppet&&`<span class="pill good">Союз</span>`, x.trade&&`<span class="pill state">Торговля</span>`, x.sanction&&`<span class="pill warn">Наши санкции</span>`, x.sanctionsUs&&`<span class="pill bad">Санкции против нас</span>`, atWar&&`<span class="pill bad">Война</span>`].filter(Boolean).join("");
     return `<div class="dip-row">
       <div class="dip-name"><b>${flag(x.id)} ${esc(x.name)}</b><span class="muted">${x.region} · ВВП ${money(x.gdp)} · сила ${Math.round(aiPower(x))}</span></div>
       <div><div class="rel" title="Отношения ${Math.round(x.rel)}"><b style="left:calc(${(x.rel+100)/2}% - 1px)"></b></div><div class="label num" style="margin-top:4px">${x.rel>0?"+":""}${Math.round(x.rel)}</div></div>
@@ -3064,6 +3251,7 @@ function mapClass(iso){
   if (x.id === S.player) return "m-player";
   if (x.owner) return "m-own";
   if (S.wars.some(w=>w.enemy===x.id)) return "m-war";
+  if (x.puppet) return "m-puppet";
   if (x.ally) return "m-ally";
   if (x.trade || hasContract(iso)) return "m-trade";
   if (x.rel <= -40 || x.sanctionsUs) return "m-hostile";
@@ -3077,8 +3265,8 @@ function viewMap(){
   let svg;
   if (WORLD){
     const [w,h] = mapSize();
-    const occ = {}; S.wars.forEach(w => { const g = warGradient(w); if (g) occ[g.iso] = g; });
-    const occDefs = Object.values(occ).map(g => { const a = g.mine ? "#F5A524" : "#D94848", b = g.mine ? "#EC5A5A" : "#F5A524"; return `<linearGradient id="occ-${g.iso}" gradientUnits="userSpaceOnUse" x1="${g.x1.toFixed(1)}" y1="${g.y1.toFixed(1)}" x2="${g.x2.toFixed(1)}" y2="${g.y2.toFixed(1)}"><stop offset="0" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${b}"/><stop offset="1" stop-color="${b}"/></linearGradient>`; }).join("");
+    const occ = {}; Object.values(S.occupied||{}).forEach(o => { if (o.share < 1){ const g = warGradient({enemy:o.iso, progress:o.share*100}); if (g){ g.partial = true; occ[g.iso] = g; } } }); S.wars.forEach(w => { const g = warGradient(w); if (g && !(occ[g.iso] && occ[g.iso].f > g.f)) occ[g.iso] = g; });
+    const occDefs = Object.values(occ).map(g => { const a = g.mine ? "#F5A524" : "#D94848", b = g.partial ? "#F6B7AA" : g.mine ? "#EC5A5A" : "#F5A524"; return `<linearGradient id="occ-${g.iso}" gradientUnits="userSpaceOnUse" x1="${g.x1.toFixed(1)}" y1="${g.y1.toFixed(1)}" x2="${g.x2.toFixed(1)}" y2="${g.y2.toFixed(1)}"><stop offset="0" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${b}"/><stop offset="1" stop-color="${b}"/></linearGradient>`; }).join("");
     const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = occ[iso] ? `url(#occ-${iso})` : modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${occ[iso]?"m-occ":""} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
     const grid = (() => { const out = []; for (let lat = -60; lat <= 60; lat += 30){ const a = proj(lat, -168), b = proj(lat, 191); if (a) out.push(`<path d="M0,${a.y.toFixed(1)}H${w}" class="${lat===0?"eq":""}"/>`); } for (let lon = -150; lon <= 180; lon += 30){ const a = proj(80, lon), b = proj(-60, lon); if (a) out.push(`<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)}V${b.y.toFixed(1)}"/>`); } return out.join(""); })();
     svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g></g></svg>`;
@@ -3090,8 +3278,8 @@ function viewMap(){
   else if (x.id === S.player) card = `<div class="panel"><div class="row"><h3>${flag(x.id)} ${esc(x.name)} — ваша страна</h3></div>
       <div class="bstats"><span>ВВП <b class="num">${money(x.gdp)}</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
       <p class="muted" style="margin:0">Значки над страной — ваши постройки: нажмите, чтобы открыть нужный раздел. «+» — новая стройка.</p></div>`;
-  else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} Выбранная страна</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
-  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
+  else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
+  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap" id="map-wrap">${svg}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
@@ -3441,7 +3629,8 @@ function viewDiplomacy(){
   const list = Object.values(C()).filter(x=>x.id!==S.player).filter(x=>ui.dipRegion==="Все" || x.region===ui.dipRegion)
     .sort((a,b)=> (a.owner?1:0)-(b.owner?1:0) || b.gdp-a.gdp);
   const row = dipRow;
-  return `${viewCouncil()}<div class="panel" style="margin-top:14px">
+  return `<div class="panel infamy-strip"><div class="row"><span><b>Репутация агрессора</b> <small class="muted">— чем выше, тем хуже к вам относятся, ниже — чем реже вы нападаете</small></span><span class="num ${(S.infamy||0) > 50 ? "down" : (S.infamy||0) > 25 ? "warn" : "up"}">${Math.round(S.infamy||0)} / 100</span></div><div class="bar ${(S.infamy||0) > 50 ? "low" : (S.infamy||0) > 25 ? "mid" : "high"}"><i style="width:${S.infamy||0}%"></i></div></div>
+  <div style="height:12px"></div>${viewCouncil()}<div class="panel" style="margin-top:14px">
     <div class="filters">${["Все",...REGIONS].map(r=>`<button class="chip" data-dipregion="${r}" aria-pressed="${ui.dipRegion===r}">${r}</button>`).join("")}</div>
     ${list.map(row).join("") || `<p class="muted">В этом регионе нет других стран.</p>`}
   </div>`;
@@ -3620,6 +3809,11 @@ document.addEventListener("click", e => {
   if (t.dataset.mapmode){ ui.mapMode = t.dataset.mapmode; render(); return; }
   if (t.dataset.resmode){ ui.resMode = t.dataset.resmode; render(); return; }
   if (t.dataset.mapgo){ ui.tab = "map"; ui.mapSel = t.dataset.mapgo; ui.cardHidden = false; ui.mapFocus = t.dataset.mapgo; render(); window.scrollTo(0,0); return; }
+  if (t.dataset.settle){ settleVictory(S.pendingVictory.iso, t.dataset.settle); return; }
+  if (t.dataset.peace){ tryPeace(t.dataset.iso, t.dataset.peace); return; }
+  if (t.hasAttribute("data-closepeace")){ closeModal(); resumeAfter("peace"); return; }
+  if (t.dataset.garrison){ const [iso, v] = t.dataset.garrison.split(":"); S.occupied[iso].garrison = +v; save(); render(); return; }
+  if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
   if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
   if (t.dataset.warprio){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) w.prio = +t.dataset.warprio; save(); render(); return; }
@@ -3717,7 +3911,7 @@ window.addEventListener("online", netGate); window.addEventListener("offline", n
 document.addEventListener("click", e => { if (e.target.closest("[data-netretry]")){ netGate(); if (!navigator.onLine) toast("Сети всё ещё нет."); } });
 
 /* ---------- Boot ---------- */
-if (load()) { ui.tab = "map"; ui.mapFocus = S.player; render(); } else { S = null; renderStart(); }
+if (load()) { ui.tab = "map"; ui.mapFocus = S.player; render(); if (S.pendingVictory) setTimeout(showVictory, 300); } else { S = null; renderStart(); }
 netGate();
 })();
 </script>
