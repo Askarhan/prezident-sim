@@ -283,6 +283,33 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .fx-bld.add{stroke:#39D0C3;fill:#0E2A2E}
 .fx-pop{animation:fxPop .25s ease-out}
 @keyframes fxPop{from{opacity:0}to{opacity:1}}
+
+/* map modes, capitals, deposits, pins, grid, oceans */
+#map-grid path{fill:none;stroke:#5AA9FF;stroke-opacity:.09;stroke-width:.8;vector-effect:non-scaling-stroke;stroke-dasharray:3 4}
+#map-grid path.eq{stroke-opacity:.18}
+#worldmap path[style]{transition:fill .35s}
+.map-modes{position:absolute;left:56px;top:10px;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:4px;max-width:calc(100% - 70px)}
+.map-screen:has(.map-card) .map-modes{max-width:calc(100% - 66px - min(350px,46%))}
+.map-modes>button{display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 9px;border-radius:9px;border:1px solid var(--line);background:rgb(10 17 32 / .88);color:var(--muted);font-size:12px;font-weight:600}
+.map-modes>button span{display:none}
+.map-modes>button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:rgb(242 169 59 / .12)}
+.map-modes>button[aria-pressed="true"] span{display:inline}
+.res-modes{display:flex;gap:4px;flex-wrap:wrap}
+.res-modes button{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:rgb(10 17 32 / .88);color:var(--muted);font-size:11.5px}
+.res-modes button[aria-pressed="true"]{border-color:var(--rc);color:var(--rc)}
+.mode-leg{display:flex;align-items:center;gap:8px;background:rgb(10 17 32 / .88);border:1px solid var(--line);border-radius:9px;padding:4px 9px}
+.mleg{display:grid;grid-template-columns:auto auto;gap:0 8px;align-items:center}
+.mleg i{grid-column:1/-1;display:block;width:150px;height:7px;border-radius:4px}
+.mleg small{font-size:10px;color:var(--muted)} .mleg small:last-child{text-align:right}
+.fx-ocean text{font:italic 500 10.5px var(--f-body);fill:#5AA9FF;fill-opacity:.42;text-anchor:middle;letter-spacing:.12em}
+.fx-cap text{font:600 9.5px var(--f-body);fill:#C9D6EA;paint-order:stroke;stroke:#081224;stroke-width:3px}
+#map-fx .fx-cap .cap-star{fill:#C9D6EA;stroke:#081224;stroke-width:1px}
+.fx-cap.me text{fill:#FFE0A8} #map-fx .fx-cap.me .cap-star{fill:#F2A93B}
+.fx-dep circle:first-child{fill:#0D1A2E;stroke-width:1.6}
+.fx-dep use{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fx-pin rect{fill:#0D1A2E;stroke:#F2A93B;stroke-width:1.2}
+.fx-pin use{fill:none;stroke:#F2A93B;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:820px){.map-modes{left:52px}.map-screen .legend{left:52px}}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -343,7 +370,7 @@ body.in-game #app{max-width:none;padding:0;height:100vh;height:100dvh}
 .map-screen .map-wrap{position:absolute;inset:0;border:0;border-radius:0}
 .map-screen #worldmap{width:100%;height:100%}
 .map-screen .map-tools{left:10px;right:auto;top:10px}
-.map-screen .legend{position:absolute;left:56px;top:10px;max-width:min(430px,calc(100% - 420px));min-width:220px;display:none;background:rgb(10 17 32 / .93);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0}
+.map-screen .legend{position:absolute;left:56px;top:50px;max-width:min(430px,calc(100% - 420px));min-width:220px;display:none;background:rgb(10 17 32 / .93);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0}
 .map-screen.show-legend .legend{display:flex}
 .tool-legend,.tool-card{display:grid!important}
 .tool-legend[aria-pressed="true"]{border-color:var(--accent)!important;color:var(--accent)!important}
@@ -800,6 +827,49 @@ function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(
 function matShort(mat){ let cost = 0; const miss = {}; for (const r in mat){ const lack = Math.max(0, mat[r] - S.stock[r]); if (lack > 0){ miss[r] = lack; cost += lack*importPrice(r); } } return {miss, cost}; }
 function takeMat(mat){ for (const r in mat) S.stock[r] = Math.max(0, S.stock[r] - mat[r]); }
 function buildTotal(type){ return buildCost(type); }
+
+
+/* ---------- Map data: capitals (lat, lon), oil of minor countries ---------- */
+const CAPITALS = {ru:["Москва",55.75,37.62],kz:["Астана",51.17,71.43],kg:["Бишкек",42.87,74.59],uz:["Ташкент",41.30,69.24],by:["Минск",53.90,27.56],az:["Баку",40.41,49.87],de:["Берлин",52.52,13.40],fr:["Париж",48.86,2.35],gb:["Лондон",51.51,-0.13],it:["Рим",41.90,12.50],es:["Мадрид",40.42,-3.70],pl:["Варшава",52.23,21.01],tr:["Анкара",39.93,32.86],ir:["Тегеран",35.69,51.39],sa:["Эр-Рияд",24.71,46.68],eg:["Каир",30.04,31.24],cn:["Пекин",39.90,116.40],in:["Нью-Дели",28.61,77.21],jp:["Токио",35.68,139.69],kr:["Сеул",37.57,126.98],id:["Джакарта",-6.21,106.85],vn:["Ханой",21.03,105.85],pk:["Исламабад",33.68,73.05],us:["Вашингтон",38.90,-77.04],ca:["Оттава",45.42,-75.70],mx:["Мехико",19.43,-99.13],br:["Бразилиа",-15.79,-47.88],ar:["Буэнос-Айрес",-34.60,-58.38],ng:["Абуджа",9.08,7.40],za:["Претория",-25.75,28.19],au:["Канберра",-35.28,149.13],
+  ua:["Киев",50.45,30.52],tj:["Душанбе",38.56,68.77],tm:["Ашхабад",37.96,58.33],mn:["Улан-Батор",47.89,106.91],af:["Кабул",34.53,69.17],ge:["Тбилиси",41.72,44.79],am:["Ереван",40.18,44.51],iq:["Багдад",33.31,44.36],il:["Иерусалим",31.78,35.22],ae:["Абу-Даби",24.45,54.38],no:["Осло",59.91,10.75],se:["Стокгольм",59.33,18.07],fi:["Хельсинки",60.17,24.94],nl:["Амстердам",52.37,4.90],ch:["Берн",46.95,7.45],gr:["Афины",37.98,23.73],pt:["Лиссабон",38.72,-9.14],ro:["Бухарест",44.43,26.10],th:["Бангкок",13.76,100.50],my:["Куала-Лумпур",3.14,101.69],ph:["Манила",14.60,120.98],bd:["Дакка",23.81,90.41],co:["Богота",4.71,-74.07],ve:["Каракас",10.48,-66.90],pe:["Лима",-12.05,-77.04],cl:["Сантьяго",-33.45,-70.67],cu:["Гавана",23.11,-82.37],ma:["Рабат",34.02,-6.84],dz:["Алжир",36.75,3.06],et:["Аддис-Абеба",9.03,38.74],ke:["Найроби",-1.29,36.82],cd:["Киншаса",-4.44,15.27],ao:["Луанда",-8.84,13.23],nz:["Веллингтон",-41.29,174.78],kp:["Пхеньян",39.04,125.76],tw:["Тайбэй",25.03,121.57],sy:["Дамаск",33.51,36.29],ly:["Триполи",32.89,13.19],sd:["Хартум",15.50,32.56],at:["Вена",48.21,16.37],cz:["Прага",50.08,14.44],hu:["Будапешт",47.50,19.04],rs:["Белград",44.79,20.45]};
+const MINOR_OIL = {no:1.6,iq:2.8,kw:3,qa:2.5,ae:2.6,om:2,ve:2.4,ly:2.4,dz:1.8,ao:1.8,ec:1.2,co:1,gq:1.6,ga:1.4,tm:1.6,bh:1.4,ss:1.2,td:0.8,cg:1.2,my:1,bn:1.8,ye:0.8,sy:0.6,gb:0.7};
+const OCEANS = [["Тихий океан",8,-140],["Тихий океан",18,168],["Атлантический океан",28,-42],["Атлантический океан",-22,-16],["Индийский океан",-22,78],["Северный Ледовитый океан",80,30],["Южный океан",-60,60]];
+const MAP_MODES = [["pol","Политика","diplomacy"],["econ","Экономика","gdp"],["res","Ресурсы","oil"],["army","Армия","army"],["rel","Отношения","approval"]];
+// jsVectorMap "mill" projection (Miller cylindrical, central meridian from the map file)
+function proj(lat, lon){
+  const I = WORLD && WORLD.insets && WORLD.insets[0]; if (!I || !I.bbox) return null;
+  const c = (WORLD.projection && WORLD.projection.centralMeridian) || 0, R = 6381372, rd = Math.PI/180;
+  let dl = lon - c; if (dl < -180) dl += 360; if (dl > 180) dl -= 360;
+  const X = R*dl*rd, Y = -R*Math.log(Math.tan((45 + 0.4*lat)*rd))/0.8, b = I.bbox;
+  return {x:(X - b[0].x)/(b[1].x - b[0].x)*I.width + (I.left||0), y:(Y - b[0].y)/(b[1].y - b[0].y)*I.height + (I.top||0)};
+}
+function resProfile(iso, r){
+  const x = C()[iso];
+  if (r === "oil") return x ? x.prof.oil : (MINOR_OIL[iso] ?? 0.2);
+  if (r === "gold") return goldProf(iso);
+  if (r === "wood") return x ? woodProf(iso) : (WOOD_PROF[iso] ?? supplyProf(iso, "wood"));
+  return x ? x.prof.metal : supplyProf(iso, "steel");
+}
+const hexMix = (a, b, t) => { const pa = a.match(/\w\w/g).map(h=>parseInt(h,16)), pb = b.match(/\w\w/g).map(h=>parseInt(h,16)); return "#" + pa.map((v,i)=>Math.round(v + (pb[i]-v)*t).toString(16).padStart(2,"0")).join(""); };
+const RES_COLOR = {oil:"#F2A93B", wood:"#5FD38D", steel:"#8FB8E8", gold:"#F7D54A"};
+function modeFill(iso){
+  const mode = ui.mapMode || "pol"; if (mode === "pol" || iso === S.player) return null;
+  const x = C()[iso]; if (x && x.owner) return null;
+  const lo = "#132440";
+  if (mode === "econ"){ const g = partnerGdp(iso); return hexMix(lo, "#39D0C3", clamp((Math.log10(g) - 0.4)/4.0, 0, 1)); }
+  if (mode === "army"){ if (!x) return "#121D31"; return hexMix(lo, "#FF5D5D", clamp(Math.log10(aiPower(x))/4, 0, 1)); }
+  if (mode === "rel"){ const r = relOf(iso); return r >= 0 ? hexMix("#22385C", "#2BD9A8", r/100) : hexMix("#22385C", "#FF4D5E", -r/100); }
+  const v = resProfile(iso, ui.resMode || "oil"); return hexMix(lo, RES_COLOR[ui.resMode || "oil"], clamp(v/2.4, 0, 1));
+}
+function modeLegend(){
+  const mode = ui.mapMode || "pol";
+  const bar = (a, b, l, r) => `<span class="mleg"><i style="background:linear-gradient(90deg,${a},${b})"></i><small>${l}</small><small>${r}</small></span>`;
+  if (mode === "econ") return bar("#132440", "#39D0C3", "малый ВВП", "крупный ВВП");
+  if (mode === "army") return bar("#132440", "#FF5D5D", "слабая армия", "сильная армия") + `<small class="muted">Малые страны: нет данных</small>`;
+  if (mode === "rel") return bar("#FF4D5E", "#2BD9A8", "враги −100", "друзья +100");
+  if (mode === "res") return bar("#132440", RES_COLOR[ui.resMode||"oil"], "нет", "много: " + COMMOD[ui.resMode||"oil"].gen);
+  return "";
+}
 
 /* ---------- Flags ---------- */
 const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/4x3/";
@@ -2268,8 +2338,9 @@ function viewMap(){
   let svg;
   if (WORLD){
     const [w,h] = mapSize();
-    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"><title>${esc(partnerName(iso))}</title></path>`; }).join("");
-    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})">${paths}</g></svg>`;
+    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
+    const grid = (() => { const out = []; for (let lat = -60; lat <= 60; lat += 30){ const a = proj(lat, -168), b = proj(lat, 191); if (a) out.push(`<path d="M0,${a.y.toFixed(1)}H${w}" class="${lat===0?"eq":""}"/>`); } for (let lon = -150; lon <= 180; lon += 30){ const a = proj(80, lon), b = proj(-60, lon); if (a) out.push(`<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)}V${b.y.toFixed(1)}"/>`); } return out.join(""); })();
+    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g>${paths}</g></svg>`;
   } else svg = `<div class="map-empty">${worldFailed ? "Не удалось загрузить карту. Проверьте интернет — список стран доступен во вкладке «Дипломатия»." : "Загружаем карту мира…"}</div>`;
   const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
@@ -2283,7 +2354,10 @@ function viewMap(){
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap" id="map-wrap">${svg}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button><button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
-        <div class="legend">${legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("")}</div>
+        <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
+        <div class="map-modes" role="group" aria-label="Режим карты">${MAP_MODES.map(([id,l,icn]) => `<button data-mapmode="${id}" aria-pressed="${(ui.mapMode||"pol")===id}" title="${l}">${ic(icn,"sm")}<span>${l}</span></button>`).join("")}
+          ${(ui.mapMode||"pol") === "res" ? `<div class="res-modes">${Object.keys(COMMOD).map(r=>`<button data-resmode="${r}" aria-pressed="${(ui.resMode||"oil")===r}" style="--rc:${RES_COLOR[r]}">${ic(r,"sm")}${COMMOD[r].name}</button>`).join("")}</div>` : ""}
+          ${(ui.mapMode||"pol") !== "pol" ? `<div class="mode-leg">${modeLegend()}</div>` : ""}</div>
       </div>
       <div class="rotate-hint">${ic("rotate","sm")} Поверните телефон: игра сделана для альбомного режима</div>
       ${card ? `<div class="map-card"><button class="card-x" data-cardx aria-label="Скрыть карточку">${ic("close","sm")}</button>${card}</div>` : ""}
@@ -2344,6 +2418,24 @@ function attachLabels(){
 /* living map: trade & rail routes, contracts, war fronts, own buildings, event ripples */
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
+const PIN_ICON = {sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
+function buildingPins(){
+  const list = []; Object.keys(BUILDINGS).forEach(id => { for (let i = 0; i < Math.min(objCount(id), 4); i++) list.push(id); });
+  if (!list.length) return "";
+  const key = S.player + ":" + list.length;
+  if (!ui.pins || ui.pins.key !== key){
+    const path = document.querySelector(`#worldmap path[data-iso="${S.player}"]`), L = LABELS[S.player]; if (!path || !L) return "";
+    const pts = []; let seed = 7;
+    const rnd1 = () => { seed = (seed*9301 + 49297) % 233280; return seed/233280; };
+    for (let tries = 0; tries < 900 && pts.length < 28; tries++){
+      const x = L.x - L.w/2 + rnd1()*L.w, y = L.y - L.h/2 + rnd1()*L.h;
+      let inside = false; try { inside = path.isPointInFill(new DOMPoint(x, y)); } catch(e){ inside = true; }
+      if (inside && Math.hypot(x - L.x, y - L.y) > Math.min(L.w, L.h)*0.12 && pts.every(q => Math.hypot(q.x-x, q.y-y) > Math.min(L.w, L.h)*0.07)) pts.push({x, y});
+    }
+    ui.pins = {key, pts};
+  }
+  return list.slice(0, ui.pins.pts.length).map((id, i) => { const q = ui.pins.pts[i]; return `<g class="fx-mark fx-pin" data-x="${q.x.toFixed(2)}" data-y="${q.y.toFixed(2)}"><rect x="-7" y="-7" width="14" height="14" rx="4"/><use href="#i-${PIN_ICON[id]||"factory"}" x="-5" y="-5" width="10" height="10"/><title>${BUILDINGS[id].name}</title></g>`; }).join("");
+}
 function fxGeom(a, b){ const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1, off = Math.min(70, len*0.22); return {a, b, c:{x: mx - dy/len*off, y: my + dx/len*off}}; }
 function qbez(g, t){ const u = 1 - t; return {x: u*u*g.a.x + 2*u*t*g.c.x + t*t*g.b.x, y: u*u*g.a.y + 2*u*t*g.c.y + t*t*g.b.y}; }
 function moveCargo(){
@@ -2400,7 +2492,21 @@ function fxMarkup(){
   }
   // ripples for fresh events
   (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS).forEach(f => { const L = LABELS[f.iso]; if (L) marks += mark(L.x, L.y, `<circle r="14" class="fx-rip"/><circle r="14" class="fx-rip r2"/>`, "fx-flash " + f.kind); });
-  return `<g class="fx-lines">${lines}</g><g class="fx-marks">${marks}</g>`;
+  // oceans
+  let under = OCEANS.map(([n, la, lo]) => { const q = proj(la, lo); return q ? `<g class="fx-mark fx-ocean" data-x="${q.x.toFixed(1)}" data-y="${q.y.toFixed(1)}"><text>${n}</text></g>` : ""; }).join("");
+  // capitals
+  Object.entries(CAPITALS).forEach(([iso, [n, la, lo]]) => { if (!LABELS[iso]) return; const q = proj(la, lo); if (!q) return;
+    const tier = iso === S.player ? 0 : C()[iso] ? 1 : 2;
+    under += `<g class="fx-mark fx-cap t${tier} ${iso===S.player?"me":""}" data-x="${q.x.toFixed(1)}" data-y="${q.y.toFixed(1)}" data-tier="${tier}"><path d="M0,-4.2L1.2,-1.3L4.2,-1.3L1.8,0.6L2.7,3.6L0,1.8L-2.7,3.6L-1.8,0.6L-4.2,-1.3L-1.2,-1.3Z" class="cap-star"/><text x="6" y="3.5">${n}</text></g>`; });
+  // deposits in the resource map mode
+  if ((ui.mapMode||"pol") === "res"){
+    const r = ui.resMode || "oil";
+    Object.entries(LABELS).forEach(([iso, L]) => { const v = resProfile(iso, r); if (v < 1.3) return;
+      under += `<g class="fx-mark fx-dep" data-x="${L.x.toFixed(1)}" data-y="${L.y.toFixed(1)}"><g transform="translate(0 15)"><circle r="8" style="stroke:${RES_COLOR[r]}"/><use href="#i-${r}" x="-5" y="-5" width="10" height="10" style="stroke:${RES_COLOR[r]}"/>${v >= 2 ? `<circle r="2.5" cx="7" cy="-7" style="fill:${RES_COLOR[r]}"/>` : ""}</g></g>`; });
+  }
+  // own buildings spread over the country (visible when zoomed in)
+  under += buildingPins();
+  return `<g class="fx-under">${under}</g><g class="fx-lines">${lines}</g><g class="fx-marks">${marks}</g>`;
 }
 function scheduleLabels(){ if (lblRaf) return; lblRaf = requestAnimationFrame(() => { lblRaf = 0; updateLabels(); }); }
 function updateLabels(){
@@ -2433,6 +2539,9 @@ function updateLabels(){
   });
   const s = (upp/k).toFixed(4); ui.fxScale = s;
   document.querySelectorAll("#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
+  document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
+  document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 ? "" : "none"; });
+  document.querySelectorAll("#map-fx .fx-ocean").forEach(el => { el.style.display = k <= 2.4 ? "" : "none"; });
 }
 let resizeT = 0, lastLand = LAND.matches;
 window.addEventListener("resize", () => {
@@ -2742,6 +2851,8 @@ document.addEventListener("click", e => {
   if (t.hasAttribute("data-adspeed")){ adSpeed3(); return; }
   if (t.hasAttribute("data-close-offer")){ closeModal(); resumeAfter("offer"); return; }
   if (t.dataset.mapzoom){ const [w] = WORLD ? mapSize() : [900,440], h = mapVH(); if (t.dataset.mapzoom==="reset") ui.map = {k:1,x:0,y:null}; else mapZoomAt(w/2, h/2, t.dataset.mapzoom==="in" ? 1.5 : 1/1.5); mapApply(); return; }
+  if (t.dataset.mapmode){ ui.mapMode = t.dataset.mapmode; render(); return; }
+  if (t.dataset.resmode){ ui.resMode = t.dataset.resmode; render(); return; }
   if (t.dataset.mapgo){ ui.tab = "map"; ui.mapSel = t.dataset.mapgo; ui.cardHidden = false; ui.mapFocus = t.dataset.mapgo; render(); window.scrollTo(0,0); return; }
   if (t.dataset.buildcat){ S.buildCat = t.dataset.buildcat; save(); render(); return; }
   if (t.dataset.scenario){ ui.scenario = t.dataset.scenario; renderStart(); return; }
@@ -2797,7 +2908,7 @@ function newGame(id){
   if (scen==="lastchance"){ S.debt = mine.gdp*1.4; S.electionIn = 12; S.approval = 42; S.stability = 50; }
   S.hist.appr = [S.approval];
   addLog(`Вы приняли присягу как глава государства ${mine.name}. Сценарий: «${SCENARIOS.find(s=>s.id===scen).name}». Выборы через ${S.electionIn} мес.`);
-  ui.tab = "map"; ui.mapSel = null; ui.map = {k:1,x:0,y:null}; ui.mapFocus = id; ui.speed = 0; pausedBy = null;
+  ui.tab = "map"; ui.mapSel = null; ui.map = {k:1,x:0,y:null}; ui.mapFocus = id; ui.pins = null; ui.mapMode = "pol"; ui.speed = 0; pausedBy = null;
   save(); render();
   let tutSeen = false; try { tutSeen = !!localStorage.getItem(TUT_KEY); } catch(e){}
   if (!tutSeen) setTimeout(() => showTutorial(0), 350);
