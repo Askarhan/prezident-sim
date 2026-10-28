@@ -192,7 +192,7 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-
 .m-minor{fill:#182A47;stroke:#2A4570}
 .sw.m-minor{background:#182A47;border-color:#2A4570}
 .sw.ln-trade,.sw.ln-contract,.sw.ln-rail,.sw.ln-war{height:0;width:16px;border:0;border-top:2.5px dashed;border-radius:0;vertical-align:3px}
-.sw.ln-trade{border-top-color:#5AA9FF}.sw.ln-contract{border-top:2.5px dotted #39D0C3}.sw.ln-rail{border-top:3px solid #F2A93B}.sw.ln-war{border-top-color:#FF5D5D}
+.sw.ln-import{height:0;width:16px;border:0;border-top:2.5px dotted #F7A23B;border-radius:0;vertical-align:3px}.sw.ln-trade{border-top-color:#5AA9FF}.sw.ln-contract{border-top:2.5px dotted #39D0C3}.sw.ln-rail{border-top:3px solid #F2A93B}.sw.ln-war{border-top-color:#FF5D5D}
 #map-labels{pointer-events:none;font-family:var(--f-body);font-weight:600;text-anchor:middle;dominant-baseline:central;paint-order:stroke;stroke:#081224;stroke-linejoin:round;fill:#8FA4C4;letter-spacing:.02em}
 #map-labels .lb-game{fill:#DCE6F5}
 #map-labels .lb-me{fill:#FFE0A8}
@@ -262,6 +262,27 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 
 
 .ad-btn{border-color:rgb(247 201 72 / .55);color:var(--warn);display:inline-flex;align-items:center;gap:6px;align-self:flex-start}
+
+.flag{display:inline-block;width:1.35em;height:1em;border-radius:2px;object-fit:cover;vertical-align:-.12em;box-shadow:0 0 0 1px rgb(255 255 255 / .18)}
+.flag.none{background:linear-gradient(135deg,#2A4570,#14223A)}
+.flag.big{width:30px;height:22px;border-radius:3px;vertical-align:middle}
+.tb-flag{overflow:hidden}
+#map-labels .lb-flag{pointer-events:none}
+.tsides{display:flex;flex-direction:column;gap:6px;width:100%}
+.tside{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 8px}
+.tside small b{font-weight:700}
+.btn.sm{padding:4px 9px;font-size:12px}
+.warn{color:var(--warn)}
+#worldmap #map-fx .fx-import{stroke:#F7A23B;stroke-width:2;stroke-dasharray:2 7;opacity:.95;animation:fxDash .9s linear infinite}
+#worldmap #map-fx .fx-import.faint{opacity:.45}
+.fx-cg{fill:#0D1A2E;stroke-width:1.6}
+.fx-cargo.in .fx-cg{stroke:#F7A23B} .fx-cargo.out .fx-cg{stroke:#39D0C3}
+.fx-cg-ic{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.fx-cargo.in .fx-cg-ic{stroke:#F7A23B} .fx-cargo.out .fx-cg-ic{stroke:#39D0C3}
+#map-fx .fx-btn{pointer-events:auto;cursor:pointer}
+.fx-bld.add{stroke:#39D0C3;fill:#0E2A2E}
+.fx-pop{animation:fxPop .25s ease-out}
+@keyframes fxPop{from{opacity:0}to{opacity:1}}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -513,6 +534,7 @@ const MAT = {farm:{wood:15,steel:10}, oil:{wood:5,steel:30}, mine:{wood:20,steel
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
   tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}};
 const RAIL_MAT = {wood:80, steel:120};
+Object.entries(MAT).forEach(([k, m]) => { if (BUILDINGS[k]) BUILDINGS[k].mat = m; });
 // stock commodities; price = share of the player's GDP per unit, multiplied by a monthly market index
 const COMMOD = {
   wood:{name:"Древесина",gen:"древесины",unit:"тыс. т",price:0.000012,vol:0.03,lo:0.8,hi:1.25,steps:[0,10,25,50],reserve:150,buy:25},
@@ -699,6 +721,8 @@ function migrate(s){
   if (!s.contracts) s.contracts = {};
   if (!s.autoSell) s.autoSell = {wood:false, steel:false, oil:true, gold:true};
   if (!s.partners) s.partners = {};
+  if (!s.shipments) s.shipments = [];
+  if (!s.imports) s.imports = {};
   if (s.lastCommod===undefined) s.lastCommod = 0;
 }
 function addLog(text){ S.log.unshift({t: dateStr(), text}); S.log = S.log.slice(0,60); }
@@ -775,7 +799,21 @@ function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().
 function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(b.days*2.5, b.days + (b.dscale||0)*buildN(type))); }
 function matShort(mat){ let cost = 0; const miss = {}; for (const r in mat){ const lack = Math.max(0, mat[r] - S.stock[r]); if (lack > 0){ miss[r] = lack; cost += lack*importPrice(r); } } return {miss, cost}; }
 function takeMat(mat){ for (const r in mat) S.stock[r] = Math.max(0, S.stock[r] - mat[r]); }
-function buildTotal(type){ return buildCost(type) + matShort(BUILDINGS[type].mat||{}).cost; }
+function buildTotal(type){ return buildCost(type); }
+
+/* ---------- Flags ---------- */
+const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/flags/4x3/";
+let FLAG_BASE = "flags/";
+function flagFail(){ FLAG_BASE = FLAG_BASE === "flags/" ? FLAG_CDN : null; clearTimeout(flagFail.t); flagFail.t = setTimeout(() => { if (S && S.countries) render(); else if (!S) renderStart(); }, 300); }
+function flagUrl(iso){ return FLAG_BASE && /^[a-z]{2}$/.test(iso) ? FLAG_BASE + iso + ".svg" : null; }
+function flag(iso, cls){
+  const u = flagUrl(iso);
+  if (!u) return `<span class="flag none ${cls||""}"></span>`;
+  return `<img class="flag ${cls||""}" src="${u}" alt="" onerror="window.__flagFail&&window.__flagFail('${u}')">`;
+}
+
+// a failed flag from the current source switches all flags to the next source once
+window.__flagFail = u => { if (u && FLAG_BASE && u.startsWith(FLAG_BASE)) flagFail(); };
 
 /* ---------- Commodities & trade ---------- */
 function woodProf(id){ return WOOD_PROF[id] ?? 0.8; }
@@ -845,17 +883,68 @@ function commodProjection(){
   return rev;
 }
 function minorTradeIncome(){ return Object.entries(S.partners).filter(([iso,p])=>p.trade && !C()[iso]).reduce((a,[iso]) => a + Math.min(me().gdp/12*0.0006, partnerGdp(iso)/12*0.004), 0); }
+const IMPORTABLE = ["wood","steel"];
+function supplyProf(iso, r){ const x = C()[iso]; if (x) return r==="wood" ? woodProf(iso) : x.prof.metal; return 0.6 + (hashIso(iso+"s"+r) % 100)/100; }
+function sells(iso, r){ return IMPORTABLE.includes(r) && supplyProf(iso, r) >= 0.9; }
+function travelDays(iso){ const a = LABELS && LABELS[S.player], b = LABELS && LABELS[iso]; if (!a || !b) return 30; return Math.round(clamp(6 + Math.hypot(a.x-b.x, a.y-b.y)*0.12, 6, 75)); }
+// buying is always dearer than selling on the exchange, so goods cannot be flipped for profit
+function importPriceFrom(iso, r){ return commodPrice(r) * (1.3 - clamp((supplyProf(iso, r)-1)*0.2, -0.1, 0.2)) * (1 + travelDays(iso)*0.003) / priceMult(r); }
+function suppliers(r){
+  const pool = [...Object.keys(C()), ...Object.keys(MINOR_GDP).filter(i => MINOR_GDP[i] >= 20 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
+  return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:travelDays(i)})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
+}
+function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r).reduce((a,x)=>a+x.qty, 0); }
+function shipId(){ S.shipSeq = (S.shipSeq||0) + 1; return S.shipSeq; }
+function orderGoods(iso, r, qty, quiet){
+  qty = Math.ceil(qty); if (qty <= 0) return false;
+  const cost = qty*importPriceFrom(iso, r), days = travelDays(iso);
+  if (S.treasury < cost){ if (!quiet) toast("Не хватает денег на закупку."); return false; }
+  S.treasury -= cost;
+  S.shipments = S.shipments || [];
+  S.shipments.push({id:shipId(), from:iso, to:S.player, r, qty, left:days, total:days, dir:"in"});
+  if (!quiet){ addLog(`Заказано: ${COMMOD[r].name.toLowerCase()} ${qty} ${COMMOD[r].unit} из страны ${partnerName(iso)} за ${money(cost)}. Доставка ~${days} дн.`); toast(`Груз в пути: ${COMMOD[r].name.toLowerCase()} ${qty}, ~${days} дн.`); }
+  flashMap(iso, "info");
+  return true;
+}
+function orderForBuilding(id){
+  const sh = matShort(BUILDINGS[id].mat||{}); let any = false, days = 0;
+  for (const r in sh.miss){
+    const need = Math.ceil(sh.miss[r] - inTransit(r)); if (need <= 0) continue;
+    const best = suppliers(r)[0];
+    if (!best){ toast(`Никто сейчас не продаёт: ${COMMOD[r].name.toLowerCase()}.`); continue; }
+    if (orderGoods(best.iso, r, need)) { any = true; days = Math.max(days, best.days); }
+  }
+  if (!any && Object.keys(sh.miss).length) toast("Нужные материалы уже в пути.");
+  return any;
+}
+function importQty(iso, r){ return (S.imports||{})[iso+":"+r] || 0; }
+function allImports(){ return Object.entries(S.imports||{}).filter(([k,q])=>q>0).map(([k,q]) => { const [iso,r] = k.split(":"); return {iso, r, q}; }); }
+function importTurn(){
+  allImports().forEach(({iso, r, q}) => {
+    const chk = canContract(iso);
+    if (!chk.ok){ delete S.imports[iso+":"+r]; addLog(`Закупка ${COMMOD[r].gen} в стране ${partnerName(iso)} остановлена: ${chk.why}.`); return; }
+    if (!orderGoods(iso, r, q, true)) addLog(`Не хватило денег на закупку ${COMMOD[r].gen} в стране ${partnerName(iso)}.`);
+  });
+}
+function shipTick(){
+  if (!S.shipments || !S.shipments.length) return;
+  S.shipments.forEach(x => x.left -= 1);
+  const arrived = S.shipments.filter(x => x.left <= 0);
+  arrived.forEach(x => { if (x.dir === "in"){ S.stock[x.r] += x.qty; toast(`Груз прибыл: ${COMMOD[x.r].name.toLowerCase()} +${x.qty} из страны ${partnerName(x.from)}`); flashMap(S.player, "good"); } });
+  if (arrived.length){ S.shipments = S.shipments.filter(x => x.left > 0); dirty = true; }
+}
 function tradeTurn(){
   let rev = 0; const short = {};
   allContracts().forEach(({iso, r, q}) => {
     const chk = canContract(iso);
     if (!chk.ok || !commodOpen(r)){ delete S.contracts[iso+":"+r]; addLog(`Контракт на поставку ${COMMOD[r].gen} в страну ${partnerName(iso)} расторгнут: ${chk.why||"нет доступа"}.`); return; }
-    const ship = Math.min(q, S.stock[r]);
+    const ship = Math.floor(Math.min(q, S.stock[r], IMPORTABLE.includes(r) ? prodOf(r) : Infinity));
     if (ship < q) short[r] = true;
     S.stock[r] -= ship; rev += ship*contractPrice(iso, r);
+    if (ship > 0){ const d = travelDays(iso); S.shipments = S.shipments || []; S.shipments.push({id:shipId(), from:S.player, to:iso, r, qty:ship, left:d, total:d, dir:"out"}); }
     if (ship > 0){ const x = C()[iso]; if (x) x.rel = Math.min(100, x.rel + 0.3); else partner(iso).rel = Math.min(100, partner(iso).rel + 0.3); }
   });
-  Object.keys(short).forEach(r => addLog(`Не хватило ${COMMOD[r].gen} для всех экспортных контрактов: часть поставок сорвана.`));
+  Object.keys(short).forEach(r => addLog(`Не хватило ${COMMOD[r].gen} для всех экспортных контрактов: по контрактам уходит только своя продукция, не больше месячной добычи.`));
   Object.keys(COMMOD).forEach(r => { if (!S.autoSell[r] || !commodOpen(r)) return; const extra = S.stock[r] - COMMOD[r].reserve; if (extra > 0){ S.stock[r] -= extra; rev += extra*commodPrice(r); } });
   return rev;
 }
@@ -876,7 +965,9 @@ function canBuild(id){
   if (b.max && n >= b.max) return {ok:false, why:`максимум ${b.max}`};
   if (b.perPop && n >= Math.floor(me().pop/b.perPop)+1) return {ok:false, why:"лимит по населению"};
   if (S.queue.length >= maxSlots()) return {ok:false, why:"все стройплощадки заняты"};
-  if (S.treasury < buildTotal(id)) return {ok:false, why:"не хватает денег"};
+  const sh = matShort(b.mat||{});
+  if (Object.keys(sh.miss).length) return {ok:false, mat:true, why:"не хватает: " + Object.entries(sh.miss).map(([k,q])=>`${COMMOD[k].name.toLowerCase()} ${Math.ceil(q)}`).join(", ")};
+  if (S.treasury < buildCost(id)) return {ok:false, why:"не хватает денег"};
   return {ok:true};
 }
 function armyUpkeepMonthly(){ const u = S.units; return me().army*0.004*gdppc()/12 + Object.entries(UNITS).reduce((a,[k,d])=>a + (u[k]||0)*d.upkeep/12, 0); }
@@ -897,7 +988,8 @@ function armsExportIncome(){
 }
 function railIncome(id){ const x = C()[id]; if (!x || x.owner || x.rel < 0) return 0; return Math.min(me().gdp, x.gdp)/12*0.004; }
 function railCost(){ return me().gdp*0.012; }
-function railTotal(){ return railCost() + matShort(RAIL_MAT).cost; }
+function railTotal(){ return railCost(); }
+function railMatOk(){ return S.stock.wood >= RAIL_MAT.wood && S.stock.steel >= RAIL_MAT.steel; }
 
 function budget(){
   const c = me(), m = c.gdp/12;
@@ -915,6 +1007,7 @@ function budget(){
   trade += m * 0.002 * deals * (1 + (K.infra-33)/150) * (ideo("dem")?1.25:1) * (1 + 0.1*objCount("airport"));
   trade += minorTradeIncome();
   const commod = commodProjection();
+  const imports = allImports().reduce((a,x)=>a + x.q*importPriceFrom(x.iso, x.r), 0);
   const objects = Object.keys(BUILDINGS).reduce((a,id)=>a + objCount(id)*objIncome(id), 0);
   const upkeep = Object.keys(BUILDINGS).reduce((a,id)=>a + objCount(id)*objUpkeep(id), 0);
   const rail = Object.keys(S.rails).filter(id=>S.rails[id].done).reduce((a,id)=>a + railIncome(id), 0);
@@ -927,8 +1020,8 @@ function budget(){
   const interest = S.debt * 0.045 / 12;
   const war = m * 0.012 * S.wars.length;
   const income = taxes + Math.max(0,trade) + objects + rail + arms + commod;
-  const spend = sectors + army + laws + interest + war + science + intel + upkeep + Math.max(0,-trade);
-  return {taxes, trade, objects, upkeep, rail, arms, commod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
+  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + Math.max(0,-trade);
+  return {taxes, trade, objects, upkeep, rail, arms, commod, imports, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
 }
 function growthMonthly(){
   let g = 0.0015;
@@ -982,9 +1075,10 @@ function nextMonth(){
 
   // 1. budget
   const b = budget();
+  importTurn();
   const sales = tradeTurn();
   S.lastCommod = sales;
-  S.treasury += b.net - b.commod + sales;
+  S.treasury += b.net - b.commod + b.imports + sales;
   if (sales > c.gdp*0.01) unlock("trader");
   if (new Set(allContracts().map(x=>x.iso)).size >= 8) unlock("partners");
   marketTurn();
@@ -1557,10 +1651,9 @@ function act(name, arg){
   switch(name){
     case "build": {
       const chk = canBuild(arg); if (!chk.ok) return toast("Нельзя построить: " + chk.why + ".");
-      const b = BUILDINGS[arg], mat = b.mat || {}, sh = matShort(mat), days = buildDays(arg);
-      S.treasury -= buildCost(arg) + sh.cost; takeMat(mat);
+      const b = BUILDINGS[arg], mat = b.mat || {}, days = buildDays(arg);
+      S.treasury -= buildCost(arg); takeMat(mat);
       S.queue.push({type:arg, left:days, total:days});
-      if (sh.cost > 0) addLog(`Для стройки «${b.name}» закуплены материалы по импорту: ${Object.entries(sh.miss).map(([r,q])=>`${COMMOD[r].name.toLowerCase()} ${Math.ceil(q)}`).join(", ")} на ${money(sh.cost)}.`);
       toast(`Начато строительство: ${b.name}`); break;
     }
     case "recruit": {
@@ -1613,6 +1706,7 @@ function act(name, arg){
     case "armsexport": { S.armsExport[arg] = !S.armsExport[arg]; break; }
     case "rail": {
       const x = C()[arg], cost = railTotal();
+      if (!railMatOk()) return toast(`Нужно ${RAIL_MAT.steel} стали и ${RAIL_MAT.wood} древесины на складе.`);
       if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
       S.treasury -= cost; takeMat(RAIL_MAT); S.rails[arg] = {left:360, total:360, done:false}; x.rel = Math.min(100, x.rel+5);
       addLog(`Начато строительство железной дороги в страну ${x.name}.`); break;
@@ -1624,9 +1718,8 @@ function act(name, arg){
       toast(`Продано: ${COMMOD[r].name.toLowerCase()} ${q} ${COMMOD[r].unit} за ${money(sum)}`); break;
     }
     case "buy": {
-      const d = COMMOD[arg], cost = d.buy*importPrice(arg);
-      if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
-      S.treasury -= cost; S.stock[arg] += d.buy; toast(`Закуплено: ${d.name.toLowerCase()} +${d.buy} ${d.unit}`); break;
+      const best = suppliers(arg)[0]; if (!best) return toast("Сейчас никто не продаёт этот товар.");
+      orderGoods(best.iso, arg, COMMOD[arg].buy); break;
     }
     case "autosell": S.autoSell[arg] = !S.autoSell[arg]; break;
     case "pimprove": {
@@ -1635,6 +1728,16 @@ function act(name, arg){
       S.treasury -= cost; p.rel = clamp(p.rel + 12, -100, 100); p.improveCd = 3; toast(`Отношения с ${shortName(arg)} улучшены.`); break;
     }
     case "ptrade": { const p = partner(arg); p.trade = !p.trade; if (!p.trade) p.rel -= 8; addLog(p.trade ? `Подписано торговое соглашение с ${shortName(arg)}.` : `Торговое соглашение с ${shortName(arg)} расторгнуто.`); break; }
+    case "import": {
+      const [iso, r, q] = arg.split(":"), key = iso+":"+r, before = S.imports[key] || 0;
+      if (+q > 0 && !canContract(iso).ok) return toast("Закупка невозможна: " + canContract(iso).why + ".");
+      if (+q > 0) S.imports[key] = +q; else delete S.imports[key];
+      if (!before && +q > 0){ addLog(`Подписан договор на закупку: ${q} ${COMMOD[r].unit} ${COMMOD[r].gen} в месяц у страны ${partnerName(iso)}.`); flashMap(iso, "info"); }
+      if (before && !(+q)) addLog(`Закупка ${COMMOD[r].gen} у страны ${partnerName(iso)} прекращена.`);
+      break;
+    }
+    case "orderone": { const [iso, r] = arg.split(":"); orderGoods(iso, r, COMMOD[r].buy); break; }
+    case "ordermat": { orderForBuilding(arg); break; }
     case "contract": {
       const [iso, r, q] = arg.split(":"), key = iso+":"+r, before = S.contracts[key] || 0;
       if (+q > 0 && !canContract(iso).ok) return toast("Контракт невозможен: " + canContract(iso).why + ".");
@@ -1657,6 +1760,7 @@ function dayTick(){
     if (S.research.prog[rc] >= tc.cost){ S.research.done[rc] = true; S.research.current = null; addLog(`Открыта технология «${tc.name}»: ${tc.desc}.`); advise("sec", `Учёные докладывают: открыта технология «${tc.name}» — ${tc.desc}. Какое исследование следующее?`, {tab:"science"}); sfx("success"); dirty = true; }
   }
   Object.keys(COMMOD).forEach(r => { S.stock[r] += prodOf(r)/30; });
+  shipTick();
   const speed = selfSuff("metal") < 60 ? 0.5 : 1;
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
@@ -1696,6 +1800,7 @@ function tick(ts){
   updateClock();
 }
 function updateLive(){
+  if (ui.tab === "map" || document.getElementById("map-fx")) moveCargo();
   document.querySelectorAll("[data-qprog]").forEach(el => { const q = S.queue[+el.dataset.qprog]; if (q) el.style.width = ((1 - q.left/q.total)*100).toFixed(1)+"%"; });
   document.querySelectorAll("[data-qdays]").forEach(el => { const q = S.queue[+el.dataset.qdays]; if (q) el.textContent = Math.ceil(q.left) + " дн."; });
   const rc = S.research.current; if (rc){ const tc = TECH.find(x=>x.id===rc), pr = S.research.prog[rc]||0; document.querySelectorAll("[data-rprog]").forEach(el => el.style.width = Math.min(100, pr/tc.cost*100).toFixed(1)+"%"); document.querySelectorAll("[data-rdays]").forEach(el => el.textContent = `${Math.floor(pr)} / ${tc.cost} · осталось ~${Math.max(1, Math.ceil((tc.cost-pr)/(rpMonthly()/30)))} дн.`); }
@@ -1750,7 +1855,7 @@ function render(){
       </section>`; })() : "";
   app.innerHTML = `<div class="game">
     <header class="topbar">
-      <button class="tb-who" data-tab="summary" aria-label="Сводка"><span class="tb-flag">${ic("star")}</span><span class="tb-name"><b>${esc(c.name)}</b><span class="tb-sub">${sub}</span></span></button>
+      <button class="tb-who" data-tab="summary" aria-label="Сводка"><span class="tb-flag">${flag(S.player, "big")}</span><span class="tb-name"><b>${esc(c.name)}</b><span class="tb-sub">${sub}</span></span></button>
       <div class="tb-kpis">
         <button class="kpi" data-tab="economy" data-kpi="treasury"><span class="label">${ic("budget","sm")}Бюджет</span><span class="v">${money(S.treasury).replace(" $","")}</span></button>
         <button class="kpi k-gdp" data-tab="economy"><span class="label">${ic("gdp","sm")}ВВП</span><span class="v">${money(c.gdp).replace(" $","")}</span></button>
@@ -1880,6 +1985,7 @@ function viewEconomy(){
         ${b.intel? `<tr><td>Спецслужбы</td><td class="down">−${money(b.intel)}</td></tr>`:""}
         <tr><td>Армия</td><td class="down">−${money(b.army)}</td></tr>
         ${b.laws? `<tr><td>Законы</td><td class="${b.laws>0?"down":"up"}">${b.laws>0?"−":"+"}${money(Math.abs(b.laws))}</td></tr>`:""}
+        ${b.imports? `<tr><td>Закупка материалов</td><td class="down">−${money(b.imports)}</td></tr>`:""}
         ${b.upkeep? `<tr><td>Содержание объектов</td><td class="down">−${money(b.upkeep)}</td></tr>`:""}
         <tr><td>Проценты по долгу</td><td class="down">−${money(b.interest)}</td></tr>
         ${b.war? `<tr><td>Военные действия</td><td class="down">−${money(b.war)}</td></tr>`:""}
@@ -1933,7 +2039,7 @@ function viewBuild(){
             ${mat.wood||mat.steel ? `<span class="mat">${ic("wood","sm")}<b class="num ${sh.miss.wood?"down":""}">${mat.wood||0}</b> ${ic("steel","sm")}<b class="num ${sh.miss.steel?"down":""}">${mat.steel||0}</b></span>` : ""}
           </div>
           ${b.scale ? `<div class="label">${buildN(id) ? `Объект № ${buildN(id)+1}: дороже первого на ${Math.round(b.scale*buildN(id)*100)}%, выпуск ${Math.round(Math.pow(b.decay,buildN(id))*100)}% от первого` : `Строить можно сколько угодно; каждый следующий дороже на ${Math.round(b.scale*100)}% и даёт на ${Math.round((1-b.decay)*100)}% меньше`}</div>` : ""}
-          ${sh.cost ? `<div class="label down">Не хватает материалов — докупим за ${money(sh.cost)}</div>` : ""}
+          ${Object.keys(sh.miss).length ? (() => { const tr = Object.keys(sh.miss).map(r=>inTransit(r)).reduce((a,b)=>a+b,0); const est = Object.keys(sh.miss).reduce((a,r)=>{ const best = suppliers(r)[0]; return a + (best ? Math.max(0, Math.ceil(sh.miss[r]-inTransit(r)))*best.price : 0); }, 0); const dd = Math.max(0, ...Object.keys(sh.miss).map(r=>(suppliers(r)[0]||{days:0}).days)); return `<div class="row"><span class="label down">Материалов нет на складе${tr ? ` · в пути ${tr}` : ""}</span>${est > 0 ? `<button class="btn sm" data-act="ordermat" data-arg="${id}">Заказать · ${money(est)} · ~${dd} дн.</button>` : ""}</div>`; })() : ""}
           ${n && inc ? `<div class="label">Все ${n} приносят: <span class="up num">+${money((outR ? objOutTotal(id)*commodPrice(outR) : n*inc) - objUpkeep(id)*n)}</span>/мес</div>` : ""}
           <div class="row"><span class="label ${chk.ok?"":"down"}">${chk.ok?"Можно строить":chk.why}</span><button class="btn ${chk.ok?"primary":""}" data-act="build" data-arg="${id}" ${chk.ok?"":"disabled"}>${money(buildTotal(id))}</button></div>
         </div>`; }).join("")}</div>
@@ -2110,7 +2216,7 @@ function dipRow(x){
     const atWar = S.wars.some(w=>w.enemy===x.id);
     const tags = [x.ally&&`<span class="pill good">Союз</span>`, x.trade&&`<span class="pill state">Торговля</span>`, x.sanction&&`<span class="pill warn">Наши санкции</span>`, x.sanctionsUs&&`<span class="pill bad">Санкции против нас</span>`, atWar&&`<span class="pill bad">Война</span>`].filter(Boolean).join("");
     return `<div class="dip-row">
-      <div class="dip-name"><b>${esc(x.name)}</b><span class="muted">${x.region} · ВВП ${money(x.gdp)} · сила ${Math.round(aiPower(x))}</span></div>
+      <div class="dip-name"><b>${flag(x.id)} ${esc(x.name)}</b><span class="muted">${x.region} · ВВП ${money(x.gdp)} · сила ${Math.round(aiPower(x))}</span></div>
       <div><div class="rel" title="Отношения ${Math.round(x.rel)}"><b style="left:calc(${(x.rel+100)/2}% - 1px)"></b></div><div class="label num" style="margin-top:4px">${x.rel>0?"+":""}${Math.round(x.rel)}</div></div>
       <div class="dip-tags">${tags}</div>
       ${atWar ? "" : `<div class="dip-actions">
@@ -2119,7 +2225,7 @@ function dipRow(x){
         <button class="btn" data-act="ally" data-arg="${x.id}" ${!x.ally && x.rel<60?"disabled":""}>${x.ally?"Выйти из союза":"Союз (от +60)"}</button>
         <button class="btn" data-act="sanction" data-arg="${x.id}">${x.sanction?"Снять санкции":"Санкции"}</button>
         ${S.rails[x.id] ? (S.rails[x.id].done ? `<span class="pill good">Ж/д: +${money(railIncome(x.id))}/мес</span>` : `<span class="pill state">Ж/д строится: ${Math.ceil(S.rails[x.id].left)} дн.</span>`)
-          : canReach(x) ? `<button class="btn" data-act="rail" data-arg="${x.id}" ${x.rel<40||S.treasury<railTotal()?"disabled":""} title="Доход ~${money(railIncome(x.id))} в месяц; нужно ${RAIL_MAT.steel} стали и ${RAIL_MAT.wood} древесины">Железная дорога (от +40) · ${money(railTotal())}</button>` : ""}
+          : canReach(x) ? `<button class="btn" data-act="rail" data-arg="${x.id}" ${x.rel<40||S.treasury<railTotal()||!railMatOk()?"disabled":""} title="Доход ~${money(railIncome(x.id))} в месяц">Железная дорога (от +40) · ${money(railTotal())} + ${RAIL_MAT.steel} стали, ${RAIL_MAT.wood} древесины</button>` : ""}
         ${canReach(x) && !x.ally ? `<button class="btn danger" data-act="war" data-arg="${x.id}">${S.council.banned[x.id]?"Война (нарушит резолюцию)":"Объявить войну"}</button>` : ""}
       </div>`}
     </div>`;
@@ -2158,28 +2264,29 @@ function mapClass(iso){
 function mapSize(){ const w = WORLD.width || (WORLD.insets && WORLD.insets[0].width) || 900; const h = WORLD.height || (WORLD.insets && WORLD.insets[0].height) || 440; return [w,h]; }
 function viewMap(){
   if (!ui.map) ui.map = {k:1, x:0, y:null};
-  if (!ui.mapSel) ui.mapSel = S.player;
+
   let svg;
   if (WORLD){
     const [w,h] = mapSize();
     const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"><title>${esc(partnerName(iso))}</title></path>`; }).join("");
     svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})">${paths}</g></svg>`;
   } else svg = `<div class="map-empty">${worldFailed ? "Не удалось загрузить карту. Проверьте интернет — список стран доступен во вкладке «Дипломатия»." : "Загружаем карту мира…"}</div>`;
-  const sel = ui.mapSel, x = C()[sel];
+  const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
-  if (!x) card = partnerCard(sel);
-  else if (x.id === S.player) card = `<div class="panel"><div class="row"><h3>${ic("home","sm")} ${esc(x.name)} — ваша страна</h3></div>
+  if (!sel) card = null;
+  else if (!x) card = partnerCard(sel);
+  else if (x.id === S.player) card = `<div class="panel"><div class="row"><h3>${flag(x.id)} ${esc(x.name)} — ваша страна</h3></div>
       <div class="bstats"><span>ВВП <b class="num">${money(x.gdp)}</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
-      <p class="muted" style="margin:0">Нажмите на другую страну, чтобы увидеть отношения и действия.</p></div>`;
+      <p class="muted" style="margin:0">Значки над страной — ваши постройки: нажмите, чтобы открыть нужный раздел. «+» — новая стройка.</p></div>`;
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} Выбранная страна</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
-  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Экспортный контракт"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
+  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap" id="map-wrap">${svg}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button><button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("")}</div>
       </div>
       <div class="rotate-hint">${ic("rotate","sm")} Поверните телефон: игра сделана для альбомного режима</div>
-      <div class="map-card"><button class="card-x" data-cardx aria-label="Скрыть карточку">${ic("close","sm")}</button>${card}</div>
+      ${card ? `<div class="map-card"><button class="card-x" data-cardx aria-label="Скрыть карточку">${ic("close","sm")}</button>${card}</div>` : ""}
     </div>`;
 }
 // height of the visible viewBox: in landscape the map fills its box, so the viewBox takes the box's aspect ratio
@@ -2224,6 +2331,9 @@ function attachLabels(){
     if (cls) t.setAttribute("class", cls);
     t.textContent = partnerName(iso);
     lg.appendChild(t);
+    const u = flagUrl(iso);
+    if (u){ const im = document.createElementNS("http://www.w3.org/2000/svg", "image"); im.setAttribute("href", u); im.dataset.fiso = iso; im.setAttribute("class", "lb-flag"); im.setAttribute("preserveAspectRatio", "none");
+      im.addEventListener("error", () => { im.remove(); window.__flagFail(u); }); lg.appendChild(im); }
   });
   const fx = document.createElementNS("http://www.w3.org/2000/svg", "g"); fx.id = "map-fx";
   fx.innerHTML = fxMarkup();
@@ -2234,6 +2344,19 @@ function attachLabels(){
 /* living map: trade & rail routes, contracts, war fronts, own buildings, event ripples */
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
+function fxGeom(a, b){ const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1, off = Math.min(70, len*0.22); return {a, b, c:{x: mx - dy/len*off, y: my + dx/len*off}}; }
+function qbez(g, t){ const u = 1 - t; return {x: u*u*g.a.x + 2*u*t*g.c.x + t*t*g.b.x, y: u*u*g.a.y + 2*u*t*g.c.y + t*t*g.b.y}; }
+function moveCargo(){
+  if (!LABELS || !S || !S.shipments) return;
+  const s = ui.fxScale || 1;
+  document.querySelectorAll("#map-fx .fx-cargo").forEach(el => {
+    const x = S.shipments.find(q => q.id == el.dataset.sid); if (!x){ el.remove(); return; }
+    const A = LABELS[x.from], B = LABELS[x.to]; if (!A || !B) return;
+    const pt = qbez(fxGeom(A, B), clamp(1 - (x.left - acc/SPEED_MS[ui.speed||1])/x.total, 0, 1));
+    el.dataset.x = pt.x.toFixed(1); el.dataset.y = pt.y.toFixed(1);
+    el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})`);
+  });
+}
 function fxCurve(a, b){
   const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1, off = Math.min(70, len*0.22);
   const cx = mx - dy/len*off, cy = my + dx/len*off;
@@ -2255,15 +2378,26 @@ function fxMarkup(){
     } else if (S.rails[x.id]) lines += `<path class="fx-rail ${S.rails[x.id].done?"":"wip"}" d="${cv.d}"/>`;
     else if (x.trade) lines += `<path class="fx-trade" d="${cv.d}"/>`;
   });
-  contractIsos.forEach(iso => { const L = LABELS[iso]; if (!L || S.wars.some(w=>w.enemy===iso)) return; lines += `<path class="fx-contract" d="${fxCurve(L, home).d}"/>`; });
+  contractIsos.forEach(iso => { const L = LABELS[iso]; if (!L || S.wars.some(w=>w.enemy===iso)) return; lines += `<path class="fx-contract" d="${fxCurve(home, L).d}"/>`; });
+  [...new Set(allImports().map(c=>c.iso))].forEach(iso => { const L = LABELS[iso]; if (L) lines += `<path class="fx-import" d="${fxCurve(L, home).d}"/>`; });
+  (S.shipments||[]).forEach(x => {
+    const A = LABELS[x.from], B = LABELS[x.to]; if (!A || !B) return;
+    const g = fxGeom(A, B), t = 1 - x.left/x.total, pt = qbez(g, t);
+    if (x.dir === "in" && !importQty(x.from, x.r)) lines += `<path class="fx-import faint" d="${fxCurve(A, B).d}"/>`;
+    marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="8.5" class="fx-cg"/><use href="#i-${x.r}" x="-5.5" y="-5.5" width="11" height="11" class="fx-cg-ic"/></g>`;
+  });
   Object.values(S.partners||{}).length && Object.entries(S.partners).forEach(([iso,p]) => { const L = LABELS[iso]; if (p.trade && L && !C()[iso] && !contractIsos.includes(iso)) lines += `<path class="fx-trade" d="${fxCurve(home, L).d}"/>`; });
   // own buildings: badges under the capital label
   const groups = [["wood",["sawmill"]],["steel",["steelworks"]],["oil",["oilrig","oil"]],["gold",["goldmine"]],["factory",["factory","chem","auto","chips"]],["bridge",["bridge","highway","metro","airport","port"]],["tank",["tankplant","heliplant","aviaplant","samplant"]]]
     .map(([icn, ids]) => [icn, ids.reduce((a,id)=>a+objCount(id),0)]).filter(([,n])=>n>0);
-  groups.forEach(([icn, n], i) => {
-    const dx = (i - (groups.length-1)/2) * 23;
-    marks += mark(home.x, home.y, `<g transform="translate(${dx} -20)"><circle r="9.5" class="fx-bld"/><use href="#i-${icn}" x="-6" y="-6" width="12" height="12" class="fx-bld-ic"/>${n>1?`<text x="8" y="-6" class="fx-n">${n}</text>`:""}</g>`, "");
-  });
+  if (ui.mapSel === S.player && !ui.cardHidden){
+    const go = {wood:"build:mat", steel:"build:mat", oil:"build:mat", gold:"build:mat", factory:"build:ind", bridge:"build:inf", tank:"army"};
+    const all = [...groups, ["plus", 0]];
+    all.forEach(([icn, n], i) => {
+      const dx = (i - (all.length-1)/2) * 30;
+      marks += mark(home.x, home.y, `<g class="fx-btn" data-go="${icn==="plus" ? "build" : go[icn]}" transform="translate(${dx} -26)"><circle r="12.5" class="fx-bld ${icn==="plus"?"add":""}"/><use href="#i-${icn}" x="-7.5" y="-7.5" width="15" height="15" class="fx-bld-ic"/>${n>1?`<text x="10" y="-8" class="fx-n">${n}</text>`:""}</g>`, "fx-pop");
+    });
+  }
   // ripples for fresh events
   (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS).forEach(f => { const L = LABELS[f.iso]; if (L) marks += mark(L.x, L.y, `<circle r="14" class="fx-rip"/><circle r="14" class="fx-rip r2"/>`, "fx-flash " + f.kind); });
   return `<g class="fx-lines">${lines}</g><g class="fx-marks">${marks}</g>`;
@@ -2277,7 +2411,7 @@ function updateLabels(){
   const PX = r.width < 520 ? 9.5 : 11.5;
   lg.setAttribute("font-size", (PX*upp/k).toFixed(3));
   lg.setAttribute("stroke-width", (3*upp/k).toFixed(3));
-  const items = [...lg.children].map(t => {
+  const items = [...lg.querySelectorAll("text")].map(t => {
     const iso = t.dataset.iso, L = LABELS[iso];
     return { t, iso, sx:(L.x*k + m.x)/upp, sy:(L.y*k + m.y)/upp, sw:L.w*k/upp, sh:L.h*k/upp, tw:t.textContent.length*PX*0.56,
       pri: iso===ui.mapSel ? 4 : iso===S.player ? 3 : C()[iso] ? 2 : 1 };
@@ -2288,12 +2422,16 @@ function updateLabels(){
     const vis = it.sx > -40 && it.sx < r.width + 40 && it.sy > -10 && it.sy < r.height + 10;
     let ok = fits && vis;
     if (ok){
-      const box = [it.sx - it.tw/2 - 2, it.sy - PX*0.6, it.sx + it.tw/2 + 2, it.sy + PX*0.6];
+      const box = [it.sx - it.tw/2 - PX*1.5, it.sy - PX*0.6, it.sx + it.tw/2 + 2, it.sy + PX*0.6];
       if (placed.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) ok = false; else placed.push(box);
     }
     it.t.style.display = ok ? "" : "none";
+    const fl = lg.querySelector(`image[data-fiso="${it.iso}"]`);
+    if (fl){ const fw = PX*1.25*upp/k, fh = PX*0.94*upp/k, L = LABELS[it.iso];
+      if (ok && (it.pri >= 2 || k >= 2.2)){ fl.style.display = ""; fl.setAttribute("x", (L.x - (it.tw/2 + 3)*upp/k - fw).toFixed(2)); fl.setAttribute("y", (L.y - fh/2).toFixed(2)); fl.setAttribute("width", fw.toFixed(2)); fl.setAttribute("height", fh.toFixed(2)); }
+      else fl.style.display = "none"; }
   });
-  const s = (upp/k).toFixed(4);
+  const s = (upp/k).toFixed(4); ui.fxScale = s;
   document.querySelectorAll("#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
 }
 let resizeT = 0, lastLand = LAND.matches;
@@ -2304,25 +2442,33 @@ window.addEventListener("resize", () => {
 });
 
 function tradeBlock(iso){
-  const chk = canContract(iso), cap = partnerCap(iso);
+  const chk = canContract(iso), cap = partnerCap(iso), days = travelDays(iso);
   const rows = Object.entries(COMMOD).map(([r,d]) => {
     if (!commodOpen(r)) return `<div class="trow locked"><span class="tname"><span>${ic(r)}${d.name}</span><small class="muted">нужна технология «${TECH.find(t=>t.id===d.tech).name}»</small></span></div>`;
-    const pr = premium_(iso, r), q = contractQty(iso, r);
-    return `<div class="trow"><span class="tname"><span>${ic(r)}${d.name}</span><small class="num"><span class="${pr>=0?"up":"down"}">${pr>=0?"+":""}${Math.round(pr*100)}% к бирже</span> · ${money(contractPrice(iso,r))} за ${d.unit}</small></span>
-      <span class="seg" role="group" aria-label="${d.name}: поставки в месяц">${d.steps.map((s,i)=>`<button data-act="contract" data-arg="${iso}:${r}:${s}" aria-pressed="${q===s}" ${s>0 && (i>cap || !chk.ok) ? "disabled" : ""}>${s}</button>`).join("")}</span></div>`;
+    const pr = premium_(iso, r), q = contractQty(iso, r), canBuy = sells(iso, r), qi = importQty(iso, r);
+    return `<div class="trow"><span class="tname"><span>${ic(r)}${d.name}</span></span>
+      <div class="tsides">
+        <div class="tside"><small class="num"><b class="up">Продаём</b> ${money(contractPrice(iso,r))} <span class="${pr>=0?"up":"down"}">(${pr>=0?"+":""}${Math.round(pr*100)}%)</span></small>
+          <span class="seg" role="group" aria-label="${d.name}: продажа в месяц">${d.steps.map((st,k)=>`<button data-act="contract" data-arg="${iso}:${r}:${st}" aria-pressed="${q===st}" ${st>0 && (k>cap || !chk.ok) ? "disabled" : ""}>${st}</button>`).join("")}</span></div>
+        ${IMPORTABLE.includes(r) ? (canBuy ? `<div class="tside"><small class="num"><b class="warn">Покупаем</b> ${money(importPriceFrom(iso,r))} · ~${days} дн.</small>
+          <span class="seg" role="group" aria-label="${d.name}: закупка в месяц">${d.steps.map(st=>`<button data-act="import" data-arg="${iso}:${r}:${st}" aria-pressed="${qi===st}" ${st>0 && !chk.ok ? "disabled" : ""}>${st}</button>`).join("")}</span>
+          <button class="btn sm" data-act="orderone" data-arg="${iso}:${r}" ${!chk.ok?"disabled":""}>Разовый заказ ${d.buy}</button></div>`
+          : `<div class="tside"><small class="muted">Не продаёт ${d.gen}</small></div>`) : ""}
+      </div></div>`;
   }).join("");
   const sum = allContracts().filter(c=>c.iso===iso).reduce((a,c)=>a + c.q*contractPrice(iso,c.r), 0);
+  const cost = allImports().filter(c=>c.iso===iso).reduce((a,c)=>a + c.q*importPriceFrom(iso,c.r), 0);
   return `<div class="tblock">
-    <div class="row"><b>${ic("trade","sm")} Экспортные контракты</b><span class="label">поставки в месяц${sum ? ` · <span class="up num">+${money(sum)}</span>` : ""}</span></div>
+    <div class="row"><b>${ic("trade","sm")} Торговля</b><span class="label">в месяц${sum ? ` · <span class="up num">+${money(sum)}</span>` : ""}${cost ? ` · <span class="down num">−${money(cost)}</span>` : ""}</span></div>
     ${chk.ok ? "" : `<div class="label down">Торговля невозможна: ${chk.why}.</div>`}
     ${rows}
-    <div class="label">Товар уходит со склада каждый месяц. Цена зависит от спроса страны, отношений и торгового договора (+10%). ${cap<3 ? "Небольшая экономика: крупные партии не покупает." : ""}</div>
+    <div class="label">Груз идёт по карте ~${days} дн. Продаём только свою продукцию, не больше месячной добычи. ${cap<3 ? "Небольшая экономика: крупные партии не покупает." : ""}</div>
   </div>`;
 }
 function partnerCard(iso){
   const p = partner(iso), g = partnerGdp(iso), cost = improveCost()*0.5;
   return `<div class="panel">
-    <div class="row"><h3>${ic("diplomacy","sm")} ${esc(shortName(iso))}</h3><span class="pill state">Торговый партнёр</span></div>
+    <div class="row"><h3>${flag(iso)} ${esc(shortName(iso))}</h3><span class="pill state">Торговый партнёр</span></div>
     <div class="bstats"><span>ВВП ~<b class="num">${money(g)}</b></span><span>Отношения <b class="num">${p.rel>0?"+":""}${Math.round(p.rel)}</b></span>${p.trade?`<span class="up">Торговый договор действует</span>`:""}</div>
     <div class="rel"><b style="left:calc(${(p.rel+100)/2}% - 1px)"></b></div>
     <div class="dip-actions">
@@ -2347,18 +2493,19 @@ function viewTrade(){
       <div class="row"><span class="btns">
         <button class="btn" data-act="sell" data-arg="${r}:0.5" ${S.stock[r]<2?"disabled":""}>Продать половину</button>
         <button class="btn" data-act="sell" data-arg="${r}:1" ${S.stock[r]<1?"disabled":""}>Продать всё</button>
-        ${d.buy ? `<button class="btn" data-act="buy" data-arg="${r}" ${S.treasury<d.buy*importPrice(r)?"disabled":""}>Купить ${d.buy} · ${money(d.buy*importPrice(r))}</button>` : ""}
+        ${d.buy ? (() => { const bs = suppliers(r)[0]; return bs ? `<button class="btn" data-act="buy" data-arg="${r}" ${S.treasury<d.buy*bs.price?"disabled":""}>Заказать ${d.buy} · ${money(d.buy*bs.price)} · ${esc(partnerName(bs.iso))}, ~${bs.days} дн.</button>` : ""; })() : ""}
+        ${inTransit(r) ? `<span class="pill state">В пути: ${inTransit(r)}</span>` : ""}
       </span>
       <span class="mat"><small class="muted">Продавать излишки${d.reserve?` (запас ${d.reserve})`:""}</small><button class="switch" style="grid-row:auto;grid-column:auto" role="switch" aria-checked="${!!S.autoSell[r]}" aria-label="Автопродажа: ${d.name}" data-act="autosell" data-arg="${r}"></button></span></div>
     </div>`; };
   const list = allContracts();
   const rowsC = list.map(c => { const d = COMMOD[c.r], v = c.q*contractPrice(c.iso,c.r);
-    return `<div class="row"><span><b>${esc(partnerName(c.iso))}</b><br><small class="muted">${d.name}: ${c.q} ${d.unit} в месяц · ${money(contractPrice(c.iso,c.r))} за ${d.unit}</small></span>
+    return `<div class="row"><span><b>${flag(c.iso)} ${esc(partnerName(c.iso))}</b><br><small class="muted">${d.name}: ${c.q} ${d.unit} в месяц · ${money(contractPrice(c.iso,c.r))} за ${d.unit}</small></span>
       <span class="btns"><span class="num up">+${money(v)}</span><button class="btn" data-mapgo="${c.iso}">${ic("map","sm")} На карте</button><button class="btn" data-act="contract" data-arg="${c.iso}:${c.r}:0">Расторгнуть</button></span></div>`; }).join("");
   const pool = [...Object.keys(C()).filter(i=>i!==S.player), ...Object.keys(MINOR_GDP).filter(i=>MINOR_GDP[i]>=40 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
   const buyers = Object.entries(COMMOD).filter(([r])=>commodOpen(r)).map(([r,d]) => {
     const top = pool.filter(i=>canContract(i).ok).map(i=>[i, premium_(i,r)]).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${d.name}</b></span><span class="btns">${top.map(([i,p])=>`<button class="chip" data-mapgo="${i}">${esc(partnerName(i))} <span class="up num">+${Math.round(p*100)}%</span></button>`).join("")}</span></div>`; }).join("");
+    return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${d.name}</b></span><span class="btns">${top.map(([i,p])=>`<button class="chip" data-mapgo="${i}">${flag(i)} ${esc(partnerName(i))} <span class="up num">+${Math.round(p*100)}%</span></button>`).join("")}</span></div>`; }).join("");
   return `<div class="grid2">
     <div class="panel"><h3>Мировая биржа</h3>${Object.entries(COMMOD).map(([r,d])=>mrow(r,d)).join("")}
       <div class="label">Цены меняются каждый месяц. Продавайте, когда цена выше обычной.</div></div>
@@ -2370,6 +2517,7 @@ function viewTrade(){
       <button class="btn" data-tab="build" style="align-self:flex-start">${ic("factory","sm")} К стройкам</button></div>
     <div class="panel" style="grid-column:1/-1"><h3>Склад</h3>${Object.entries(COMMOD).map(([r,d])=>stockRow(r,d)).join("")}</div>
     <div class="panel"><h3>Экспортные контракты</h3>${rowsC || `<p class="muted" style="margin:0">Контрактов пока нет. Выберите страну на карте и задайте объём поставок — товар будет уходить со склада каждый месяц по цене выше биржевой.</p>`}</div>
+    <div class="panel"><h3>Где купить материалы</h3>${IMPORTABLE.map(r => { const top = suppliers(r).slice(0,3); return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${COMMOD[r].name}</b></span><span class="btns">${top.map(x=>`<button class="chip" data-mapgo="${x.iso}">${flag(x.iso)} ${esc(partnerName(x.iso))} <span class="num warn">${money(x.price)} · ${x.days} дн.</span></button>`).join("") || `<span class="muted">никто не продаёт</span>`}</span></div>`; }).join("")}<div class="label">Цена за ${COMMOD.wood.unit}, с доставкой. Ближе — быстрее.</div></div>
     <div class="panel"><h3>Лучшие покупатели</h3>${buyers || `<p class="muted" style="margin:0">Нечего продавать.</p>`}<div class="label">Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div></div>
   </div>`;
 }
@@ -2406,7 +2554,12 @@ function attachMap(){
     }
   });
   const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
-    if (!moved && e.type==="pointerup"){ const el = document.elementFromPoint(e.clientX, e.clientY); const p = el && el.closest("path[data-iso]"); if (p){ ghostUntil = performance.now() + 450; ui.mapSel = p.dataset.iso; ui.cardHidden = false; render(); } } };
+    if (!moved && e.type==="pointerup"){ const el = document.elementFromPoint(e.clientX, e.clientY);
+      const btn = el && el.closest(".fx-btn");
+      if (btn){ ghostUntil = performance.now() + 450; const [tab, cat] = btn.dataset.go.split(":"); if (cat) S.buildCat = cat; ui.tab = tab; sfx("tap"); render(); return; }
+      const p = el && el.closest("path[data-iso]");
+      if (!p && ui.mapSel){ ui.mapSel = null; render(); return; }
+      if (p){ ghostUntil = performance.now() + 450; ui.mapSel = p.dataset.iso; ui.cardHidden = false; render(); } } };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
   svg.addEventListener("wheel", e => { e.preventDefault(); const [vx,vy] = toView(e.clientX, e.clientY); mapZoomAt(vx, vy, e.deltaY < 0 ? 1.2 : 1/1.2); }, {passive:false});
 }
@@ -2441,7 +2594,7 @@ function renderStart(){
     <div class="filters">${["Все",...REGIONS].map(r=>`<button class="chip" data-startregion="${r}" aria-pressed="${ui.startRegion===r}">${r}</button>`).join("")}</div>
     <div class="country-grid">${list.map(d => { const [id,name,region,pop,gdp,army] = d; const [dl,dc] = diff(gdp); return `
       <button class="country-card" data-start="${id}">
-        <div class="cc-top"><span class="cc-name">${esc(name)}</span><span class="code">${id.toUpperCase()}</span></div>
+        <div class="cc-top"><span class="cc-name">${flag(id)} ${esc(name)}</span><span class="code">${id.toUpperCase()}</span></div>
         <span class="muted" style="font-size:12px">${region}</span>
         <div class="cc-stats"><span><span class="label">ВВП</span><br><span class="num">${money(gdp)}</span></span><span><span class="label">Люди</span><br><span class="num">${people(pop)}</span></span><span><span class="label">Армия</span><br><span class="num">${troops(army)}</span></span></div>
         <span class="diff ${dc}">${dl}</span>
@@ -2582,7 +2735,7 @@ document.addEventListener("click", e => {
   if (t.hasAttribute("data-closereport")){ closeModal(); resumeAfter("report"); return; }
   if (t.hasAttribute("data-more")){ ui.more = !ui.more; render(); return; }
   if (t.hasAttribute("data-legend")){ ui.legend = !ui.legend; render(); return; }
-  if (t.hasAttribute("data-cardx")){ ui.cardHidden = true; render(); return; }
+  if (t.hasAttribute("data-cardx")){ ui.mapSel = null; render(); return; }
   if (t.hasAttribute("data-cardshow")){ ui.cardHidden = false; render(); return; }
   if (t.dataset.speed !== undefined){ setSpeed(+t.dataset.speed); return; }
   if (t.dataset.buy==="speed3"){ buySpeed3(); return; }
@@ -2644,7 +2797,7 @@ function newGame(id){
   if (scen==="lastchance"){ S.debt = mine.gdp*1.4; S.electionIn = 12; S.approval = 42; S.stability = 50; }
   S.hist.appr = [S.approval];
   addLog(`Вы приняли присягу как глава государства ${mine.name}. Сценарий: «${SCENARIOS.find(s=>s.id===scen).name}». Выборы через ${S.electionIn} мес.`);
-  ui.tab = "map"; ui.mapSel = id; ui.map = {k:1,x:0,y:null}; ui.mapFocus = id; ui.speed = 0; pausedBy = null;
+  ui.tab = "map"; ui.mapSel = null; ui.map = {k:1,x:0,y:null}; ui.mapFocus = id; ui.speed = 0; pausedBy = null;
   save(); render();
   let tutSeen = false; try { tutSeen = !!localStorage.getItem(TUT_KEY); } catch(e){}
   if (!tutSeen) setTimeout(() => showTutorial(0), 350);

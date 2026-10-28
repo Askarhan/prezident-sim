@@ -29,6 +29,9 @@ jobs:
       - name: Bundle world map
         run: npm run map
 
+      - name: Bundle flags
+        run: npm run flags
+
       - name: Create Android project
         run: npx cap add android
 

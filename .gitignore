@@ -3,3 +3,4 @@ android/
 www/world.js
 *.log
 .DS_Store
+www/flags/
