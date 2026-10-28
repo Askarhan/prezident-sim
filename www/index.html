@@ -801,6 +801,33 @@ use.cu{fill:#000;stroke:none}
 .f-n{font:700 18px var(--f-data);color:#1C2A44}
 .f-prog{display:flex;flex-direction:column;gap:3px}
 @media (max-width:700px){ .fac-grid{grid-template-columns:1fr} }
+
+/* ---- country window ---- */
+.cbanner{position:relative;display:grid;grid-template-columns:86px 1fr 86px;align-items:center;gap:8px;margin:0 0 10px;padding:12px 8px 10px;border-radius:16px;
+  background:linear-gradient(180deg,#1E4E8C,#163866);color:#fff;box-shadow:inset 0 -3px 0 rgb(0 0 0 / .2),0 6px 16px rgb(20 40 80 / .25)}
+.cb-mid{text-align:center;min-width:0}
+.cb-mid h2{margin:0 0 6px;font-size:20px;letter-spacing:.02em;text-shadow:0 2px 3px rgb(0 0 0 / .35)}
+.cb-stats{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.cb-stats span{display:inline-flex;align-items:center;gap:5px}
+.cb-rel i{font-style:normal;font-size:18px}
+.cb-rel{color:#FFE27A}
+.cb-tags{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-top:6px}
+.cb-flag{width:78px;height:52px;object-fit:cover;border-radius:4px;box-shadow:0 4px 10px rgb(0 0 0 / .35);justify-self:center}
+.cb-flag.l{transform:perspective(160px) rotateY(18deg) rotate(-4deg)}
+.cb-flag.r{transform:perspective(160px) rotateY(-18deg) rotate(4deg)}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.dcard{display:flex;flex-direction:column;align-items:stretch;gap:4px;text-align:center;background:#FFFDF8;border:1px solid #E5DCC8;border-radius:14px;padding:8px 8px 10px;cursor:pointer;font:inherit;color:inherit;box-shadow:0 2px 6px rgb(60 40 10 / .08)}
+.dcard:hover{border-color:#F2A93B}
+.dcard.on{border-color:#1FB57A;box-shadow:0 0 0 2px rgb(31 181 122 / .25)}
+.dcard.off{opacity:.55;cursor:not-allowed}
+.dcard b{font-size:13px;line-height:1.2}
+.dcard small{font-size:11px;color:var(--muted);line-height:1.3}
+.dc-pic{position:relative;height:64px;border-radius:10px;display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgb(255 255 255 / .25)}
+.dc-pic .ci,.dc-pic .ic{width:38px;height:38px;filter:drop-shadow(0 3px 4px rgb(0 0 0 / .35))}
+.dc-pic .ic{color:#fff}
+.dc-on{position:absolute;right:6px;top:6px;width:20px;height:20px;border-radius:50%;background:#1FB57A;color:#fff;font:700 12px/20px var(--f-body);font-style:normal}
+.war-zone{margin-top:10px;border-color:#F0B4AE}
+@media (max-width:700px){ .cbanner{grid-template-columns:56px 1fr 56px} .cb-flag{width:52px;height:36px} }
 </style>
 
 
@@ -1222,7 +1249,7 @@ function warDay(w){
   const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
   const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const myTroops = freeArmy()*share*(1 + 0.1*tlv("am_small")), thTroops = e.army;
-  const allies = Object.values(C()).filter(x => x.ally && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*0.6, 0);
+  const allies = Object.values(C()).filter(x => (x.ally || (w.joined||[]).includes(x.id)) && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*((w.joined||[]).includes(x.id) ? 1.6 : 0.6), 0);
   // 1. the sky
   const aM = my.air + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
   w.air += (clamp(aM/(aM+aT), 0.05, 0.95) - w.air)*0.15;
@@ -1399,7 +1426,7 @@ function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1
 function garrisonNeed(o){ const e = C()[o.iso]; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2); }
 function garrisonOf(o){ return garrisonNeed(o)*(o.garrison || 1); }
 function garrisonTotal(){ return Object.values(S.occupied||{}).reduce((a,o) => a + garrisonOf(o), 0); }
-function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal()); }
+function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal() - abroadTotal()); }
 function occIncomeTarget(o){ return o.gdpFull*(0.3 + 0.7*o.integ)*(o.policy === "self" ? 0.7 : 1)*(1 - 0.4*o.damage); }
 function rebuildCost(o){ return o.gdpFull/12*0.006; }
 function occupy(iso, share, w){
@@ -1882,6 +1909,8 @@ function migrate(s){
   if (!s.ministers) s.ministers = {};
   if (!s.fac) initFacilities(s);
   if (!s.progs) s.progs = [];
+  Object.values(s.countries).forEach(x => { if (x.emb === undefined) x.emb = !!(x.trade || x.ally || x.rel >= 30); });
+  if (!s.loans) s.loans = {}; if (!s.invest) s.invest = {}; if (!s.abroad) s.abroad = {};
   if (!s.econTab) s.econTab = "budget"; if (!s.govTab) s.govTab = "min";
   if (s === S) syncMin(); else { const keep = S; S = s; syncMin(); S = keep; }
 }
@@ -2226,9 +2255,10 @@ function budget(){
   const laws = m * lawSum("cost");
   const interest = S.debt * 0.045 / 12 * clamp(1 - 0.02*minDelta("finance"), 0.6, 1.3);
   const war = m * 0.012 * S.wars.length;
-  const income = taxes + Math.max(0,trade) + objects + rail + arms + commod + tourism;
-  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + milprod + Math.max(0,-trade);
-  return {taxes, tourism, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
+  const loans = loanIncome() + investIncome(), dipl = dipUpkeep();
+  const income = taxes + Math.max(0,trade) + objects + rail + arms + commod + tourism + loans;
+  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + milprod + dipl + Math.max(0,-trade);
+  return {taxes, tourism, loans, dipl, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
 }
 function growthMonthly(){
   let g = 0.0015;
@@ -2306,6 +2336,7 @@ function nextMonth(){
   c.gdp *= (1+g); c.pop *= LAWS.some(l=>l.popFix && lawOn(l.id)) ? 1 + Math.min(0, lawSum("pop")) : 1.0006 + (S.capital.health-33)*0.00001 + 0.0001*tech("vaccines") + 0.0002*tech("longevity") + 0.000004*minDelta("sport") + lawSum("pop") + facFx("pop");
   SECTORS.forEach(s => { S.capital[s.id] += (S.sectors[s.id]*33.3 - S.capital[s.id]) * s.rate; });
   facMonth();
+  dipMonth();
 
 
   // 4. politics
@@ -2396,7 +2427,7 @@ function aiTurn(){
     c.gdp *= 1 + rnd(0.0006, 0.0026) - (c.sanction ? 0.0012 : 0) - (c.worldSanctions>0 ? 0.0015 : 0);
     // relations drift toward a baseline
     const base = c.ally ? 60 : c.trade ? 25 : 0;
-    c.rel += (base - c.rel) * 0.02 + rnd(-1.2,1.2) + 0.15*minDelta("foreign") + lawSum("rel");
+    c.rel += (base - c.rel) * 0.02 + rnd(-1.2,1.2) + 0.15*minDelta("foreign") + lawSum("rel") + (c.emb ? 0.3 : 0) + (S.abroad && S.abroad[c.id] ? 0.6 : 0);
     if (S.wars.some(w=>w.enemy===c.id)) c.rel = -100;
     c.rel = clamp(c.rel,-100,100);
     if (c.trade && c.rel < 0){ c.trade = false; addLog(`${c.name} разорвала торговое соглашение.`); }
@@ -2405,7 +2436,7 @@ function aiTurn(){
     if (!c.sanctionsUs && c.rel < -50 && Math.random() < 0.04){ c.sanctionsUs = true; addLog(`${c.name} ввела санкции против вас.`); }
     if (c.sanctionsUs && c.rel > -20 && Math.random() < 0.15){ c.sanctionsUs = false; addLog(`${c.name} сняла санкции.`); }
     // war declared on us
-    if (!S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(1 + lawSum("aggro"))*(tech("missile")?0.6:1)*(deterrence() ? 0.15 : 1)){
+    if (!c.nap && !S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(1 + lawSum("aggro"))*(tech("missile")?0.6:1)*(deterrence() ? 0.15 : 1)){
       startWar(c.id, false);
       c.rel = -100; c.trade = false; c.ally = false;
       addLog(`⚠ ${c.name} объявила вам войну!`);
@@ -2972,7 +3003,9 @@ function act(name, arg){
       break;
     }
     case "war": {
-      const t=C()[arg];
+      const t=C()[arg]; ui.warConfirm = null;
+      if (t.nap){ t.nap = false; infamyAdd(10); Object.values(C()).forEach(x => { if (!x.owner && x.id !== t.id) x.rel -= 5; }); addLog(`Вы нарушили пакт о ненападении с ${t.name}. Мир больше не верит вашему слову.`); }
+      t.emb = false;
       startWar(t.id, true); flashMap(t.id, "bad"); ui.hqWar = t.id;
       t.rel = -100; t.trade=false; t.ally=false;
       Object.values(C()).forEach(x => { if (!x.owner && x.id!==t.id){ x.rel -= x.region===t.region ? 12 : 4; if (x.ally && x.rel<30) x.ally=false; } });
@@ -3112,8 +3145,8 @@ const app = $("#app"), modalRoot = $("#modal-root");
 
 const LAND = window.matchMedia("(orientation: landscape) and (min-width: 640px)");
 const DOCK = [["build","Стройка","build","#F2A93B"],["economy","Экономика","economy","#39D0C3"],["trade","Торговля","trade","#5AA9FF"],["politics","Власть","politics","#C77DFF"],["army","Армия","army","#FF6B6B"],["science","Наука","science","#7CE38B"],["intel","Спецслужбы","intel","#9FB3D1"],["diplomacy","Дипломатия","diplomacy","#F7C948"]];
-const WIN = {build:["Стройка","build","#F2A93B"], economy:["Экономика","economy","#39D0C3"], trade:["Торговля","trade","#5AA9FF"], politics:["Правительство","politics","#C77DFF"], army:["Армия","army","#FF6B6B"], science:["Наука","science","#7CE38B"], intel:["Спецслужбы","intel","#9FB3D1"], diplomacy:["Дипломатия","diplomacy","#F7C948"], summary:["Кабинет: сводка","summary","#F2A93B"], settings:["Настройки","gear","#9FB3D1"], hq:["Штаб","army","#E5484D"]};
-const VIEWS = () => ({build:viewBuild, summary:viewSummary, economy:viewEconomy, trade:viewTrade, science:viewScience, politics:viewPolitics, army:viewArmy, intel:viewIntel, diplomacy:viewDiplomacy, settings:viewSettings, hq:viewHQ});
+const WIN = {build:["Стройка","build","#F2A93B"], economy:["Экономика","economy","#39D0C3"], trade:["Торговля","trade","#5AA9FF"], politics:["Правительство","politics","#C77DFF"], army:["Армия","army","#FF6B6B"], science:["Наука","science","#7CE38B"], intel:["Спецслужбы","intel","#9FB3D1"], diplomacy:["Дипломатия","diplomacy","#F7C948"], summary:["Кабинет: сводка","summary","#F2A93B"], settings:["Настройки","gear","#9FB3D1"], hq:["Штаб","army","#E5484D"], country:["Дипломатия","diplomacy","#F7C948"]};
+const VIEWS = () => ({build:viewBuild, summary:viewSummary, economy:viewEconomy, trade:viewTrade, science:viewScience, politics:viewPolitics, army:viewArmy, intel:viewIntel, diplomacy:viewDiplomacy, settings:viewSettings, hq:viewHQ, country:viewCountry});
 function dockBadge(id){
   const b = budget();
   if (id==="science" && sciIdle()) return `<i class="badge">!</i>`;
@@ -3487,6 +3520,7 @@ function viewEconomy(){
       <table class="budget">
         <tr><td><button class="linkbtn" data-govtab="econTab:taxes">Налоги ›</button></td><td class="up">+${money(b.taxes)}</td></tr>
         ${b.tourism? `<tr><td>Туризм</td><td class="up">+${money(b.tourism)}</td></tr>`:""}
+        ${b.loans? `<tr><td>Кредиты и инвестиции за рубежом</td><td class="up">+${money(b.loans)}</td></tr>`:""}
         ${b.objects? `<tr><td>Доход от объектов</td><td class="up">+${money(b.objects)}</td></tr>`:""}
         ${b.rail? `<tr><td>Ж/д транзит</td><td class="up">+${money(b.rail)}</td></tr>`:""}
         ${b.arms? `<tr><td>Экспорт вооружений</td><td class="up">+${money(b.arms)}</td></tr>`:""}
@@ -3494,6 +3528,7 @@ function viewEconomy(){
         <tr><td>Торговля и экспорт</td><td class="${b.trade>=0?"up":"down"}">${b.trade>=0?"+":""}${money(b.trade)}</td></tr>
         <tr><td><button class="linkbtn" data-tab="politics" data-govtab-go="min">Министерства и ведомства ›</button></td><td class="down">−${money(b.sectors)}</td></tr>
         ${b.science? `<tr><td>Наука</td><td class="down">−${money(b.science)}</td></tr>`:""}
+        ${b.dipl? `<tr><td>Посольства и контингенты</td><td class="down">−${money(b.dipl)}</td></tr>`:""}
         ${b.intel? `<tr><td>Спецслужбы</td><td class="down">−${money(b.intel)}</td></tr>`:""}
         <tr><td>Армия</td><td class="down">−${money(b.army)}</td></tr>
         ${b.laws? `<tr><td>Законы</td><td class="${b.laws>0?"down":"up"}">${b.laws>0?"−":"+"}${money(Math.abs(b.laws))}</td></tr>`:""}
@@ -3568,7 +3603,7 @@ function facCov(id){ const n = facNeed(id); return n > 0 ? facGood(id)/n : 1; }
 function facR(id){ const b = (S.facBase && S.facBase[id]) || 1; return clamp(facCov(id)/b - 1, -0.6, 0.6); }
 function facFx(stat){ let v = 0; for (const id in FAC){ const f = FAC[id].fx; if (f && f[stat]) v += f[stat]*facR(id)*2; } if (stat === "appr" && S.facBad !== undefined){ const share = (S.facBad||0)/Math.max(1, facCount("house")); v -= Math.max(0, share - (S.facBad0||0))*20; } return v; }
 function milFactor(kind){ const n = milLoad(kind), cap = facCount({troops:"barracks",ground:"hangar",air:"airbase"}[kind])*MIL_CAP[kind]; return n > 0 ? Math.min(1, cap/n) : 1; }
-function milBaseMult(){ return (0.85 + 0.15*milFactor("troops")) * (0.9 + 0.1*milFactor("ground")) * (0.9 + 0.1*milFactor("air")) * (1 + 0.015*Math.min(10, facCount("training"))); }
+function milBaseMult(){ return (0.85 + 0.15*milFactor("troops")) * (0.9 + 0.1*milFactor("ground")) * (0.9 + 0.1*milFactor("air")) * (1 + 0.015*Math.min(10, facCount("training"))) * (1 + 0.02*Math.min(3, hostCount())); }
 function facUnitCost(id){ return FAC[id].cost * (FAC[id].mil ? Math.max(0.5, priceLevel()) : priceLevel()) / 1000; } // bln $
 function facBatch(id){ const F = FAC[id]; if (F.mil) return F.mil === "train" || F.mil === "supply" ? 1 : Math.max(1, Math.ceil(facNeed(id)*0.12)); return Math.max(1, Math.round(facNeed(id)*0.05)); }
 function facUpkeep(){ let v = 0; for (const id in FAC){ const extra = facCount(id) - ((S.facStart && S.facStart[id]) || 0); if (extra > 0) v += extra*facUnitCost(id)*0.003; } return v; }
@@ -3959,7 +3994,7 @@ function dipRow(x){
     const atWar = S.wars.some(w=>w.enemy===x.id);
     const tags = [x.puppet&&`<span class="pill state">Сателлит · лояльность ${Math.round((S.puppets[x.id]||{loyal:0}).loyal)}%</span>`, x.ally&&!x.puppet&&`<span class="pill good">Союз</span>`, x.trade&&`<span class="pill state">Торговля</span>`, x.sanction&&`<span class="pill warn">Наши санкции</span>`, x.sanctionsUs&&`<span class="pill bad">Санкции против нас</span>`, atWar&&`<span class="pill bad">Война</span>`].filter(Boolean).join("");
     return `<div class="dip-row">
-      <div class="dip-name"><b>${flag(x.id)} ${esc(x.name)}</b><span class="muted">${x.region} · ВВП ${money(x.gdp)} · сила ${Math.round(aiPower(x))}</span></div>
+      <div class="dip-name"><button class="linkbtn" data-ctry="${x.id}"><b>${flag(x.id)} ${esc(x.name)} ›</b></button><span class="muted">${x.region} · ВВП ${money(x.gdp)} · сила ${Math.round(aiPower(x))}</span></div>
       <div><div class="rel" title="Отношения ${Math.round(x.rel)}"><b style="left:calc(${(x.rel+100)/2}% - 1px)"></b></div><div class="label num" style="margin-top:4px">${x.rel>0?"+":""}${Math.round(x.rel)}</div></div>
       <div class="dip-tags">${tags}</div>
       ${atWar ? "" : `<div class="dip-actions">
@@ -4022,10 +4057,11 @@ function viewMap(){
   const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
   if (!sel) card = null;
-  else if (!x) card = partnerCard(sel);
+  else if (!x) card = null;
   else if (x.id === S.player) card = `<div class="panel"><div class="row"><h3>${flag(x.id)} ${esc(x.name)} — ваша страна</h3></div>
       <div class="bstats"><span>ВВП <b class="num">${money(x.gdp)}</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
       <p class="muted" style="margin:0">Значки над страной — ваши постройки: нажмите, чтобы открыть нужный раздел. «+» — новая стройка.</p></div>`;
+  else if (!x.owner) card = null;
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
   const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
@@ -4423,9 +4459,109 @@ function attachMap(){
       if (btn){ ghostUntil = performance.now() + 450; const [tab, cat] = btn.dataset.go.split(":"); if (cat) S.buildCat = cat; ui.tab = tab; sfx("tap"); render(); return; }
       const p = el && el.closest("path[data-iso]");
       if (!p && ui.mapSel){ ui.mapSel = null; render(); return; }
-      if (p){ ghostUntil = performance.now() + 450; ui.mapSel = p.dataset.iso; ui.cardHidden = false; render(); } } };
+      if (p){ ghostUntil = performance.now() + 450; const iso = p.dataset.iso, cx = C()[iso]; ui.mapSel = iso; ui.cardHidden = false;
+        if (iso !== S.player && !(cx && cx.owner)){ ui.ctry = iso; ui.ctab = "dip"; ui.warConfirm = null; ui.tab = "country"; sfx("tap"); }
+        render(); } } };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
   svg.addEventListener("wheel", e => { e.preventDefault(); const [vx,vy] = toView(e.clientX, e.clientY); mapZoomAt(vx, vy, e.deltaY < 0 ? 1.2 : 1/1.2); }, {passive:false});
+}
+
+/* ================= Country window: diplomacy, aid, trade ================= */
+function relWord(r){ return r >= 60 ? ["😊","дружба"] : r >= 25 ? ["🙂","тёплые"] : r > -25 ? ["😐","нейтралитет"] : r > -60 ? ["😠","напряжённость"] : ["😡","вражда"]; }
+function embCost(){ return improveCost()*1.5; }
+function visitCost(){ return improveCost()*0.8; }
+function aidCost(){ return me().gdp/12*0.002; }
+function milAidCost(){ return me().gdp/12*0.004; }
+function loanSize(){ return me().gdp/12*0.02; }
+function investSize(){ return me().gdp/12*0.01; }
+function cultCost(){ return improveCost()*0.4; }
+function abroadTotal(){ return Object.values(S.abroad||{}).reduce((a,v)=>a+v, 0); }
+function hostCount(){ return Object.keys(S.abroad||{}).filter(id => C()[id] && C()[id].ally && !C()[id].owner).length; }
+function loanIncome(){ return Object.values(S.loans||{}).reduce((a,l)=>a + l.pay, 0); }
+function investIncome(){ return Object.entries(S.invest||{}).reduce((a,[id,v]) => { const x = C()[id]; return a + (x && !x.owner && x.rel > -50 && !S.wars.some(w=>w.enemy===id) ? v*0.012 : 0); }, 0); }
+function dipUpkeep(){ const m = me().gdp/12; return Object.values(C()).filter(x=>x.emb && !x.owner).length*m*0.00004 + abroadTotal()*0.002*gdppc()/12; }
+function dipMonth(){
+  Object.entries(S.loans||{}).forEach(([id,l]) => { const x = C()[id];
+    if (!x || x.owner || x.rel < -40 || S.wars.some(w=>w.enemy===id)){ addLog(`${x ? x.name : id} перестала платить по кредиту.`); delete S.loans[id]; return; }
+    l.left--; if (l.left <= 0){ delete S.loans[id]; addLog(`${x.name} полностью погасила кредит.`); } });
+  Object.keys(S.abroad||{}).forEach(id => { const x = C()[id]; if (!x || x.owner || !x.ally){ delete S.abroad[id]; addLog(`Контингент вернулся домой${x ? " из страны " + x.name : ""}.`); } });
+  Object.values(C()).forEach(x => { ["visitCd","aidCd","milaidCd","cultCd","callCd"].forEach(k => { if (x[k] > 0) x[k]--; }); });
+}
+function dipAct(a, id){
+  const x = C()[id], m = me().gdp/12; if (!x) return;
+  const pay = c => { if (S.treasury < c){ toast("Не хватает денег в бюджете."); return false; } S.treasury -= c; return true; };
+  switch (a){
+    case "emb": if (x.emb){ x.emb = false; x.nap = false; x.rel -= 8; addLog(`Посольство в стране ${x.name} закрыто.`); } else { if (x.rel < -30) return toast("Отношения слишком плохие."); if (!pay(embCost())) return; x.emb = true; x.rel += 3; addLog(`Открыто посольство в стране ${x.name}.`); flashMap(id, "good"); } break;
+    case "nap": if (x.nap){ x.nap = false; x.rel -= 12; addLog(`Пакт о ненападении с ${x.name} расторгнут.`); } else { if (!x.emb || x.rel < 10) return toast("Нужны посольство и отношения от +10."); x.nap = true; x.rel += 4; addLog(`Подписан пакт о ненападении с ${x.name}.`); flashMap(id, "good"); } break;
+    case "visit": if (x.visitCd > 0) return; if (!pay(visitCost())) return; x.rel = clamp(x.rel + 8, -100, 100); x.visitCd = 6; S.mods.push({stat:"approval",v:1,left:3}); addLog(`Государственный визит в страну ${x.name}.`); floatText(id, "+8", "cargo"); break;
+    case "cult": if (x.cultCd > 0) return; if (!pay(cultCost())) return; x.rel = clamp(x.rel + 5, -100, 100); x.cultCd = 3; addLog(`Культурный обмен с ${x.name}: гастроли, выставки, студенты.`); break;
+    case "aid": if (x.aidCd > 0) return; if (!pay(aidCost())) return; x.rel = clamp(x.rel + 10, -100, 100); x.aidCd = 4; Object.values(C()).forEach(o => { if (!o.owner && o.id !== id) o.rel = clamp(o.rel + 1, -100, 100); }); addLog(`Отправлена гуманитарная помощь в страну ${x.name}.`); floatText(id, "+10", "cargo"); break;
+    case "loan": if (S.loans && S.loans[id]) return; if (x.rel < 0) return toast("Кредит дают только дружественным странам."); { const L = loanSize(); if (!pay(L)) return; if (!S.loans) S.loans = {}; S.loans[id] = {left:12, pay:L*1.1/12}; x.rel = clamp(x.rel + 12, -100, 100); addLog(`Выдан льготный кредит стране ${x.name}: ${money(L)} на год под 10%.`); } break;
+    case "invest": if (x.rel < 10) return toast("Нужны отношения от +10."); { const I = investSize(); if (!pay(I)) return; if (!S.invest) S.invest = {}; S.invest[id] = (S.invest[id]||0) + I; x.gdp *= 1.004; x.rel = clamp(x.rel + 6, -100, 100); addLog(`Инвестиции в экономику страны ${x.name}: ${money(I)}.`); } break;
+    case "milaid": if (x.milaidCd > 0) return; if (x.rel < 0) return toast("Военную помощь получают только дружественные страны."); if (!pay(milAidCost())) return; x.rel = clamp(x.rel + 15, -100, 100); x.army *= 1.04; x.milaidCd = 6; addLog(`Передана военная помощь стране ${x.name}.`); break;
+    case "troops": if (!S.abroad) S.abroad = {}; if (S.abroad[id]){ delete S.abroad[id]; addLog(`Контингент выведен из страны ${x.name}.`); } else { if (!x.ally) return toast("Войска размещают только у союзников."); const k = Math.max(1, me().army*0.04); S.abroad[id] = k; x.rel = clamp(x.rel + 5, -100, 100); addLog(`Наш контингент (${troops(k)}) размещён в стране ${x.name}: совместные учения.`); } break;
+    case "call": { if (!S.wars.length) return toast("Сейчас вы ни с кем не воюете."); if (x.callCd > 0) return; const w = S.wars.find(q => q.enemy !== id); if (!w) return;
+      if (!w.joined) w.joined = []; if (w.joined.includes(id)) return toast(`${x.name} уже воюет на вашей стороне.`);
+      x.callCd = 4; const p = clamp((x.rel - 30)/60 + (x.ally ? 0.35 : 0), 0.05, 0.95);
+      if (Math.random() < p){ w.joined.push(id); x.ally = true; const e = C()[w.enemy]; if (e) e.rel = Math.min(e.rel, -60); addLog(`${x.name} откликнулась на призыв и вступила в войну на вашей стороне.`); advise("gen", `${x.name} с нами! Их армия усиливает наш фронт.`, {tab:"hq"}); }
+      else { x.rel -= 10; addLog(`${x.name} отказалась вступать в войну.`); toast(`${x.name} отказалась`); } break; }
+  }
+  save(); render();
+}
+// at a glance: what is signed with this country
+function dipTags(x){
+  return [x.emb && "Посольство", x.nap && "Пакт о ненападении", x.ally && "Союз", x.trade && "Торговый договор", x.sci && "Научный союз", S.loans && S.loans[x.id] && "Кредит", S.invest && S.invest[x.id] && "Инвестиции", S.abroad && S.abroad[x.id] && "Наш контингент", x.sanction && "Наши санкции", x.sanctionsUs && "Санкции против нас"].filter(Boolean);
+}
+const CARD_BG = {dip:["#2D6FD0","#123A7A"], mil:["#55682F","#263015"], aid:["#1FB57A","#0D5A3C"], trade:["#F2A93B","#8A5A00"], bad:["#D94848","#6E1515"]};
+function dcard(o){
+  const [a, b] = CARD_BG[o.tone || "dip"];
+  return `<button class="dcard ${o.on ? "on" : ""} ${o.ok === false ? "off" : ""}" ${o.act ? `data-dip="${o.act}"` : ""} ${o.dataAct ? `data-act="${o.dataAct}" data-arg="${o.arg}"` : ""} ${o.ok === false ? "disabled" : ""}>
+    <span class="dc-pic" style="background:radial-gradient(circle at 30% 25%,${a},${b})">${ic(o.icon, "lg")}${o.on ? `<i class="dc-on">✓</i>` : ""}</span>
+    <b>${o.title}</b><small>${o.sub}</small></button>`;
+}
+function viewCountry(){
+  const id = ui.ctry, x = C()[id];
+  if (!id) return `<p class="muted">Выберите страну на карте.</p>`;
+  if (!x) return `${countryBanner(id)}${partnerCard(id)}`;
+  if (x.owner) return `${countryBanner(id)}${dipRow(x)}`;
+  const tab = ui.ctab || "dip", atWar = S.wars.some(w => w.enemy === id);
+  const tabs = `<div class="filters gov-tabs">${[["dip","Дипломатия","diplomacy"],["aid","Помощь","approval"],["mil","Военное","army"],["trade","Торговля","trade"]].map(([t,l,i]) => `<button class="chip" data-ctab="${t}" aria-pressed="${tab===t}">${ic(i,"sm")}${l}</button>`).join("")}</div>`;
+  let cards = [];
+  if (atWar) cards = [];
+  else if (tab === "dip") cards = [
+    {act:"emb", icon:"politics", title: x.emb ? "Посольство открыто" : "Представительство", sub: x.emb ? "отношения +0,3 в месяц · нажмите, чтобы закрыть" : `открыть посольство · ${money(embCost())}`, on:x.emb, ok: x.emb || x.rel >= -30},
+    {act:"nap", icon:"debt", title:"Пакт о ненападении", sub: x.nap ? "действует: на вас не нападут" : "нужны посольство и отношения от +10", on:x.nap, ok: x.nap || (x.emb && x.rel >= 10)},
+    {dataAct:"ally", arg:id, icon:"army", title:"Оборонительный союз", sub: x.ally ? "действует · нажмите, чтобы выйти" : "отношения от +60", on:x.ally, ok: x.ally || x.rel >= 60},
+    {dataAct:"trade", arg:id, icon:"trade", title:"Торговый договор", sub: x.trade ? "действует · нажмите, чтобы расторгнуть" : "отношения от +20", on:x.trade, ok: x.trade || (x.rel >= 20 && !x.sanction), tone:"trade"},
+    {dataAct:"scipact", arg:id, icon:"science", title:"Договор об исследованиях", sub: x.sci ? `действует: +${2 + x.tech} ОИ в месяц` : `от +40 · +${2 + x.tech} ОИ в месяц`, on:x.sci, ok: x.sci || (x.rel >= 40 && Object.values(C()).filter(q=>q.sci).length < 4)},
+    {dataAct:"improve", arg:id, icon:"council", title:"Переговоры", sub: x.improveCd > 0 ? `снова через ${x.improveCd} мес.` : `отношения +12 · ${money(improveCost())}`, ok: !(x.improveCd > 0) && S.treasury >= improveCost()},
+    {act:"visit", icon:"plane", title:"Государственный визит", sub: x.visitCd > 0 ? `снова через ${x.visitCd} мес.` : `отношения +8, рейтинг +1 · ${money(visitCost())}`, ok: !(x.visitCd > 0)},
+    {act:"cult", icon:"star", title:"Культурный обмен", sub: x.cultCd > 0 ? `снова через ${x.cultCd} мес.` : `отношения +5 · ${money(cultCost())}`, ok: !(x.cultCd > 0)}];
+  else if (tab === "aid") cards = [
+    {act:"aid", icon:"food", title:"Гуманитарная помощь", sub: x.aidCd > 0 ? `снова через ${x.aidCd} мес.` : `отношения +10, весь мир +1 · ${money(aidCost())}`, ok: !(x.aidCd > 0), tone:"aid"},
+    {act:"loan", icon:"budget", title:"Льготный кредит", sub: S.loans && S.loans[id] ? `возвращают ${money(S.loans[id].pay)}/мес, ещё ${S.loans[id].left} мес.` : `${money(loanSize())} на год под 10% · отношения +12`, on: !!(S.loans && S.loans[id]), ok: !!(S.loans && S.loans[id]) || x.rel >= 0, tone:"aid"},
+    {act:"invest", icon:"gdp", title:"Инвестиции в экономику", sub: `${money(investSize())} · доход 1,2% в месяц${S.invest && S.invest[id] ? ` · вложено ${money(S.invest[id])}` : ""}`, on: !!(S.invest && S.invest[id]), ok: x.rel >= 10, tone:"aid"}];
+  else if (tab === "mil") cards = [
+    {act:"milaid", icon:"ammo", title:"Военная помощь", sub: x.milaidCd > 0 ? `снова через ${x.milaidCd} мес.` : `отношения +15, их армия +4% · ${money(milAidCost())}`, ok: !(x.milaidCd > 0) && x.rel >= 0, tone:"mil"},
+    {act:"troops", icon:"users", title: S.abroad && S.abroad[id] ? "Контингент размещён" : "Разместить войска", sub: S.abroad && S.abroad[id] ? `${troops(S.abroad[id])} · учения: мощь армии +2% · нажмите, чтобы вывести` : "только у союзников · 4% армии, мощь +2%", on: !!(S.abroad && S.abroad[id]), ok: !!(S.abroad && S.abroad[id]) || x.ally, tone:"mil"},
+    {act:"call", icon:"alert", title:"Призвать к оружию", sub: !S.wars.length ? "только когда вы воюете" : x.callCd > 0 ? `снова через ${x.callCd} мес.` : "попросить вступить в вашу войну", ok: S.wars.length > 0 && !(x.callCd > 0), tone:"mil"},
+    {dataAct:"sanction", arg:id, icon:"debt", title: x.sanction ? "Снять санкции" : "Ввести санкции", sub: x.sanction ? "отношения +10" : "отношения −30, торговля и союз прекращаются", on:x.sanction, tone:"bad"}];
+  const [face, word] = relWord(x.rel);
+  const body = atWar ? `<div class="panel"><div class="row"><b class="down">Идёт война с этой страной</b><button class="btn primary" data-tab="hq" data-hqgo="${id}">${ic("army","sm")} Штаб</button></div><div class="btns"><button class="btn" data-act="peace" data-arg="${id}">Мирные переговоры</button></div></div>`
+    : tab === "trade" ? `<div class="panel">${S.rails[id] ? (S.rails[id].done ? `<div class="row"><span>Железная дорога работает</span><span class="num up">+${money(railIncome(id))}/мес</span></div>` : `<div class="row"><span>Железная дорога строится</span><span class="num">${Math.ceil(S.rails[id].left)} дн.</span></div>`) : canReach(x) ? `<div class="row"><span>Железная дорога: доход ~${money(railIncome(id))}/мес <small class="muted">· от +40</small></span><button class="btn" data-act="rail" data-arg="${id}" ${x.rel<40||S.treasury<railTotal()||!railMatOk()?"disabled":""}>${money(railTotal())} + ${RAIL_MAT.steel} стали, ${RAIL_MAT.wood} древесины</button></div>` : ""}${tradeBlock(id)}</div>`
+    : `<div class="dgrid">${cards.map(dcard).join("")}</div>
+       ${tab === "mil" && canReach(x) && !x.ally ? `<div class="panel war-zone"><div class="row"><span><b>Объявить войну</b> <small class="muted">${x.nap ? "· нарушит пакт о ненападении: репутация агрессора +10" : S.council.banned[id] ? "· нарушит резолюцию Совета наций" : "· весь мир это запомнит"}</small></span>
+          ${ui.warConfirm === id ? `<button class="btn danger" data-act="war" data-arg="${id}">Подтвердить</button><button class="btn" data-warconfirm="">Отмена</button>` : `<button class="btn danger" data-warconfirm="${id}">Объявить войну</button>`}</div></div>` : ""}`;
+  return `${countryBanner(id)}${tabs}${body}`;
+}
+function countryBanner(id){
+  const x = C()[id], cap = CAPITALS[id], rel = relOf(id), [face, word] = relWord(rel), tags = x ? dipTags(x) : (partner(id).trade ? ["Торговый договор"] : []);
+  const f = flagUrl(id), fl = side => f ? `<img class="cb-flag ${side}" src="${f}" alt="" onerror="this.remove()">` : `<span class="cb-flag ${side}">${flag(id)}</span>`;
+  return `<div class="cbanner">${fl("l")}<div class="cb-mid">
+      <h2>${esc(partnerName(id))}${cap ? ` · ${esc(cap[0])}` : ""}</h2>
+      <div class="cb-stats"><span>${ic("gdp","sm")}<b class="num">${money(partnerGdp(id))}</b></span>${x ? `<span>${ic("army","sm")}<b class="num">${Math.round(aiPower(x)).toLocaleString("ru-RU")}</b></span><span>${ic("users","sm")}<b class="num">${people(x.pop)}</b></span>` : ""}<span class="cb-rel"><i>${face}</i>${word} <b class="num">(${rel > 0 ? "+" : ""}${Math.round(rel)})</b></span></div>
+      ${tags.length ? `<div class="cb-tags">${tags.map(t => `<span class="pill ${/против нас|Наши санкции/.test(t) ? "bad" : "good"}">${t}</span>`).join("")}</div>` : ""}
+    </div>${fl("r")}</div>`;
 }
 
 function viewDiplomacy(){
@@ -4635,6 +4771,10 @@ document.addEventListener("click", e => {
   if (t.dataset.science !== undefined){ minSet("science", [0,3,6,10][+t.dataset.science]); save(); render(); return; }
   if (t.dataset.sector){ S.sectors[t.dataset.sector] = +t.dataset.level; save(); render(); return; }
   if (t.dataset.prog){ startProg(t.dataset.prog); return; }
+  if (t.dataset.dip){ dipAct(t.dataset.dip, ui.ctry); return; }
+  if (t.dataset.ctab){ ui.ctab = t.dataset.ctab; ui.warConfirm = null; render(); return; }
+  if (t.dataset.warconfirm !== undefined){ ui.warConfirm = t.dataset.warconfirm || null; render(); return; }
+  if (t.dataset.ctry){ ui.ctry = t.dataset.ctry; ui.ctab = "dip"; ui.mapSel = t.dataset.ctry; ui.tab = "country"; render(); return; }
   if (t.dataset.faccat){ S.facCat = t.dataset.faccat; save(); render(); return; }
   if (t.dataset.buildmode){ S.buildMode = t.dataset.buildmode; save(); render(); return; }
   if (t.dataset.govtab){ const [k, v] = t.dataset.govtab.split(":"); S[k] = v; save(); render(); return; }
