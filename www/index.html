@@ -310,6 +310,15 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .fx-pin rect{fill:#0D1A2E;stroke:#F2A93B;stroke-width:1.2}
 .fx-pin use{fill:none;stroke:#F2A93B;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
 @media (max-width:820px){.map-modes{left:52px}.map-screen .legend{left:52px}}
+#float-root{position:fixed;inset:0;pointer-events:none;z-index:14}
+.float{position:absolute;transform:translate(-50%,-50%);padding:2px 9px;border-radius:999px;background:rgb(6 12 24 / .6);border:1px solid currentColor;font:800 15px var(--f-data);white-space:nowrap;text-shadow:0 2px 6px rgb(0 0 0 / .8),0 0 12px currentColor;animation:floatUp 2.1s cubic-bezier(.2,.7,.3,1) forwards}
+.float.cash{color:#5CF2C0} .float.loss{color:#FF7A85} .float.cargo{color:#FFC46B;font-size:13px}
+.float.big{font-size:19px}
+.float.at-kpi{font-size:13px}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,-30%) scale(.7)}12%{opacity:1;transform:translate(-50%,-70%) scale(1.12)}25%{transform:translate(-50%,-90%) scale(1)}100%{opacity:0;transform:translate(-50%,-260%) scale(.96)}}
+@keyframes floatKpi{0%{opacity:0}15%{opacity:1}100%{opacity:0;transform:translate(-50%,120%)}}
+.float.at-kpi{animation-name:floatKpi}
+@media (prefers-reduced-motion:reduce){.float{animation-duration:1.2s}}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -1000,7 +1009,12 @@ function shipTick(){
   if (!S.shipments || !S.shipments.length) return;
   S.shipments.forEach(x => x.left -= 1);
   const arrived = S.shipments.filter(x => x.left <= 0);
-  arrived.forEach(x => { if (x.dir === "in"){ S.stock[x.r] += x.qty; toast(`Груз прибыл: ${COMMOD[x.r].name.toLowerCase()} +${x.qty} из страны ${partnerName(x.from)}`); flashMap(S.player, "good"); } });
+  arrived.forEach(x => {
+    if (x.dir === "in"){ S.stock[x.r] += x.qty; floatText(S.player, `+${x.qty} ${COMMOD[x.r].gen}`, "cargo"); sfx("cargo"); flashMap(S.player, "good"); }
+    else if (x.value){ S.treasury += x.value; S.commodMonth = (S.commodMonth||0) + x.value; floatText(x.to, `+${money(x.value)}`, "cash"); sfx("cash"); }
+  });
+  // a soft whoosh when a shipment is about to arrive
+  S.shipments.forEach(x => { if (!x.near && x.left > 0 && x.left <= Math.max(2, x.total*0.15)){ x.near = true; if (ui.tab === "map" && performance.now() - (ui.nearT||0) > 1200){ ui.nearT = performance.now(); sfx("approach"); } } });
   if (arrived.length){ S.shipments = S.shipments.filter(x => x.left > 0); dirty = true; }
 }
 function tradeTurn(){
@@ -1010,8 +1024,8 @@ function tradeTurn(){
     if (!chk.ok || !commodOpen(r)){ delete S.contracts[iso+":"+r]; addLog(`Контракт на поставку ${COMMOD[r].gen} в страну ${partnerName(iso)} расторгнут: ${chk.why||"нет доступа"}.`); return; }
     const ship = Math.floor(Math.min(q, S.stock[r], IMPORTABLE.includes(r) ? prodOf(r) : Infinity));
     if (ship < q) short[r] = true;
-    S.stock[r] -= ship; rev += ship*contractPrice(iso, r);
-    if (ship > 0){ const d = travelDays(iso); S.shipments = S.shipments || []; S.shipments.push({id:shipId(), from:S.player, to:iso, r, qty:ship, left:d, total:d, dir:"out"}); }
+    S.stock[r] -= ship;
+    if (ship > 0){ const d = travelDays(iso); S.shipments = S.shipments || []; S.shipments.push({id:shipId(), from:S.player, to:iso, r, qty:ship, left:d, total:d, dir:"out", value:ship*contractPrice(iso, r)}); }
     if (ship > 0){ const x = C()[iso]; if (x) x.rel = Math.min(100, x.rel + 0.3); else partner(iso).rel = Math.min(100, partner(iso).rel + 0.3); }
   });
   Object.keys(short).forEach(r => addLog(`Не хватило ${COMMOD[r].gen} для всех экспортных контрактов: по контрактам уходит только своя продукция, не больше месячной добычи.`));
@@ -1147,9 +1161,9 @@ function nextMonth(){
   const b = budget();
   importTurn();
   const sales = tradeTurn();
-  S.lastCommod = sales;
+  S.lastCommod = (S.commodMonth||0) + sales; S.commodMonth = 0;
   S.treasury += b.net - b.commod + b.imports + sales;
-  if (sales > c.gdp*0.01) unlock("trader");
+  if (S.lastCommod > c.gdp*0.01) unlock("trader");
   if (new Set(allContracts().map(x=>x.iso)).size >= 8) unlock("partners");
   marketTurn();
   Object.values(S.partners).forEach(p => { if (p.improveCd > 0) p.improveCd--; p.rel += ((p.trade ? 20 : 0) - p.rel)*0.01 + rnd(-0.5,0.5); p.rel = clamp(p.rel, -100, 100); });
@@ -1241,7 +1255,7 @@ function nextMonth(){
   save();
   render();
   if (S.pendingEvent){ pauseFor("event"); showReport(); }
-  else { const d = S.last.d; toast(`${MONTHS[(S.month+11)%12]}: бюджет ${d.treasury>=0?"+":""}${money(d.treasury)}, рейтинг ${d.approval>=0?"+":""}${d.approval.toFixed(1).replace(".",",")}`); if (d.treasury > 0) sfx("coin"); }
+  else { const d = S.last.d; floatText(S.player, `${d.treasury>=0?"+":"−"}${money(Math.abs(d.treasury))}`, d.treasury >= 0 ? "cash big" : "loss big"); toast(`${MONTHS[(S.month+11)%12]}: бюджет ${d.treasury>=0?"+":""}${money(d.treasury)}, рейтинг ${d.approval>=0?"+":""}${d.approval.toFixed(1).replace(".",",")}`); if (d.treasury > 0) sfx("coin"); }
 }
 
 function aiTurn(){
@@ -1589,6 +1603,9 @@ function sfx(kind){
     else if (kind === "notify") { tone(880, 0.1, "sine", 0.045); tone(1320, 0.16, "sine", 0.035, 0.09); }
     else if (kind === "alert") { tone(330, 0.16, "square", 0.025); tone(247, 0.24, "square", 0.025, 0.15); }
     else if (kind === "success") { tone(523, 0.09, "triangle", 0.05); tone(659, 0.09, "triangle", 0.05, 0.08); tone(784, 0.22, "triangle", 0.05, 0.16); }
+    else if (kind === "cash") { [1318, 1568, 2093].forEach((f, i) => tone(f, 0.12, "triangle", 0.035, i*0.055)); tone(2637, 0.25, "sine", 0.02, 0.17); }
+    else if (kind === "cargo") { tone(140, 0.12, "sine", 0.07); tone(220, 0.1, "triangle", 0.03, 0.04); }
+    else if (kind === "approach") { const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(760, t + 0.45); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + 0.52); }
     else if (kind === "coin") { tone(1046, 0.06, "square", 0.025); tone(1568, 0.14, "square", 0.02, 0.05); }
   } catch(e){}
 }
@@ -2415,6 +2432,23 @@ function attachLabels(){
   g.appendChild(lg);
   updateLabels();
 }
+/* floating income numbers */
+const floatRoot = document.createElement("div"); floatRoot.id = "float-root"; document.body.appendChild(floatRoot);
+function floatText(iso, text, kind){
+  let x, y;
+  const svg = document.getElementById("worldmap"), L = LABELS && iso && LABELS[iso];
+  if (ui.tab === "map" && svg && L){
+    const r = svg.getBoundingClientRect(), [w] = mapSize(), upp = w / r.width, m = ui.map;
+    x = r.left + (L.x*m.k + m.x)/upp; y = r.top + (L.y*m.k + (m.y||0))/upp;
+    if (x < r.left + 10 || x > r.right - 10 || y < r.top + 10 || y > r.bottom - 10){ x = null; }
+  }
+  if (x == null){ const k = document.querySelector('[data-kpi="treasury"]'); if (!k) return; const r = k.getBoundingClientRect(); x = r.left + r.width/2; y = r.bottom + 6; kind += " at-kpi"; }
+  const el = document.createElement("div"); el.className = "float " + (kind||""); el.textContent = text;
+  el.style.left = x + "px"; el.style.top = y + "px";
+  floatRoot.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
 /* living map: trade & rail routes, contracts, war fronts, own buildings, event ripples */
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
@@ -2571,7 +2605,7 @@ function tradeBlock(iso){
     <div class="row"><b>${ic("trade","sm")} Торговля</b><span class="label">в месяц${sum ? ` · <span class="up num">+${money(sum)}</span>` : ""}${cost ? ` · <span class="down num">−${money(cost)}</span>` : ""}</span></div>
     ${chk.ok ? "" : `<div class="label down">Торговля невозможна: ${chk.why}.</div>`}
     ${rows}
-    <div class="label">Груз идёт по карте ~${days} дн. Продаём только свою продукцию, не больше месячной добычи. ${cap<3 ? "Небольшая экономика: крупные партии не покупает." : ""}</div>
+    <div class="label">Груз идёт по карте ~${days} дн., деньги приходят при доставке. Продаём только свою продукцию, не больше месячной добычи. ${cap<3 ? "Небольшая экономика: крупные партии не покупает." : ""}</div>
   </div>`;
 }
 function partnerCard(iso){
@@ -2620,6 +2654,7 @@ function viewTrade(){
       <div class="label">Цены меняются каждый месяц. Продавайте, когда цена выше обычной.</div></div>
     <div class="panel"><h3>Выручка</h3>
       <div class="row"><span>Продано сырья в прошлом месяце</span><span class="num up">+${money(S.lastCommod||0)}</span></div>
+      ${(S.shipments||[]).some(x=>x.dir==="out"&&x.value) ? `<div class="row"><span>Деньги в пути (оплата при доставке)</span><span class="num up">+${money(S.shipments.filter(x=>x.dir==="out"&&x.value).reduce((a,x)=>a+x.value,0))}</span></div>` : ""}
       <div class="row"><span>Прогноз на этот месяц</span><span class="num up">+${money(commodProjection())}</span></div>
       <div class="row"><span>Активных контрактов</span><span class="num">${list.length}</span></div>
       <div class="label">Добычу увеличивают лесопилки, металлургические заводы, нефтяные вышки и золотые прииски: «Стройка → Сырьё и материалы».</div>
