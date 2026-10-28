@@ -331,6 +331,24 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .gen.g1{background:#E8EDF5;color:#5A6B88} .gen.g2{background:#E2EEFF;color:#2F6FD6} .gen.g3{background:#FFF0D2;color:#B37000}
 .ustats{display:flex;flex-wrap:wrap;gap:4px 10px;font:600 12px var(--f-data);color:#4A5B7A}
 .chip.off{opacity:.5}
+
+.m-occ{animation:none!important}
+.hq-btn{position:absolute!important;left:0;top:calc(100% + 8px);width:auto!important;height:36px!important;padding:0 12px 0 8px!important;display:inline-flex!important;align-items:center;gap:6px;white-space:nowrap;background:linear-gradient(180deg,#FF6B6B,#D93A3A)!important;color:#fff!important;font-weight:700;font-size:13px;box-shadow:0 3px 0 #9E2323,0 4px 12px rgb(217 58 58 / .4)!important;animation:hqPulse 2s ease-in-out infinite}
+@keyframes hqPulse{50%{box-shadow:0 3px 0 #9E2323,0 0 18px rgb(255 80 80 / .8)}}
+.map-tools{position:absolute}
+.hq-front{gap:8px}
+.front-bar{position:relative;height:16px;border-radius:9px;background:linear-gradient(90deg,#F5A524,#F9CD6C 50%,#F6B7AA 50%,#EC5A5A);overflow:hidden;box-shadow:inset 0 1px 3px rgb(0 0 0 / .2)}
+.front-bar i{display:none}
+.front-bar b{position:absolute;top:-2px;bottom:-2px;width:4px;margin-left:-2px;background:#1C2A44;border-radius:2px;box-shadow:0 0 0 2px #fff}
+.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.choice.on{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgb(245 165 36 / .4);background:#FFF6E0!important}
+.strike small{font-size:11.5px}
+.cmp{display:grid;grid-template-columns:64px 1fr 64px;gap:2px 8px;align-items:center;font-size:12px}
+.cmp small{grid-column:1/-1;text-align:center;color:var(--muted);font-size:10.5px;margin-top:-2px}
+.cmp span:last-of-type{text-align:right}
+.cmpbar{height:9px;border-radius:5px;background:#EC5A5A;overflow:hidden}
+.cmpbar i{display:block;height:100%;background:#2F7BEA}
+.cmp-head{display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 /* living map */
 #map-fx{pointer-events:none}
 #map-fx path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round}
@@ -994,6 +1012,236 @@ function militaryProduction(){
   });
   if (objCount("ammoplant")){ const o = ammoPlantOut(); const steel = Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].steel, 0);
     if (S.stock.steel >= steel){ S.stock.steel -= steel; Object.entries(o).forEach(([k,q]) => S.ammo[k] = (S.ammo[k]||0) + q); } else addLog("Завод боеприпасов простаивает: не хватает стали."); }
+}
+
+/* ---------- Combat: daily battles on every front ---------- */
+const WAR_MODES = {
+  defend:{name:"Оборона", atk:0.35, loss:0.5, ammo:0.4, hint:"мало потерь, фронт стоит"},
+  hold:{name:"Удержание", atk:0.7, loss:0.8, ammo:0.7, hint:"баланс сил и расходов"},
+  attack:{name:"Наступление", atk:1, loss:1, ammo:1, hint:"двигаем фронт"},
+  all:{name:"Генеральное наступление", atk:1.5, loss:1.7, ammo:1.9, hint:"быстро, но большие потери и расход снарядов"}
+};
+const STRIKES = {
+  missile:{name:"Ракетный удар", desc:"10 ракет по военным объектам: бьёт по их ПВО и технике", cd:7, ammo:{missile:10}},
+  air:{name:"Авиаудар", desc:"бомбы по позициям; без господства в воздухе — большие потери самолётов", cd:5, ammo:{bomb:200}, need:"airG"},
+  drones:{name:"Удар дронами-камикадзе", desc:"50 дронов по танкам и артиллерии; их глушит РЭБ", cd:3, loiter:50},
+  infra:{name:"Удар по инфраструктуре", desc:"20 ракет по электростанциям и заводам: их экономика падает, мир осуждает", cd:14, ammo:{missile:20}},
+  landing:{name:"Морской десант", desc:"высадка с моря: нужен флот сильнее вражеского", cd:30, need:"navy"},
+  mobilize:{name:"Мобилизация", desc:"+10% личного состава; рейтинг −4, стабильность −3", cd:60}
+};
+const GROUND_K = new Set(["tank","ifv","apc","sph","mlrs","srbm"]), STRIKE_K = new Set(["attack","bomber","heli","drone","loiter"]);
+function forceStats(units, ammo, share){
+  const st = {g:0, gd:0, air:0, ad:0, airG:0, ew:0, navy:0, loiter:0};
+  for (const [id, n0] of Object.entries(units||{})){
+    const m = MODELS[id]; if (!m || n0 <= 0) continue;
+    const n = n0*share, k = KINDS[m.kind], amm = k.ammo ? ((ammo[k.ammo]||0) > 0 ? 1 : 0.35) : 1;
+    if (GROUND_K.has(m.kind)){ st.g += m.ga*n*amm; st.gd += m.df*n; }
+    else if (m.kind === "fighter"){ st.air += m.aa*n*amm; st.airG += m.ga*n*0.3*amm; }
+    else if (m.kind === "loiter"){ st.loiter += n; st.airG += m.ga*n; }
+    else if (STRIKE_K.has(m.kind)){ st.airG += m.ga*n*amm; st.gd += m.df*n*0.3; }
+    else if (k.cls === "ad"){ if (m.kind === "ew") st.ew += m.aa*n; else st.ad += m.aa*n*amm; }
+    else if (k.cls === "navy"){ st.navy += (m.ga + m.aa)*n; }
+  }
+  return st;
+}
+function ammoNeedFor(units){
+  const by = k => Object.entries(units||{}).filter(([id]) => MODELS[id] && KINDS[MODELS[id].kind].ammo === k).reduce((a,[id,v]) => a + v*(MODELS[id].kind==="tank"||MODELS[id].kind==="ifv"?0.3:1), 0);
+  return {shell: by("shell")*0.02, rocket: by("rocket")*12, atgm: by("atgm")*1.5, bomb: by("bomb")*8, sam: by("sam")*2, missile: by("missile")*1.5};
+}
+function initWar(w){
+  if (w.eu) return w;
+  const e = C()[w.enemy];
+  w.eu = defaultUnits(e, e.tech); w.eu0 = Object.assign({}, w.eu); w.ea = defaultAmmo(w.eu);
+  Object.keys(w.ea).forEach(k => w.ea[k] *= 1.5);
+  w.mode = w.mode || "attack"; w.aiMode = "attack"; w.air = 0.5; w.prio = w.prio || 2;
+  w.accMy = {}; w.accTh = {}; w.lossMy = {}; w.lossTh = {}; w.mLossMy = {}; w.mLossTh = {};
+  w.cd = {}; w.events = []; w.days = 0; w.troopsLost = 0;
+  return w;
+}
+function startWar(enemyId, byUs){
+  const w = initWar({enemy:enemyId, progress:0, months:0, mode: byUs ? "attack" : "defend"});
+  S.wars.push(w); return w;
+}
+function warShare(w){ const sum = S.wars.reduce((a,x)=>a + (x.prio||2), 0) || 1; return (w.prio||2)/sum; }
+function warEvent(w, text, kind){ w.events = [{d:dateStr(), text, kind:kind||""}, ...(w.events||[])].slice(0, 8); }
+function takeLosses(units, acc, tally, mtally, rate, airRate, share){
+  for (const id of Object.keys(units)){
+    const m = MODELS[id], n = units[id]; if (!m || n <= 0) continue;
+    const k = KINDS[m.kind];
+    let r = GROUND_K.has(m.kind) ? rate : k.cls === "air" ? (m.kind === "loiter" ? 0 : airRate) : k.cls === "ad" ? rate*0.4 : k.cls === "navy" ? rate*0.08 : rate;
+    acc[id] = (acc[id]||0) + n*share*r;
+    const lost = Math.min(n, Math.floor(acc[id]));
+    if (lost > 0){ units[id] -= lost; acc[id] -= lost; tally[id] = (tally[id]||0) + lost; mtally[id] = (mtally[id]||0) + lost; }
+  }
+}
+function spendAmmo(ammo, units, mult){
+  const need = ammoNeedFor(units);
+  Object.keys(need).forEach(k => { ammo[k] = Math.max(0, (ammo[k]||0) - need[k]/30*mult); });
+}
+function warDay(w){
+  initWar(w); w.days++;
+  const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
+  const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1);
+  const myTroops = me().army*share, thTroops = e.army;
+  const allies = Object.values(C()).filter(x => x.ally && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*0.6, 0);
+  // 1. the sky
+  const aM = my.air + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
+  w.air += (clamp(aM/(aM+aT), 0.05, 0.95) - w.air)*0.15;
+  // 2-3. strikes and ground
+  const ewT = clamp(th.ew/(th.ew + 40), 0, 0.6), ewM = clamp(my.ew/(my.ew + 40), 0, 0.6);
+  const stab = 0.6 + 0.4*S.stability/100, techM = techMult(me().tech)*(1 + 0.1*tech("comms") + 0.2*tech("drones") + 0.1*tech("cyber"))*(ideo("nat") ? 1.15 : 1);
+  const aiAtk = w.aiMode === "attack" ? 1 : 0.55;
+  const atkM = (my.g + my.airG*(0.25 + 0.75*w.air)*(1 - ewT*0.5) + myTroops*2 + allies)*Mm.atk*stab*techM;
+  const atkT = (th.g + th.airG*(0.25 + 0.75*(1 - w.air))*(1 - ewM*0.5) + thTroops*2)*aiAtk*techMult(e.tech)*(tech("cyber") ? 0.9 : 1);
+  // the deeper an army goes, the longer its supply lines: defence grows with occupied depth
+  const defM = (my.gd + myTroops*3)*(1 + Math.max(0, -w.progress)/120) + 1, defT = (th.gd + thTroops*3)*1.15*(1 + Math.max(0, w.progress)/120) + 1;
+  const delta = (atkM/(atkM + defT) - atkT/(atkT + defM))*0.85 + rnd(-0.2, 0.2);
+  w.progress = clamp(w.progress + delta, -100, 100);
+  // 4. losses
+  const rM = 0.0036*(atkT/(atkT + defM))*Mm.loss, rT = 0.0036*(atkM/(atkM + defT))*(w.aiMode === "attack" ? 1 : 0.7);
+  const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
+  takeLosses(S.units, w.accMy, w.lossMy, w.mLossMy, rM, airRM, share);
+  takeLosses(w.eu, w.accTh, w.lossTh, w.mLossTh, rT, airRT, 1);
+  if (w.mode !== "defend" && my.loiter > 0){ Object.keys(S.units).forEach(id => { if (MODELS[id] && MODELS[id].kind === "loiter"){ const used = Math.min(S.units[id], Math.ceil(S.units[id]*share*0.01)); S.units[id] -= used; } }); }
+  const tl = myTroops*rM*0.5; me().army = Math.max(1, me().army - tl); w.troopsLost += tl; e.army = Math.max(0.5, e.army - thTroops*rT*0.5);
+  // ammunition
+  spendAmmo(S.ammo, S.units, share*Mm.ammo); spendAmmo(w.ea, w.eu, aiAtk);
+  // enemy missile strikes on us
+  w.cd = w.cd || {};
+  if ((w.ea.missile||0) >= 6 && Math.random() < 0.08){
+    const fired = Math.min(Math.floor(w.ea.missile), 6 + Math.floor(Math.random()*8)); w.ea.missile -= fired;
+    const p = (S.ammo.sam||0) > fired ? clamp(my.ad/(my.ad + 50), 0, 0.88) : 0.1, down = Math.round(fired*p), hits = fired - down;
+    S.ammo.sam = Math.max(0, (S.ammo.sam||0) - down*1.5);
+    me().gdp *= 1 - 0.0015*hits;
+    warEvent(w, `${e.name}: ракетный удар — ${fired} ракет, сбито ${down}.`, hits > down ? "bad" : "good");
+    flashMap(S.player, "bad");
+    if (performance.now() - (ui.alarmT||0) > 20000){ ui.alarmT = performance.now(); advise("gen", `Ракетный удар! ${e.name} выпустила ${fired} ракет, ПВО сбило ${down}. ${hits ? `Попаданий: ${hits}.` : "Все отражены."}`, {tab:"hq", mood: hits > down ? "alert" : null}); sfx("alarm"); }
+  }
+  Object.keys(w.cd).forEach(k => { if (w.cd[k] > 0) w.cd[k]--; });
+}
+function warMonth(w){
+  initWar(w); const e = C()[w.enemy];
+  w.months++;
+  // the enemy reinforces and restocks
+  Object.keys(w.eu0).forEach(id => { const gap = w.eu0[id] - (w.eu[id]||0); if (gap > 0) w.eu[id] = (w.eu[id]||0) + Math.ceil(gap*0.04); });
+  const re = defaultAmmo(w.eu0); Object.keys(re).forEach(k => w.ea[k] = (w.ea[k]||0) + re[k]*0.12);
+  const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1);
+  w.aiMode = th.g + th.airG > (my.g + my.airG)*0.8 || w.progress < -20 ? "attack" : "hold";
+  const top = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 3).map(([id,n]) => `${MODELS[id].name} ×${n}`).join(", ");
+  const lm = top(w.mLossMy), lt = top(w.mLossTh);
+  advise("gen", `Фронт с ${e.name}: ${w.progress >= 0 ? `заняли ${Math.round(w.progress)}% территории` : `противник продвинулся на ${Math.round(-w.progress)}% нашей земли`}. Наши потери: ${lm || "нет"}. Уничтожено у врага: ${lt || "ничего"}.`, {tab:"hq", mood: w.progress < 0 ? "alert" : null});
+  w.mLossMy = {}; w.mLossTh = {};
+  Object.entries(S.ammo).forEach(([k,v]) => { const need = ammoNeedFor(S.units)[k]; if (need > 0 && v < need*0.5) advise("gen", `Заканчиваются ${AMMO[k].short}: осталось меньше чем на 2 недели боёв. Срочно закупите или запустите производство.`, {tab:"army", mood:"alert", key:"ammo-"+k, cd:2}); });
+}
+function doStrike(w, type){
+  initWar(w); const e = C()[w.enemy], st = STRIKES[type];
+  if ((w.cd[type]||0) > 0) return toast(`Перезарядка: ещё ${w.cd[type]} дн.`);
+  const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1);
+  if (st.ammo) for (const k in st.ammo) if ((S.ammo[k]||0) < st.ammo[k]) return toast(`Не хватает: ${AMMO[k].short}.`);
+  let text = "", good = true;
+  if (type === "missile" || type === "infra"){
+    const fired = st.ammo.missile; S.ammo.missile -= fired;
+    const p = (w.ea.sam||0) > 0 ? clamp(th.ad/(th.ad + 60), 0, 0.8) : 0.05, down = Math.round(fired*p), hits = fired - down;
+    w.ea.sam = Math.max(0, (w.ea.sam||0) - down*1.5);
+    if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); w.progress = clamp(w.progress + hits*0.25, -100, 100); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
+    else { e.gdp *= 1 - 0.0012*hits; w.progress = clamp(w.progress + hits*0.12, -100, 100); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
+    good = hits >= down;
+  } else if (type === "air"){
+    if (my.airG < 20) return toast("Нет ударной авиации: нужны штурмовики, бомбардировщики, вертолёты или дроны.");
+    S.ammo.bomb -= st.ammo.bomb;
+    const eff = w.air, lossR = w.air < 0.4 ? 0.03 : 0.006;
+    Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && STRIKE_K.has(m.kind) && m.kind !== "loiter"){ const lost = Math.floor(S.units[id]*warShare(w)*lossR + (Math.random() < lossR*20 ? 1 : 0)); if (lost){ S.units[id] -= lost; w.lossMy[id] = (w.lossMy[id]||0) + lost; } } });
+    Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const lost = Math.floor(w.eu[id]*0.015*eff + (Math.random() < eff ? 1 : 0)); if (lost){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } } });
+    w.progress = clamp(w.progress + 2 + 6*eff, -100, 100); good = w.air >= 0.4;
+    text = w.air >= 0.4 ? `Авиаудар: господство в воздухе ${Math.round(w.air*100)}%, позиции противника разбиты.` : `Авиаудар без господства в воздухе (${Math.round(w.air*100)}%): тяжёлые потери самолётов.`;
+  } else if (type === "drones"){
+    const have = Object.entries(S.units).filter(([id]) => MODELS[id] && MODELS[id].kind === "loiter").reduce((a,[,n]) => a+n, 0);
+    if (have < 50) return toast("Нужно хотя бы 50 дронов-камикадзе.");
+    let left = 50; Object.keys(S.units).forEach(id => { if (left > 0 && MODELS[id] && MODELS[id].kind === "loiter"){ const u = Math.min(left, S.units[id]); S.units[id] -= u; left -= u; } });
+    const jam = clamp(th.ew/(th.ew + 30), 0, 0.7), hits = Math.round(50*(1 - jam)*rnd(0.5, 0.8));
+    let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3 && w.eu[id] > 0){ const l = Math.min(w.eu[id], Math.ceil(hits*0.08)); w.eu[id] -= l; killed += l; w.lossTh[id] = (w.lossTh[id]||0) + l; } }));
+    w.progress = clamp(w.progress + 1.2, -100, 100); good = jam < 0.4;
+    text = `Удар дронами: ${hits} из 50 долетели${jam > 0.2 ? ` (РЭБ противника заглушила ${Math.round(jam*100)}%)` : ""}, уничтожено единиц техники: ${killed}.`;
+  } else if (type === "landing"){
+    if (!hasCoast() || !hasCoast(e.id)) return toast("Десант возможен только между странами с выходом к морю.");
+    if (my.navy < th.navy*1.2 + 20) return toast("Флот слабее вражеского: десант сорвётся.");
+    w.progress = clamp(w.progress + 8, -100, 100);
+    Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && (m.kind === "ifv" || m.kind === "apc")){ const l = Math.floor(S.units[id]*warShare(w)*0.02); S.units[id] -= l; w.lossMy[id] = (w.lossMy[id]||0) + l; } });
+    text = "Морской десант высажен: фронт продвинулся на 8%.";
+  } else if (type === "mobilize"){
+    me().army *= 1.1; S.mods.push({stat:"approval", v:-4, left:6}, {stat:"stability", v:-3, left:6});
+    text = "Объявлена мобилизация: +10% личного состава.";
+  }
+  w.cd[type] = st.cd;
+  warEvent(w, text, good ? "good" : "bad");
+  flashMap(type === "mobilize" ? S.player : e.id, good ? "bad" : "info");
+  sfx(type === "mobilize" ? "alert" : "boom"); buzz(40);
+  toast(text);
+}
+// daily refresh of occupation shading and front markers without re-rendering the whole screen
+function updateWarMap(){
+  const svg = document.getElementById("worldmap"); if (!svg || !LABELS) return;
+  let defs = svg.querySelector("defs"); if (!defs) return;
+  const NS = "http://www.w3.org/2000/svg";
+  S.wars.forEach(w => {
+    const g = warGradient(w); if (!g) return;
+    let gr = document.getElementById("occ-" + g.iso);
+    const a = g.mine ? "#F5A524" : "#D94848", b = g.mine ? "#EC5A5A" : "#F5A524";
+    if (!gr){ gr = document.createElementNS(NS, "linearGradient"); gr.id = "occ-" + g.iso; gr.setAttribute("gradientUnits", "userSpaceOnUse"); for (let i = 0; i < 4; i++) gr.appendChild(document.createElementNS(NS, "stop")); defs.appendChild(gr); }
+    [["x1",g.x1],["y1",g.y1],["x2",g.x2],["y2",g.y2]].forEach(([k,v]) => gr.setAttribute(k, v.toFixed(1)));
+    const st = gr.querySelectorAll("stop"), offs = [0, g.f, g.f, 1], cols = [a, a, b, b];
+    st.forEach((el, i) => { el.setAttribute("offset", offs[i].toFixed(3)); el.setAttribute("stop-color", cols[i]); });
+    const path = svg.querySelector(`path[data-iso="${g.iso}"]`); if (path){ path.style.fill = `url(#occ-${g.iso})`; path.classList.add("m-occ"); }
+  });
+  if ((S.day||1) % 4 === 0){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } }
+}
+function warGradient(w){
+  // occupied part of the country painted from the attacker's side
+  if (!LABELS) return null;
+  const A = LABELS[S.player], B = LABELS[w.enemy]; if (!A || !B) return null;
+  const p = w.progress; if (Math.abs(p) < 1) return null;
+  const capPt = iso => { const c = CAPITALS[iso]; const q = c && proj(c[1], c[2]); return q ? {x:q.x, y:q.y} : LABELS[iso]; };
+  const tgt = p > 0 ? B : A, from = capPt(p > 0 ? S.player : w.enemy);
+  let dx = tgt.x - from.x, dy = tgt.y - from.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+  const ext = (Math.abs(dx)*tgt.w + Math.abs(dy)*tgt.h)/2;
+  return {iso: p > 0 ? w.enemy : S.player, x1: tgt.x - dx*ext, y1: tgt.y - dy*ext, x2: tgt.x + dx*ext, y2: tgt.y + dy*ext, f: Math.abs(p)/100, mine: p > 0,
+    front: {x: tgt.x - dx*ext + dx*2*ext*Math.abs(p)/100, y: tgt.y - dy*ext + dy*2*ext*Math.abs(p)/100}};
+}
+function viewHQ(){
+  if (!S.wars.length) return `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Штаб оживёт, когда начнётся война. Объявить войну можно в карточке страны на карте.</p></div>`;
+  if (!ui.hqWar || !S.wars.some(w => w.enemy === ui.hqWar)) ui.hqWar = S.wars[0].enemy;
+  const w = initWar(S.wars.find(x => x.enemy === ui.hqWar)), e = C()[w.enemy], share = warShare(w);
+  const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1);
+  const cmp = (l, a, b) => { const t = a + b || 1; return `<div class="cmp"><span class="num">${Math.round(a).toLocaleString("ru-RU")}</span><div class="cmpbar"><i style="width:${a/t*100}%"></i></div><span class="num">${Math.round(b).toLocaleString("ru-RU")}</span><small>${l}</small></div>`; };
+  const need = ammoNeedFor(S.units), amm = Object.entries(AMMO).filter(([k]) => need[k] > 0).map(([k,a]) => { const days = need[k] > 0 ? (S.ammo[k]||0)/(need[k]/30*share*(WAR_MODES[w.mode].ammo)) : 999; return `<span class="pill ${days < 14 ? "bad" : days < 45 ? "warn" : "good"}">${a.short}: ${days > 365 ? "много" : Math.floor(days) + " дн."}</span>`; }).join("");
+  const loss = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id,n]) => `<span>${MODELS[id].name} <b class="num">${n}</b></span>`).join("") || `<span class="muted">нет</span>`;
+  return `${S.wars.length > 1 ? `<div class="filters">${S.wars.map(x => `<button class="chip" data-hqwar="${x.enemy}" aria-pressed="${x.enemy===w.enemy}">${flag(x.enemy)} ${esc(C()[x.enemy].name)}</button>`).join("")}</div>` : ""}
+  <div class="panel hq-front">
+    <div class="row"><h3>${flag(S.player)} ${esc(me().name)} <span class="muted">против</span> ${flag(e.id)} ${esc(e.name)}</h3><span class="pill ${w.progress >= 0 ? "good" : "bad"}">${w.months} мес. ${w.days % 30} дн.</span></div>
+    <div class="front-bar"><i class="mine" style="width:${clamp(50 + w.progress/2, 0, 100)}%"></i><b style="left:${clamp(50 + w.progress/2, 0, 100)}%"></b></div>
+    <div class="row"><small>${w.progress >= 0 ? `Занято ${Math.round(w.progress)}% территории противника` : `Противник занял ${Math.round(-w.progress)}% нашей территории`}</small><small>100% — капитуляция</small></div>
+    <div class="row"><span>Господство в воздухе</span><span class="num ${w.air >= 0.5 ? "up" : "down"}">${Math.round(w.air*100)}%</span></div>
+    <div class="bar ${w.air >= 0.5 ? "high" : "low"}"><i style="width:${w.air*100}%"></i></div>
+  </div>
+  <div class="grid2" style="margin-top:12px">
+    <div class="panel"><h3>Режим фронта</h3>
+      <div class="modes">${Object.entries(WAR_MODES).map(([id, m]) => `<button class="choice ${w.mode===id?"on":""}" data-warmode="${id}"><b>${m.name}</b><small>${m.hint}</small></button>`).join("")}</div>
+      ${S.wars.length > 1 ? `<div class="row"><span>Приоритет фронта</span><span class="seg">${[1,2,3].map(v => `<button data-warprio="${v}" aria-pressed="${w.prio===v}">${["Низкий","Обычный","Высокий"][v-1]}</button>`).join("")}</span></div><div class="label">На этот фронт идёт ${Math.round(share*100)}% армии.</div>` : ""}
+    </div>
+    <div class="panel"><h3>Удары и решения</h3>
+      ${Object.entries(STRIKES).map(([id, st]) => { const cd = w.cd[id]||0; return `<div class="row strike"><span><b>${st.name}</b><br><small class="muted">${st.desc}</small></span><button class="btn ${cd ? "" : "primary"} sm" data-strike="${id}" ${cd ? "disabled" : ""}>${cd ? `через ${cd} дн.` : "Приказ"}</button></div>`; }).join("")}
+    </div>
+    <div class="panel"><h3>Соотношение сил</h3>
+      <div class="cmp-head"><span>Мы</span><span>Противник</span></div>
+      ${cmp("удар по земле", my.g, th.g)}${cmp("оборона", my.gd, th.gd)}${cmp("авиация", my.air, th.air)}${cmp("ПВО", my.ad, th.ad)}${cmp("ударная авиация и дроны", my.airG, th.airG)}${cmp("личный состав, тыс.", me().army*share, e.army)}
+    </div>
+    <div class="panel"><h3>Боеприпасы</h3><div class="dip-tags">${amm || `<span class="muted">не расходуются</span>`}</div>
+      <div class="label">Сколько дней боёв хватит в текущем режиме. Кончатся — техника этого типа бьёт втрое слабее.</div>
+      <button class="btn" data-tab="army" style="align-self:flex-start" onclick="void 0">${ic("ammo","sm")} К складу и закупке</button></div>
+    <div class="panel"><h3>Потери за войну</h3><div class="row"><b>Наши</b><span class="muted num">личный состав −${troops(w.troopsLost)}</span></div><div class="bstats">${loss(w.lossMy)}</div><div class="row"><b>Противника</b></div><div class="bstats">${loss(w.lossTh)}</div></div>
+    <div class="panel"><h3>Сводки с фронта</h3><ul class="news">${(w.events||[]).map(ev => `<li><span class="when">${esc(ev.d)}</span><span class="${ev.kind==="bad"?"down":ev.kind==="good"?"up":""}">${esc(ev.text)}</span></li>`).join("") || `<li><span class="muted">Пока тихо.</span></li>`}</ul>
+      <button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress < -30 ? "disabled" : ""}>Предложить мир</button></div>
+  </div>`;
 }
 
 const SECTORS = [
@@ -1676,7 +1924,7 @@ function aiTurn(){
     if (c.sanctionsUs && c.rel > -20 && Math.random() < 0.15){ c.sanctionsUs = false; addLog(`${c.name} сняла санкции.`); }
     // war declared on us
     if (!S.wars.some(w=>w.enemy===c.id) && canReach(c) && c.rel < -65 && aiPower(c) > myPower()*1.3 && Math.random() < 0.02*S.aggr*(tech("missile")?0.5:1)){
-      S.wars.push({enemy:c.id, progress:0, months:0});
+      startWar(c.id, false);
       c.rel = -100; c.trade = false; c.ally = false;
       addLog(`⚠ ${c.name} объявила вам войну!`);
     }
@@ -1684,17 +1932,11 @@ function aiTurn(){
 }
 
 function warTurn(){
+  S.wars.forEach(warMonth);
+  warOutcomes();
+}
+function warOutcomes(){
   const meC = me();
-  S.wars.forEach(w => {
-    const e = C()[w.enemy];
-    const allies = Object.values(C()).filter(x=>x.ally && !x.owner && x.id!==e.id).reduce((a,x)=>a+aiPower(x)*0.3,0);
-    const mine = myPower() + allies, theirs = aiPower(e)*(1.1 + rnd(-0.1,0.1))*(tech("cyber")?0.9:1);
-    w.progress += (mine/(mine+theirs) - 0.5)*40 + rnd(-8,8);
-    w.progress = clamp(w.progress,-100,100); w.months++;
-    const loss = 1 - rnd(0.01,0.03)*(theirs/(mine+theirs));
-    meC.army *= loss; Object.keys(S.units).forEach(k => S.units[k] = Math.floor(S.units[k]*loss));
-    e.army *= 1 - rnd(0.01,0.03)*(mine/(mine+theirs));
-  });
   S.wars.slice().forEach(w => {
     const e = C()[w.enemy];
     if (w.progress >= 100){
@@ -1703,13 +1945,13 @@ function warTurn(){
       RES.forEach(r => { if (e.prof[r.id] > 1) S.annexBonus[r.id] += Math.min(40,(e.prof[r.id]-1)*30); });
       S.wars = S.wars.filter(x=>x!==w);
       Object.values(C()).forEach(x => { if (!x.owner && x.region===e.region) x.rel -= 15; });
-      addLog(`Победа! ${e.name} переходит под ваш контроль.`);
+      addLog(`Победа! ${e.name} переходит под ваш контроль.`); advise("gen", `Победа, господин президент! ${e.name} капитулировала.`, {tab:"map"}); sfx("success"); dirty = true;
     } else if (w.progress <= -100){
       S.wars = S.wars.filter(x=>x!==w);
       meC.gdp *= 0.85; S.treasury = Math.max(0, S.treasury - meC.gdp*0.02);
       S.mods.push({stat:"approval",v:-15,left:12});
       e.rel = -60;
-      addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −15% ВВП.`);
+      addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −15% ВВП.`); advise("gen", `Мы проиграли войну с ${e.name}. Подписан тяжёлый мир.`, {mood:"alert"}); dirty = true;
     }
   });
 }
@@ -2004,6 +2246,8 @@ function sfx(kind){
     else if (kind === "notify") { tone(880, 0.1, "sine", 0.045); tone(1320, 0.16, "sine", 0.035, 0.09); }
     else if (kind === "alert") { tone(330, 0.16, "square", 0.025); tone(247, 0.24, "square", 0.025, 0.15); }
     else if (kind === "success") { tone(523, 0.09, "triangle", 0.05); tone(659, 0.09, "triangle", 0.05, 0.08); tone(784, 0.22, "triangle", 0.05, 0.16); }
+    else if (kind === "boom") { const len = 0.9, buf = AC.createBuffer(1, AC.sampleRate*len, AC.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/d.length, 2.5); const src = AC.createBufferSource(), lp = AC.createBiquadFilter(), g = AC.createGain(); lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(120, t + len); g.gain.value = 0.35; src.buffer = buf; src.connect(lp).connect(g).connect(AC.destination); src.start(t); tone(55, 0.6, "sine", 0.12); }
+    else if (kind === "alarm") { [0, 0.5].forEach(o => { const os = AC.createOscillator(), g = AC.createGain(); os.type = "sawtooth"; os.frequency.setValueAtTime(520, t + o); os.frequency.linearRampToValueAtTime(880, t + o + 0.4); g.gain.setValueAtTime(0.0001, t + o); g.gain.exponentialRampToValueAtTime(0.03, t + o + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + o + 0.45); os.connect(g).connect(AC.destination); os.start(t + o); os.stop(t + o + 0.5); }); }
     else if (kind === "cash") { [1318, 1568, 2093].forEach((f, i) => tone(f, 0.12, "triangle", 0.035, i*0.055)); tone(2637, 0.25, "sine", 0.02, 0.17); }
     else if (kind === "cargo") { tone(140, 0.12, "sine", 0.07); tone(220, 0.1, "triangle", 0.03, 0.04); }
     else if (kind === "approach") { const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(760, t + 0.45); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(AC.destination); o.start(t); o.stop(t + 0.52); }
@@ -2071,6 +2315,7 @@ function advisorTip(tab){
   else if (tab === "diplomacy"){ who = "dipl"; const allies = Object.values(C()).filter(x=>x.ally && !x.owner).length, deals = Object.values(C()).filter(x=>x.trade && !x.owner).length; text = S.council.res ? `В Совете наций идёт голосование — не забудьте отдать голос.` : `У нас ${allies} союзников и ${deals} торговых договоров. Страны с отношениями от +20 готовы торговать.`; }
   else if (tab === "science"){ who = "sec"; const cur = S.research.current && TECH.find(x=>x.id===S.research.current); text = cur ? `Учёные работают над «${cur.name}». Больше финансирования и образования — быстрее открытия.` : "Учёные ждут задания. Советую начать с «Геологоразведки»: нефть принесёт хороший доход."; mood = cur ? null : "alert"; }
   else if (tab === "politics"){ who = "sec"; text = majority() ? `Ваша партия контролирует парламент — законы проходят свободно. Рейтинг ${pct(S.approval)}.` : `Большинства в парламенте нет: каждый закон стоит уступок коалиции. Поднимите рейтинг — сейчас ${pct(S.approval)}.`; }
+  else if (tab === "hq"){ who = "gen"; const w = S.wars.find(x => x.enemy === ui.hqWar) || S.wars[0]; text = !w ? "Войн нет, господин президент." : w.air < 0.4 ? "Небо за противником: без господства в воздухе штурмовики и вертолёты гибнут. Нужны истребители и ПВО." : w.progress < 0 ? "Противник давит. Перейдите в оборону, пополните технику и боеприпасы." : "Фронт держится. Наступайте, но следите за запасом снарядов."; mood = w && (w.progress < 0 || w.air < 0.4) ? "alert" : null; }
   else if (tab === "summary"){ who = "sec"; text = ideo("auth") ? "Выборов нет, но следите за стабильностью: ниже 15% три месяца — революция." : `До выборов ${S.electionIn} мес., рейтинг ${pct(S.approval)}. Для победы нужно 50%.`; }
   else return "";
   return `<div class="tip">${portrait(who, 46, mood)}<div><b>${ADVISORS[who].name}</b> <small>· ${ADVISORS[who].role}</small><p>${text}</p></div></div>`;
@@ -2233,13 +2478,13 @@ function act(name, arg){
     }
     case "war": {
       const t=C()[arg];
-      S.wars.push({enemy:t.id, progress:0, months:0}); flashMap(t.id, "bad");
+      startWar(t.id, true); flashMap(t.id, "bad"); ui.hqWar = t.id;
       t.rel = -100; t.trade=false; t.ally=false;
       Object.values(C()).forEach(x => { if (!x.owner && x.id!==t.id){ x.rel -= x.region===t.region ? 12 : 4; if (x.ally && x.rel<30) x.ally=false; } });
       S.mods.push({stat:"approval",v:-5,left:3});
       if (S.council.banned[t.id]){ S.mods.push({stat:"approval",v:-15,left:12}); Object.values(C()).forEach(x=>{ if(!x.owner) x.rel -= 20; }); addLog(`Нападение на ${t.name} нарушает резолюцию Совета наций: весь мир осуждает вас.`); }
       addLog(`Вы объявили войну стране ${t.name}.`);
-      ui.tab = "army"; break;
+      ui.tab = "hq"; sfx("alarm"); break;
     }
     case "peace": {
       const w = S.wars.find(x=>x.enemy===arg), t = C()[arg];
@@ -2310,6 +2555,7 @@ function dayTick(){
   }
   Object.keys(COMMOD).forEach(r => { S.stock[r] += prodOf(r)/30; });
   shipTick();
+  if (S.wars.length){ S.wars.forEach(warDay); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map") updateWarMap(); }
   const speed = selfSuff("metal") < 60 ? 0.5 : 1;
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
@@ -2374,8 +2620,8 @@ const app = $("#app"), modalRoot = $("#modal-root");
 
 const LAND = window.matchMedia("(orientation: landscape) and (min-width: 640px)");
 const DOCK = [["build","Стройка","build","#F2A93B"],["economy","Экономика","economy","#39D0C3"],["trade","Торговля","trade","#5AA9FF"],["politics","Законы","politics","#C77DFF"],["army","Армия","army","#FF6B6B"],["science","Наука","science","#7CE38B"],["intel","Спецслужбы","intel","#9FB3D1"],["diplomacy","Дипломатия","diplomacy","#F7C948"]];
-const WIN = {build:["Стройка","build","#F2A93B"], economy:["Экономика","economy","#39D0C3"], trade:["Торговля","trade","#5AA9FF"], politics:["Законы и политика","politics","#C77DFF"], army:["Армия","army","#FF6B6B"], science:["Наука","science","#7CE38B"], intel:["Спецслужбы","intel","#9FB3D1"], diplomacy:["Дипломатия","diplomacy","#F7C948"], summary:["Кабинет: сводка","summary","#F2A93B"], settings:["Настройки","gear","#9FB3D1"]};
-const VIEWS = () => ({build:viewBuild, summary:viewSummary, economy:viewEconomy, trade:viewTrade, science:viewScience, politics:viewPolitics, army:viewArmy, intel:viewIntel, diplomacy:viewDiplomacy, settings:viewSettings});
+const WIN = {build:["Стройка","build","#F2A93B"], economy:["Экономика","economy","#39D0C3"], trade:["Торговля","trade","#5AA9FF"], politics:["Законы и политика","politics","#C77DFF"], army:["Армия","army","#FF6B6B"], science:["Наука","science","#7CE38B"], intel:["Спецслужбы","intel","#9FB3D1"], diplomacy:["Дипломатия","diplomacy","#F7C948"], summary:["Кабинет: сводка","summary","#F2A93B"], settings:["Настройки","gear","#9FB3D1"], hq:["Штаб","army","#E5484D"]};
+const VIEWS = () => ({build:viewBuild, summary:viewSummary, economy:viewEconomy, trade:viewTrade, science:viewScience, politics:viewPolitics, army:viewArmy, intel:viewIntel, diplomacy:viewDiplomacy, settings:viewSettings, hq:viewHQ});
 function dockBadge(id){
   const b = budget();
   if (id==="science" && !S.research.current && TECH.some(techAvailable)) return `<i class="badge">!</i>`;
@@ -2725,7 +2971,7 @@ function viewArmy(){
     <div class="row"><span class="label">Мы</span><span class="num">${w.progress>0?"+":""}${Math.round(w.progress)}</span><span class="label">Противник</span></div>
     <div class="bar ${w.progress>=0?"high":"low"}"><i style="width:${p}%"></i></div>
     <div class="row"><span class="muted">Наша сила ${Math.round(myPower())} против ${Math.round(aiPower(e))}</span>
-    <button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress<-30?"disabled":""}>Предложить мир</button></div></div>`; }).join("");
+    <div class="btns"><button class="btn primary" data-tab="hq" onclick="void 0" data-hqgo="${e.id}">${ic("army","sm")} Штаб</button><button class="btn" data-act="peace" data-arg="${e.id}" ${w.progress<-30?"disabled":""}>Предложить мир</button></div></div></div>`; }).join("");
   const head = `<div class="panel army-head">
       <div class="row"><h3>Вооружённые силы</h3><span class="num">Мощь ${Math.round(myPower()).toLocaleString("ru-RU")}</span></div>
       <div class="bstats"><span>Личный состав <b class="num">${troops(c.army)}</b></span><span>Техники <b class="num">${Object.values(S.units).reduce((a,b)=>a+b,0).toLocaleString("ru-RU")}</b></span><span>Содержание <b class="down num">−${money(armyUpkeepMonthly())}</b>/мес</span><span>Модернизация <b class="num">${c.tech}/5</b></span></div>
@@ -2831,9 +3077,11 @@ function viewMap(){
   let svg;
   if (WORLD){
     const [w,h] = mapSize();
-    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
+    const occ = {}; S.wars.forEach(w => { const g = warGradient(w); if (g) occ[g.iso] = g; });
+    const occDefs = Object.values(occ).map(g => { const a = g.mine ? "#F5A524" : "#D94848", b = g.mine ? "#EC5A5A" : "#F5A524"; return `<linearGradient id="occ-${g.iso}" gradientUnits="userSpaceOnUse" x1="${g.x1.toFixed(1)}" y1="${g.y1.toFixed(1)}" x2="${g.x2.toFixed(1)}" y2="${g.y2.toFixed(1)}"><stop offset="0" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${b}"/><stop offset="1" stop-color="${b}"/></linearGradient>`; }).join("");
+    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = occ[iso] ? `url(#occ-${iso})` : modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${occ[iso]?"m-occ":""} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
     const grid = (() => { const out = []; for (let lat = -60; lat <= 60; lat += 30){ const a = proj(lat, -168), b = proj(lat, 191); if (a) out.push(`<path d="M0,${a.y.toFixed(1)}H${w}" class="${lat===0?"eq":""}"/>`); } for (let lon = -150; lon <= 180; lon += 30){ const a = proj(80, lon), b = proj(-60, lon); if (a) out.push(`<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)}V${b.y.toFixed(1)}"/>`); } return out.join(""); })();
-    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g></g></svg>`;
+    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g></g></svg>`;
   } else svg = `<div class="map-empty">${worldFailed ? "Не удалось загрузить карту. Проверьте интернет — список стран доступен во вкладке «Дипломатия»." : "Загружаем карту мира…"}</div>`;
   const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
@@ -2846,7 +3094,7 @@ function viewMap(){
   const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap" id="map-wrap">${svg}
-        <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button><button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
+        <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
         <div class="map-modes" role="group" aria-label="Режим карты">${MAP_MODES.map(([id,l,icn]) => `<button data-mapmode="${id}" aria-pressed="${(ui.mapMode||"pol")===id}" title="${l}">${ic(icn,"sm")}<span>${l}</span></button>`).join("")}
           ${(ui.mapMode||"pol") === "res" ? `<div class="res-modes">${Object.keys(COMMOD).map(r=>`<button data-resmode="${r}" aria-pressed="${(ui.resMode||"oil")===r}" style="--rc:${RES_COLOR[r]}">${ic(r,"sm")}${COMMOD[r].name}</button>`).join("")}</div>` : ""}
@@ -2974,9 +3222,12 @@ function fxMarkup(){
     if (x.id === S.player || x.owner) return;
     const L = LABELS[x.id]; if (!L) return;
     const cv = fxCurve(home, L);
-    if (S.wars.some(w=>w.enemy===x.id)){
-      lines += `<path class="fx-war" d="${cv.d}"/>`;
-      marks += mark(L.x, L.y, `<path class="fx-arrow" d="M-9,-7 L4,0 L-9,7 L-5,0z"/>`, "", cv.ang) + mark(L.x, L.y, `<circle r="12" class="fx-front"/><path d="M-5,-5L5,5M5,-5L-5,5" class="fx-swords"/>`, "fx-off");
+    const wr = S.wars.find(w=>w.enemy===x.id);
+    if (wr){
+      const g = warGradient(wr), F = g ? g.front : L, cf = fxCurve(home, F);
+      lines += `<path class="fx-war" d="${cf.d}"/>`;
+      marks += mark(F.x, F.y, `<path class="fx-arrow" d="M-9,-7 L4,0 L-9,7 L-5,0z"/>`, "", cf.ang) + mark(F.x, F.y, `<circle r="12" class="fx-front"/><path d="M-5,-5L5,5M5,-5L-5,5" class="fx-swords"/>`, "fx-off")
+        + mark(F.x, F.y, `<g transform="translate(-24 14)"><circle r="9" class="fx-bld"/><use href="#${iref("tank")}" x="-6" y="-6" width="12" height="12" class="cu"/></g><g transform="translate(22 -16)"><circle r="9" class="fx-bld"/><use href="#${iref("jet")}" x="-6" y="-6" width="12" height="12" class="cu"/></g>`, "");
     } else if (S.rails[x.id]) lines += `<path class="fx-rail ${S.rails[x.id].done?"":"wip"}" d="${cv.d}"/>`;
     else if (x.trade) lines += `<path class="fx-trade" d="${cv.d}"/>`;
   });
@@ -3147,7 +3398,9 @@ function attachMap(){
   const [w, h] = mapSize(), wrap = document.getElementById("map-wrap"), wr = wrap.getBoundingClientRect();
   ui.mapVH = wr.width > 0 && wr.height > 0 ? w * wr.height / wr.width : h;
   svg.setAttribute("viewBox", `0 0 ${w} ${ui.mapVH.toFixed(2)}`);
+  const hadLabels = !!LABELS;
   computeLabels();
+  if (!hadLabels && LABELS && S.wars.length) setTimeout(render, 0);
   if (ui.mapFocus && LABELS && LABELS[ui.mapFocus]){
     const L = LABELS[ui.mapFocus], k = clamp(Math.min(w/(L.w*5), ui.mapVH/(L.h*5)), 1, 4);
     ui.map = {k, x: w*0.36 - L.x*k, y: ui.mapVH/2 - L.y*k};
@@ -3346,6 +3599,7 @@ document.addEventListener("click", e => {
   if (t.dataset.start){ newGame(t.dataset.start); return; }
   if (t.dataset.startregion){ ui.startRegion = t.dataset.startregion; renderStart(); return; }
   if (t.dataset.dipregion){ ui.dipRegion = t.dataset.dipregion; render(); return; }
+  if (t.dataset.hqgo) ui.hqWar = t.dataset.hqgo;
   if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
   if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
@@ -3366,6 +3620,10 @@ document.addEventListener("click", e => {
   if (t.dataset.mapmode){ ui.mapMode = t.dataset.mapmode; render(); return; }
   if (t.dataset.resmode){ ui.resMode = t.dataset.resmode; render(); return; }
   if (t.dataset.mapgo){ ui.tab = "map"; ui.mapSel = t.dataset.mapgo; ui.cardHidden = false; ui.mapFocus = t.dataset.mapgo; render(); window.scrollTo(0,0); return; }
+  if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
+  if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
+  if (t.dataset.warprio){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) w.prio = +t.dataset.warprio; save(); render(); return; }
+  if (t.dataset.strike){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) doStrike(w, t.dataset.strike); save(); render(); return; }
   if (t.dataset.armytab){ S.armyTab = t.dataset.armytab; save(); render(); return; }
   if (t.dataset.buildcat){ S.buildCat = t.dataset.buildcat; save(); render(); return; }
   if (t.dataset.scenario){ ui.scenario = t.dataset.scenario; renderStart(); return; }
