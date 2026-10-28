@@ -258,117 +258,145 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:8px;font-size:13px;z-index:30;max-width:90%}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
-/* ===== App shell: status bar + navigation rail + main area =====
-   Portrait (phone in hand / narrow window): stacked, tabs in a row, clock pinned to the bottom.
-   Landscape (the target for the Android app): one fixed screen — thin status bar on top, rail on the left, map edge to edge. */
-.topbar{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
-.tb-who{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;min-width:0}
-.tb-who b{font-family:var(--f-display);font-size:24px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
-.tb-sub{font-size:12px;color:var(--muted)}
-.tb-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-@media (max-width:760px){.tb-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.tb-kpis .kpi{padding:8px}.tb-kpis .kpi .v{font-size:14px;white-space:normal;overflow-wrap:anywhere}.tb-kpis .kpi .label{font-size:9.5px;letter-spacing:.04em}}
-.tb-time{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgb(10 17 32 / .94);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
-.rail{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:14px;position:relative}
-.rail-btn{position:relative;background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;font-weight:600;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;gap:7px;font-family:var(--f-display);letter-spacing:.02em}
-.rail-btn[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
-.rail-btn[aria-current="page"] .ic{color:var(--accent)}
-.rail-btn:hover{color:var(--ink)}
-.dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 6px var(--warn)}
-.dot.bad{background:var(--bad);box-shadow:0 0 6px var(--bad)}
-.more-menu .dot{position:static;margin-left:auto}
-.more-menu{position:fixed;z-index:12;top:auto;right:16px;display:flex;flex-direction:column;min-width:200px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgb(0 0 0 / .5);padding:4px}
-.more-menu button{display:flex;align-items:center;gap:10px;background:none;border:0;border-radius:8px;padding:10px 12px;text-align:left;font-weight:600}
-.more-menu button:hover,.more-menu button[aria-current="page"]{background:rgb(242 169 59 / .12);color:var(--accent)}
-.rotate-hint{display:none;align-items:center;gap:8px;font-size:12px;color:var(--warn);border:1px dashed rgb(247 201 72 / .5);border-radius:8px;padding:6px 10px;margin-bottom:12px}
+/* ===== Game shell: status bar · map stage with windows · ministry dock =====
+   One fixed screen (the Android app is landscape-only); portrait still works, the dock scrolls sideways. */
+body.in-game{overflow:hidden;background-attachment:scroll}
+body.in-game #app{max-width:none;padding:0;height:100vh;height:100dvh}
+.game{display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100%}
+.topbar{display:flex;align-items:center;gap:10px;min-height:50px;padding:5px max(10px,env(safe-area-inset-right,0px)) 5px max(10px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,#0C1730,#08101F);border-bottom:1px solid var(--line);box-shadow:0 4px 18px rgb(0 0 0 / .4);z-index:8}
+.tb-who{display:flex;align-items:center;gap:8px;background:none;border:0;padding:0;min-width:0;flex:0 3 210px;text-align:left}
+.tb-flag{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;background:linear-gradient(160deg,#5B3D0E,#2A1B06);border:1px solid rgb(242 169 59 / .6);color:var(--accent);box-shadow:0 0 12px rgb(242 169 59 / .25)}
+.tb-name{display:flex;flex-direction:column;min-width:0}
+.tb-name b{font-family:var(--f-display);font-size:15px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-kpis{display:flex;flex:1;min-width:0;gap:4px}
+.tb-kpis .kpi{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;background:rgb(19 35 61 / .7);border:1px solid var(--line);border-radius:10px;padding:3px 9px;text-align:left}
+.tb-kpis .kpi:active{transform:scale(.97)}
+.tb-kpis .kpi .label{font-size:9px;letter-spacing:.06em;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden}
+.tb-kpis .kpi .label .ic{width:12px;height:12px;color:var(--state)}
+.tb-kpis .kpi .v{font-family:var(--f-data);font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tb-kpis .kpi .v.warn{color:var(--warn)}
+.fl-up{animation:flUp 1.2s ease-out} .fl-down{animation:flDown 1.2s ease-out}
+@keyframes flUp{0%{color:#fff;text-shadow:0 0 10px var(--good)}100%{text-shadow:none}}
+@keyframes flDown{0%{color:#fff;text-shadow:0 0 10px var(--bad)}100%{text-shadow:none}}
+.tb-time{display:flex;align-items:center;gap:8px;flex:none}
+.tb-time .clock{min-width:104px;gap:4px}
+.tb-time .clock-top b{font-size:12.5px}
+.tb-time .clock-hint{font-size:10.5px}
+.tb-time .speeds button{width:36px;height:34px}
+.tb-btn{position:relative;flex:none;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:rgb(19 35 61 / .7);display:grid;place-items:center;padding:0;color:var(--ink)}
+.tb-btn .ic{width:20px;height:20px}
+.tb-sec{overflow:visible;padding:2px}
+.tb-sec .portrait{width:34px;height:34px}
+.badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--warn);color:#1A1104;font:700 10px/17px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 8px rgb(247 201 72 / .6)}
+.badge.bad{background:var(--bad);color:#fff;box-shadow:0 0 8px rgb(255 93 93 / .6)}
+.badge.soft{background:var(--state);color:#06121F;box-shadow:none}
+.stage{position:relative;overflow:hidden;min-height:0}
+.map-layer{position:absolute;inset:0}
+.map-screen{position:relative;height:100%}
+.map-screen .map-wrap{position:absolute;inset:0;border:0;border-radius:0}
+.map-screen #worldmap{width:100%;height:100%}
+.map-screen .map-tools{left:10px;right:auto;top:10px}
+.map-screen .legend{position:absolute;left:56px;top:10px;max-width:min(430px,calc(100% - 420px));min-width:220px;display:none;background:rgb(10 17 32 / .93);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0}
+.map-screen.show-legend .legend{display:flex}
+.tool-legend,.tool-card{display:grid!important}
+.tool-legend[aria-pressed="true"]{border-color:var(--accent)!important;color:var(--accent)!important}
+.map-card{position:absolute;right:10px;top:10px;width:min(340px,45%);max-height:calc(100% - 20px);overflow:auto;z-index:3;border-radius:12px;box-shadow:0 12px 32px rgb(0 0 0 / .45)}
+.map-card>.panel{background:linear-gradient(180deg,rgb(19 35 61 / .97),rgb(15 27 48 / .97))}
+.map-card .panel>.row:first-child,.map-card .panel>h3:first-child{padding-right:36px}
+.map-card .dip-row{grid-template-columns:1fr}
+.card-x{display:grid!important;position:absolute;top:10px;right:10px;z-index:2;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);place-items:center;color:var(--muted)}
+.map-screen.card-hidden .map-card,.stage.has-win .map-card{display:none}
+.rotate-hint{display:none;position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:2;align-items:center;gap:8px;font-size:12px;color:var(--warn);background:rgb(10 17 32 / .9);border:1px dashed rgb(247 201 72 / .5);border-radius:8px;padding:6px 10px;white-space:nowrap}
 @media (orientation:portrait) and (max-width:600px){.rotate-hint{display:flex}}
-.main{padding-bottom:110px}
-.map-screen{display:flex;flex-direction:column;gap:12px}
-.map-screen .map-wrap{position:relative}
-.map-screen .legend{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px}
-.map-screen .map-wrap .legend{position:static;border:0;border-top:1px solid var(--line);border-radius:0;margin:0}
-.tool-legend,.tool-card,.card-x{display:none!important}
-.card-x{position:absolute;top:10px;right:10px;z-index:2;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel);place-items:center;color:var(--muted)}
-.card-x:hover{color:var(--ink);border-color:var(--state)}
-.map-card{position:relative}
-.more-menu{bottom:auto}
-@media (orientation:portrait),(max-width:639px){.more-menu{position:static;flex-direction:row;flex-wrap:wrap;gap:4px;margin:-6px 0 12px;box-shadow:none;min-width:0}}
-
-@media (orientation:landscape) and (min-width:640px){
-  body.in-game{overflow:hidden;background-attachment:scroll}
-  body.in-game #app{max-width:none;padding:0;height:100vh;height:100dvh}
-  body.in-game .app{display:grid;grid-template-columns:calc(70px + env(safe-area-inset-left,0px)) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:100%}
-  .topbar{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px;margin:0;min-height:52px;padding:5px max(12px,env(safe-area-inset-right,0px)) 5px max(12px,env(safe-area-inset-left,0px));background:rgb(8 14 27 / .97);border-bottom:1px solid var(--line);box-shadow:0 4px 18px rgb(0 0 0 / .35);z-index:6}
-  .tb-who{flex-direction:column;gap:0;flex:0 1 190px}
-  .tb-who b{font-size:15px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tb-sub{font-size:10.5px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tb-kpis{display:flex;flex:1;min-width:0;background:none;border:0;border-radius:0;gap:0;overflow:hidden}
-  .tb-kpis .kpi{background:none;padding:1px 10px;border-left:1px solid var(--line);flex:1 1 0;min-width:0}
-  .tb-kpis .kpi .label{font-size:9px;letter-spacing:.06em;gap:4px}
-  .tb-kpis .kpi .label .ic{width:12px;height:12px}
-  .tb-kpis .kpi .v{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
-  .tb-kpis .kpi .label{white-space:nowrap;overflow:hidden}
-  .tb-kpis .kpi .d{display:none}
-  .tb-time{position:static;flex:none;background:none;border:0;padding:0;backdrop-filter:none;gap:10px}
-  .tb-time .clock{min-width:112px}
-  .tb-time .clock-top b{font-size:12.5px}
-  .tb-time .clock-hint{font-size:10.5px}
-  .tb-time .speeds button{width:38px;height:36px}
-  .rail{grid-row:2;flex-direction:column;gap:0;overflow-x:hidden;overflow-y:auto;border:0;border-right:1px solid var(--line);margin:0;padding:4px 0 env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);background:rgb(8 14 27 / .92);position:static}
-  .rail-btn{flex:1 1 0;min-height:40px;max-height:74px;flex-direction:column;justify-content:center;gap:4px;font-size:10px;letter-spacing:.03em;padding:4px 2px;border-bottom:0;border-left:3px solid transparent;white-space:normal;text-align:center;line-height:1.1}
-  .rail-btn .ic{width:21px;height:21px}
-  .rail-btn[aria-current="page"]{border-left-color:var(--accent);border-bottom-color:transparent;background:linear-gradient(90deg,rgb(242 169 59 / .14),transparent)}
-  .rail-btn .dot{top:7px;right:12px}
-  .more-menu{left:calc(74px + env(safe-area-inset-left,0px));right:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px))}
-  .main{grid-row:2;overflow:auto;overscroll-behavior:contain;padding:12px max(12px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) 12px}
-  .main.is-map{overflow:hidden;padding:0}
-  .main .grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .main .dip-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto}
-  .map-card .dip-row{grid-template-columns:1fr}
-  .main.is-map .rotate-hint{display:none}
-  .map-screen{position:relative;height:100%;display:block}
-  .map-screen .map-wrap{position:absolute;inset:0;border:0;border-radius:0}
-  .map-screen #worldmap{width:100%;height:100%}
-  .map-screen .map-tools{left:10px;right:auto;top:10px}
-  .tool-legend,.tool-card{display:grid!important}
-  .tool-legend[aria-pressed="true"]{border-color:var(--accent)!important;color:var(--accent)!important}
-  .map-screen .map-wrap .legend{position:absolute;left:56px;top:10px;max-width:min(430px,calc(100% - 420px));min-width:220px;display:none;background:rgb(10 17 32 / .93);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
-  .map-screen.show-legend .map-wrap .legend{display:flex}
-  .map-card{position:absolute;right:10px;top:10px;bottom:auto;width:min(340px,45%);max-height:calc(100% - 20px);overflow:auto;z-index:3;border-radius:12px;box-shadow:0 12px 32px rgb(0 0 0 / .45)}
-  .map-card>.panel{background:linear-gradient(180deg,rgb(19 35 61 / .97),rgb(15 27 48 / .97))}
-  .map-card .panel>.row:first-child,.map-card .panel>h3:first-child{padding-right:36px}
-  .map-card .dip-row{grid-template-columns:1fr}
-  .card-x{display:grid!important}
-  .map-screen.card-hidden .map-card{display:none}
-  .toast{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-  .modal .sheet{max-height:94%}
+/* windows over the map */
+.win-scrim{position:absolute;inset:0;z-index:4;border:0;background:rgb(3 7 15 / .55);backdrop-filter:blur(2px);cursor:default}
+.window{position:absolute;z-index:5;top:8px;bottom:8px;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));margin:0 auto;max-width:1080px;display:flex;flex-direction:column;background:linear-gradient(180deg,#132442,#0C182C);border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));border-radius:16px;box-shadow:0 18px 50px rgb(0 0 0 / .55),0 0 0 1px rgb(255 255 255 / .03) inset;animation:winIn .22s cubic-bezier(.2,.8,.2,1);overflow:hidden}
+@keyframes winIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.win-head{display:flex;align-items:center;gap:10px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 26%,transparent),transparent 65%)}
+.win-head h2{font-size:16px;text-transform:uppercase;letter-spacing:.08em}
+.win-head .spacer{flex:1}
+.win-ic{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--c);background:color-mix(in srgb,var(--c) 18%,#0C182C);border:1px solid color-mix(in srgb,var(--c) 50%,transparent)}
+.win-x{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:rgb(10 17 32 / .6);display:grid;place-items:center;color:var(--ink)}
+.win-x:hover{border-color:var(--c);color:var(--c)}
+.win-body{flex:1;overflow:auto;overscroll-behavior:contain;padding:12px;-webkit-overflow-scrolling:touch}
+.win-body .grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:640px){.win-body .grid2{grid-template-columns:1fr}}
+.win-body .dip-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto}
+@media (max-width:560px){.win-body .dip-row{grid-template-columns:1fr}}
+/* advisor tip at the top of a window */
+.tip{display:flex;gap:12px;align-items:center;background:linear-gradient(90deg,rgb(242 169 59 / .08),transparent);border:1px solid var(--line);border-radius:12px;padding:8px 12px 8px 8px;margin-bottom:12px}
+.tip .portrait{width:46px;height:46px;flex:none}
+.tip b{font-size:13px} .tip small{color:var(--muted);font-size:11px}
+.tip p{margin:2px 0 0;font-size:13px;line-height:1.35}
+/* ministry dock */
+.dock{display:flex;justify-content:center;gap:4px;padding:5px max(8px,env(safe-area-inset-right,0px)) calc(5px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));background:linear-gradient(0deg,#060C18,#0A1326);border-top:1px solid var(--line);overflow-x:auto;scrollbar-width:none;z-index:8}
+.dock::-webkit-scrollbar{display:none}
+.tile{position:relative;flex:0 0 auto;width:84px;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;padding:2px 2px 1px;color:var(--muted);font-family:var(--f-display);font-size:11px;font-weight:600;letter-spacing:.02em}
+.tile-ic{width:46px;height:34px;border-radius:12px;display:grid;place-items:center;color:var(--c);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 30%,#13233D),#0B1628);border:1px solid color-mix(in srgb,var(--c) 45%,transparent);box-shadow:0 4px 10px rgb(0 0 0 / .35),inset 0 1px 0 rgb(255 255 255 / .08);transition:transform .12s}
+.tile-ic .ic{width:20px;height:20px}
+.tile:active .tile-ic{transform:scale(.9)}
+.tile[aria-current="page"]{color:var(--ink)}
+.tile[aria-current="page"] .tile-ic{background:linear-gradient(160deg,color-mix(in srgb,var(--c) 70%,#13233D),color-mix(in srgb,var(--c) 30%,#0B1628));color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--c) 55%,transparent)}
+.tile .badge{top:-3px;right:14px}
+/* advisor notification card */
+#adv-root{position:fixed;z-index:15;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(74px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100vw - 20px));pointer-events:none}
+.adv-card{pointer-events:auto;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#17294A,#0E1B31);border:1px solid rgb(242 169 59 / .45);border-radius:14px;padding:8px 8px 8px 8px;box-shadow:0 14px 34px rgb(0 0 0 / .55);animation:advIn .3s cubic-bezier(.2,.8,.2,1)}
+.adv-card.alert{border-color:rgb(255 93 93 / .65);box-shadow:0 14px 34px rgb(0 0 0 / .55),0 0 18px rgb(255 93 93 / .25)}
+@keyframes advIn{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+.adv-card .portrait{width:52px;height:52px;flex:none}
+.adv-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.adv-txt b{font-size:13px} .adv-txt small{font-size:10.5px;color:var(--muted)}
+.adv-txt p{margin:3px 0 0;font-size:12.5px;line-height:1.35}
+.adv-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.adv-x{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:none;display:grid;place-items:center;color:var(--muted)}
+.inbox-row{display:flex;gap:10px;align-items:center}
+.inbox-row+.inbox-row{border-top:1px dashed var(--line);padding-top:8px}
+.inbox-row .portrait{width:36px;height:36px;flex:none}
+.inbox-row>div{flex:1;min-width:0} .inbox-row p{margin:2px 0 0;font-size:13px}
+/* advisor in modals */
+.adv-head{display:flex;align-items:center;gap:12px}
+.adv-head .portrait{flex:none;filter:drop-shadow(0 6px 14px rgb(0 0 0 / .5))}
+.adv-head b{display:block;font-size:15px} .adv-head small{color:var(--muted);font-size:12px}
+.sheet blockquote{margin:0;padding:10px 12px;border-left:3px solid var(--accent);background:rgb(242 169 59 / .07);border-radius:0 10px 10px 0;font-size:14.5px;line-height:1.45}
+.sheet.dossier{border-color:rgb(90 169 255 / .5);background:linear-gradient(180deg,#101E36,#0B1527)}
+.sheet.dossier blockquote{border-left-color:var(--state);background:rgb(90 169 255 / .07)}
+.verdict{align-self:flex-start;font-family:var(--f-display);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:13px;padding:3px 10px;border-radius:6px;border:1.5px solid}
+.verdict.ok{color:var(--good);border-color:var(--good)} .verdict.fail{color:var(--bad);border-color:var(--bad)}
+.month-sum summary{cursor:pointer;color:var(--muted);font-size:12px}
+.month-sum .deltas{margin-top:8px}
+.sheet{animation:winIn .22s cubic-bezier(.2,.8,.2,1)}
+.sheet.event,.sheet.tut{max-width:560px}
+@media (min-width:700px) and (orientation:landscape){
+  .sheet.event{max-width:820px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;column-gap:18px}
+  .sheet.event>.stamp,.sheet.event>.adv-head,.sheet.event>h2,.sheet.event>blockquote{grid-column:1}
+  .sheet.event>.choices{grid-column:2;grid-row:1/span 4}
+  .sheet.event>.month-sum{grid-column:1/-1}
 }
-@media (orientation:landscape) and (min-width:640px) and (max-width:1100px){
-  .tb-kpis .k-gdp,.tb-kpis .k-debt{display:none}
+@media (max-height:440px){
+  .modal{padding:8px}
+  .sheet{gap:8px;padding:14px}
+  .sheet .adv-head .portrait{width:52px;height:52px}
+  .sheet blockquote{padding:8px 10px;font-size:13.5px}
+  .sheet h2{font-size:18px}
+  .choice{padding:8px 10px}
+  .sheet.dossier{max-width:600px;display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:14px;align-items:start}
+  .sheet.dossier>.stamp,.sheet.dossier>button{grid-column:1/-1}
+  .sheet.dossier>.adv-head{grid-column:1;grid-row:2/span 4;flex-direction:column;align-items:flex-start;max-width:120px}
+  .sheet.dossier>h2,.sheet.dossier>.verdict,.sheet.dossier>blockquote,.sheet.dossier>p{grid-column:2}
 }
-@media (orientation:landscape) and (min-width:640px) and (max-width:940px){
-  .tb-kpis .k-stab{display:none}
-  .tb-who{flex-basis:150px}
-  .tb-time .clock{min-width:96px}
-  .tb-time .clock-hint{display:none}
-}
-@media (orientation:landscape) and (min-width:640px) and (max-width:820px){
-  .tb-who{flex-basis:128px}
-  .tb-kpis .kpi{padding:1px 7px}
-  .tb-kpis .kpi .v{font-size:12.5px}
-  .tb-time .speeds button{width:34px}
-  .topbar{gap:8px}
-}
-@media (orientation:landscape) and (min-width:640px) and (max-height:400px){
-  .rail-btn{gap:2px}
-  .rail-btn .ic{width:19px;height:19px}
-}
-@media (orientation:landscape) and (min-width:640px) and (max-height:430px){
-  .grid2{gap:10px}
-  .panel{padding:12px}
-}
+body.in-game .toast{top:calc(58px + env(safe-area-inset-top,0px));bottom:auto}
+.modal .sheet{max-height:94%}
+/* narrower screens */
+@media (max-width:1100px){.tb-kpis .k-gdp{display:none}}
+@media (max-width:940px){.tb-kpis .k-stab{display:none}.tb-who{flex-basis:164px}.tb-time .speeds button{width:34px}.tb-time .clock{min-width:92px}.tb-time .clock-hint{display:none}}
+@media (max-width:820px){.tb-who{flex-basis:44px}.tb-name{display:none}.tile{width:76px}.tb-kpis .kpi{padding:3px 7px}.tb-kpis .kpi .v{font-size:12.5px}.tb-time .speeds button{width:33px}}
+@media (max-height:420px){.topbar{min-height:44px;padding-top:3px;padding-bottom:3px}.tb-btn{width:36px;height:36px}.tb-sec .portrait{width:30px;height:30px}.tile-ic{height:30px}.tile{font-size:10px;gap:2px}.dock{padding-top:4px}#adv-root{bottom:calc(64px + env(safe-area-inset-bottom,0px))}.window{top:6px;bottom:6px}.win-body{padding:10px}.tip{margin-bottom:10px}}
+@media (orientation:portrait) and (max-width:600px){.topbar{flex-wrap:wrap}.tb-who{flex:1 1 0;min-width:0}.tb-name{display:flex}.tb-time .clock{display:none}.tb-kpis{order:3;flex-basis:100%}.dock{justify-content:flex-start}.map-card{width:min(300px,70%)}}
 </style>
 
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></symbol><symbol id="i-summary" viewBox="0 0 24 24"><path d="M3 14a9 9 0 0 1 18 0 M12 14l4-4 M7 19h10"/></symbol><symbol id="i-economy" viewBox="0 0 24 24"><path d="M3 20h18 M5 16l5-5 4 3 6-7 M15 7h5v5"/></symbol><symbol id="i-science" viewBox="0 0 24 24"><path d="M9 3h6 M10 3v6L4.5 18.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3 M7 15h10"/></symbol><symbol id="i-politics" viewBox="0 0 24 24"><path d="M3 21h18 M5 21V10 M9.5 21V10 M14.5 21V10 M19 21V10 M2 10l10-6 10 6z"/></symbol><symbol id="i-army" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z M9 12l2 2 4-4"/></symbol><symbol id="i-intel" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></symbol><symbol id="i-diplomacy" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></symbol><symbol id="i-budget" viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-4v4 M16 14h2"/></symbol><symbol id="i-gdp" viewBox="0 0 24 24"><path d="M4 20V11 M10 20V4 M16 20v-7 M3 20h18"/></symbol><symbol id="i-approval" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol><symbol id="i-stability" viewBox="0 0 24 24"><path d="M12 3v18 M5 7h14 M5 7l-3 7h6z M19 7l-3 7h6z M8 21h8"/></symbol><symbol id="i-debt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6"/></symbol><symbol id="i-balance" viewBox="0 0 24 24"><path d="M4 12h16 M12 4v16"/></symbol><symbol id="i-food" viewBox="0 0 24 24"><path d="M12 21V8 M12 8c-2 0-4-2-4-5 2 0 4 2 4 5zm0 0c2 0 4-2 4-5-2 0-4 2-4 5z M12 14c-2 0-4-2-4-4 2 0 4 1.5 4 4zm0 0c2 0 4-2 4-4-2 0-4 1.5-4 4z"/></symbol><symbol id="i-oil" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></symbol><symbol id="i-metal" viewBox="0 0 24 24"><path d="M4 18l3-8h10l3 8z M7 10l2-4h6l2 4"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M3 21V11l5 3v-3l5 3V7l5 3v11z M3 21h18 M18 10V4h2v7"/></symbol><symbol id="i-bridge" viewBox="0 0 24 24"><path d="M2 16h20 M4 16v4 M20 16v4 M2 11c3 0 5 5 10 5s7-5 10-5 M8 13.5V16 M16 13.5V16"/></symbol><symbol id="i-road" viewBox="0 0 24 24"><path d="M8 3L5 21 M16 3l3 18 M12 4v3 M12 10v3 M12 16v3"/></symbol><symbol id="i-metro" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z M5 10h14 M8 21l2-4 M16 21l-2-4 M9 13.5h.01 M15 13.5h.01"/></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol><symbol id="i-port" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M12 8v13 M5 13a7 7 0 0 0 14 0 M3 13h4 M17 13h4"/></symbol><symbol id="i-tank" viewBox="0 0 24 24"><path d="M3 15h18l-2 4H5z M6 15v-3h10v3 M16 12.5l5-2 M9 12V9.5h4V12"/></symbol><symbol id="i-heli" viewBox="0 0 24 24"><path d="M3 6h14 M10 6v3 M5 12a5 3 0 0 1 5-3h3a4 4 0 0 1 4 4v1H7a2 2 0 0 1-2-2z M17 12h4l1-2 M9 14l-1 3 M13 14l1 3 M6 17h10"/></symbol><symbol id="i-jet" viewBox="0 0 24 24"><path d="M12 2l2 7 8 4v2l-8-2-1 5 3 2v1l-4-1-4 1v-1l3-2-1-5-8 2v-2l8-4z"/></symbol><symbol id="i-sam" viewBox="0 0 24 24"><path d="M4 20h16 M7 20l3-6h4l3 6 M12 14V9 M8 6a6 6 0 0 1 8 0 M10 8a3 3 0 0 1 4 0"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z M12 10v5 M12 18h.01"/></symbol><symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z M8 6H4a3 3 0 0 0 4 4 M16 6h4a3 3 0 0 1-4 4 M12 13v4 M8 21h8 M9 17h6"/></symbol><symbol id="i-rail" viewBox="0 0 24 24"><path d="M7 3l-3 18 M17 3l3 18 M5.5 7h13 M5 12h14 M4.3 17h15.4"/></symbol><symbol id="i-council" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M8 12h8 M12 8v8"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14 M5 12h14"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7 M5 10v10h14V10"/></symbol><symbol id="i-wood" viewBox="0 0 24 24"><path d="M4 8h12a4 4 0 0 1 0 8H4a4 4 0 0 1 0-8z M4 8a4 4 0 0 0 0 8 M4 10.5a1.5 1.5 0 1 0 0 3 M9 11h5 M8 14h4"/></symbol><symbol id="i-steel" viewBox="0 0 24 24"><path d="M5 4h14 M5 20h14 M12 4v16 M8 4v2h8V4 M8 20v-2h8v2"/></symbol><symbol id="i-gold" viewBox="0 0 24 24"><path d="M3 19l2-5h6l2 5z M11 19l2-5h6l2 5z M7 14l2-5h6l2 5"/></symbol><symbol id="i-trade" viewBox="0 0 24 24"><path d="M4 8h14l-4-4 M20 16H6l4 4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M5 6h14 M5 12h14 M5 18h14"/></symbol><symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3 M18 3v4h-4 M20 12a8 8 0 0 1-14 5.3 M6 21v-4h4"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12 M18 6L6 18"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21a7 7 0 0 1 14 0 M16 3a4 4 0 0 1 0 8 M18 14a6 6 0 0 1 4 7"/></symbol></defs></svg>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="i-map" viewBox="0 0 24 24"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15"/></symbol><symbol id="i-summary" viewBox="0 0 24 24"><path d="M3 14a9 9 0 0 1 18 0 M12 14l4-4 M7 19h10"/></symbol><symbol id="i-economy" viewBox="0 0 24 24"><path d="M3 20h18 M5 16l5-5 4 3 6-7 M15 7h5v5"/></symbol><symbol id="i-science" viewBox="0 0 24 24"><path d="M9 3h6 M10 3v6L4.5 18.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3 M7 15h10"/></symbol><symbol id="i-politics" viewBox="0 0 24 24"><path d="M3 21h18 M5 21V10 M9.5 21V10 M14.5 21V10 M19 21V10 M2 10l10-6 10 6z"/></symbol><symbol id="i-army" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z M9 12l2 2 4-4"/></symbol><symbol id="i-intel" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></symbol><symbol id="i-diplomacy" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M3 12h18 M12 3c2.5 2.5 3.8 5.5 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.5-3.8-9S9.5 5.5 12 3z"/></symbol><symbol id="i-budget" viewBox="0 0 24 24"><path d="M3 7h15a3 3 0 0 1 3 3v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l12-4v4 M16 14h2"/></symbol><symbol id="i-gdp" viewBox="0 0 24 24"><path d="M4 20V11 M10 20V4 M16 20v-7 M3 20h18"/></symbol><symbol id="i-approval" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></symbol><symbol id="i-stability" viewBox="0 0 24 24"><path d="M12 3v18 M5 7h14 M5 7l-3 7h6z M19 7l-3 7h6z M8 21h8"/></symbol><symbol id="i-debt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6"/></symbol><symbol id="i-balance" viewBox="0 0 24 24"><path d="M4 12h16 M12 4v16"/></symbol><symbol id="i-food" viewBox="0 0 24 24"><path d="M12 21V8 M12 8c-2 0-4-2-4-5 2 0 4 2 4 5zm0 0c2 0 4-2 4-5-2 0-4 2-4 5z M12 14c-2 0-4-2-4-4 2 0 4 1.5 4 4zm0 0c2 0 4-2 4-4-2 0-4 1.5-4 4z"/></symbol><symbol id="i-oil" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></symbol><symbol id="i-metal" viewBox="0 0 24 24"><path d="M4 18l3-8h10l3 8z M7 10l2-4h6l2 4"/></symbol><symbol id="i-power" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol><symbol id="i-factory" viewBox="0 0 24 24"><path d="M3 21V11l5 3v-3l5 3V7l5 3v11z M3 21h18 M18 10V4h2v7"/></symbol><symbol id="i-bridge" viewBox="0 0 24 24"><path d="M2 16h20 M4 16v4 M20 16v4 M2 11c3 0 5 5 10 5s7-5 10-5 M8 13.5V16 M16 13.5V16"/></symbol><symbol id="i-road" viewBox="0 0 24 24"><path d="M8 3L5 21 M16 3l3 18 M12 4v3 M12 10v3 M12 16v3"/></symbol><symbol id="i-metro" viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2z M5 10h14 M8 21l2-4 M16 21l-2-4 M9 13.5h.01 M15 13.5h.01"/></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol><symbol id="i-port" viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z M12 8v13 M5 13a7 7 0 0 0 14 0 M3 13h4 M17 13h4"/></symbol><symbol id="i-tank" viewBox="0 0 24 24"><path d="M3 15h18l-2 4H5z M6 15v-3h10v3 M16 12.5l5-2 M9 12V9.5h4V12"/></symbol><symbol id="i-heli" viewBox="0 0 24 24"><path d="M3 6h14 M10 6v3 M5 12a5 3 0 0 1 5-3h3a4 4 0 0 1 4 4v1H7a2 2 0 0 1-2-2z M17 12h4l1-2 M9 14l-1 3 M13 14l1 3 M6 17h10"/></symbol><symbol id="i-jet" viewBox="0 0 24 24"><path d="M12 2l2 7 8 4v2l-8-2-1 5 3 2v1l-4-1-4 1v-1l3-2-1-5-8 2v-2l8-4z"/></symbol><symbol id="i-sam" viewBox="0 0 24 24"><path d="M4 20h16 M7 20l3-6h4l3 6 M12 14V9 M8 6a6 6 0 0 1 8 0 M10 8a3 3 0 0 1 4 0"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z M12 10v5 M12 18h.01"/></symbol><symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0z M8 6H4a3 3 0 0 0 4 4 M16 6h4a3 3 0 0 1-4 4 M12 13v4 M8 21h8 M9 17h6"/></symbol><symbol id="i-rail" viewBox="0 0 24 24"><path d="M7 3l-3 18 M17 3l3 18 M5.5 7h13 M5 12h14 M4.3 17h15.4"/></symbol><symbol id="i-council" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M8 12h8 M12 8v8"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14 M5 12h14"/></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol><symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7 M5 10v10h14V10"/></symbol><symbol id="i-wood" viewBox="0 0 24 24"><path d="M4 8h12a4 4 0 0 1 0 8H4a4 4 0 0 1 0-8z M4 8a4 4 0 0 0 0 8 M4 10.5a1.5 1.5 0 1 0 0 3 M9 11h5 M8 14h4"/></symbol><symbol id="i-steel" viewBox="0 0 24 24"><path d="M5 4h14 M5 20h14 M12 4v16 M8 4v2h8V4 M8 20v-2h8v2"/></symbol><symbol id="i-gold" viewBox="0 0 24 24"><path d="M3 19l2-5h6l2 5z M11 19l2-5h6l2 5z M7 14l2-5h6l2 5"/></symbol><symbol id="i-trade" viewBox="0 0 24 24"><path d="M4 8h14l-4-4 M20 16H6l4 4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M5 6h14 M5 12h14 M5 18h14"/></symbol><symbol id="i-rotate" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3 M18 3v4h-4 M20 12a8 8 0 0 1-14 5.3 M6 21v-4h4"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5z M3 13l9 5 9-5"/></symbol><symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12 M18 6L6 18"/></symbol><symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z M19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2 1.2l-.3 2h-4l-.3-2a7 7 0 0 1-2-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-3l-1.6-1.2 2-3.4 1.9.7a7 7 0 0 1 2-1.2l.3-2h4l.3 2a7 7 0 0 1 2 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 3z"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21a7 7 0 0 1 14 0 M16 3a4 4 0 0 1 0 8 M18 14a6 6 0 0 1 4 7"/></symbol></defs></svg>
 <div id="app" class="wrap"></div>
 <div id="modal-root"></div>
 
@@ -955,7 +983,9 @@ function nextMonth(){
   S.approval = clamp(S.approval,0,100); S.stability = clamp(S.stability,0,100);
 
   // 5. world
+  const warsBefore = S.wars.map(w=>w.enemy);
   aiTurn();
+  S.wars.filter(w=>!warsBefore.includes(w.enemy)).forEach(w => advise("gen", `Тревога! ${C()[w.enemy].name} объявила нам войну. Войска приведены в готовность — жду приказов.`, {tab:"army", mood:"alert"}));
 
   // 6. wars
   warTurn();
@@ -1009,6 +1039,7 @@ function nextMonth(){
   S.eventCd--;
   if (S.eventCd <= 0 && Math.random() < 0.4){ S.pendingEvent = drawEvent(); S.eventCd = 2; }
 
+  advisorsTurn();
   S.hist.gdp.push(c.gdp); S.hist.appr.push(S.approval);
   S.hist.gdp = S.hist.gdp.slice(-36); S.hist.appr = S.hist.appr.slice(-36);
   S.day = 1;
@@ -1020,7 +1051,7 @@ function nextMonth(){
   save();
   render();
   if (S.pendingEvent){ pauseFor("event"); showReport(); }
-  else { const d = S.last.d; toast(`Итоги месяца: бюджет ${d.treasury>=0?"+":""}${money(d.treasury)}, рейтинг ${d.approval>=0?"+":""}${d.approval.toFixed(1).replace(".",",")}`); }
+  else { const d = S.last.d; toast(`${MONTHS[(S.month+11)%12]}: бюджет ${d.treasury>=0?"+":""}${money(d.treasury)}, рейтинг ${d.approval>=0?"+":""}${d.approval.toFixed(1).replace(".",",")}`); if (d.treasury > 0) sfx("coin"); }
 }
 
 function aiTurn(){
@@ -1152,12 +1183,12 @@ function runOp(opId, targetId){
     if (op.id==="sabotage"){ x.gdp *= 0.98; x.army *= 0.97; addLog(`Диверсия в стране ${x.name} удалась.`); }
     if (op.id==="opposition"){ x.gdp *= 0.99; if (Math.random()<0.25){ x.rel = Math.max(x.rel, 40); addLog(`В стране ${x.name} к власти пришла дружественная вам оппозиция.`); } else addLog(`Оппозиция в стране ${x.name} усилилась.`); }
     if (op.id==="coup"){ x.rel = 80; x.ally = true; x.trade = true; x.sanction = false; x.sanctionsUs = false; S.flags.coup = true; addLog(`Переворот в стране ${x.name}: новое правительство — ваш союзник.`); }
-    toast("Операция прошла успешно.");
+    checkAchievements(); save(); render();
+    showOpReport(op, x, op.id==="opposition" && x.rel >= 40 ? "flip" : "ok", S.log[0].text);
   } else {
-    if (Math.random() < 0.5){ x.rel = clamp(x.rel-25,-100,100); S.mods.push({stat:"approval",v:-3,left:6}); addLog(`Провал операции в стране ${x.name}: агенты раскрыты, скандал.`); toast("Провал: агенты раскрыты."); }
-    else { addLog(`Операция в стране ${x.name} не удалась, но следов не осталось.`); toast("Операция не удалась."); }
+    if (Math.random() < 0.5){ x.rel = clamp(x.rel-25,-100,100); S.mods.push({stat:"approval",v:-3,left:6}); addLog(`Провал операции в стране ${x.name}: агенты раскрыты, скандал.`); checkAchievements(); save(); render(); showOpReport(op, x, "exposed", "Отношения с этой страной −25, рейтинг дома −3 на полгода."); }
+    else { addLog(`Операция в стране ${x.name} не удалась, но следов не осталось.`); checkAchievements(); save(); render(); showOpReport(op, x, "clean", "Агенты потрачены, последствий нет."); }
   }
-  checkAchievements(); save(); render();
 }
 function endGame(win, title, text){
   ui.speed = 0;
@@ -1249,6 +1280,249 @@ function drawEvent(){
   const text = e.dyn ? e.dyn() : e.text;
   return {idx: EVENTS.indexOf(e), text};
 }
+
+// Advisor portraits: flat vector busts, 200×200, same light/shading rules for everyone.
+// Exported as PORTRAIT(id) → SVG string. Pasted verbatim into the game.
+const PORTRAITS = (() => {
+  const P = {
+    sec:  {bg:"#3A2A12", glow:"#F2A93B", skin:"#E8B996", skinD:"#C98F6E", hair:"#3B2416", hairD:"#26160C", style:"bun",   eyes:"#2B1B12", lips:"#B5545A", brows:"#3B2416", cloth:"suitF", jacket:"#1C2B4A", jacketD:"#14203A", shirt:"#F2F2F2", accent:"#F2A93B", earring:"#F2C14E"},
+    econ: {bg:"#0F3533", glow:"#39D0C3", skin:"#EDC3A0", skinD:"#CF9C7B", hair:"#9AA3AD", hairD:"#727B86", style:"side",  eyes:"#22303A", lips:"#A2685C", brows:"#7D868F", cloth:"suit",  jacket:"#4A5361", jacketD:"#373F4B", shirt:"#EEF3F8", tie:"#B23A3A", glasses:"#1A1F26", age:true},
+    gen:  {bg:"#3A1418", glow:"#FF5D5D", skin:"#D9A07A", skinD:"#B57E5C", hair:"#2A2522", hairD:"#1B1714", style:"short", eyes:"#1E1712", lips:"#93574A", brows:"#2A2522", cloth:"uniform", jacket:"#4C5A34", jacketD:"#3A4627", shirt:"#C9C3A6", tie:"#3A4627", mustache:"#2A2522", cap:"#465330", age:true},
+    intel:{bg:"#141F3D", glow:"#5AA9FF", skin:"#E3B08C", skinD:"#C08A68", hair:"#1C1C22", hairD:"#101015", style:"crew",  eyes:"#1A1A1F", lips:"#99604F", brows:"#1C1C22", cloth:"suit",  jacket:"#16181F", jacketD:"#0D0E13", shirt:"#E6E8EC", tie:"#0D0E13", shades:true, earpiece:true},
+    dipl: {bg:"#2E1530", glow:"#C77DFF", skin:"#F0C9A8", skinD:"#D2A283", hair:"#C9CDD4", hairD:"#A2A7B0", style:"bob",   eyes:"#2A2030", lips:"#A8485F", brows:"#9EA3AB", cloth:"suitF", jacket:"#6E1F3A", jacketD:"#55172C", shirt:"#F6EDEF", accent:"#E9E2D0", pearls:true, age:true}
+  };
+  const head = c => `
+    <ellipse cx="66" cy="96" rx="8" ry="11" fill="${c.skinD}"/><ellipse cx="134" cy="96" rx="8" ry="11" fill="${c.skinD}"/>
+    <path d="M100 46c-22 0-36 16-36 40 0 12 3 24 9 33 7 10 17 17 27 17s20-7 27-17c6-9 9-21 9-33 0-24-14-40-36-40z" fill="${c.skin}"/>
+    <path d="M100 46c22 0 36 16 36 40 0 12-3 24-9 33-7 10-17 17-27 17 8-6 14-18 16-32 2-18-3-44-16-58z" fill="${c.skinD}" opacity=".35"/>`;
+  const face = (c, mood) => {
+    let s = mood === "alert"
+      ? `<path d="M80 82l15 4" stroke="${c.brows}" stroke-width="4.4" stroke-linecap="round"/><path d="M120 82l-15 4" stroke="${c.brows}" stroke-width="4.4" stroke-linecap="round"/>`
+      : `<path d="M80 ${c.age?84:85}q7-${c.age?3:4} 15 0" stroke="${c.brows}" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M105 ${c.age?84:85}q8-${c.age?3:4} 15 0" stroke="${c.brows}" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+    if (c.shades) s += `<path d="M74 91h22a3 3 0 0 1 3 3c0 7-4 12-12 12h-4c-7 0-10-6-10-12a3 3 0 0 1 1-3zM104 91h22a3 3 0 0 1 1 3c0 6-3 12-10 12h-4c-8 0-12-5-12-12a3 3 0 0 1 3-3z" fill="#0B0D12"/><path d="M99 95h2" stroke="#0B0D12" stroke-width="3"/><path d="M78 94l6-1" stroke="#5AA9FF" stroke-width="2" opacity=".55" stroke-linecap="round"/><path d="M108 94l6-1" stroke="#5AA9FF" stroke-width="2" opacity=".55" stroke-linecap="round"/>`;
+    else s += `<ellipse cx="88" cy="96" rx="3.6" ry="4.2" fill="${c.eyes}"/><ellipse cx="112" cy="96" rx="3.6" ry="4.2" fill="${c.eyes}"/><circle cx="89.2" cy="94.6" r="1.1" fill="#fff" opacity=".8"/><circle cx="113.2" cy="94.6" r="1.1" fill="#fff" opacity=".8"/>`;
+    if (c.age && !c.shades) s += `<path d="M81 103q4 2 8 1M111 104q4 1 8-1" stroke="${c.skinD}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M100 98c-1 6-3 10-5 13 2 2 7 2 10 0" stroke="${c.skinD}" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if (c.mustache) s += `<path d="M86 117c4-5 10-6 14-3 4-3 10-2 14 3-5 2-9 2-14 0-5 2-9 2-14 0z" fill="${c.mustache}"/>`;
+    s += `<path d="M91 ${c.mustache?121:120}q9 ${mood==="alert"?-2:c.lips==="#B5545A"||c.lips==="#A8485F"?6:4} 18 0" stroke="${c.lips}" stroke-width="${c.lips==="#B5545A"||c.lips==="#A8485F"?4:3}" fill="none" stroke-linecap="round"/>`;
+    if (c.glasses) s += `<g fill="none" stroke="${c.glasses}" stroke-width="2.6"><rect x="77" y="88" width="20" height="15" rx="5"/><rect x="103" y="88" width="20" height="15" rx="5"/><path d="M97 94h6M77 93l-9-3M123 93l9-3"/></g><path d="M80 91l5-1" stroke="#fff" stroke-width="1.5" opacity=".5"/>`;
+    return s;
+  };
+  const hair = c => {
+    switch (c.style){
+      case "bun": return `<circle cx="100" cy="40" r="15" fill="${c.hairD}"/>
+        <path d="M63 92c-3-30 12-50 37-50s40 20 37 50c-3-12-8-22-15-28-10 6-28 10-46 9-7 5-11 12-13 19z" fill="${c.hair}"/>
+        <path d="M100 42c16 0 30 8 35 26-6-10-16-17-27-19z" fill="${c.hairD}" opacity=".6"/>`;
+      case "side": return `<path d="M64 88c-4-28 12-46 36-46 26 0 41 17 36 46-2-10-5-16-9-20-14 0-34-4-46-12-6 8-12 18-17 32z" fill="${c.hair}"/>
+        <path d="M82 56c12 8 30 12 45 12-4-9-12-16-27-17z" fill="${c.hairD}" opacity=".55"/>`;
+      case "short": return `<path d="M65 90c-3-26 11-44 35-44s38 18 35 44c-3-9-7-15-11-18-14 2-34 1-48-3-5 6-9 13-11 21z" fill="${c.hair}"/>`;
+      case "crew": return `<path d="M66 84c0-24 13-38 34-38s34 14 34 38c-4-8-9-13-14-15-13 2-27 2-40 0-6 3-10 8-14 15z" fill="${c.hair}"/><path d="M66 84c0-24 13-38 34-38" stroke="${c.hairD}" stroke-width="2" fill="none" opacity=".5"/>`;
+      case "bob": return `<path d="M60 112c-6-44 8-70 40-70s46 26 40 70c-4-4-6-10-6-18 0-12-3-22-8-28-12 8-30 12-46 10-5 6-8 13-9 24 0 6-3 10-11 12z" fill="${c.hair}"/>
+        <path d="M100 42c20 0 34 12 38 34-6-10-14-16-26-18z" fill="${c.hairD}" opacity=".5"/>`;
+    }
+    return "";
+  };
+  const body = c => {
+    let s = `<path d="M88 128h24v18H88z" fill="${c.skinD}"/>`;
+    if (c.cloth === "uniform"){
+      s += `<path d="M18 200c2-30 18-48 44-56l26-6 12 14 12-14 26 6c26 8 42 26 44 56z" fill="${c.jacket}"/>
+        <path d="M88 138l12 22 12-22 6 4-18 30-18-30z" fill="${c.shirt}"/><path d="M96 150l4 22 4-22-4-4z" fill="${c.tie}"/>
+        <path d="M100 172v28" stroke="${c.jacketD}" stroke-width="2"/><circle cx="100" cy="182" r="2.6" fill="#D4AF37"/><circle cx="100" cy="194" r="2.6" fill="#D4AF37"/>
+        <path d="M30 156l36-10 4 10-36 12z" fill="#D4AF37"/><path d="M170 156l-36-10-4 10 36 12z" fill="#D4AF37"/>
+        <path d="M44 156l2 4 4 0-3 3 1 4-4-2-4 2 1-4-3-3 4 0z" fill="#3A2A0A"/><path d="M156 156l2 4 4 0-3 3 1 4-4-2-4 2 1-4-3-3 4 0z" fill="#3A2A0A"/>
+        <rect x="118" y="164" width="9" height="5" fill="#C0392B"/><rect x="127" y="164" width="9" height="5" fill="#2E86C1"/><rect x="136" y="164" width="9" height="5" fill="#F1C40F"/>
+        <rect x="118" y="170" width="9" height="5" fill="#27AE60"/><rect x="127" y="170" width="9" height="5" fill="#E67E22"/>
+        <path d="M58 190h28M114 190h28" stroke="${c.jacketD}" stroke-width="3"/>`;
+    } else {
+      const f = c.cloth === "suitF";
+      s += `<path d="M18 200c2-30 18-48 44-56l26-6 12 ${f?20:14} 12-${f?20:14} 26 6c26 8 42 26 44 56z" fill="${c.jacket}"/>
+        <path d="M88 138l12 ${f?22:16} 12-${f?22:16}${f?"l4 2-16 34-16-34z":"l3 2-15 50-15-50z"}" fill="${c.shirt}"/>
+        ${c.tie ? `<path d="M96 152l4 34 4-34-4-5z" fill="${c.tie}"/><path d="M96 150h8l-2 4h-4z" fill="${c.tie}"/>` : ""}
+        <path d="M88 138l-8 6 14 ${f?40:46} 6-24zM112 138l8 6-14 ${f?40:46}-6-24z" fill="${c.jacketD}"/>
+        <path d="M44 200l4-26M156 200l-4-26" stroke="${c.jacketD}" stroke-width="3"/>`;
+      if (c.accent && f) s += `<circle cx="132" cy="168" r="4" fill="${c.accent}"/>`;
+      if (c.pearls) s += `<g fill="#F4EFE6">${Array.from({length:9},(_,i)=>{const a = Math.PI*(0.2+0.6*i/8); return `<circle cx="${(100-15*Math.cos(a)).toFixed(1)}" cy="${(136+14*Math.sin(a)).toFixed(1)}" r="2.6"/>`;}).join("")}</g>`;
+    }
+    return s;
+  };
+  const extras = c => {
+    let s = "";
+    if (c.earring) s += `<circle cx="65" cy="109" r="3" fill="${c.earring}"/><circle cx="135" cy="109" r="3" fill="${c.earring}"/>`;
+    if (c.earpiece) s += `<path d="M135 98c4 0 5 4 4 8l-3 14q-2 10-8 16" stroke="#C9D3E0" stroke-width="2" fill="none"/><circle cx="135" cy="99" r="3.2" fill="#C9D3E0"/>`;
+    if (c.cap) s += `<g transform="translate(0 -7)"><path d="M56 70c3-24 21-36 44-36s41 12 44 36z" fill="${c.cap}"/><path d="M58 68h84v9H58z" fill="#2F381F"/><path d="M64 77c12 6 60 6 72 0l5 6c-17 8-65 8-82 0z" fill="#1E2414"/>
+        <path d="M100 44l5 9 10 1-7 7 2 10-10-5-10 5 2-10-7-7 10-1z" fill="#D4AF37"/><path d="M58 70h84" stroke="#D4AF37" stroke-width="2"/><path d="M70 74c10 3 50 3 60 0" stroke="#D4AF37" stroke-width="1.5" fill="none" opacity=".7"/></g>`;
+    return s;
+  };
+  const make = (id, size, mood) => {
+    const c = P[id], u = "pt-" + id + (mood||"") + (size||200);
+    return `<svg class="portrait" viewBox="0 0 200 200" width="${size||200}" height="${size||200}" aria-hidden="true">
+      <defs><radialGradient id="${u}-bg" cx=".5" cy=".35" r=".75"><stop offset="0" stop-color="${c.glow}" stop-opacity=".45"/><stop offset=".55" stop-color="${c.bg}"/><stop offset="1" stop-color="#070B14"/></radialGradient>
+      <clipPath id="${u}-clip"><rect width="200" height="200" rx="28"/></clipPath></defs>
+      <g clip-path="url(#${u}-clip)"><rect width="200" height="200" fill="url(#${u}-bg)"/>
+      <g opacity=".12" stroke="${c.glow}" stroke-width="1">${[40,80,120,160].map(v=>`<path d="M${v} 0V200M0 ${v}H200"/>`).join("")}</g>
+      ${c.style==="bun"||c.style==="bob" ? hair(c).split("\n")[0] : ""}
+      ${body(c)}${head(c)}${hair(c)}${face(c, mood)}${extras(c)}</g>
+    </svg>`;
+  };
+  return make;
+})();
+
+
+const ADVISORS = {
+  sec:  {name:"Алина Миронова", role:"Секретарь администрации"},
+  econ: {name:"Виктор Ланской", role:"Министр экономики"},
+  gen:  {name:"Тимур Абаев", role:"Начальник Генштаба"},
+  intel:{name:"Олег Ветров", role:"Директор спецслужб"},
+  dipl: {name:"Марина Королёва", role:"Министр иностранных дел"}
+};
+const EVENT_ADVISOR = {drought:"econ", scandal:"sec", investor:"econ", strike:"econ", it:"econ", quake:"sec", oilprice:"econ", flu:"sec", imf:"econ", border:"gen", olympics:"sec", migrants:"dipl", harvest:"econ", students:"sec"};
+const portrait = (id, size, mood) => PORTRAITS(id, size, mood);
+function advHead(who, mood, size){ const a = ADVISORS[who]; return `<div class="adv-head">${portrait(who, size||56, mood)}<span><b>${a.name}</b><small>${a.role}</small></span></div>`; }
+
+/* settings (per device) */
+const SETTINGS_KEY = "president-settings-v1", TUT_KEY = "president-tut-v1";
+let settings = (() => { try { return Object.assign({sound:true, vibro:true}, JSON.parse(localStorage.getItem(SETTINGS_KEY))||{}); } catch(e){ return {sound:true, vibro:true}; } })();
+function settingsSave(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e){} }
+
+/* synthesized sound effects: no audio files needed */
+let AC = null;
+function sfx(kind){
+  if (!settings.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    const t = AC.currentTime;
+    const tone = (f, d, type, vol, when) => { const o = AC.createOscillator(), g = AC.createGain(); o.type = type || "sine"; o.frequency.setValueAtTime(f, t + (when||0)); g.gain.setValueAtTime(vol || 0.05, t + (when||0)); g.gain.exponentialRampToValueAtTime(0.0001, t + (when||0) + d); o.connect(g).connect(AC.destination); o.start(t + (when||0)); o.stop(t + (when||0) + d + 0.02); };
+    if (kind === "tap") tone(620, 0.045, "triangle", 0.035);
+    else if (kind === "open") { tone(392, 0.07, "sine", 0.04); tone(587, 0.1, "sine", 0.035, 0.05); }
+    else if (kind === "notify") { tone(880, 0.1, "sine", 0.045); tone(1320, 0.16, "sine", 0.035, 0.09); }
+    else if (kind === "alert") { tone(330, 0.16, "square", 0.025); tone(247, 0.24, "square", 0.025, 0.15); }
+    else if (kind === "success") { tone(523, 0.09, "triangle", 0.05); tone(659, 0.09, "triangle", 0.05, 0.08); tone(784, 0.22, "triangle", 0.05, 0.16); }
+    else if (kind === "coin") { tone(1046, 0.06, "square", 0.025); tone(1568, 0.14, "square", 0.02, 0.05); }
+  } catch(e){}
+}
+function buzz(ms){ if (settings.vibro && navigator.vibrate) { try { navigator.vibrate(ms); } catch(e){} } }
+
+/* advisor messages: inbox + one notification card at a time */
+const advRoot = document.createElement("div"); advRoot.id = "adv-root"; document.body.appendChild(advRoot);
+let advQueue = [], advShown = null, advTimer = 0;
+function advise(who, text, o){
+  o = o || {};
+  if (!S) return;
+  S.advCd = S.advCd || {};
+  if (o.key){ if (S.advCd[o.key] > 0) return; S.advCd[o.key] = o.cd == null ? 6 : o.cd; }
+  const m = {who, text, tab:o.tab||null, mood:o.mood||null, t:dateStr(), read:false};
+  S.inbox = [m, ...(S.inbox||[])].slice(0, 40);
+  advQueue.push(m); if (advQueue.length > 4) advQueue = advQueue.slice(-4);
+  if (!advShown) showNextAdvice();
+}
+function showNextAdvice(){
+  clearTimeout(advTimer);
+  advShown = advQueue.shift() || null;
+  if (!advShown || !document.body.classList.contains("in-game")){ advRoot.innerHTML = ""; advShown = null; return; }
+  const m = advShown, a = ADVISORS[m.who];
+  advRoot.innerHTML = `<div class="adv-card ${m.mood==="alert"?"alert":""}" role="status">
+    ${portrait(m.who, 52, m.mood)}
+    <div class="adv-txt"><b>${a.name}</b><small>${a.role}</small><p>${esc(m.text)}</p></div>
+    <div class="adv-btns">${m.tab ? `<button class="btn primary" data-advgo="${m.tab}">Открыть</button>` : ""}<button class="adv-x" data-advx aria-label="Скрыть">${ic("close","sm")}</button></div>
+  </div>`;
+  m.read = true;
+  sfx(m.mood === "alert" ? "alert" : "notify"); if (m.mood === "alert") buzz(60);
+  advTimer = setTimeout(showNextAdvice, m.mood === "alert" ? 9000 : 6500);
+}
+function advisorsTurn(){
+  const c = me(), b = budget();
+  Object.keys(S.advCd||{}).forEach(k => { if (S.advCd[k] > 0) S.advCd[k]--; });
+  if (b.net < 0) advise("econ", `Господин президент, бюджет уходит в минус: ${money(b.net)} в месяц. Поднимите налоги или урежьте расходы.`, {tab:"economy", mood:"alert", key:"deficit", cd:4});
+  else if (S.treasury > c.gdp*0.06 && S.queue.length < maxSlots()) advise("econ", `В казне ${money(S.treasury)}, а стройплощадки простаивают. Деньги должны работать.`, {tab:"build", key:"idlecash", cd:6});
+  if (S.debt > c.gdp*0.9) advise("econ", `Госдолг уже ${pct(S.debt/c.gdp*100)} ВВП. Ещё немного — и кредиторы перестанут нам верить.`, {tab:"economy", mood:"alert", key:"debt", cd:6});
+  ["oil","gold"].forEach(r => { const h = S.mhist[r]; if (h.length > 1 && commodOpen(r) && S.stock[r] > 1 && h[h.length-1]/h[h.length-2] > 1.08) advise("econ", `${COMMOD[r].name} подорожала на ${pct((h[h.length-1]/h[h.length-2]-1)*100)}. На складе ${Math.floor(S.stock[r])} ${COMMOD[r].unit} — самое время продать.`, {tab:"trade", key:"price-"+r, cd:3}); });
+  const threat = Object.values(C()).filter(x => !x.owner && canReach(x) && x.rel < -40 && !S.wars.some(w=>w.enemy===x.id)).sort((p,q)=>aiPower(q)-aiPower(p))[0];
+  if (threat && aiPower(threat) > myPower()*1.2) advise("gen", `${threat.name} стягивает войска к границе. Их армия сильнее нашей в ${(aiPower(threat)/Math.max(1,myPower())).toFixed(1).replace(".",",")} раза. Нужно усиливаться.`, {tab:"army", mood:"alert", key:"threat-"+threat.id, cd:8});
+  S.wars.forEach(w => { const e = C()[w.enemy]; if (w.months > 0 && w.months % 2 === 0) advise("gen", w.progress >= 0 ? `Фронт с ${e.name}: мы продвигаемся, перевес ${Math.round(w.progress)}. Ещё усилие — и страна наша.` : `Фронт с ${e.name}: противник давит (${Math.round(w.progress)}). Нужны подкрепления или переговоры.`, {tab:"army", mood: w.progress < 0 ? "alert" : null, key:"war-"+w.enemy, cd:1}); });
+  if (S.intel.level > 0 && S.intel.pts >= 10) advise("intel", `Агентура готова: ${Math.floor(S.intel.pts)} человек ждут приказа. Назовите цель.`, {tab:"intel", key:"agents", cd:8});
+  const r = S.council.res; if (r && !r.notified){ r.notified = true; advise("dipl", `Совет наций голосует: «${resName(r)}». Ваш голос считается за два — решите, как голосуем.`, {tab:"diplomacy"}); }
+  const friend = Object.values(C()).find(x => !x.owner && !x.ally && x.rel >= 60 && !S.wars.some(w=>w.enemy===x.id));
+  if (friend) advise("dipl", `${friend.name} готова к военному союзу. Отношения отличные — стоит закрепить.`, {tab:"diplomacy", key:"ally-"+friend.id, cd:12});
+  if (!S.research.current && TECH.some(techAvailable)) advise("sec", "Учёные сидят без задания. Выберите следующее исследование.", {tab:"science", key:"sci", cd:3});
+  if (!ideo("auth") && [12,6,2].includes(S.electionIn)) advise("sec", `До выборов ${S.electionIn} мес. Рейтинг сейчас ${pct(S.approval)} — ${S.approval >= 50 ? "держим курс" : "этого не хватит для победы"}.`, {tab:"politics", mood: S.approval < 50 ? "alert" : null});
+}
+function advisorTip(tab){
+  const c = me(), b = budget();
+  let who = "sec", text = "", mood = null;
+  if (tab === "economy"){ who = "econ"; text = b.net < 0 ? `Мы тратим больше, чем зарабатываем: ${money(b.net)} в месяц. Предлагаю поднять налог на прибыль или сократить расходы.` : `Бюджет в плюсе на ${money(b.net)} в месяц. Вложения в образование и инфраструктуру окупятся ростом экономики.`; mood = b.net < 0 ? "alert" : null; }
+  else if (tab === "build"){ who = "econ"; const free = maxSlots() - S.queue.length; text = free > 0 ? `Свободно площадок: ${free}. Начните с лесопилки и металлургии — свои материалы делают каждую стройку дешевле.` : `Все площадки заняты. Ближайшая сдача через ${Math.ceil(Math.min(...S.queue.map(q=>q.left)))} дн.`; }
+  else if (tab === "trade"){ who = "econ"; const open = Object.keys(COMMOD).filter(commodOpen); const best = open.sort((p,q)=>S.market[q]-S.market[p])[0]; text = `Сейчас на бирже дороже всего ${COMMOD[best].name.toLowerCase()}: ${pct(S.market[best]*100)} от обычной цены. Контракты со странами дают надбавку к бирже.`; if (!tech("geo")) text += " Откройте «Геологоразведку» — нефть продаётся очень выгодно."; }
+  else if (tab === "army"){ who = "gen"; const t = Object.values(C()).filter(x=>!x.owner && canReach(x) && !x.ally).sort((p,q)=>aiPower(q)-aiPower(p))[0]; text = S.wars.length ? `Идёт война. Каждая единица техники на счету — свои заводы делают её на 30% дешевле.` : t ? `Сильнейший сосед — ${t.name}: мощь ${Math.round(aiPower(t))} против наших ${Math.round(myPower())}. ${aiPower(t) > myPower() ? "Нам есть куда расти." : "Мы сильнее."}` : "Границы спокойны."; mood = S.wars.length ? "alert" : null; }
+  else if (tab === "intel"){ who = "intel"; text = S.intel.pts >= 4 ? `Агентов готово: ${Math.floor(S.intel.pts)}. Выберите цель и операцию — о результате доложу лично.` : `Агенты готовятся. Больше финансирования — быстрее подготовка и выше успех.`; }
+  else if (tab === "diplomacy"){ who = "dipl"; const allies = Object.values(C()).filter(x=>x.ally && !x.owner).length, deals = Object.values(C()).filter(x=>x.trade && !x.owner).length; text = S.council.res ? `В Совете наций идёт голосование — не забудьте отдать голос.` : `У нас ${allies} союзников и ${deals} торговых договоров. Страны с отношениями от +20 готовы торговать.`; }
+  else if (tab === "science"){ who = "sec"; const cur = S.research.current && TECH.find(x=>x.id===S.research.current); text = cur ? `Учёные работают над «${cur.name}». Больше финансирования и образования — быстрее открытия.` : "Учёные ждут задания. Советую начать с «Геологоразведки»: нефть принесёт хороший доход."; mood = cur ? null : "alert"; }
+  else if (tab === "politics"){ who = "sec"; text = majority() ? `Ваша партия контролирует парламент — законы проходят свободно. Рейтинг ${pct(S.approval)}.` : `Большинства в парламенте нет: каждый закон стоит уступок коалиции. Поднимите рейтинг — сейчас ${pct(S.approval)}.`; }
+  else if (tab === "summary"){ who = "sec"; text = ideo("auth") ? "Выборов нет, но следите за стабильностью: ниже 15% три месяца — революция." : `До выборов ${S.electionIn} мес., рейтинг ${pct(S.approval)}. Для победы нужно 50%.`; }
+  else return "";
+  return `<div class="tip">${portrait(who, 46, mood)}<div><b>${ADVISORS[who].name}</b> <small>· ${ADVISORS[who].role}</small><p>${text}</p></div></div>`;
+}
+function viewInbox(){
+  const list = (S.inbox||[]).slice(0, 12);
+  return `<div class="panel"><h3>Сообщения советников</h3>${list.length ? list.map(m => `<div class="inbox-row">${portrait(m.who, 36, m.mood)}<div><small class="muted">${esc(m.t)} · ${ADVISORS[m.who].name}</small><p>${esc(m.text)}</p></div>${m.tab ? `<button class="btn" data-tab="${m.tab}">Открыть</button>` : ""}</div>`).join("") : `<p class="muted" style="margin:0">Пока тихо. Советники напишут, когда будет что сказать.</p>`}</div>`;
+}
+function viewSettings(){
+  const sw = (key, label, hint) => `<div class="law"><b>${label}</b><button class="switch" role="switch" aria-checked="${!!settings[key]}" aria-label="${label}" data-setting="${key}"></button><small>${hint}</small></div>`;
+  return `<div class="grid2">
+    <div class="panel"><h3>Звук и отклик</h3>${sw("sound","Звуки","Нажатия, уведомления советников, события")}${sw("vibro","Вибрация","Короткий отклик при важных новостях")}</div>
+    <div class="panel"><h3>Игра</h3>
+      <div class="row"><span>Обучение от секретаря</span><button class="btn" data-tut="restart">Пройти снова</button></div>
+      <div class="row"><span>Главное меню<br><small class="muted">Партия сохранится</small></span><button class="btn" data-act="mainmenu">Выйти в меню</button></div>
+      <div class="row"><span>Новая игра<br><small class="muted">Текущая партия будет удалена</small></span><button class="btn danger" data-act="newconfirm">${ui.newConfirm ? "Точно? Нажмите ещё раз" : "Начать заново"}</button></div>
+      <div class="label">Кабинет президента · тестовая версия 0.2</div></div>
+  </div>`;
+}
+
+/* intelligence operation debrief */
+const OP_LINES = {
+  spy:{ok:["Чертежи у нас, господин президент. Учёные уже разбирают материалы.","Агент «Сокол» вышел на связь. Документы переданы в институт."]},
+  sabotage:{ok:["Их завод стоит. Восстановление займёт месяцы.","Тихо и чисто. Следов не осталось."]},
+  opposition:{ok:["Оппозиция получила деньги и эфир. Улицы закипают."], flip:["Режим пал. Новое правительство смотрит в нашу сторону."]},
+  coup:{ok:["Дворец взят. Новый лидер уже звонил — благодарит за поддержку."]},
+  exposed:["Наших людей взяли. Скандал уже в новостях — придётся оправдываться.","Провал. Агент раскрыт, их посольство вручило ноту протеста."],
+  clean:["Не вышло, но мы ушли без следов. Никто ничего не докажет.","Объект усилил охрану. Отступили без потерь."]
+};
+function showOpReport(op, x, outcome, result){
+  pauseFor("report");
+  const ok = outcome === "ok" || outcome === "flip", line = pick(outcome === "flip" ? OP_LINES.opposition.flip : ok ? OP_LINES[op.id].ok : OP_LINES[outcome]);
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="op-title"><div class="sheet dossier">
+    <span class="stamp">${ic("intel","sm")} Совершенно секретно · отчёт об операции</span>
+    ${advHead("intel", ok ? null : "alert", 72)}
+    <h2 id="op-title">${op.name}: ${esc(x.name)}</h2>
+    <div class="verdict ${ok ? "ok" : "fail"}">${ok ? "Успех" : outcome === "exposed" ? "Провал — агенты раскрыты" : "Не удалось, следов нет"}</div>
+    <blockquote>«${line}»</blockquote>
+    <p class="muted" style="margin:0">${esc(result)}</p>
+    <button class="btn primary" data-closereport>Принято</button>
+  </div></div>`;
+  sfx(ok ? "success" : "alert"); buzz(ok ? 30 : 80);
+}
+
+/* tutorial by the secretary */
+const TUT = [
+  ["Здравствуйте, господин президент!", "Я Алина Миронова, ваш секретарь. Помогу освоиться в кабинете — это займёт минуту."],
+  ["Карта мира", "Ваша страна подсвечена янтарным. Нажмите на любую страну, чтобы увидеть отношения, торговлю и доступные действия. Карту можно двигать и приближать двумя пальцами."],
+  ["Министерства", "Внизу экрана — ваши министерства: стройка, экономика, торговля, законы, армия, наука, спецслужбы и дипломатия. Окна открываются поверх карты."],
+  ["Время и казна", "Наверху — бюджет, рейтинг и доход за месяц. Время идёт само: ▶ запускает, ⏸ ставит паузу. Важное советники доложат сами — следите за карточками с портретами."],
+  ["С чего начать", "Выберите первое исследование в «Науке» и заложите лесопилку в «Стройке». А дальше — ваша страна, ваши решения. Удачи!"]
+];
+function showTutorial(step){
+  step = step || 0; pauseFor("tut");
+  const [title, text] = TUT[step];
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="tut-title"><div class="sheet tut">
+    ${advHead("sec", null, 72)}
+    <span class="stamp">Обучение · ${step+1} из ${TUT.length}</span>
+    <h2 id="tut-title">${title}</h2>
+    <p style="margin:0">${text}</p>
+    <div class="row"><button class="btn" data-tut="skip">Пропустить</button><button class="btn primary" data-tut="${step+1 < TUT.length ? "next:" + (step+1) : "done"}">${step+1 < TUT.length ? "Далее" : "Начать правление"}</button></div>
+  </div></div>`;
+}
+function tutDone(){ try { localStorage.setItem(TUT_KEY, "1"); } catch(e){} closeModal(); resumeAfter("tut"); }
 
 /* ---------- Actions ---------- */
 function act(name, arg){
@@ -1352,13 +1626,13 @@ function dayTick(){
   if (S.research.current){
     const rc = S.research.current, tc = TECH.find(x=>x.id===rc);
     S.research.prog[rc] = (S.research.prog[rc]||0) + rpMonthly()/30;
-    if (S.research.prog[rc] >= tc.cost){ S.research.done[rc] = true; S.research.current = null; addLog(`Открыта технология «${tc.name}»: ${tc.desc}.`); toast(`Открыта технология: ${tc.name}`); dirty = true; }
+    if (S.research.prog[rc] >= tc.cost){ S.research.done[rc] = true; S.research.current = null; addLog(`Открыта технология «${tc.name}»: ${tc.desc}.`); advise("sec", `Учёные докладывают: открыта технология «${tc.name}» — ${tc.desc}. Какое исследование следующее?`, {tab:"science"}); sfx("success"); dirty = true; }
   }
   Object.keys(COMMOD).forEach(r => { S.stock[r] += prodOf(r)/30; });
   const speed = selfSuff("metal") < 60 ? 0.5 : 1;
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
-  done.forEach(q => { S.buildings[q.type]++; addLog(`Построено: ${BUILDINGS[q.type].name}.`); toast(`Построено: ${BUILDINGS[q.type].name}`); dirty = true; });
+  done.forEach(q => { S.buildings[q.type]++; addLog(`Построено: ${BUILDINGS[q.type].name}.`); advise("econ", `Объект сдан: ${BUILDINGS[q.type].name}. Уже работает на страну.`, {tab:"build"}); dirty = true; });
   if (done.length) S.queue = S.queue.filter(q=>q.left>0);
   Object.keys(S.rails).forEach(id => { const r = S.rails[id]; if (!r.done){ r.left -= 1; if (r.left<=0){ r.done = true; addLog(`Открыта железная дорога в страну ${C()[id].name}.`); toast(`Железная дорога: ${C()[id].name}`); dirty = true; } } });
 }
@@ -1417,34 +1691,44 @@ document.addEventListener("keydown", e => {
 const app = $("#app"), modalRoot = $("#modal-root");
 
 const LAND = window.matchMedia("(orientation: landscape) and (min-width: 640px)");
-const RAIL = [["map","Карта"],["summary","Сводка"],["economy","Экономика"],["trade","Торговля"],["science","Наука"],["army","Армия"],["more","Ещё"]];
-const MORE = [["diplomacy","Дипломатия"],["politics","Политика"],["intel","Спецслужбы"]];
+const DOCK = [["build","Стройка","factory","#F2A93B"],["economy","Экономика","economy","#39D0C3"],["trade","Торговля","trade","#5AA9FF"],["politics","Законы","politics","#C77DFF"],["army","Армия","army","#FF6B6B"],["science","Наука","science","#7CE38B"],["intel","Спецслужбы","intel","#9FB3D1"],["diplomacy","Дипломатия","diplomacy","#F7C948"]];
+const WIN = {build:["Стройка","factory","#F2A93B"], economy:["Экономика","economy","#39D0C3"], trade:["Торговля","trade","#5AA9FF"], politics:["Законы и политика","politics","#C77DFF"], army:["Армия","army","#FF6B6B"], science:["Наука","science","#7CE38B"], intel:["Спецслужбы","intel","#9FB3D1"], diplomacy:["Дипломатия","diplomacy","#F7C948"], summary:["Кабинет: сводка","summary","#F2A93B"], settings:["Настройки","gear","#9FB3D1"]};
+const VIEWS = () => ({build:viewBuild, summary:viewSummary, economy:viewEconomy, trade:viewTrade, science:viewScience, politics:viewPolitics, army:viewArmy, intel:viewIntel, diplomacy:viewDiplomacy, settings:viewSettings});
+function dockBadge(id){
+  const b = budget();
+  if (id==="science" && !S.research.current && TECH.some(techAvailable)) return `<i class="badge">!</i>`;
+  if (id==="army" && S.wars.length) return `<i class="badge bad">${S.wars.length}</i>`;
+  if (id==="economy" && b.net < 0) return `<i class="badge bad">!</i>`;
+  if (id==="build" && S.queue.length < maxSlots()) return `<i class="badge soft">${maxSlots()-S.queue.length}</i>`;
+  if (id==="intel" && S.intel.pts >= 10) return `<i class="badge soft">!</i>`;
+  if (id==="diplomacy" && S.council.res && !S.council.res.myVote) return `<i class="badge">!</i>`;
+  return "";
+}
 function render(){
   if (!S || !S.countries){ renderStart(); return; }
   if (S.over){ renderStart(); return; }
   document.body.classList.add("in-game");
-  const mainOld = document.querySelector(".main");
-  const keep = mainOld && ui.lastTab === ui.tab ? mainOld.scrollTop : 0;
-  const scrollY = window.scrollY;
-  const c = me(), b = budget(), last = S.last ? S.last.d : null;
-  const delta = (v, fmt) => !last || Math.abs(v) < 1e-9 ? "" : `<span class="d ${v>0?"up":"down"}">${v>0?"+":""}${fmt(v)}</span>`;
-  const sciIdle = !S.research.current && TECH.some(techAvailable);
-  const badge = id => id==="science" && sciIdle ? `<i class="dot" title="Наука простаивает"></i>`
-    : id==="army" && S.wars.length ? `<i class="dot bad" title="Идёт война"></i>`
-    : id==="more" && S.council.res && !S.council.res.myVote ? `<i class="dot" title="Голосование в Совете наций"></i>` : "";
-  const inMore = MORE.some(([id])=>id===ui.tab);
+  const bodyOld = document.querySelector(".win-body");
+  const keep = bodyOld && ui.lastTab === ui.tab ? bodyOld.scrollTop : 0;
+  const c = me(), b = budget();
+  const unread = (S.inbox||[]).filter(m=>!m.read).length;
   const sub = [IDEOLOGIES.find(i=>i.id===S.ideology).name, ideo("auth") ? "выборов нет" : `выборы: ${S.electionIn} мес.`].join(" · ")
     + (S.wars.length ? ` · <span class="down">войн: ${S.wars.length}</span>` : "") + (me().worldSanctions>0 ? ` · <span class="down">санкции мира</span>` : "");
-  app.innerHTML = `<div class="app">
+  const win = ui.tab !== "map" && WIN[ui.tab] ? (() => { const [title, icn, col] = WIN[ui.tab];
+    return `<button class="win-scrim" data-tab="map" aria-label="Закрыть окно" tabindex="-1"></button>
+      <section class="window" role="dialog" aria-label="${title}" style="--c:${col}">
+        <header class="win-head"><span class="win-ic">${ic(icn)}</span><h2>${title}</h2><span class="spacer"></span><button class="win-x" data-tab="map" aria-label="Закрыть">${ic("close")}</button></header>
+        <div class="win-body">${advisorTip(ui.tab)}${VIEWS()[ui.tab]()}</div>
+      </section>`; })() : "";
+  app.innerHTML = `<div class="game">
     <header class="topbar">
-      <div class="tb-who"><b>${esc(c.name)}</b><span class="tb-sub">${sub}</span></div>
+      <button class="tb-who" data-tab="summary" aria-label="Сводка"><span class="tb-flag">${ic("star")}</span><span class="tb-name"><b>${esc(c.name)}</b><span class="tb-sub">${sub}</span></span></button>
       <div class="tb-kpis">
-        <div class="kpi"><div class="label">${ic("budget","sm")}Бюджет</div><div class="v">${money(S.treasury)}</div>${delta(last?last.treasury:0, money)}</div>
-        <div class="kpi k-gdp"><div class="label">${ic("gdp","sm")}ВВП в год</div><div class="v">${money(c.gdp)}</div>${delta(last?last.gdp:0, money)}</div>
-        <div class="kpi"><div class="label">${ic("approval","sm")}Рейтинг</div><div class="v">${pct(S.approval)}</div>${delta(last?last.approval:0, v=>v.toFixed(1).replace(".",","))}</div>
-        <div class="kpi k-stab"><div class="label">${ic("stability","sm")}Стабильность</div><div class="v">${pct(S.stability)}</div>${delta(last?last.stability:0, v=>v.toFixed(1).replace(".",","))}</div>
-        <div class="kpi k-debt"><div class="label">${ic("debt","sm")}Госдолг</div><div class="v">${pct(S.debt/c.gdp*100)}</div><span class="d muted">${money(S.debt)}</span></div>
-        <div class="kpi"><div class="label">${ic("balance","sm")}Баланс/мес</div><div class="v ${b.net>=0?"up":"down"}">${b.net>=0?"+":""}${money(b.net)}</div></div>
+        <button class="kpi" data-tab="economy" data-kpi="treasury"><span class="label">${ic("budget","sm")}Бюджет</span><span class="v">${money(S.treasury).replace(" $","")}</span></button>
+        <button class="kpi k-gdp" data-tab="economy"><span class="label">${ic("gdp","sm")}ВВП</span><span class="v">${money(c.gdp).replace(" $","")}</span></button>
+        <button class="kpi" data-tab="politics" data-kpi="approval"><span class="label">${ic("approval","sm")}Рейтинг</span><span class="v ${S.approval<50?"warn":""}">${pct(S.approval)}</span></button>
+        <button class="kpi k-stab" data-tab="politics"><span class="label">${ic("stability","sm")}Стабильность</span><span class="v ${S.stability<35?"down":""}">${pct(S.stability)}</span></button>
+        <button class="kpi" data-tab="economy"><span class="label">${ic("balance","sm")}В месяц</span><span class="v ${b.net>=0?"up":"down"}">${b.net>=0?"+":""}${money(b.net).replace(" $","")}</span></button>
       </div>
       <div class="tb-time">
         <div class="clock">
@@ -1458,22 +1742,26 @@ function render(){
           <button data-speed="3" aria-pressed="${ui.speed===3}" aria-label="Скорость 3${speed3Unlocked()?"":" (платно)"}" title="3×: месяц за 10 секунд" class="${speed3Unlocked()?"":"locked"}"><svg viewBox="0 0 26 16" aria-hidden="true"><path d="M1 2l8 6-8 6zM9 2l8 6-8 6zM17 2l8 6-8 6z"/></svg>${speed3Unlocked()?(premium.speed3?"":`<span class="timer num">${speed3MinutesLeft()}м</span>`):`<svg class="lock" viewBox="0 0 12 14" aria-hidden="true"><path d="M3 6V4a3 3 0 0 1 6 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1.5 0h3V4a1.5 1.5 0 0 0-3 0z"/></svg>`}</button>
         </div>
       </div>
+      <button class="tb-btn tb-sec" data-tab="summary" aria-label="Секретарь: сводка и сообщения">${portrait("sec", 34)}${unread ? `<i class="badge">${unread>9?"9+":unread}</i>` : ""}</button>
+      <button class="tb-btn" data-tab="settings" aria-label="Настройки">${ic("gear")}</button>
     </header>
-    <nav class="rail" aria-label="Разделы">
-      ${RAIL.map(([id,l]) => id==="more"
-        ? `<button class="rail-btn" data-more aria-expanded="${!!ui.more}" ${inMore?'aria-current="page"':""}>${ic("menu")}<span>${inMore ? MORE.find(m=>m[0]===ui.tab)[1] : l}</span>${badge(id)}</button>`
-        : `<button class="rail-btn" data-tab="${id}" ${ui.tab===id?'aria-current="page"':""}>${ic(id)}<span>${l}</span>${badge(id)}</button>`).join("")}
-    </nav>
-    ${ui.more ? `<div class="more-menu" role="menu">${MORE.map(([id,l])=>`<button role="menuitem" data-tab="${id}" ${ui.tab===id?'aria-current="page"':""}>${ic(id)}${l}${id==="diplomacy"?badge("more"):""}</button>`).join("")}</div>` : ""}
-    <main class="main ${ui.tab==="map"?"is-map":""}" id="view">
-      <div class="rotate-hint">${ic("rotate","sm")} Поверните телефон: игра сделана для альбомного режима</div>
-      ${({map:viewMap,summary:viewSummary,economy:viewEconomy,trade:viewTrade,science:viewScience,politics:viewPolitics,army:viewArmy,intel:viewIntel,diplomacy:viewDiplomacy})[ui.tab]()}
-    </main>
+    <div class="stage ${win ? "has-win" : ""}">
+      <div class="map-layer">${viewMap()}</div>
+      ${win}
+    </div>
+    <nav class="dock" aria-label="Министерства">${DOCK.map(([id,l,icn,col]) => `<button class="tile" data-tab="${id}" style="--c:${col}" ${ui.tab===id?'aria-current="page"':""}><span class="tile-ic">${ic(icn)}</span><span class="tile-l">${l}</span>${dockBadge(id)}</button>`).join("")}</nav>
   </div>`;
-  const mainNew = document.querySelector(".main"); if (mainNew) mainNew.scrollTop = keep;
-  if (ui.lastTab === ui.tab) window.scrollTo(0, scrollY); else window.scrollTo(0, 0);
+  const bodyNew = document.querySelector(".win-body"); if (bodyNew) bodyNew.scrollTop = keep;
+  if (ui.lastTab !== ui.tab && ui.tab !== "map") sfx("open");
   ui.lastTab = ui.tab;
-  if (ui.tab==="map") attachMap();
+  kpiFlash();
+  attachMap();
+}
+function kpiFlash(){
+  const now = {treasury:S.treasury, approval:S.approval}, prev = ui.kpiPrev;
+  ui.kpiPrev = now; if (!prev) return;
+  Object.keys(now).forEach(k => { const d = now[k] - prev[k]; if (Math.abs(d) < 1e-6) return;
+    const el = document.querySelector(`[data-kpi="${k}"] .v`); if (el) el.classList.add(d > 0 ? "fl-up" : "fl-down"); });
 }
 function growthLabel(){ const g = growthMonthly()*12*100; return `<span class="${g>=0?"up":"down"}">${g>=0?"+":""}${pct(g,1)} в год</span>`; }
 function sectorEffect(id){
@@ -1524,6 +1812,7 @@ function viewSummary(){
       <p class="muted" style="margin:0">Посмотрите рекламный ролик и получите разовый транш в бюджет: ${money(c.gdp*0.015)}. Доступно раз в 6 месяцев.</p>
       <div class="row"><span class="pill state">Реклама по желанию</span><button class="btn primary" data-act="ad" ${S.adCd>0?"disabled":""}>${S.adCd>0?`Через ${S.adCd} мес.`:"Смотреть и получить"}</button></div>
     </div>
+    ${viewInbox()}
     ${viewAchievements(false)}
   </div>`;
 }
@@ -1579,12 +1868,25 @@ function viewEconomy(){
       ${RES.map(resRow).join("")}
       <div class="label">Ниже 60% — дефицит: падает рост и рейтинг. Нехватку закрывает импорт, излишки идут на экспорт.</div>
     </div>
-    <div class="panel" style="grid-column:1/-1">
-      <div class="row"><h3>Стройки</h3><span class="num">Стройплощадки: ${S.queue.length} / ${maxSlots()}</span></div>
+  </div>`;
+}
+
+function viewBuild(){
+  const queued = t => S.queue.filter(q=>q.type===t).length;
+  return `<div class="grid2">
+    <div class="panel">
+      <div class="row"><h3>Сейчас строится</h3><span class="num">Площадок занято: ${S.queue.length} / ${maxSlots()}</span></div>
       ${S.queue.length ? `<div class="queue">${S.queue.map((q,i)=>`<div class="qitem"><div class="row"><b class="bname">${ic(BUILD_ICON[q.type])}${BUILDINGS[q.type].name}</b><span class="num muted" data-qdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar"><i data-qprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div></div>`).join("")}</div>` : `<p class="muted" style="margin:0">Сейчас ничего не строится.</p>`}
       ${selfSuff("metal")<60 && S.queue.length ? `<div class="label down">Нехватка руды: стройки идут вдвое медленнее.</div>` : ""}
-      <div class="row"><span class="mat">На складе: ${ic("wood","sm")} древесина <b class="num">${Math.floor(S.stock.wood)}</b></span><span class="mat">${ic("steel","sm")} сталь <b class="num">${Math.floor(S.stock.steel)}</b></span><button class="btn" data-tab="trade">${ic("trade","sm")} Склад и биржа</button></div>
-      <div class="label">Каждой стройке нужны древесина и сталь. Если своих не хватает — докупим по импорту (дороже на 60%). Площадок: 2 + 1 за каждые 34 единицы инфраструктуры.</div>
+      <div class="label">Площадок: 2 + 1 за каждые 34 единицы инфраструктуры. Каждой стройке нужны древесина и сталь; если своих не хватает — докупим по импорту, на 60% дороже.</div>
+    </div>
+    <div class="panel">
+      <h3>Материалы</h3>
+      <div class="row"><span class="mat">${ic("wood")} Древесина</span><span class="num">${Math.floor(S.stock.wood)} ${COMMOD.wood.unit} · +${prodOf("wood").toFixed(1).replace(".",",")}/мес</span></div>
+      <div class="row"><span class="mat">${ic("steel")} Сталь</span><span class="num">${Math.floor(S.stock.steel)} ${COMMOD.steel.unit} · +${prodOf("steel").toFixed(1).replace(".",",")}/мес</span></div>
+      <div class="label">Больше материалов дают лесопилки и металлургические заводы — раздел «Сырьё и материалы».</div>
+    </div>
+    <div class="panel" style="grid-column:1/-1">
       <div class="filters">${BUILD_CATS.map(([id,n])=>`<button class="chip" data-buildcat="${id}" aria-pressed="${S.buildCat===id}">${n}</button>`).join("")}</div>
       <div class="build-grid">${Object.entries(BUILDINGS).filter(([id,b])=>b.cat===S.buildCat).map(([id,b]) => {
         const chk = canBuild(id), up = objUpkeep(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat);
@@ -1847,6 +2149,7 @@ function viewMap(){
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button><button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("")}</div>
       </div>
+      <div class="rotate-hint">${ic("rotate","sm")} Поверните телефон: игра сделана для альбомного режима</div>
       <div class="map-card"><button class="card-x" data-cardx aria-label="Скрыть карточку">${ic("close","sm")}</button>${card}</div>
     </div>`;
 }
@@ -1926,7 +2229,7 @@ let resizeT = 0, lastLand = LAND.matches;
 window.addEventListener("resize", () => {
   if (!S || !S.countries || S.over) return;
   clearTimeout(resizeT);
-  resizeT = setTimeout(() => { if (ui.tab === "map" || LAND.matches !== lastLand){ lastLand = LAND.matches; render(); } }, 150);
+  resizeT = setTimeout(() => { lastLand = LAND.matches; render(); }, 150);
 });
 
 function tradeBlock(iso){
@@ -1992,8 +2295,8 @@ function viewTrade(){
       <div class="row"><span>Продано сырья в прошлом месяце</span><span class="num up">+${money(S.lastCommod||0)}</span></div>
       <div class="row"><span>Прогноз на этот месяц</span><span class="num up">+${money(commodProjection())}</span></div>
       <div class="row"><span>Активных контрактов</span><span class="num">${list.length}</span></div>
-      <div class="label">Добычу увеличивают лесопилки, металлургические заводы, нефтяные вышки и золотые прииски: «Экономика → Стройки → Сырьё и материалы».</div>
-      <button class="btn" data-tab="economy" style="align-self:flex-start">${ic("factory","sm")} К стройкам</button></div>
+      <div class="label">Добычу увеличивают лесопилки, металлургические заводы, нефтяные вышки и золотые прииски: «Стройка → Сырьё и материалы».</div>
+      <button class="btn" data-tab="build" style="align-self:flex-start">${ic("factory","sm")} К стройкам</button></div>
     <div class="panel" style="grid-column:1/-1"><h3>Склад</h3>${Object.entries(COMMOD).map(([r,d])=>stockRow(r,d)).join("")}</div>
     <div class="panel"><h3>Экспортные контракты</h3>${rowsC || `<p class="muted" style="margin:0">Контрактов пока нет. Выберите страну на карте и задайте объём поставок — товар будет уходить со склада каждый месяц по цене выше биржевой.</p>`}</div>
     <div class="panel"><h3>Лучшие покупатели</h3>${buyers || `<p class="muted" style="margin:0">Нечего продавать.</p>`}<div class="label">Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div></div>
@@ -2003,12 +2306,12 @@ function mapZoomAt(vx, vy, factor){ const m = ui.map, nk = clamp(m.k*factor, 1, 
 function attachMap(){
   const svg = document.getElementById("worldmap"); if (!svg) return;
   const [w, h] = mapSize(), wrap = document.getElementById("map-wrap"), wr = wrap.getBoundingClientRect();
-  ui.mapVH = LAND.matches && wr.width > 0 && wr.height > 0 ? w * wr.height / wr.width : h;
+  ui.mapVH = wr.width > 0 && wr.height > 0 ? w * wr.height / wr.width : h;
   svg.setAttribute("viewBox", `0 0 ${w} ${ui.mapVH.toFixed(2)}`);
   computeLabels();
   if (ui.mapFocus && LABELS && LABELS[ui.mapFocus]){
     const L = LABELS[ui.mapFocus], k = clamp(Math.min(w/(L.w*5), ui.mapVH/(L.h*5)), 1, 4);
-    ui.map = {k, x: w*(LAND.matches ? 0.36 : 0.5) - L.x*k, y: ui.mapVH/2 - L.y*k};
+    ui.map = {k, x: w*0.36 - L.x*k, y: ui.mapVH/2 - L.y*k};
   }
   ui.mapFocus = null;
   mapApply();
@@ -2049,6 +2352,7 @@ function viewDiplomacy(){
 
 function renderStart(){
   document.body.classList.remove("in-game");
+  if (typeof advRoot !== "undefined") advRoot.innerHTML = "";
   const saved = !S || S.over ? (load() ? S : null) : null;
   if (S && S.over) { /* keep end state visible via modal */ }
   const list = COUNTRY_DATA.filter(d => ui.startRegion==="Все" || d[2]===ui.startRegion).sort((a,b)=>b[4]-a[4]);
@@ -2082,23 +2386,26 @@ function showReport(){
   const d = S.last.d;
   const sign = (v,f) => `<span class="${v>=0?"up":"down"}">${v>=0?"+":""}${f(v)}</span>`;
   const ev = S.pendingEvent ? EVENTS[S.pendingEvent.idx] : null;
-  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="rep-title"><div class="sheet">
-    <span class="stamp">Доклад · ${MONTHS[(S.month+11)%12]} ${S.month===0?S.year-1:S.year}</span>
-    <h2 id="rep-title">Итоги месяца</h2>
-    <div class="deltas">
-      <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span>
-      <span>ВВП</span><span class="num">${sign(d.gdp,money)}</span>
-      <span>Рейтинг</span><span class="num">${sign(d.approval,v=>v.toFixed(1).replace(".",","))}</span>
-      <span>Стабильность</span><span class="num">${sign(d.stability,v=>v.toFixed(1).replace(".",","))}</span>
-    </div>
-    ${S.last.lines.length ? `<ul class="news">${S.last.lines.map(t=>`<li><span class="when">•</span><span>${esc(t)}</span></li>`).join("")}</ul>` : ""}
-    ${ev ? `<hr style="border:0;border-top:1px solid var(--line);width:100%;margin:0">
-      <span class="stamp">${ic("alert","sm")} Требуется решение</span>
-      <h2>${esc(ev.title)}</h2>
-      <p style="margin:0">${esc(S.pendingEvent.text)}</p>
-      <div class="choices">${ev.options.map((o,i)=>`<button class="choice" data-choice="${i}"><b>${esc(o.label)}</b><small>${esc(o.hint)}</small></button>`).join("")}</div>`
-      : `<button class="btn primary" data-close>Продолжить</button>`}
+  const who = ev ? (EVENT_ADVISOR[ev.id] || "sec") : "sec";
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="rep-title"><div class="sheet ${ev ? "event" : ""}">
+    ${ev ? `<span class="stamp">${ic("alert","sm")} Требуется ваше решение · ${MONTHS[S.month]} ${S.year}</span>
+      ${advHead(who, "alert", 72)}
+      <h2 id="rep-title">${esc(ev.title)}</h2>
+      <blockquote>«${esc(S.pendingEvent.text)}»</blockquote>
+      <div class="choices">${ev.options.map((o,i)=>`<button class="choice" data-choice="${i}"><b>${esc(o.label)}</b><small>${esc(o.hint)}</small></button>`).join("")}</div>
+      <details class="month-sum"><summary>Итоги прошлого месяца</summary><div class="deltas">
+        <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span><span>ВВП</span><span class="num">${sign(d.gdp,money)}</span>
+        <span>Рейтинг</span><span class="num">${sign(d.approval,v=>v.toFixed(1).replace(".",","))}</span><span>Стабильность</span><span class="num">${sign(d.stability,v=>v.toFixed(1).replace(".",","))}</span></div></details>`
+    : `<span class="stamp">Доклад · ${MONTHS[(S.month+11)%12]} ${S.month===0?S.year-1:S.year}</span>
+      ${advHead("sec", null, 64)}
+      <h2 id="rep-title">Итоги месяца</h2>
+      <div class="deltas">
+        <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span><span>ВВП</span><span class="num">${sign(d.gdp,money)}</span>
+        <span>Рейтинг</span><span class="num">${sign(d.approval,v=>v.toFixed(1).replace(".",","))}</span><span>Стабильность</span><span class="num">${sign(d.stability,v=>v.toFixed(1).replace(".",","))}</span></div>
+      ${S.last.lines.length ? `<ul class="news">${S.last.lines.map(t=>`<li><span class="when">•</span><span>${esc(t)}</span></li>`).join("")}</ul>` : ""}
+      <button class="btn primary" data-close>Продолжить</button>`}
   </div></div>`;
+  sfx(ev ? "alert" : "notify"); if (ev) buzz(50);
 }
 function chooseEvent(i){
   const ev = EVENTS[S.pendingEvent.idx];
@@ -2170,10 +2477,16 @@ document.addEventListener("click", e => {
   const t = e.target.closest("button");
   if (ui.more && (!t || !t.closest(".rail"))){ ui.more = false; if (!t){ render(); return; } }
   if (!t) return;
+  if (!t.dataset.tab && !t.dataset.setting) sfx("tap");
   if (t.dataset.start){ newGame(t.dataset.start); return; }
   if (t.dataset.startregion){ ui.startRegion = t.dataset.startregion; renderStart(); return; }
   if (t.dataset.dipregion){ ui.dipRegion = t.dataset.dipregion; render(); return; }
-  if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; render(); return; }
+  if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
+  if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
+  if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
+  if (t.dataset.setting){ settings[t.dataset.setting] = !settings[t.dataset.setting]; settingsSave(); sfx("tap"); render(); return; }
+  if (t.dataset.tut){ const v = t.dataset.tut; if (v === "skip" || v === "done") tutDone(); else if (v === "restart"){ ui.tab = "map"; render(); showTutorial(0); } else showTutorial(+v.split(":")[1]); return; }
+  if (t.hasAttribute("data-closereport")){ closeModal(); resumeAfter("report"); return; }
   if (t.hasAttribute("data-more")){ ui.more = !ui.more; render(); return; }
   if (t.hasAttribute("data-legend")){ ui.legend = !ui.legend; render(); return; }
   if (t.hasAttribute("data-cardx")){ ui.cardHidden = true; render(); return; }
@@ -2202,6 +2515,8 @@ document.addEventListener("click", e => {
   if (a === "continue"){ ui.tab="map"; ui.mapFocus = S.player; render(); return; }
   if (a === "wipe"){ storageDel(); S = null; renderStart(); return; }
   if (a === "restart"){ S = null; closeModal(); renderStart(); return; }
+  if (a === "mainmenu"){ save(); ui.speed = 0; S = null; advRoot.innerHTML = ""; renderStart(); return; }
+  if (a === "newconfirm"){ if (!ui.newConfirm){ ui.newConfirm = true; render(); return; } ui.newConfirm = false; storageDel(); S = null; advRoot.innerHTML = ""; renderStart(); return; }
   act(a, t.dataset.arg);
 });
 document.addEventListener("input", e => {
@@ -2238,6 +2553,9 @@ function newGame(id){
   addLog(`Вы приняли присягу как глава государства ${mine.name}. Сценарий: «${SCENARIOS.find(s=>s.id===scen).name}». Выборы через ${S.electionIn} мес.`);
   ui.tab = "map"; ui.mapSel = id; ui.map = {k:1,x:0,y:null}; ui.mapFocus = id; ui.speed = 0; pausedBy = null;
   save(); render();
+  let tutSeen = false; try { tutSeen = !!localStorage.getItem(TUT_KEY); } catch(e){}
+  if (!tutSeen) setTimeout(() => showTutorial(0), 350);
+  else setTimeout(() => advise("sec", `Добро пожаловать в кабинет, господин президент. ${mine.name} ждёт ваших решений.`, {tab:null}), 400);
 }
 
 /* ---------- Native shell (Android app via Capacitor) ---------- */
