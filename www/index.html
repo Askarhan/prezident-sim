@@ -849,6 +849,42 @@ use.cu{fill:#000;stroke:none}
 .net-dots{display:inline-flex;gap:4px}
 .net-dots i{width:12px;height:12px;border-radius:50%;background:#DCE5F2;border:1px solid #C6D1E2}
 .net-dots i.on{background:linear-gradient(180deg,#5AA9FF,#1F4E9C);border-color:#1F4E9C}
+
+/* ---- daily gift + newspaper ---- */
+.map-side{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:2}
+.map-screen:has(.map-card) .map-side{display:none}
+.side-btn{position:relative;width:60px;min-height:60px;border-radius:16px;border:0;background:#fff;box-shadow:0 3px 10px rgb(0 0 0 / .28);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 2px;cursor:pointer}
+.side-btn .ci,.side-btn .ic{width:28px;height:28px}
+.side-btn small{font:700 10px var(--f-data);color:#1C2A44}
+.side-btn.gift.ready{background:linear-gradient(180deg,#FFE27A,#F29A12);animation:giftPulse 1.4s ease-in-out infinite}
+.side-btn.gift.ready small{color:#3A2400}
+@keyframes giftPulse{50%{transform:scale(1.07);box-shadow:0 0 0 6px rgb(255 210 74 / .35),0 3px 10px rgb(0 0 0 / .28)}}
+.side-btn .badge{position:absolute;right:-4px;top:-4px}
+.giftsheet{max-width:720px}
+.giftsheet h2{display:flex;align-items:center;gap:8px;margin:0}
+.gift-days{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:12px 0}
+.gday{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;padding:8px 4px;border-radius:14px;background:#F2F6FC;border:1px solid #DCE5F2}
+.gday b{font-size:11px}
+.gday small{font-size:10px;color:var(--muted)}
+.gday .gic{width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;box-shadow:0 2px 4px rgb(0 0 0 / .1)}
+.gday.now{background:linear-gradient(180deg,#FFF3C4,#FFE27A);border-color:#F2A93B;box-shadow:0 0 0 3px rgb(242 169 59 / .3)}
+.gday.got{opacity:.6}
+.gday.big{background:linear-gradient(180deg,#F3E8FF,#E3CCFF);border-color:#B98AF0}
+.gday.big.now{background:linear-gradient(180deg,#FFF3C4,#FFE27A)}
+.gok{position:absolute;right:4px;top:4px;width:18px;height:18px;border-radius:50%;background:#1FB57A;color:#fff;font:700 11px/18px var(--f-body);font-style:normal}
+.sheet.paper{max-width:760px;background:#F6F1E4;color:#231E14;font-family:Georgia,"Times New Roman",serif;border:1px solid #D8CDB4}
+.np-top{display:flex;justify-content:space-between;align-items:center}
+.np-top small{font:600 11px var(--f-data);color:#6B5E44;letter-spacing:.06em;text-transform:uppercase}
+.np-mast{margin:4px 0 0;text-align:center;font:900 34px/1.05 Georgia,"Times New Roman",serif;letter-spacing:.01em}
+.np-rule{display:flex;justify-content:space-between;border-top:3px double #231E14;border-bottom:1px solid #231E14;padding:3px 2px;margin:6px 0 10px;font:600 10px var(--f-data);text-transform:uppercase;letter-spacing:.08em}
+.np-rub{display:block;font:700 10px var(--f-data);color:#A0322A;text-transform:uppercase;letter-spacing:.08em}
+.np-lead h2{margin:2px 0 10px;font:800 24px/1.15 Georgia,serif;color:#231E14}
+.np-cols{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;border-top:1px solid #B9A57E;padding-top:10px}
+.np-cols article{margin:0 0 10px}
+.np-cols p{margin:2px 0;font-size:14px;line-height:1.4}
+.np-box{background:#EDE4CF;border:1px solid #D8CDB4;border-radius:6px;padding:8px}
+.np-arch{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border-top:1px solid #B9A57E;padding-top:8px;font:600 11px var(--f-data)}
+@media (max-width:700px){ .gift-days{grid-template-columns:repeat(4,1fr)} .np-cols{grid-template-columns:1fr} .np-mast{font-size:26px} }
 </style>
 
 
@@ -1937,7 +1973,7 @@ function migrate(s){
   if (!s.econTab) s.econTab = "budget"; if (!s.govTab) s.govTab = "min";
   if (s === S) syncMin(); else { const keep = S; S = s; syncMin(); S = keep; }
 }
-function addLog(text){ S.log.unshift({t: dateStr(), text}); S.log = S.log.slice(0,60); }
+function addLog(text){ S.log.unshift({t: dateStr(), text}); S.log = S.log.slice(0,60); S.logN = (S.logN||0) + 1; }
 function dateStr(){ return `${S.day||1} ${MONTHS_GEN[S.month].slice(0,3)} ${S.year}`; }
 function daysIn(m, y){ return new Date(y, m+1, 0).getDate(); }
 function fullDate(){ return `${S.day||1} ${MONTHS_GEN[S.month]} ${S.year}`; }
@@ -2439,6 +2475,7 @@ function nextMonth(){
     d:{treasury:S.treasury-before.treasury, gdp:c.gdp-before.gdp, approval:S.approval-before.approval, stability:S.stability-before.stability},
     lines: S.log.slice(0, Math.max(0, S.log.length - startLog)).map(l=>l.text).slice(0,6)
   };
+  makeIssue(before);
   checkAchievements();
   save();
   render();
@@ -4157,6 +4194,7 @@ function viewMap(){
   const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}
+        ${S && S.countries ? mapSideHTML() : ""}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
         <div class="map-modes" role="group" aria-label="Режим карты">${MAP_MODES.map(([id,l,icn]) => `<button data-mapmode="${id}" aria-pressed="${(ui.mapMode||"pol")===id}" title="${l}">${ic(icn,"sm")}<span>${l}</span></button>`).join("")}
@@ -4813,6 +4851,115 @@ function renderStart(){
 
 /* ---------- Modals ---------- */
 function closeModal(){ modalRoot.innerHTML = ""; if (typeof flushAdvice === "function") flushAdvice(); }
+/* ================= Daily gift (real calendar days) and the monthly newspaper ================= */
+const DAILY_KEY = "president-daily-v1";
+function dailyGet(){ try { return JSON.parse(localStorage.getItem(DAILY_KEY)) || {}; } catch(e){ return {}; } }
+function dailySet(o){ try { localStorage.setItem(DAILY_KEY, JSON.stringify(o)); } catch(e){} }
+const dayKey = t => { const d = new Date(t); return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate(); };
+function dailyState(){
+  const d = dailyGet(), now = Date.now(), today = dayKey(now), yest = dayKey(now - 864e5);
+  const ready = d.last !== today;
+  const streak = d.last === today || d.last === yest ? (d.streak || 0) : 0;   // missed a day: start over
+  const next = new Date(); next.setHours(24, 0, 0, 0);
+  return {ready, streak, day: ready ? (streak % 7) + 1 : ((streak - 1) % 7) + 1, msLeft: next - now};
+}
+const GIFTS = [
+  {d:1, icon:"budget", name:"Бюджет", txt:() => `+${money(me().gdp*0.003)}`, give:k => { S.treasury += me().gdp*0.003*k; }},
+  {d:2, icon:"science", name:"Наука", txt:() => "+25 ОИ", give:k => { S.rp += 25*k; }},
+  {d:3, icon:"steel", name:"Материалы", txt:() => "+40 стали, +60 древесины", give:k => { S.stock.steel += 40*k; S.stock.wood += 60*k; }},
+  {d:4, icon:"intel", name:"Агенты", txt:() => "+4 агента", give:k => { S.intel.pts = Math.min(20, S.intel.pts + 4*k); }},
+  {d:5, icon:"budget", name:"Крупный транш", txt:() => `+${money(me().gdp*0.006)}`, give:k => { S.treasury += me().gdp*0.006*k; }},
+  {d:6, icon:"approval", name:"Доверие", txt:() => "рейтинг +2 на 3 мес.", give:k => { S.mods.push({stat:"approval", v:2*k, left:3}); }},
+  {d:7, icon:"trophy", name:"Главный приз", txt:() => `+${money(me().gdp*0.01)} и +60 ОИ`, give:k => { S.treasury += me().gdp*0.01*k; S.rp += 60*k; }}
+];
+const hms = ms => { const s = Math.max(0, Math.floor(ms/1000)); return [Math.floor(s/3600), Math.floor(s%3600/60), s%60].map(v => String(v).padStart(2, "0")).join(":"); };
+function claimGift(double){
+  const st = dailyState(); if (!st.ready || !S || !S.countries) return;
+  const g = GIFTS[st.day - 1];
+  const done = k => { g.give(k); dailySet({last: dayKey(Date.now()), streak: st.streak + 1}); addLog(`Ежедневный подарок, день ${st.day}: ${g.name.toLowerCase()} ${g.txt()}${k > 1 ? " ×2" : ""}.`); closeModal(); resumeAfter("gift"); sfx("success"); toast(`${g.name}: ${g.txt()}${k > 1 ? " ×2" : ""}`); save(); render(); };
+  if (double) rewardAd("Награда: подарок удваивается", () => { pausedBy = "gift"; done(2); });
+  else done(1);
+}
+function showGift(){
+  if (!S || !S.countries) return;
+  pauseFor("gift");
+  const st = dailyState();
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="gift-title"><div class="sheet giftsheet">
+    <div class="row"><h2 id="gift-title">${ic("trophy")} Ежедневный подарок</h2><button class="btn sm" data-giftclose>${ic("close","sm")}</button></div>
+    <p class="muted" style="margin:0">Заходите каждый день: награды растут, на седьмой день — главный приз. Пропуск дня начинает серию заново.</p>
+    <div class="gift-days">${GIFTS.map(g => { const cls = g.d < st.day || (!st.ready && g.d === st.day) ? "got" : g.d === st.day && st.ready ? "now" : "";
+      return `<div class="gday ${cls} ${g.d === 7 ? "big" : ""}"><small>День ${g.d}</small><span class="gic">${ic(g.icon, "lg")}</span><b>${g.name}</b><small>${S && S.countries ? g.txt() : ""}</small>${cls === "got" ? `<i class="gok">✓</i>` : ""}</div>`; }).join("")}</div>
+    ${st.ready ? `<div class="btns"><button class="btn primary" data-giftclaim>Забрать подарок</button><button class="btn ad-btn" data-giftclaim="2">${ic("play","sm")} Забрать ×2 за рекламу</button></div>`
+      : `<div class="label">Следующий подарок через <b class="num" data-giftleft>${hms(st.msLeft)}</b></div>`}
+  </div></div>`;
+}
+
+/* ---------- newspaper ---------- */
+const PAPER_RULES = [
+  [/объявила вам войну|объявили войну/i, 10, "Война"], [/Мир с|мирн|капитуляц/i, 9, "Мир"], [/переворот|к власти пришла/i, 9, "Политика"],
+  [/санкци/i, 7, "Санкции"], [/вступила в организацию|исключена из организации|вышла из организации/i, 7, "Мир"], [/ракетный удар|ядерн/i, 9, "Безопасность"],
+  [/закон|Принят|Отменён/i, 5, "Власть"], [/Построено|Госпрограмма завершена|Расселено/i, 4, "Стройка"], [/союз|пакт|посольство|визит/i, 5, "Дипломатия"],
+  [/Назначен|министр/i, 4, "Правительство"], [/кредит|Инвестиции|помощь/i, 3, "Экономика"], [/шпион|контрразведк|агент|разработки/i, 5, "Спецслужбы"],
+  [/Подписано торговое|контракт|продажа|закупк/i, 3, "Торговля"]
+];
+function paperScore(text){ for (const [re, w, rub] of PAPER_RULES) if (re.test(text)) return [w, rub]; return [1, "Новости"]; }
+function makeIssue(before){
+  const c = me(), n = Math.min(60, (S.logN || 0) - (S.issueMark || 0)), lines = S.log.slice(0, n).map(l => l.text).filter(t => !/Ежедневный подарок/.test(t));
+  S.issueMark = S.logN || 0;
+  const scored = lines.map(t => { const [w, rub] = paperScore(t); return {t, w, rub}; }).sort((a,b) => b.w - a.w);
+  const g = (c.gdp/before.gdp - 1)*100, apd = S.approval - before.approval;
+  const lead = scored[0] && scored[0].w >= 4 ? scored[0] : {t: g >= 0 ? `Экономика ${c.name.split(" ").map(genWord).join(" ")} выросла на ${pct(Math.abs(g)*12, 1)} в пересчёте на год` : `Экономика ${c.name.split(" ").map(genWord).join(" ")} замедляется: спад ${pct(Math.abs(g)*12, 1)} в год`, rub:"Экономика"};
+  const others = scored.filter(x => x !== lead).slice(0, 4);
+  const world = [];
+  const growth = Object.values(C()).filter(x => !x.owner && x.id !== S.player && S.prevGdp && S.prevGdp[x.id]).map(x => [x, x.gdp/S.prevGdp[x.id] - 1]).sort((a,b) => b[1] - a[1]);
+  if (growth[0]) world.push(`${growth[0][0].name} — лидер роста месяца: экономика +${pct(growth[0][1]*100, 2)}.`);
+  const mk = Object.keys(COMMOD).filter(r => commodOpen(r)).map(r => { const h = S.mhist[r]; return [r, h.length > 1 ? h[h.length-1]/h[h.length-2] - 1 : 0]; }).sort((a,b) => Math.abs(b[1]) - Math.abs(a[1]))[0];
+  if (mk && Math.abs(mk[1]) > 0.01) world.push(`Биржа: ${COMMOD[mk[0]].name.toLowerCase()} ${mk[1] > 0 ? "дорожает" : "дешевеет"} на ${pct(Math.abs(mk[1])*100, 1)}.`);
+  const hostile = Object.values(C()).filter(x => !x.owner && x.rel < -60).sort((a,b) => a.rel - b.rel)[0];
+  if (hostile) world.push(`Аналитики: отношения с ${hostile.name} на грани — ${Math.round(hostile.rel)}.`);
+  if (S.wars.length) world.push(`Фронт: ${S.wars.map(w => `${C()[w.enemy].name} — ${w.progress >= 0 ? "наше преимущество" : "противник давит"}`).join("; ")}.`);
+  S.prevGdp = Object.fromEntries(Object.values(C()).map(x => [x.id, x.gdp]));
+  const issue = {no: (S.issueNo = (S.issueNo || 0) + 1), date: `${MONTHS[(S.month+11)%12]} ${S.month === 0 ? S.year - 1 : S.year}`, lead, others, world,
+    poll: {appr: Math.round(S.approval), d: apd, stab: Math.round(S.stability)}, read: false,
+    money: {net: S.treasury - before.treasury, gdp: g}};
+  S.papers = [issue, ...(S.papers || [])].slice(0, 6);
+}
+function genWord(w){
+  if (w === w.toUpperCase()) return w;
+  if (w === "Египет") return "Египта";
+  return /ия$/.test(w) ? w.replace(/ия$/, "ии") : /ая$/.test(w) ? w.replace(/ая$/, "ой") : /ея$/.test(w) ? w.replace(/ея$/, "еи") : /[шкгжч]а$/.test(w) ? w.slice(0,-1) + "и"
+    : /а$/.test(w) ? w.slice(0,-1) + "ы" : /ь$/.test(w) ? w.slice(0,-1) + "и" : /й$/.test(w) ? w.slice(0,-1) + "я" : /[бвгджзклмнпрстфхцчшщ]$/.test(w) ? w + "а" : w;
+}
+function paperName(){ return "Вестник " + me().name.split(" ").map(genWord).join(" "); }
+function showPaper(i){
+  const P = (S.papers || [])[i || 0]; if (!P) return toast("Первый номер выйдет в конце месяца.");
+  P.read = true; pauseFor("paper"); save();
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="np-title"><div class="sheet paper">
+    <div class="np-top"><small>№ ${P.no} · ${P.date}</small><button class="btn sm" data-paperclose>${ic("close","sm")}</button></div>
+    <h1 class="np-mast" id="np-title">${esc(paperName())}</h1>
+    <div class="np-rule"><span>Ежемесячная газета</span><span>Цена: 1 монета</span></div>
+    <div class="np-lead"><small class="np-rub">${esc(P.lead.rub)}</small><h2>${esc(P.lead.t)}</h2></div>
+    <div class="np-cols">
+      <div>${P.others.length ? P.others.map(o => `<article><small class="np-rub">${esc(o.rub)}</small><p>${esc(o.t)}</p></article>`).join("") : `<article><p>Месяц прошёл спокойно: ни скандалов, ни потрясений.</p></article>`}</div>
+      <div>
+        <article class="np-box"><small class="np-rub">Опрос недели</small><p>Президенту доверяют <b>${P.poll.appr}%</b> граждан (${P.poll.d >= 0 ? "+" : ""}${P.poll.d.toFixed(1).replace(".",",")}). Стабильность — ${P.poll.stab}%.</p></article>
+        <article class="np-box"><small class="np-rub">Казна</small><p>За месяц бюджет ${P.money.net >= 0 ? "пополнился" : "потерял"} на <b>${money(Math.abs(P.money.net))}</b>. ВВП ${P.money.gdp >= 0 ? "+" : ""}${P.money.gdp.toFixed(2).replace(".",",")}% за месяц.</p></article>
+        ${P.world.length ? `<article><small class="np-rub">В мире</small>${P.world.map(w => `<p>${esc(w)}</p>`).join("")}</article>` : ""}
+      </div>
+    </div>
+    ${(S.papers||[]).length > 1 ? `<div class="np-arch">Архив: ${S.papers.map((q, k) => `<button class="chip" data-paper="${k}" aria-pressed="${k === (i||0)}">№ ${q.no}</button>`).join("")}</div>` : ""}
+  </div></div>`;
+}
+function mapSideHTML(){
+  const st = dailyState(), unread = (S.papers || []).some(p => !p.read);
+  return `<div class="map-side">
+    <button class="side-btn gift ${st.ready ? "ready" : ""}" data-gift aria-label="Ежедневный подарок">${ic("trophy")}<small data-giftside>${st.ready ? "Подарок!" : hms(st.msLeft)}</small></button>
+    <button class="side-btn paper-btn" data-paper="0" aria-label="Газета">${ic("summary")}<small>Газета</small>${unread ? `<i class="badge">1</i>` : ""}</button>
+  </div>`;
+}
+setInterval(() => { if (!S || !S.countries) return; const st = dailyState(); const a = document.querySelector("[data-giftside]"), b = document.querySelector("[data-giftleft]");
+  if (a) a.textContent = st.ready ? "Подарок!" : hms(st.msLeft); if (b) b.textContent = hms(st.msLeft); }, 1000);
+
 function showReport(){
   if (!S.last) return;
   const d = S.last.d;
@@ -4983,6 +5130,11 @@ document.addEventListener("click", e => {
   if (t.dataset.sector){ S.sectors[t.dataset.sector] = +t.dataset.level; save(); render(); return; }
   if (t.dataset.prog){ startProg(t.dataset.prog); return; }
   if (t.dataset.dip){ dipAct(t.dataset.dip, ui.ctry); return; }
+  if (t.dataset.gift !== undefined){ showGift(); return; }
+  if (t.dataset.giftclaim !== undefined){ claimGift(t.dataset.giftclaim === "2"); return; }
+  if (t.dataset.giftclose !== undefined){ closeModal(); resumeAfter("gift"); return; }
+  if (t.dataset.paper !== undefined){ showPaper(+t.dataset.paper); render(); return; }
+  if (t.dataset.paperclose !== undefined){ closeModal(); resumeAfter("paper"); render(); return; }
   if (t.dataset.dtab){ ui.dtab = t.dataset.dtab; render(); return; }
   if (t.dataset.orgjoin){ orgJoin(t.dataset.orgjoin); return; }
   if (t.dataset.orgleave){ orgLeave(t.dataset.orgleave); return; }
