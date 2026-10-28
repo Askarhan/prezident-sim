@@ -691,6 +691,47 @@ use.cu{fill:#000;stroke:none}
 .float{background:#fff;text-shadow:none;box-shadow:0 4px 12px rgb(0 0 0 / .25)}
 .float.cash{color:#0E9466} .float.loss{color:#D63A3F} .float.cargo{color:#D46A06}
 .flag{box-shadow:0 0 0 1px rgb(0 0 0 / .12)}
+
+.sat-on #worldmap #countries-g path{stroke:none}
+.sat-on #worldmap #countries-g path.m-player{stroke:#56C1FF}
+.sat-on #worldmap #countries-g path.m-sel{stroke:#FFE27A}
+#map-borders{pointer-events:none}
+#map-borders path{fill:none;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+#map-borders .bd-under{stroke:#0A1426;stroke-opacity:.38;stroke-width:2.6}
+#map-borders .bd{stroke:#FFFFFF;stroke-opacity:.85;stroke-width:1}
+#map-borders .bd.dis{stroke-dasharray:3 4;stroke-opacity:.7}
+/* ---- satellite map: NASA Blue Marble + shaded relief under transparent country shapes ---- */
+.sat{position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none}
+.sat img{position:absolute;display:block;user-select:none;-webkit-user-drag:none}
+.sat .sat0{left:0;top:0;width:100%;height:100%}
+.map-wrap.sat-on{background:#041330!important}
+.map-wrap.sat-on #worldmap{position:relative}
+.sat-on #countries-g{filter:none}
+.sat-on #worldmap path{stroke:#FFFFFF;stroke-opacity:.72;stroke-width:.75}
+.sat-on #worldmap path:hover{filter:none;stroke-opacity:1}
+.sat-on .m-minor,.sat-on .m-neutral{fill:#FFFFFF;fill-opacity:0}
+.sat-on .m-friend{fill:#8DFF6E;fill-opacity:.15}
+.sat-on .m-ally{fill:#4BE36A;fill-opacity:.3}
+.sat-on .m-puppet{fill:#C59BFF;fill-opacity:.32}
+.sat-on .m-trade{fill:#4FB4FF;fill-opacity:.2}
+.sat-on .m-hostile{fill:#FF7A5C;fill-opacity:.24}
+.sat-on .m-war{fill:#FF3434;fill-opacity:.38;animation:satWar 1.6s ease-in-out infinite}
+@keyframes satWar{50%{fill-opacity:.16}}
+.sat-on .m-own{fill:#FFB020;fill-opacity:.34}
+.sat-on #worldmap path.m-player{fill:#2E9BFF;fill-opacity:.16;stroke:#56C1FF;stroke-opacity:1;stroke-width:2.4;filter:drop-shadow(0 0 3px rgb(40 150 255 / .95))}
+.sat-on #worldmap path[style]{fill-opacity:.66}
+.sat-on #worldmap path.m-occ{fill-opacity:.52}
+.sat-on #worldmap path.m-sel{stroke:#FFE27A;stroke-width:2.4;stroke-opacity:1}
+.sat-on #map-grid path{stroke:#FFFFFF;stroke-opacity:.07}
+.sat-on #map-grid path.eq{stroke-opacity:.14}
+.sat-on #map-labels{fill:#E9EEF6;stroke:#06101F;stroke-opacity:.8;font-weight:600}
+.sat-on #map-labels .lb-game{fill:#FFFFFF;font-weight:700;letter-spacing:.06em}
+.sat-on #map-labels .lb-me{fill:#FFD27A;font-weight:800;letter-spacing:.06em}
+.sat-on #map-labels .lb-sel{fill:#FFF1B8;font-weight:800}
+.sat-on .fx-ocean text{fill:#BFE2FF;fill-opacity:.5}
+.sat-on .fx-cap text{fill:#FFFFFF;stroke:#06101F}
+.sat-on .sw.m-player{background:#2E9BFF;border-color:#56C1FF}
+.sat-on .sw.m-minor,.sat-on .sw.m-neutral{background:transparent;border-color:#FFFFFF}
 </style>
 
 
@@ -3446,7 +3487,7 @@ function viewMap(){
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
   const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
-      <div class="map-wrap" id="map-wrap">${svg}
+      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
         <div class="map-modes" role="group" aria-label="Режим карты">${MAP_MODES.map(([id,l,icn]) => `<button data-mapmode="${id}" aria-pressed="${(ui.mapMode||"pol")===id}" title="${l}">${ic(icn,"sm")}<span>${l}</span></button>`).join("")}
@@ -3466,7 +3507,61 @@ function mapClamp(){
   if (h*m.k <= vh) m.y = (vh - h*m.k)/2;
   else m.y = m.y == null ? (vh - h*m.k)/2 : clamp(m.y, vh - h*m.k, 0);
 }
-function mapApply(){ const g = document.getElementById("map-g"); if (g){ mapClamp(); g.setAttribute("transform", `translate(${ui.map.x} ${ui.map.y}) scale(${ui.map.k})`); scheduleLabels(); } }
+
+/* satellite base map: one 2048 px world image plus 512 px tiles at 4096 / 8192 px, loaded for the visible area */
+const SAT_LEVELS = [2048, 4096, 8192], SAT_TILE = 512;
+let SAT_OK = true;
+function satFail(){ if (!SAT_OK) return; SAT_OK = false; const w = document.getElementById("map-wrap"); if (w) w.classList.remove("sat-on"); const el = document.getElementById("sat"); if (el) el.remove(); }
+window.__satFail = satFail;
+function satHTML(){ return `<div id="sat" class="sat" aria-hidden="true"><img class="sat0" src="sat/world.webp" alt="" draggable="false" onerror="__satFail()"></div>`; }
+let satT = 0;
+function satBordersAttach(){
+  if (!SAT_OK) return;
+  if (!window.SAT_BORDERS){
+    if (!satBordersAttach.req){ satBordersAttach.req = true; const sc = document.createElement("script"); sc.src = "sat/borders.js"; sc.onload = satBordersAttach; document.head.appendChild(sc); }
+    return;
+  }
+  const cg = document.getElementById("countries-g"); if (!cg || document.getElementById("map-borders")) return;
+  const B = window.SAT_BORDERS, g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "map-borders";
+  g.innerHTML = `<path class="bd-under" d="${B.solid}"/><path class="bd" d="${B.solid}"/><path class="bd dis" d="${B.disputed}"/>`;
+  cg.after(g);
+}
+function satApply(){
+  const el = document.getElementById("sat"), svg = document.getElementById("worldmap"); if (!el || !svg) return;
+  const r = svg.getBoundingClientRect(); if (!r.width) return;
+  const [w, h] = mapSize(), s = r.width / w, m = ui.map;
+  el.style.width = w + "px"; el.style.height = h + "px";
+  el.style.transform = `translate(${(s*m.x).toFixed(2)}px,${(s*(m.y||0)).toFixed(2)}px) scale(${(s*m.k).toFixed(5)})`;
+  clearTimeout(satT); satT = setTimeout(satTiles, 140);
+}
+function satTiles(){
+  const el = document.getElementById("sat"), svg = document.getElementById("worldmap"); if (!el || !svg || !SAT_OK) return;
+  const r = svg.getBoundingClientRect(); if (!r.width) return;
+  const [w, h] = mapSize(), s = r.width / w, m = ui.map;
+  const need = s * m.k * w * Math.min(window.devicePixelRatio || 1, 3);
+  let z = 0; for (let i = 1; i < SAT_LEVELS.length; i++) if (need > SAT_LEVELS[i-1] * 1.2) z = i;
+  const u0 = -m.x / m.k, u1 = (r.width / s - m.x) / m.k, v0 = -(m.y||0) / m.k, v1 = (r.height / s - (m.y||0)) / m.k;
+  const want = new Set();
+  if (z){
+    const LW = SAT_LEVELS[z], LH = Math.ceil(LW * h / w), tu = SAT_TILE * w / LW, nx = LW / SAT_TILE, ny = Math.ceil(LH / SAT_TILE);
+    for (let ty = Math.max(0, Math.floor(v0/tu)); ty <= Math.min(ny-1, Math.floor(v1/tu)); ty++)
+      for (let tx = Math.max(0, Math.floor(u0/tu)); tx <= Math.min(nx-1, Math.floor(u1/tu)); tx++){
+        const id = `st-${z}-${tx}-${ty}`; want.add(id);
+        if (document.getElementById(id)) continue;
+        const ph = Math.min(SAT_TILE, LH - ty*SAT_TILE), im = document.createElement("img");
+        im.id = id; im.alt = ""; im.draggable = false; im.decoding = "async"; im.dataset.z = z;
+        im.style.cssText = `left:${(tx*tu).toFixed(3)}px;top:${(ty*tu).toFixed(3)}px;width:${(tu*1.002).toFixed(3)}px;height:${(ph*w/LW*1.002).toFixed(3)}px;opacity:0;transition:opacity .25s`;
+        im.onload = () => { im.style.opacity = 1; };
+        im.onerror = () => im.remove();
+        im.src = `sat/${z}/${tx}_${ty}.webp`;
+        el.appendChild(im);
+      }
+  }
+  // drop tiles that are off-screen or belong to a sharper level than needed; keep the DOM small
+  const tiles = [...el.querySelectorAll("img[data-z]")];
+  tiles.forEach(im => { if (!want.has(im.id) && (+im.dataset.z > z || tiles.length > 60)) im.remove(); });
+}
+function mapApply(){ const g = document.getElementById("map-g"); if (g){ mapClamp(); g.setAttribute("transform", `translate(${ui.map.x} ${ui.map.y}) scale(${ui.map.k})`); satApply(); scheduleLabels(); } }
 
 /* country name labels: centre of each country's largest outline, shown when it fits and doesn't overlap */
 let LABELS = null, lblRaf = 0;
@@ -3760,6 +3855,7 @@ function attachMap(){
   }
   ui.mapFocus = null;
   mapApply();
+  satBordersAttach();
   attachLabels();
   const toView = (cx, cy) => { const r = svg.getBoundingClientRect(); return [(cx - r.left)/r.width*w, (cy - r.top)/r.height*mapVH()]; };
   const pts = new Map(); let moved = false, start = null, pinch = null;
