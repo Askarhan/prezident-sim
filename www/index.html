@@ -1241,6 +1241,50 @@ use.cu{fill:#000;stroke:none}
 .tip-open{flex:none;width:38px;height:38px;border-radius:50%;padding:0;margin-right:8px;border:1px solid var(--gold-lo);background:#101A2A;display:grid;place-items:center;overflow:hidden}
 .tip-open .portrait{width:30px;height:30px}
 @media (max-height:420px){ .tip-float{top:50px} :root .tip-float .tip .portrait{width:38px;height:38px} }
+
+/* ===== slim bars (29.10, v2): top ~34px, dock ~34px ===== */
+:root .topbar{min-height:34px!important;padding-top:2px!important;padding-bottom:2px!important;gap:6px!important}
+:root .tb-flag .flag,:root .tb-flag img,:root .tb-flag svg{max-height:22px}
+:root .tb-flag{transform:scale(.8);transform-origin:left center}
+:root .tb-name b{font-size:12.5px!important;line-height:1.1}
+:root .tb-name .tb-sub{font-size:9.5px!important;line-height:1.1}
+:root .tb-kpis .kpi{height:28px!important;padding:1px 10px 1px 2px!important;gap:5px!important}
+:root .tb-kpis .kpi .kpi-ic,:root .tb-kpis .kpi .kpi-ic .pic{width:24px!important;height:24px!important}
+:root .tb-kpis .kpi .v{font-size:13px!important;line-height:1.05}
+:root .tb-kpis .kpi .kd{font-size:9px!important;line-height:1}
+:root .tb-time{padding:1px 3px 1px 6px!important;gap:6px!important}
+:root .tb-time .clock{gap:1px!important;min-width:0!important}
+:root .tb-time .clock-top b{font-size:12px!important}
+:root .tb-time .clock-row .pic{width:16px;height:16px}
+:root .tb-time .clock-track{height:2px!important}
+:root .tb-time .speeds button{height:26px!important;width:30px!important}
+:root .tb-time .speeds button svg{transform:scale(.85)}
+:root .tb-btn{width:30px!important;height:30px!important}
+:root .tb-btn .hic{width:18px;height:18px}
+:root .dock{padding-top:2px!important;padding-bottom:calc(2px + env(safe-area-inset-bottom,0px))!important}
+:root .tile{flex-direction:row!important;gap:6px!important;height:30px;padding:0 6px!important;align-items:center;justify-content:center;font-size:11px!important}
+:root .tile-ic{width:auto!important;height:auto!important;background:none!important;border:0!important;box-shadow:none!important}
+:root .tile-ic .hic,:root .tile-ic .ic{width:16px!important;height:16px!important}
+:root .tile .badge,:root .tile i.badge{top:-2px!important;right:2px!important;transform:scale(.75)}
+:root .window{top:4px!important;bottom:4px!important}
+:root .win-head{padding-top:2px!important;padding-bottom:2px!important;min-height:0}
+:root .win-head h2{font-size:19px!important}
+:root .win-head .win-ic{transform:scale(.7)}
+:root .win-x,:root .tip-open{width:32px!important;height:32px!important}
+:root .tip-open .portrait{width:26px!important;height:26px!important}
+.tip-float{top:46px!important}
+#adv-root{bottom:calc(40px + env(safe-area-inset-bottom,0px))!important}
+@media (max-width:700px){ :root .tile .tile-l{display:none} }
+:root .tb-name .tb-sub{display:none!important} :root .tb-name b{font-size:13.5px!important}
+:root .tb-time{height:30px;box-sizing:border-box}
+:root .tb-kpis .kpi .kd{display:none!important}
+:root .topbar{min-height:0!important;box-sizing:border-box;height:36px}
+:root .tb-who{height:30px;overflow:visible}
+:root .tb-flag{transform:none!important;width:auto}
+:root .tb-flag>*:not(.badge){height:24px!important;width:auto!important;max-height:24px}
+:root .tb-flag,:root .tb-flag *:not(.badge){max-height:24px!important;height:24px}
+:root .tb-flag .flag{width:36px!important}
+:root .tile>:last-child:not(.tile-l):not(.tile-ic){position:static!important;transform:scale(.8)!important;margin-left:-4px}
 </style>
 
 
