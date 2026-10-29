@@ -1222,6 +1222,13 @@ use.cu{fill:#000;stroke:none}
 :root .small{font-size:11px}
 @media (max-height:420px){ :root .sheet.uinfo{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);max-height:96vh} :root .ui-body{padding:10px 12px;gap:6px} :root .ui-body h2{font-size:18px} :root .ui-body p{font-size:12.5px} :root .ui-stats{gap:3px 10px;padding:6px 0} }
 :root .tb-name{overflow:hidden;min-width:0} :root .tb-name .tb-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block} :root .tb-time{flex:0 0 auto!important} :root .tb-btn{flex:0 0 auto!important}
+
+/* ===== (i) hints instead of long explanations ===== */
+.hint-src{display:none!important}
+.hint-i{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:10px;vertical-align:3px;border-radius:50%;padding:0;font:700 italic 13px var(--f-serif);line-height:1;color:var(--gold-hi);background:rgb(8 14 26 / .6);border:1px solid var(--gold-lo);cursor:pointer;flex:none}
+.panel.has-hint{position:relative}
+.panel.has-hint>.hint-i{position:absolute;top:10px;right:10px;margin:0}
+.hint-pop{position:fixed;z-index:200;padding:12px 14px;border-radius:4px;background:#131F33;border:1px solid var(--gold-lo);box-shadow:0 14px 34px rgb(0 0 0 / .6);color:var(--ink);font-size:13.5px;line-height:1.45;animation:winIn .15s ease-out}
 </style>
 
 
@@ -1446,7 +1453,7 @@ const MODEL_ROWS = [
   ["tb2","drone","Bayraktar TB2","tr",1,0.005,0.45,5,0,1],["reaper","drone","MQ-9 Reaper","us",2,0.03,0.9,9,0,2],["wingloong","drone","Wing Loong II","cn",2,0.015,0.7,7,0,1],
   ["shahed","loiter","Shahed-136","ir",1,0.00003,0.012,0.4,0,0],["lancet","loiter","«Ланцет-3»","ru",2,0.00004,0.016,0.6,0,0],["switchblade","loiter","Switchblade 600","us",2,0.00006,0.018,0.7,0,0],
   ["il76","transport","Ил-76МД","ru",1,0.05,0.2,0,0,4],["c130","transport","C-130J Super Hercules","us",1,0.07,0.25,0,0,4],["y20","transport","Y-20","cn",2,0.06,0.25,0,0,4],
-  ["tor","shorad","«Тор-М2»","ru",1,0.012,0.9,1,9,4],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.2,2,12,4],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist","shorad","IRIS-T SLS","de",2,0.02,1.1,0,12,4],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.2,0,13,3],["hq17","shorad","HQ-17","cn",2,0.012,1,1,10,3],
+  ["tor","shorad","«Тор-М2»","ru",1,0.012,0.9,1,9,4],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.2,2,12,4],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.2,0,13,3],["hq17","shorad","HQ-17","cn",2,0.012,1,1,10,3],
   ["buk","mrsam","«Бук-М2»","ru",1,0.03,1.6,0,15,4],["nasams","mrsam","NASAMS","us",2,0.04,1.8,0,18,4],["hq16","mrsam","HQ-16","cn",2,0.03,1.6,0,16,4],
   ["s300","lrsam","С-300ПМУ2","ru",1,0.12,2.6,0,24,5],["s400","lrsam","С-400 «Триумф»","ru",2,0.3,4,0,36,6],["s500","lrsam","С-500 «Прометей»","ru",3,0.7,6,0,50,7,1500],
   ["patriot","lrsam","Patriot PAC-3","us",2,0.4,4.2,0,38,6],["thaad","lrsam","THAAD","us",3,0.8,6,0,52,7,5000],["hq9","lrsam","HQ-9B","cn",2,0.2,3.6,0,33,6],
@@ -2325,7 +2332,7 @@ function load(){
   try { const s = JSON.parse(raw); if (!s || !s.countries || s.over) return false; if (!s.capital) s.capital = {health:33,edu:33,infra:33,police:33}; if (!s.research) s.research = {current:null, done:{}, prog:{}}; if (s.science===undefined) s.science = 1; migrate(s); S = s; return true; } catch(e){ return false; }
 }
 function migrate(s){
-  [s.units, ...(s.wars||[]).map(w => w.eu)].forEach(u => { if (u && u.m113){ u.patria = (u.patria||0) + u.m113; delete u.m113; } });
+  [s.units, ...(s.wars||[]).map(w => w.eu)].forEach(u => { if (u && u.m113){ u.patria = (u.patria||0) + u.m113; delete u.m113; } if (u && u.irist){ u.irist_sls = (u.irist_sls||0) + u.irist; delete u.irist; } });
   if (!s.intel) s.intel = {level:1, pts:3, ok:0};
   if (!s.council) s.council = {res:null, next:4, banned:{}, propCd:0};
   if (!s.ideology){ s.ideology = "dem"; s.ideoCd = 0; }
@@ -3677,6 +3684,7 @@ function render(){
   const mapHtml = viewMapCache;
   if (!softRender(html, opening)){ app.innerHTML = html; ui.mapHtml = mapHtml; attachMap(); }
   const winEl = document.querySelector(".window"); if (winEl && opening) winEl.classList.add("win-open");
+  const wb = document.querySelector(".win-body"); if (wb && wb._raw === undefined){ wb._raw = wb.innerHTML; hintify(wb); }
   const bodyNew = document.querySelector(".win-body"); if (bodyNew) bodyNew.scrollTop = keep;
   if (ui.lastTab !== ui.tab && ui.tab !== "map") sfx("open");
   ui.lastTab = ui.tab;
@@ -3686,6 +3694,33 @@ function render(){
 /* Repaint without rebuilding what has not changed: the open window keeps its DOM (no re-animation),
    the map is rebuilt only when its markup actually changed. Returns false when a full rebuild is needed. */
 let viewMapCache = "";
+/* long explanatory texts are hidden behind an (i) next to the panel title */
+function hintify(root){
+  root.querySelectorAll(".panel").forEach(panel => {
+    const cand = [...panel.querySelectorAll(".label, p.muted, small.muted, .muted.small, .tip-text")].filter(el => {
+      if (el.closest(".ucard, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
+      if (el.querySelector("button, input, select, .bar, .num")) return false;
+      if (el.closest(".panel") !== panel) return false;
+      return el.textContent.trim().length > 60;
+    });
+    if (!cand.length) return;
+    const txt = cand.map(el => el.innerHTML).join("<br><br>");
+    cand.forEach(el => el.classList.add("hint-src"));
+    const head = panel.querySelector("h3");
+    const b = document.createElement("button"); b.className = "hint-i"; b.type = "button"; b.setAttribute("aria-label", "Пояснение"); b.textContent = "i"; b._hint = txt;
+    if (head) head.appendChild(b); else { panel.classList.add("has-hint"); panel.prepend(b); }
+  });
+}
+function showHint(btn){
+  closeHint();
+  const r = btn.getBoundingClientRect(), d = document.createElement("div");
+  d.className = "hint-pop"; d.innerHTML = btn._hint; document.body.appendChild(d);
+  const w = Math.min(420, innerWidth - 24); d.style.width = w + "px";
+  let x = Math.min(Math.max(12, r.left + r.width/2 - w/2), innerWidth - w - 12), y = r.bottom + 8;
+  if (y + d.offsetHeight > innerHeight - 12) y = Math.max(12, r.top - d.offsetHeight - 8);
+  d.style.left = x + "px"; d.style.top = y + "px";
+}
+function closeHint(){ document.querySelectorAll(".hint-pop").forEach(e => e.remove()); }
 function softRender(html, opening){
   const old = app.querySelector(":scope > .game");
   if (!old || opening) return false;
@@ -3698,7 +3733,8 @@ function softRender(html, opening){
   if (oWin){
     oWin.querySelector(".win-head").replaceWith(nWin.querySelector(".win-head"));
     const ob = oWin.querySelector(".win-body"), nb = nWin.querySelector(".win-body");
-    if (ob.innerHTML !== nb.innerHTML) ob.replaceChildren(...nb.childNodes);
+    const raw = nb.innerHTML;
+    if (ob._raw !== raw){ ob.replaceChildren(...nb.childNodes); ob._raw = raw; hintify(ob); }
   }
   if (ui.mapHtml !== viewMapCache || ui.mapFocus){
     old.querySelector(".map-layer").replaceWith(neu.querySelector(".map-layer"));
@@ -4690,7 +4726,7 @@ const UINFO = {
   pantsir:{f:"58_pantsir", by:"Vitaly V. Kuzmin, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Пушечно-ракетный комплекс: 12 ракет и две 30-мм пушки. Прикрывает объекты от дронов и крылатых ракет."},
   gepard:{f:"59_gepard", by:"Hans-Hermann Bühling, Wikimedia Commons", lic:"GFDL 1.2", d:"Немецкая зенитная самоходка с двумя 35-мм пушками и собственными радарами. Отлично сбивает дроны."},
   hq17:{f:"61_hq17", by:AI, d:"Китайский ЗРК ближнего радиуса, развитие идей «Тора». Колёсная версия AE поставляется на экспорт."},
-  irist:{f:"60_iris_t", by:AIB("Boevaya mashina, Wikimedia Commons, CC BY-SA 4.0"), d:"Немецкий ЗРК с ракетами IRIS-T: вертикальный пуск, поражение целей на 40 км."},
+  irist_sls:{f:"60_iris_t", by:AIB("Boevaya mashina, Wikimedia Commons, CC BY-SA 4.0"), d:"Немецкий ЗРК с ракетами IRIS-T: вертикальный пуск, поражение целей на 40 км."},
   buk:{f:"62_buk_m2", by:AI, d:"Самоходный ЗРК средней дальности. Сбивает самолёты, вертолёты и крылатые ракеты на дальности до 50 км."},
   nasams:{f:"63_nasams", by:AI, d:"Норвежско-американский ЗРК: стреляет авиационными ракетами AMRAAM. Защищает столицу США."},
   hq16:{f:"64_hq16", by:AIB("Tyg728, Wikimedia Commons, CC BY-SA 4.0"), d:"Китайский ЗРК средней дальности с вертикальным пуском. Ракеты стартуют из транспортных контейнеров."},
@@ -5780,6 +5816,7 @@ let ghostUntil = 0;
 document.addEventListener("click", e => { if (performance.now() < ghostUntil){ ghostUntil = 0; e.stopPropagation(); e.preventDefault(); } }, true);
 document.addEventListener("click", e => {
   const t = e.target.closest("button");
+  if (!t || !t.classList.contains("hint-i")) closeHint();
   if (ui.more && (!t || !t.closest(".rail"))){ ui.more = false; if (!t){ render(); return; } }
   if (!t) return;
   if (!t.dataset.tab && !t.dataset.setting) sfx("tap");
@@ -5867,6 +5904,7 @@ document.addEventListener("click", e => {
   if (t.dataset.law){ if (!majority()){ S.mods.push({stat:"approval",v:-2,left:6}); addLog("Без большинства в парламенте закон прошёл только через уступки коалиции: рейтинг −2."); } { const L0 = LAWS.find(l=>l.id===t.dataset.law); if (!S.laws[L0.id] && L0.grp) LAWS.forEach(l => { if (l.grp===L0.grp && l.id!==L0.id && S.laws[l.id]){ S.laws[l.id] = false; addLog(`Отменён закон «${l.name}».`); } }); }
     S.laws[t.dataset.law] = !S.laws[t.dataset.law]; addLog(`${S.laws[t.dataset.law]?"Принят":"Отменён"} закон «${LAWS.find(l=>l.id===t.dataset.law).name}».`); checkAchievements(); save(); render(); return; }
   if (t.dataset.choice !== undefined){ chooseEvent(+t.dataset.choice); return; }
+  if (t.classList.contains("hint-i")){ const open = document.querySelector(".hint-pop"); if (open && open._from === t){ closeHint(); return; } showHint(t); document.querySelector(".hint-pop")._from = t; return; }
   if (t.hasAttribute("data-close")){ closeModal(); return; }
   if (t.dataset.uinfo){ showUnitInfo(t.dataset.uinfo); return; }
   if (t.hasAttribute("data-credits")){ showCredits(); return; }
