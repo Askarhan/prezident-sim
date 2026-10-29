@@ -1229,6 +1229,18 @@ use.cu{fill:#000;stroke:none}
 .panel.has-hint{position:relative}
 .panel.has-hint>.hint-i{position:absolute;top:10px;right:10px;margin:0}
 .hint-pop{position:fixed;z-index:200;padding:12px 14px;border-radius:4px;background:#131F33;border:1px solid var(--gold-lo);box-shadow:0 14px 34px rgb(0 0 0 / .6);color:var(--ink);font-size:13.5px;line-height:1.45;animation:winIn .15s ease-out}
+
+/* ===== minister tips as dismissible bubbles ===== */
+.tip-float{position:absolute;z-index:6;top:62px;left:50%;transform:translateX(-50%);width:min(680px,calc(100% - 24px));animation:tipIn .25s ease-out;transition:opacity .3s,transform .3s}
+.tip-float.out{opacity:0;transform:translate(-50%,-8px)}
+@keyframes tipIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+:root .tip-float .tip{margin:0!important;background:#16243A!important;border:1px solid var(--gold-lo)!important;box-shadow:0 14px 34px rgb(0 0 0 / .65);padding:8px 8px 8px 8px!important}
+.tip-float .tip>div{flex:1;min-width:0}
+.tip-x{flex:none;width:30px;height:30px;border-radius:4px;border:1px solid var(--line);background:transparent;color:var(--muted);display:grid;place-items:center;padding:0;align-self:flex-start}
+.tip-x .ic{width:14px;height:14px}
+.tip-open{flex:none;width:38px;height:38px;border-radius:50%;padding:0;margin-right:8px;border:1px solid var(--gold-lo);background:#101A2A;display:grid;place-items:center;overflow:hidden}
+.tip-open .portrait{width:30px;height:30px}
+@media (max-height:420px){ .tip-float{top:50px} :root .tip-float .tip .portrait{width:38px;height:38px} }
 </style>
 
 
@@ -3323,6 +3335,21 @@ function advisorTip(tab){
   else return "";
   return `<div class="tip">${portrait(who, 46, mood)}<div><b>${ADVISORS[who].name}</b> <small>· ${ADVISORS[who].role}</small><p>${text}</p></div></div>`;
 }
+/* minister's advice: a dismissible bubble over the top of the window instead of a block inside it */
+function tipWho(tab){ return {economy:"econ", build:"econ", trade:"econ", army:"gen", hq:"gen", intel:"intel", diplomacy:"dipl"}[tab] || "sec"; }
+function tipFloat(tab, force){
+  const off = (settings.tipOff||{})[tab];
+  if (off && !force) return "";
+  const html = advisorTip(tab); if (!html) return "";
+  return `<div class="tip-float" role="status">${html.replace('<div class="tip">', '<div class="tip">').replace(/<\/div><\/div>$/, '</div><button class="tip-x" data-tipx aria-label="Скрыть совет">' + ic("close") + '</button></div>')}</div>`;
+}
+function showTip(force){
+  const w = document.querySelector(".window"); if (!w) return;
+  w.querySelectorAll(".tip-float").forEach(e => e.remove());
+  const h = tipFloat(ui.tab, force); if (!h) return;
+  w.insertAdjacentHTML("beforeend", h);
+  clearTimeout(ui.tipT); ui.tipT = setTimeout(() => { const e = document.querySelector(".tip-float"); if (e){ e.classList.add("out"); setTimeout(() => e.remove(), 300); } }, 9000);
+}
 function viewInbox(){
   const list = (S.inbox||[]).slice(0, 12);
   return `<div class="panel"><h3>Сообщения советников</h3>${list.length ? list.map(m => `<div class="inbox-row">${portrait(m.who, 36, m.mood)}<div><small class="muted">${esc(m.t)} · ${ADVISORS[m.who].name}</small><p>${esc(m.text)}</p></div>${m.tab ? `<button class="btn" data-tab="${m.tab}">Открыть</button>` : ""}</div>`).join("") : `<p class="muted" style="margin:0">Пока тихо. Советники напишут, когда будет что сказать.</p>`}</div>`;
@@ -3650,8 +3677,8 @@ function render(){
   const win = ui.tab !== "map" && WIN[ui.tab] ? (() => { const [title, icn, col] = WIN[ui.tab];
     return `<button class="win-scrim" data-tab="map" aria-label="Закрыть окно" tabindex="-1"></button>
       <section class="window" role="dialog" aria-label="${title}" style="--c:${col}">
-        <header class="win-head"><span class="win-ic">${hic(ui.tab)}</span><h2>${title}</h2><span class="spacer"></span><button class="win-x" data-tab="map" aria-label="Закрыть">${ic("close")}</button></header>
-        <div class="win-body">${advisorTip(ui.tab)}${VIEWS()[ui.tab]()}</div>
+        <header class="win-head"><span class="win-ic">${hic(ui.tab)}</span><h2>${title}</h2><span class="spacer"></span>${advisorTip(ui.tab) ? `<button class="tip-open" data-tipshow aria-label="Совет министра">${portrait(tipWho(ui.tab), 30)}</button>` : ""}<button class="win-x" data-tab="map" aria-label="Закрыть">${ic("close")}</button></header>
+        <div class="win-body">${VIEWS()[ui.tab]()}</div>
       </section>`; })() : "";
   const opening = ui.lastTab !== ui.tab;
   const html = `<div class="game">
@@ -3683,7 +3710,7 @@ function render(){
   </div>`;
   const mapHtml = viewMapCache;
   if (!softRender(html, opening)){ app.innerHTML = html; ui.mapHtml = mapHtml; attachMap(); }
-  const winEl = document.querySelector(".window"); if (winEl && opening) winEl.classList.add("win-open");
+  const winEl = document.querySelector(".window"); if (winEl && opening){ winEl.classList.add("win-open"); showTip(false); }
   const wb = document.querySelector(".win-body"); if (wb && wb._raw === undefined){ wb._raw = wb.innerHTML; hintify(wb); }
   const bodyNew = document.querySelector(".win-body"); if (bodyNew) bodyNew.scrollTop = keep;
   if (ui.lastTab !== ui.tab && ui.tab !== "map") sfx("open");
@@ -5904,6 +5931,8 @@ document.addEventListener("click", e => {
   if (t.dataset.law){ if (!majority()){ S.mods.push({stat:"approval",v:-2,left:6}); addLog("Без большинства в парламенте закон прошёл только через уступки коалиции: рейтинг −2."); } { const L0 = LAWS.find(l=>l.id===t.dataset.law); if (!S.laws[L0.id] && L0.grp) LAWS.forEach(l => { if (l.grp===L0.grp && l.id!==L0.id && S.laws[l.id]){ S.laws[l.id] = false; addLog(`Отменён закон «${l.name}».`); } }); }
     S.laws[t.dataset.law] = !S.laws[t.dataset.law]; addLog(`${S.laws[t.dataset.law]?"Принят":"Отменён"} закон «${LAWS.find(l=>l.id===t.dataset.law).name}».`); checkAchievements(); save(); render(); return; }
   if (t.dataset.choice !== undefined){ chooseEvent(+t.dataset.choice); return; }
+  if (t.hasAttribute("data-tipx")){ settings.tipOff = settings.tipOff || {}; settings.tipOff[ui.tab] = true; settingsSave(); const e = document.querySelector(".tip-float"); if (e) e.remove(); return; }
+  if (t.hasAttribute("data-tipshow")){ if (document.querySelector(".tip-float")){ document.querySelector(".tip-float").remove(); return; } if (settings.tipOff) delete settings.tipOff[ui.tab]; settingsSave(); showTip(true); return; }
   if (t.classList.contains("hint-i")){ const open = document.querySelector(".hint-pop"); if (open && open._from === t){ closeHint(); return; } showHint(t); document.querySelector(".hint-pop")._from = t; return; }
   if (t.hasAttribute("data-close")){ closeModal(); return; }
   if (t.dataset.uinfo){ showUnitInfo(t.dataset.uinfo); return; }
