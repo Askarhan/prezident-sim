@@ -443,7 +443,8 @@ body.in-game #app{max-width:none;padding:0;height:100vh;height:100dvh}
 @media (orientation:portrait) and (max-width:600px){.rotate-hint{display:flex}}
 /* windows over the map */
 .win-scrim{position:absolute;inset:0;z-index:4;border:0;background:rgb(3 7 15 / .55);backdrop-filter:blur(2px);cursor:default}
-.window{position:absolute;z-index:5;top:8px;bottom:8px;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));margin:0 auto;max-width:1080px;display:flex;flex-direction:column;background:linear-gradient(180deg,#132442,#0C182C);border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));border-radius:16px;box-shadow:0 18px 50px rgb(0 0 0 / .55),0 0 0 1px rgb(255 255 255 / .03) inset;animation:winIn .22s cubic-bezier(.2,.8,.2,1);overflow:hidden}
+.window{position:absolute;z-index:5;top:8px;bottom:8px;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));margin:0 auto;max-width:1080px;display:flex;flex-direction:column;background:linear-gradient(180deg,#132442,#0C182C);border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));border-radius:16px;box-shadow:0 18px 50px rgb(0 0 0 / .55),0 0 0 1px rgb(255 255 255 / .03) inset;overflow:hidden}
+.window.win-open{animation:winIn .22s cubic-bezier(.2,.8,.2,1)}
 @keyframes winIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 .win-head{display:flex;align-items:center;gap:10px;padding:7px 8px 7px 12px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,color-mix(in srgb,var(--c) 26%,transparent),transparent 65%)}
 .win-head h2{font-size:16px;text-transform:uppercase;letter-spacing:.08em}
@@ -1141,6 +1142,86 @@ use.cu{fill:#000;stroke:none}
 @media (max-height:500px){ :root .giftsheet{padding:12px 16px;background-size:auto 90px} :root .giftsheet>.row h2{font-size:22px} :root .giftsheet>.row h2 .gtitle-ic{width:40px;height:40px} :root .giftsheet>.row h2 .gtitle-ic .laurel{width:40px;height:40px}
   :root .giftsheet p{font-size:13px} :root .gift-days{margin:8px 0;gap:6px} :root .gday{padding:6px 4px 8px;gap:3px} :root .gday .gic{width:44px;height:44px} :root .gday .gic .ci{width:24px;height:24px}
   :root .gday .gic .laurel{inset:-8px;width:60px;height:60px} :root .gday b{font-size:13px} :root .gday small{font-size:11px} :root .big-act{padding:8px 16px;font-size:14px} }
+
+/* ===== compact HUD (29.10): name · budget · research · date; slim dock; painted icons ===== */
+.pic{display:inline-block;width:20px;height:20px;vertical-align:-5px;border-radius:50%;object-fit:contain;flex:none;filter:drop-shadow(0 1px 2px rgb(0 0 0 / .45))}
+.pic.sm{width:17px;height:17px;vertical-align:-4px}
+.pic.lg{width:40px;height:40px}
+.pic.cal{border-radius:0;width:20px;height:20px}
+:root .topbar{min-height:42px!important;padding-top:3px!important;padding-bottom:3px!important;gap:8px}
+:root .tb-who{flex:1 1 auto!important;min-width:0}
+:root .tb-name{display:flex!important}
+:root .tb-name b{font-size:14px}
+:root .tb-name .tb-sub{font-size:10.5px}
+:root .tb-flag{position:relative}
+:root .tb-flag .badge{position:absolute;top:-5px;right:-7px}
+:root .tb-kpis{flex:0 0 auto!important;gap:6px}
+:root .tb-kpis .kpi{flex:0 0 auto!important;flex-direction:row!important;align-items:center;gap:7px;height:36px;padding:2px 12px 2px 3px!important;border-radius:999px!important}
+:root .tb-kpis .kpi .kpi-ic{width:30px;height:30px;display:grid;place-items:center;background:none!important;border:0!important;box-shadow:none!important}
+:root .tb-kpis .kpi .kpi-ic .pic{width:30px;height:30px;vertical-align:0}
+:root .tb-kpis .kpi .kpi-t{display:flex;flex-direction:column;line-height:1.05}
+:root .tb-kpis .kpi .label{display:none!important}
+:root .tb-kpis .kpi .v{font-size:15px!important}
+:root .tb-kpis .kpi .kd{display:block!important;font-size:10px}
+:root .tb-kpis .k-rp{display:flex!important}
+:root .tb-time .clock-row{display:flex;align-items:center;gap:6px}
+:root .tb-btn{width:36px!important;height:36px!important}
+/* dock: ~44px tall */
+:root .dock{padding-top:3px!important;padding-bottom:calc(3px + env(safe-area-inset-bottom,0px))!important;gap:2px}
+:root .tile{gap:1px!important;font-size:10px!important;padding:1px 2px 0!important}
+:root .tile-ic{height:24px!important;width:40px!important;border-radius:8px!important}
+:root .tile-ic .hic,:root .tile-ic .ic{width:17px!important;height:17px!important}
+:root .armytabs .chip{display:inline-flex;align-items:center;gap:6px}
+@media (max-width:820px){ :root .tb-kpis .kpi .kd{display:none!important} :root .tb-name .tb-sub{display:none} }
+@media (max-width:790px){ :root .tb-name{display:none!important} }
+
+:root .tb-time{padding:2px 4px 2px 8px!important}
+:root .tb-time .speeds button{height:30px!important}
+:root .tb-time .clock{gap:2px!important}
+:root .tile{padding-bottom:4px!important}
+:root .win-head{padding-top:4px!important;padding-bottom:4px!important}
+:root .win-head h2{font-size:22px!important}
+:root .win-head .win-ic{transform:scale(.85)}
+#adv-root{bottom:calc(52px + env(safe-area-inset-bottom,0px))!important}
+
+/* ===== unit cards with photo + info sheet ===== */
+:root .unit-grid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))!important;gap:10px}
+:root .ucard{padding:0!important;overflow:hidden;gap:0!important}
+:root .ucard>*:not(.uc-photo){margin:0 10px}
+:root .uc-photo{position:relative;display:block;width:100%;aspect-ratio:16/9;padding:0;border:0;border-bottom:1px solid var(--line);background:#0A111D;cursor:pointer}
+:root .uc-photo img{width:100%;height:100%;object-fit:cover;display:block}
+:root .uc-photo .gen{position:absolute;top:6px;left:6px;box-shadow:0 1px 4px rgb(0 0 0 / .5)}
+:root .uc-i{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:700 italic 14px var(--f-serif);color:var(--gold-hi);background:rgb(8 14 26 / .78);border:1px solid var(--gold-lo);box-shadow:0 1px 4px rgb(0 0 0 / .6)}
+:root .uc-name{padding-top:8px}
+:root .uc-name b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root .uc-meta{margin-top:4px!important;font-size:12.5px}
+:root .uc-pw b{color:var(--gold-hi)}
+:root .ucard .btns{margin-top:8px!important;margin-bottom:10px!important}
+:root .ammo-row{display:flex!important;flex-direction:row!important;gap:12px;align-items:stretch}
+:root .am-photo{position:relative;flex:0 0 132px;aspect-ratio:16/9;padding:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#0A111D;align-self:center}
+:root .am-photo img{width:100%;height:100%;object-fit:cover;display:block}
+:root .am-photo .uc-i{width:20px;height:20px;font-size:12px;top:4px;right:4px}
+:root .am-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+:root .sheet.uinfo{max-width:860px;width:min(96vw,860px);padding:0!important;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);overflow:hidden;max-height:92vh}
+:root .ui-photo{margin:0;position:relative;background:#0A111D;min-height:100%}
+:root .ui-photo img{width:100%;height:100%;object-fit:cover;display:block}
+:root .ui-photo figcaption{position:absolute;left:0;right:0;bottom:0;padding:14px 8px 5px;font-size:10px;line-height:1.3;color:#C9D2E0;background:linear-gradient(transparent,rgb(0 0 0 / .8))}
+:root .ui-body{padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+:root .ui-body h2{font-family:var(--f-serif);font-size:22px;margin:0;color:var(--ink)}
+:root .ui-body p{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink)}
+:root .ui-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 12px;padding:8px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+:root .ui-stats span{display:flex;flex-direction:column;min-width:0}
+:root .ui-stats small{font-size:10.5px;color:var(--muted)}
+:root .ui-stats b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+:root .btn.link{background:none;border-color:transparent;color:var(--gold-hi);text-decoration:underline}
+:root .sheet.credits{max-width:760px;width:min(96vw,760px);max-height:90vh;overflow:auto}
+:root .cr-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 16px;margin:6px 0 12px}
+:root .cr-row{display:flex;flex-direction:column;padding:4px 0;border-bottom:1px solid var(--line)}
+:root .cr-row b{font-size:12.5px}
+:root .cr-row small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+:root .small{font-size:11px}
+@media (max-height:420px){ :root .sheet.uinfo{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);max-height:96vh} :root .ui-body{padding:10px 12px;gap:6px} :root .ui-body h2{font-size:18px} :root .ui-body p{font-size:12.5px} :root .ui-stats{gap:3px 10px;padding:6px 0} }
+:root .tb-name{overflow:hidden;min-width:0} :root .tb-name .tb-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block} :root .tb-time{flex:0 0 auto!important} :root .tb-btn{flex:0 0 auto!important}
 </style>
 
 
@@ -1350,7 +1431,7 @@ const MODEL_ROWS = [
   ["type96","tank","Тип 96","cn",1,0.0025,0.45,6,0,5],["ztz99","tank","ZTZ-99A","cn",2,0.005,0.8,9,0,9],
   ["bmp2","ifv","БМП-2","ru",1,0.0012,0.22,3,1,3],["bmp3","ifv","БМП-3","ru",2,0.002,0.32,5,1,4],
   ["marder","ifv","Marder 1A5","de",1,0.0018,0.25,4,1,4],["bradley","ifv","M2A4 Bradley","us",2,0.0035,0.4,6,1,6],["zbd04","ifv","ZBD-04A","cn",2,0.002,0.3,5,1,4],
-  ["btr82","apc","БТР-82А","ru",1,0.0008,0.12,2,0,2],["m113","apc","M113","us",1,0.0007,0.1,1,0,2],["stryker","apc","Stryker","us",2,0.0045,0.2,3,0,4],["zsl92","apc","ZSL-92","cn",1,0.0007,0.1,2,0,2],
+  ["btr82","apc","БТР-82А","ru",1,0.0008,0.12,2,0,2],["patria","apc","Patria AMV","fi",2,0.003,0.16,2,0,3],["stryker","apc","Stryker","us",2,0.0045,0.2,3,0,4],["zsl92","apc","ZSL-92","cn",1,0.0007,0.1,2,0,2],
   ["akacia","sph","2С3 «Акация»","ru",1,0.002,0.35,7,0,3],["msta","sph","2С19 «Мста-С»","ru",2,0.004,0.55,10,0,4],
   ["paladin","sph","M109A7 Paladin","us",2,0.006,0.6,10,0,5],["pzh","sph","PzH 2000","de",3,0.012,0.8,13,0,5],["plz05","sph","PLZ-05","cn",2,0.004,0.55,10,0,4],
   ["grad","mlrs","БМ-21 «Град»","ru",1,0.0015,0.35,8,0,2],["tornado","mlrs","«Торнадо-С»","ru",2,0.006,0.65,13,0,3],
@@ -1365,7 +1446,7 @@ const MODEL_ROWS = [
   ["tb2","drone","Bayraktar TB2","tr",1,0.005,0.45,5,0,1],["reaper","drone","MQ-9 Reaper","us",2,0.03,0.9,9,0,2],["wingloong","drone","Wing Loong II","cn",2,0.015,0.7,7,0,1],
   ["shahed","loiter","Shahed-136","ir",1,0.00003,0.012,0.4,0,0],["lancet","loiter","«Ланцет-3»","ru",2,0.00004,0.016,0.6,0,0],["switchblade","loiter","Switchblade 600","us",2,0.00006,0.018,0.7,0,0],
   ["il76","transport","Ил-76МД","ru",1,0.05,0.2,0,0,4],["c130","transport","C-130J Super Hercules","us",1,0.07,0.25,0,0,4],["y20","transport","Y-20","cn",2,0.06,0.25,0,0,4],
-  ["tor","shorad","«Тор-М2»","ru",1,0.012,0.9,1,9,4],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.2,2,12,4],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.2,0,13,3],["hq17","shorad","HQ-17","cn",2,0.012,1,1,10,3],
+  ["tor","shorad","«Тор-М2»","ru",1,0.012,0.9,1,9,4],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.2,2,12,4],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist","shorad","IRIS-T SLS","de",2,0.02,1.1,0,12,4],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.2,0,13,3],["hq17","shorad","HQ-17","cn",2,0.012,1,1,10,3],
   ["buk","mrsam","«Бук-М2»","ru",1,0.03,1.6,0,15,4],["nasams","mrsam","NASAMS","us",2,0.04,1.8,0,18,4],["hq16","mrsam","HQ-16","cn",2,0.03,1.6,0,16,4],
   ["s300","lrsam","С-300ПМУ2","ru",1,0.12,2.6,0,24,5],["s400","lrsam","С-400 «Триумф»","ru",2,0.3,4,0,36,6],["s500","lrsam","С-500 «Прометей»","ru",3,0.7,6,0,50,7,1500],
   ["patriot","lrsam","Patriot PAC-3","us",2,0.4,4.2,0,38,6],["thaad","lrsam","THAAD","us",3,0.8,6,0,52,7,5000],["hq9","lrsam","HQ-9B","cn",2,0.2,3.6,0,33,6],
@@ -1465,13 +1546,22 @@ function ammoNeedMonth(){ // rough consumption in a month of war, shown as a gui
   return {shell: by("shell")*0.02, rocket: by("rocket")*12, atgm: by("atgm")*1.5, bomb: by("bomb")*8, sam: by("sam")*2, missile: by("missile")*1.5};
 }
 function ammoSellers(){ return AMMO_SELLERS.filter(i => i !== S.player && C()[i] && canContract(i).ok && relOf(i) >= 10).map(i => ({iso:i, days:travelDays(i), price:1.2 + travelDays(i)*0.003})).sort((a,b)=>a.price-b.price); }
+
+/* ---------- roles of transport aircraft and the navy ---------- */
+const unitsOf = (kinds, units = S.units) => Object.entries(units||{}).reduce((a,[id,n]) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) ? n : 0), 0);
+const airliftCap = () => unitsOf(["transport"]);
+const airBusy = () => (S.shipments||[]).filter(x => x.air && x.left > 0).length;
+function airDays(days){ return airliftCap() > airBusy() ? Math.max(2, Math.round(days/3.5)) : 0; }
+function seaPower(units, share){ return Object.entries(units||{}).reduce((a,[id,n]) => { const m = MODELS[id]; return a + (m && ["frigate","destroyer","sub"].includes(m.kind) ? m.ga*n : 0); }, 0)*share; }
+function farWar(iso){ return !nearReach(C()[iso]); }
 function orderUnits(id, qty){
   const m = MODELS[id], chk = canBuyModel(id); if (!chk.ok) return toast(chk.why);
   const cost = chk.price*qty; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
   S.treasury -= cost; S.shipments = S.shipments || [];
-  S.shipments.push({id:shipId(), from:m.origin, to:S.player, r:id, qty, left:chk.days, total:chk.days, dir:"in", cat:"unit"});
-  addLog(`Закуплено: ${m.name} ×${qty} в стране ${partnerName(m.origin)} за ${money(cost)}. Доставка ~${chk.days} дн.`);
-  toast(`${m.name} ×${qty} в пути, ~${chk.days} дн.`); flashMap(m.origin, "info");
+  const ad = KINDS[m.kind].cls === "navy" ? 0 : airDays(chk.days), days = ad || chk.days;
+  S.shipments.push({id:shipId(), from:m.origin, to:S.player, r:id, qty, left:days, total:days, dir:"in", cat:"unit", air:!!ad});
+  addLog(`Закуплено: ${m.name} ×${qty} в стране ${partnerName(m.origin)} за ${money(cost)}. Доставка ~${days} дн.${ad ? " воздушным мостом" : ""}`);
+  toast(ad ? `${m.name} ×${qty}: воздушный мост, ~${days} дн.` : `${m.name} ×${qty} в пути, ~${days} дн.`); flashMap(m.origin, "info");
   const o = C()[m.origin]; if (o) o.rel = Math.min(100, o.rel + 1);
 }
 const AMMO_TECH = {shell:"am_shell", rocket:"am_rocket", atgm:"am_atgm", bomb:"am_bomb", sam:"am_sam", missile:"am_missile"};
@@ -1481,9 +1571,10 @@ function orderAmmo(type, qty){
   const best = ammoSellers()[0]; if (!best) return toast("Никто сейчас не продаёт боеприпасы: нужны отношения от +10 с производителями.");
   const cost = AMMO[type].price*qty*best.price; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
   S.treasury -= cost; S.shipments = S.shipments || [];
-  S.shipments.push({id:shipId(), from:best.iso, to:S.player, r:type, qty, left:best.days, total:best.days, dir:"in", cat:"ammo"});
-  addLog(`Заказано: ${AMMO[type].short} ${qty} ${AMMO[type].unit} в стране ${partnerName(best.iso)} за ${money(cost)}.`);
-  toast(`Боеприпасы в пути из страны ${partnerName(best.iso)}, ~${best.days} дн.`); flashMap(best.iso, "info");
+  const ad = airDays(best.days), days = ad || best.days;
+  S.shipments.push({id:shipId(), from:best.iso, to:S.player, r:type, qty, left:days, total:days, dir:"in", cat:"ammo", air:!!ad});
+  addLog(`Заказано: ${AMMO[type].short} ${qty} ${AMMO[type].unit} в стране ${partnerName(best.iso)} за ${money(cost)}.${ad ? " Доставка воздушным мостом." : ""}`);
+  toast(ad ? `Боеприпасы летят воздушным мостом, ~${days} дн.` : `Боеприпасы в пути из страны ${partnerName(best.iso)}, ~${days} дн.`); flashMap(best.iso, "info");
 }
 function milMult(){ return Math.max(0.2, 1 + lawSum("mil")); }
 function plantCap(pid){ return PLANT_CAP[pid]*objCount(pid)*(1 + 0.5*tech("automation"))*milMult(); }
@@ -1524,6 +1615,7 @@ const STRIKES = {
   air:{name:"Авиаудар", desc:"бомбы по позициям; без господства в воздухе — большие потери самолётов", cd:5, ammo:{bomb:200}, need:"airG"},
   drones:{name:"Удар дронами-камикадзе", desc:"50 дронов по танкам и артиллерии; их глушит РЭБ", cd:3, loiter:50},
   infra:{name:"Удар по инфраструктуре", desc:"20 ракет по электростанциям и заводам: их экономика падает, мир осуждает", cd:14, ammo:{missile:20}},
+  airborne:{name:"Воздушный десант", desc:"высадка в тылу врага с транспортных самолётов: нужно 2+ транспортника и господство в воздухе от 50%", cd:25},
   landing:{name:"Морской десант", desc:"высадка с моря: нужен флот сильнее вражеского", cd:30, need:"navy"},
   mobilize:{name:"Мобилизация", desc:"+10% личного состава; рейтинг −4, стабильность −3", cd:60}
 };
@@ -1583,8 +1675,10 @@ function warDay(w){
   const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const myTroops = freeArmy()*share*(1 + 0.1*tlv("am_small")), thTroops = e.army;
   const allies = Object.values(C()).filter(x => (x.ally || (w.joined||[]).includes(x.id)) && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*((w.joined||[]).includes(x.id) ? 1.6 : 0.6), 0);
-  // 1. the sky
-  const aM = my.air + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
+  // 1. the sky: a distant war needs carriers to bring the air force in range
+  const far = farWar(e.id), carriers = unitsOf(["carrier"]); w.far = far; w.carriers = carriers;
+  const reach = !far ? 1 : carriers > 0 ? 1 : 0.45;
+  const aM = my.air*reach + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
   w.air += (clamp(aM/(aM+aT), 0.05, 0.95) - w.air)*0.15;
   // 2-3. strikes and ground
   const ewT = clamp(th.ew/(th.ew + 40), 0, 0.6), ewM = clamp(my.ew/(my.ew + 40), 0, 0.6);
@@ -1596,6 +1690,17 @@ function warDay(w){
   const defM = (my.gd + myTroops*3)*(1 + Math.max(0, -w.progress)/120)*milBaseMult() + 1, defT = (th.gd + thTroops*3)*1.15*(1 + Math.max(0, w.progress)/120) + 1;
   const delta = (atkM/(atkM + defT) - atkT/(atkT + defM))*0.85 + rnd(-0.2, 0.2);
   w.progress = clamp(w.progress + delta, -100, 100);
+  // navy: cruise missiles from frigates, destroyers and submarines; blockade of the coast
+  w.sea = 0; w.blockade = 0;
+  if (hasCoast()){
+    const sp = seaPower(S.units, share);
+    if (sp > 0 && (S.ammo.missile||0) >= 1){ w.sea = clamp(sp/(sp + 120), 0, 0.6)*0.5*(1 - clamp(th.ad/(th.ad + 400), 0, 0.5)); w.progress = clamp(w.progress + w.sea, -100, 100); S.ammo.missile = Math.max(0, S.ammo.missile - Math.max(0.2, sp/400)); }
+    if (hasCoast(e.id)){
+      if (my.navy > th.navy*1.3 + 10){ w.blockade = 1; e.gdp *= 0.9996; }
+      else if (th.navy > my.navy*1.3 + 10){ w.blockade = -1; me().gdp *= 0.9997; }
+    }
+  }
+  if (w.blockade !== w.lastBlock){ if (w.blockade === 1) warEvent(w, `Наш флот блокировал побережье: экспорт и импорт ${e.name} остановлены.`, "good"); else if (w.blockade === -1) warEvent(w, "Флот противника блокирует наши порты: торговля страдает.", "bad"); w.lastBlock = w.blockade; }
   // 4. losses
   const rM = 0.0036*(atkT/(atkT + defM))*Mm.loss, rT = 0.0036*(atkM/(atkM + defT))*(w.aiMode === "attack" ? 1 : 0.7);
   const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
@@ -1663,6 +1768,12 @@ function doStrike(w, type){
     let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3 && w.eu[id] > 0){ const l = Math.min(w.eu[id], Math.ceil(hits*0.08)); w.eu[id] -= l; killed += l; w.lossTh[id] = (w.lossTh[id]||0) + l; } }));
     w.progress = clamp(w.progress + 1.2, -100, 100); good = jam < 0.4;
     text = `Удар дронами: ${hits} из 50 долетели${jam > 0.2 ? ` (РЭБ противника заглушила ${Math.round(jam*100)}%)` : ""}, уничтожено единиц техники: ${killed}.`;
+  } else if (type === "airborne"){
+    if (airliftCap() < 2) return toast("Нужно хотя бы 2 транспортных самолёта.");
+    if (w.air < 0.5) return toast("Без господства в воздухе десант собьют на подлёте.");
+    const p = clamp(w.air, 0.5, 0.95); good = Math.random() < p + 0.1;
+    if (good){ w.progress = clamp(w.progress + 6, -100, 100); text = "Воздушный десант захватил плацдарм в тылу врага: фронт продвинулся на 6%."; }
+    else { const lost = Object.keys(S.units).find(id => MODELS[id] && MODELS[id].kind === "transport" && S.units[id] > 0); if (lost){ S.units[lost]--; w.lossMy[lost] = (w.lossMy[lost]||0) + 1; } me().army = Math.max(1, me().army*0.995); text = "Десант попал под огонь ПВО: потерян транспортник, плацдарм не удержан."; }
   } else if (type === "landing"){
     if (!hasCoast() || !hasCoast(e.id)) return toast("Десант возможен только между странами с выходом к морю.");
     if (my.navy < th.navy*1.2 + 20) return toast("Флот слабее вражеского: десант сорвётся.");
@@ -1723,6 +1834,10 @@ function viewHQ(){
     <div class="row"><small>${w.progress >= 0 ? `Занято ${Math.round(w.progress)}% территории противника` : `Противник занял ${Math.round(-w.progress)}% нашей территории`}</small><small>100% — капитуляция</small></div>
     <div class="row"><span>Господство в воздухе</span><span class="num ${w.air >= 0.5 ? "up" : "down"}">${Math.round(w.air*100)}%</span></div>
     <div class="bar ${w.air >= 0.5 ? "high" : "low"}"><i style="width:${w.air*100}%"></i></div>
+    ${w.far ? `<div class="row"><small>${w.carriers ? `Далёкая война: авианосцы (${w.carriers}) дают авиации аэродромы рядом с фронтом` : `<span class="down">Далёкая война: авианосцев не осталось, авиация работает на 45%</span>`}</small></div>` : ""}
+    ${w.sea ? `<div class="row"><small>Удары с моря крылатыми ракетами</small><small class="up num">+${w.sea.toFixed(2).replace(".",",")}% в день</small></div>` : ""}
+    ${w.blockade ? `<div class="row"><small>${w.blockade > 0 ? `<span class="up">Морская блокада противника: его экономика сжимается</span>` : `<span class="down">Флот противника блокирует наши порты</span>`}</small></div>` : ""}
+    ${airliftCap() ? `<div class="row"><small>Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны</small></div>` : ""}
   </div>
   <div class="grid2" style="margin-top:12px">
     <div class="panel"><h3>Режим фронта</h3>
@@ -2169,7 +2284,10 @@ const SPEED_MS = {1:15000, 2:5000, 3:2000}; // ms per in-game day: 4 / 12 / 30 d
 
 /* ---------- Helpers ---------- */
 const COLOR_IC = new Set(["ship","drone","ammo","wood", "steel", "oil", "gold", "food", "power", "metal", "factory", "bridge", "road", "metro", "plane", "port", "tank", "heli", "jet", "sam", "budget", "gdp", "approval", "stability", "balance", "debt", "build", "economy", "trade", "politics", "army", "science", "intel", "diplomacy", "summary", "trophy", "alert", "rail", "map"]);
-const ic = (name, cls="") => COLOR_IC.has(name) ? `<svg class="ci ${cls}" aria-hidden="true"><use href="#c-${name}"/></svg>` : `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const PIC = {budget:"money_big", money:"money", steel:"steel", wood:"wood", oil:"oil", gold:"gold", trophy:"trophy", power:"power", stability:"stability", gdp:"economy", approval:"trust", science:"rp", flask:"rp", rp:"rp", calendar:"calendar", intel:"agents", diplomacy:"handshake", factory:"industry", population:"population", food:"food", ore:"ore", milpower:"milpower",
+  cls_ground:"cls_ground", cls_air:"cls_air", cls_ad:"cls_ad", cls_navy:"cls_navy", cls_ammo:"cls_ammo", cls_bases:"cls_bases", cls_prod:"cls_prod"};
+const pic = (name, cls="") => `<img class="pic ${cls}" src="icons/${PIC[name] || name}.webp" alt="" aria-hidden="true" draggable="false">`;
+const ic = (name, cls="") => PIC[name] ? pic(name, cls) : COLOR_IC.has(name) ? `<svg class="ci ${cls}" aria-hidden="true"><use href="#c-${name}"/></svg>` : `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const iref = name => COLOR_IC.has(name) ? "c-" + name : "i-" + name;
 const BUILD_ICON = {hydro:"power",solar:"power",power:"power",institute:"science",enrich:"power",npp:"power",shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
 const UNIT_ICON = {tank:"tank",heli:"heli",fighter:"jet",sam:"sam"};
@@ -2207,6 +2325,7 @@ function load(){
   try { const s = JSON.parse(raw); if (!s || !s.countries || s.over) return false; if (!s.capital) s.capital = {health:33,edu:33,infra:33,police:33}; if (!s.research) s.research = {current:null, done:{}, prog:{}}; if (s.science===undefined) s.science = 1; migrate(s); S = s; return true; } catch(e){ return false; }
 }
 function migrate(s){
+  [s.units, ...(s.wars||[]).map(w => w.eu)].forEach(u => { if (u && u.m113){ u.patria = (u.patria||0) + u.m113; delete u.m113; } });
   if (!s.intel) s.intel = {level:1, pts:3, ok:0};
   if (!s.council) s.council = {res:null, next:4, banned:{}, propCd:0};
   if (!s.ideology){ s.ideology = "dem"; s.ideoCd = 0; }
@@ -2468,7 +2587,7 @@ function suppliers(r){
   return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:travelDays(i)})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
 }
 function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r && !x.cat).reduce((a,x)=>a+x.qty, 0); }
-function cargoIcon(x){ return x.cat === "unit" ? KINDS[MODELS[x.r].kind].icon : x.cat === "ammo" ? "ammo" : x.r; }
+function cargoIcon(x){ return x.air ? "plane" : x.cat === "aid" ? "food" : x.cat === "unit" ? KINDS[MODELS[x.r].kind].icon : x.cat === "ammo" ? "ammo" : x.r; }
 function shipId(){ S.shipSeq = (S.shipSeq||0) + 1; return S.shipSeq; }
 function orderGoods(iso, r, qty, quiet){
   qty = Math.ceil(qty); if (qty <= 0) return false;
@@ -2502,6 +2621,7 @@ function importTurn(){
   });
 }
 function shipTick(){
+  (S.shipments||[]).forEach(x => { if (x.cat === "aid" && x.left <= 1 && !x.done){ x.done = true; const o = C()[x.to]; if (o){ o.rel = clamp(o.rel + 10, -100, 100); Object.values(C()).forEach(q => { if (!q.owner && q.id !== o.id) q.rel = clamp(q.rel + 1, -100, 100); }); floatText(o.id, "+10", "cargo"); addLog(`Гуманитарный конвой прибыл в страну ${o.name}.`); } } });
   if (!S.shipments || !S.shipments.length) return;
   S.shipments.forEach(x => x.left -= 1);
   const arrived = S.shipments.filter(x => x.left <= 0);
@@ -2646,7 +2766,8 @@ function techCost(){ return me().gdp * 0.012 * me().tech; }
 function recruitAmount(){ return Math.max(2, me().army*0.05); }
 function recruitCost(){ const k = recruitAmount(); return k*0.004*gdppc() * (lawOn("conscription")?0.5:1) * (ideo("nat")?0.8:1); }
 function improveCost(){ return Math.max(0.02, me().gdp*0.002); }
-function canReach(c){ const r = me().region; return c.region === r || ADJ[r].includes(c.region); }
+function nearReach(c){ const r = me().region; return c.region === r || ADJ[r].includes(c.region); }
+function canReach(c){ return nearReach(c) || (unitsOf(["carrier"]) > 0 && hasCoast() && hasCoast(c.id)); }
 function controlled(){ return Object.values(C()).filter(c=>c.owner==="player"); }
 
 /* ---------- Turn ---------- */
@@ -3209,6 +3330,7 @@ function viewSettings(){
       <div class="row"><span>Обучение от секретаря</span><button class="btn" data-tut="restart">Пройти снова</button></div>
       <div class="row"><span>Главное меню<br><small class="muted">Партия сохранится</small></span><button class="btn" data-act="mainmenu">Выйти в меню</button></div>
       <div class="row"><span>Новая игра<br><small class="muted">Текущая партия будет удалена</small></span><button class="btn danger" data-act="newconfirm">${ui.newConfirm ? "Точно? Нажмите ещё раз" : "Начать заново"}</button></div>
+      <div class="row"><span>Источники фото<br><small class="muted">Авторы и лицензии</small></span><button class="btn" data-credits>Открыть</button></div>
       <div class="label">Кабинет президента · тестовая версия 0.2</div></div>
   </div>`;
 }
@@ -3524,20 +3646,17 @@ function render(){
         <header class="win-head"><span class="win-ic">${hic(ui.tab)}</span><h2>${title}</h2><span class="spacer"></span><button class="win-x" data-tab="map" aria-label="Закрыть">${ic("close")}</button></header>
         <div class="win-body">${advisorTip(ui.tab)}${VIEWS()[ui.tab]()}</div>
       </section>`; })() : "";
-  app.innerHTML = `<div class="game">
+  const opening = ui.lastTab !== ui.tab;
+  const html = `<div class="game">
     <header class="topbar">
-      <button class="tb-who" data-tab="summary" aria-label="Сводка"><span class="tb-flag">${flag(S.player, "big")}</span><span class="tb-name"><b>${esc(c.name)}</b><span class="tb-sub">${sub}</span></span></button>
+      <button class="tb-who" data-tab="summary" aria-label="Сводка"><span class="tb-flag">${flag(S.player, "big")}${unread ? `<i class="badge">${unread>9?"9+":unread}</i>` : ""}</span><span class="tb-name"><b>${esc(c.name)}</b><span class="tb-sub">${sub}</span></span></button>
       <div class="tb-kpis">
-        <button class="kpi" data-tab="economy" data-kpi="treasury"><span class="kpi-ic">${hic("budget")}</span><span class="kpi-t"><span class="label">Бюджет</span><span class="v">${money(S.treasury).replace(" $","")}</span>${kpiDelta("treasury")}</span></button>
-        <button class="kpi k-gdp" data-tab="economy"><span class="kpi-ic">${hic("gdp")}</span><span class="kpi-t"><span class="label">ВВП</span><span class="v">${money(c.gdp).replace(" $","")}</span>${kpiDelta("gdp")}</span></button>
-        <button class="kpi" data-tab="politics" data-kpi="approval"><span class="kpi-ic">${hic("approval")}</span><span class="kpi-t"><span class="label">Рейтинг</span><span class="v ${S.approval<50?"warn":""}">${pct(S.approval)}</span>${kpiDelta("approval")}</span></button>
-        <button class="kpi k-rp" data-tab="science"><span class="kpi-ic">${hic("flask")}</span><span class="kpi-t"><span class="label">Наука</span><span class="v"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span> ОИ</span>${kpiDelta("rp")}</span></button>
-        <button class="kpi k-stab" data-tab="politics"><span class="kpi-ic">${hic("stability")}</span><span class="kpi-t"><span class="label">Стабильность</span><span class="v ${S.stability<35?"down":""}">${pct(S.stability)}</span>${kpiDelta("stability")}</span></button>
-        <button class="kpi" data-tab="economy"><span class="kpi-ic">${hic("users")}</span><span class="kpi-t"><span class="label">В месяц</span><span class="v ${b.net>=0?"up":"down"}">${b.net>=0?"+":""}${money(b.net).replace(" $","")}</span>${kpiDelta("net")}</span></button>
+        <button class="kpi" data-tab="economy" data-kpi="treasury" aria-label="Бюджет"><span class="kpi-ic">${pic("budget")}</span><span class="kpi-t"><span class="label">Бюджет</span><span class="v">${money(S.treasury).replace(" $","")}</span>${kpiDelta("treasury")}</span></button>
+        <button class="kpi k-rp" data-tab="science" aria-label="Очки исследований"><span class="kpi-ic">${pic("rp")}</span><span class="kpi-t"><span class="label">Исследования</span><span class="v"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span></span>${kpiDelta("rp")}</span></button>
       </div>
       <div class="tb-time">
         <div class="clock">
-          <div class="clock-row">${hic("calendar")}<div class="clock-top"><b id="clock-date" class="num">${fullDate()}</b><span class="clock-wd" id="clock-wd">${weekday()}</span><span id="clock-hint" class="clock-hint" ${ui.speed!==0?"hidden":""}>Пауза</span></div></div>
+          <div class="clock-row">${pic("calendar","cal")}<div class="clock-top"><b id="clock-date" class="num">${fullDate()}</b><span class="clock-wd" id="clock-wd">${weekday()}</span><span id="clock-hint" class="clock-hint" ${ui.speed!==0?"hidden":""}>Пауза</span></div></div>
           <div class="bar clock-track"><i id="clock-bar" style="width:${((S.day-1)/daysIn(S.month,S.year)*100).toFixed(1)}%"></i></div>
         </div>
         <div class="speeds" role="group" aria-label="Скорость времени">
@@ -3547,21 +3666,46 @@ function render(){
           <button data-speed="3" aria-pressed="${ui.speed===3}" aria-label="Скорость 3${speed3Unlocked()?"":" (платно)"}" title="3×: 30 дней в минуту" class="${speed3Unlocked()?"":"locked"}"><svg viewBox="0 0 26 16" aria-hidden="true"><path d="M1 2l8 6-8 6zM9 2l8 6-8 6zM17 2l8 6-8 6z"/></svg>${speed3Unlocked()?(premium.speed3?"":`<span class="timer num">${speed3MinutesLeft()}м</span>`):`<svg class="lock" viewBox="0 0 12 14" aria-hidden="true"><path d="M3 6V4a3 3 0 0 1 6 0v2h1a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1.5 0h3V4a1.5 1.5 0 0 0-3 0z"/></svg>`}</button>
         </div>
       </div>
-      <button class="tb-btn tb-sec" data-tab="summary" aria-label="Секретарь: сводка и сообщения">${portrait("sec", 34)}${unread ? `<i class="badge">${unread>9?"9+":unread}</i>` : ""}</button>
       <button class="tb-btn" data-tab="settings" aria-label="Настройки">${hic("gear")}</button>
     </header>
     <div class="stage ${win ? "has-win" : ""}">
-      <div class="map-layer">${viewMap()}</div>
+      <div class="map-layer">${viewMapCache = viewMap()}</div>
       ${win}
     </div>
     <nav class="dock" aria-label="Министерства">${DOCK.map(([id,l,icn,col]) => `<button class="tile" data-tab="${id}" style="--c:${col}" ${ui.tab===id?'aria-current="page"':""}><span class="tile-ic">${hic(id)}</span><span class="tile-l">${l}</span>${dockBadge(id)}</button>`).join("")}</nav>
   </div>`;
+  const mapHtml = viewMapCache;
+  if (!softRender(html, opening)){ app.innerHTML = html; ui.mapHtml = mapHtml; attachMap(); }
+  const winEl = document.querySelector(".window"); if (winEl && opening) winEl.classList.add("win-open");
   const bodyNew = document.querySelector(".win-body"); if (bodyNew) bodyNew.scrollTop = keep;
   if (ui.lastTab !== ui.tab && ui.tab !== "map") sfx("open");
   ui.lastTab = ui.tab;
   kpiFlash();
-  attachMap();
   flushAdvice();
+}
+/* Repaint without rebuilding what has not changed: the open window keeps its DOM (no re-animation),
+   the map is rebuilt only when its markup actually changed. Returns false when a full rebuild is needed. */
+let viewMapCache = "";
+function softRender(html, opening){
+  const old = app.querySelector(":scope > .game");
+  if (!old || opening) return false;
+  const tpl = document.createElement("template"); tpl.innerHTML = html;
+  const neu = tpl.content.firstElementChild;
+  const oWin = old.querySelector(".window"), nWin = neu.querySelector(".window");
+  if (!!oWin !== !!nWin) return false;
+  old.querySelector(".topbar").replaceWith(neu.querySelector(".topbar"));
+  old.querySelector(".dock").replaceWith(neu.querySelector(".dock"));
+  if (oWin){
+    oWin.querySelector(".win-head").replaceWith(nWin.querySelector(".win-head"));
+    const ob = oWin.querySelector(".win-body"), nb = nWin.querySelector(".win-body");
+    if (ob.innerHTML !== nb.innerHTML) ob.replaceChildren(...nb.childNodes);
+  }
+  if (ui.mapHtml !== viewMapCache || ui.mapFocus){
+    old.querySelector(".map-layer").replaceWith(neu.querySelector(".map-layer"));
+    ui.mapHtml = viewMapCache; attachMap();
+  }
+  old.className = neu.className; old.querySelector(".stage").className = neu.querySelector(".stage").className;
+  return true;
 }
 function kpiFlash(){
   const now = {treasury:S.treasury, approval:S.approval}, prev = ui.kpiPrev;
@@ -4258,7 +4402,7 @@ const SKYLINE = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://w
 <path d="M240 120V60h6V30l8-22 8 22v30h6v60z"/><path d="M276 120V84c0-14 14-24 32-24s32 10 32 24v36z"/><path d="M302 60V48h12v12z"/><path d="M306 48V36h4v12z"/>
 <path d="M348 120V74h12V56l10-26 10 26v18h12v46z"/><path d="M400 120V90h14V70h4V54l5-12 5 12v16h4v20h14v30z"/><path d="M452 120V82h20v-8h30v8h20v38z"/>
 <path d="M530 120V64h8V40l9-24 9 24v24h8v56z"/><path d="M570 120V92h30v28z"/></g></svg>`);
-function laurel(){ return `<svg class="laurel" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M30 86C14 74 10 52 18 32"/><path d="M70 86C86 74 90 52 82 32"/></g><g fill="currentColor">${[0,1,2,3,4,5].map(i => { const a = (200 + i*22)*Math.PI/180, x = 50 + 36*Math.cos(a), y = 54 - 36*Math.sin(a)*-1; return `<ellipse cx="${(50 - 34*Math.cos((i*20 + 30)*Math.PI/180)).toFixed(1)}" cy="${(84 - 34*Math.sin((i*20 + 30)*Math.PI/180)).toFixed(1)}" rx="3.2" ry="6.5" transform="rotate(${-40 + i*14} ${(50 - 34*Math.cos((i*20 + 30)*Math.PI/180)).toFixed(1)} ${(84 - 34*Math.sin((i*20 + 30)*Math.PI/180)).toFixed(1)})"/><ellipse cx="${(50 + 34*Math.cos((i*20 + 30)*Math.PI/180)).toFixed(1)}" cy="${(84 - 34*Math.sin((i*20 + 30)*Math.PI/180)).toFixed(1)}" rx="3.2" ry="6.5" transform="rotate(${40 - i*14} ${(50 + 34*Math.cos((i*20 + 30)*Math.PI/180)).toFixed(1)} ${(84 - 34*Math.sin((i*20 + 30)*Math.PI/180)).toFixed(1)})"/>`; }).join("")}</g></svg>`; }
+function laurel(){ return `<img class="laurel" src="icons/laurel.webp" alt="" aria-hidden="true" draggable="false">`; }
 
 document.documentElement.style.setProperty("--skyline", `url("${SKYLINE}")`);
 function viewBuild(){
@@ -4475,6 +4619,154 @@ function viewAchievements(compact){
 }
 
 
+/* ---------- Photos, credits and short notes for every model ---------- */
+const AI = "Изображение создано нейросетью";
+const AIB = by => `Изображение создано нейросетью на основе фото: ${by}`;
+const LIC = {
+  "CC BY 2.0":"https://creativecommons.org/licenses/by/2.0/", "CC BY 2.5":"https://creativecommons.org/licenses/by/2.5/", "CC BY 3.0":"https://creativecommons.org/licenses/by/3.0/", "CC BY 4.0":"https://creativecommons.org/licenses/by/4.0/",
+  "CC BY-SA 2.0":"https://creativecommons.org/licenses/by-sa/2.0/", "CC BY-SA 3.0":"https://creativecommons.org/licenses/by-sa/3.0/", "CC BY-SA 4.0":"https://creativecommons.org/licenses/by-sa/4.0/",
+  "CC0":"https://creativecommons.org/publicdomain/zero/1.0/", "GFDL 1.2":"https://www.gnu.org/licenses/old-licenses/fdl-1.2.html", "OGL v1.0":"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/1/",
+  "Gov. of Japan 2.0":"https://www.digital.go.jp/resources/open_data/public_data_license_v1.0", "Общественное достояние":""
+};
+// f: photo file, by: credit, lic: licence, d: two or three lines about the model
+const UINFO = {
+  t72:{f:"01_t72b3", by:AI, d:"Глубокая модернизация советского Т-72: новый прицел «Сосна-У», динамическая защита и усиленный двигатель. Основа танковых войск России."},
+  t90:{f:"02_t90m", by:"Д. Пичугин, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Новейшая версия Т-90 «Прорыв»: башня с нишей для боекомплекта, тепловизор, комплекс защиты «Реликт» и решётчатые экраны."},
+  armata:{f:"03_armata", by:AI, d:"Танк нового поколения на платформе «Армата»: необитаемая башня, экипаж в бронекапсуле, активная защита «Афганит»."},
+  m1a1:{f:"04_m1a1", by:AI, d:"Основной танк США времён «Бури в пустыне». Газотурбинный двигатель, 120-мм пушка, броня с обеднённым ураном. Стоит на вооружении десятка стран."},
+  leo:{f:"05_leopard2a7", by:AI, d:"Самая совершенная версия немецкого «Леопарда»: модульная броня, кондиционер для экипажа, боеприпасы с программируемым подрывом."},
+  abrams:{f:"06_m1a2sepv3", by:AI, d:"Новейший «Абрамс»: цифровая электроника, модуль CROWS с пулемётом, улучшенная броня и система защиты Trophy."},
+  type96:{f:"07_type96", by:AI, d:"Массовый танк НОАК второго поколения. Недорогой и надёжный, развитие советской школы танкостроения с китайскими доработками."},
+  ztz99:{f:"08_ztz99a", by:"Tyg728, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Самый мощный танк Китая: 125-мм пушка, мощный двигатель 1500 л.с., лазерная система противодействия ПТУР."},
+  bmp2:{f:"09_bmp2", by:"Billyhill, Wikimedia Commons", lic:"CC BY 3.0", d:"Советская БМП с 30-мм автоматической пушкой и ПТУР «Конкурс». Перевозит 7 десантников. Состоит на вооружении более 40 стран."},
+  bmp3:{f:"10_bmp3", by:AI, d:"Плавающая БМП с огромной огневой мощью: 100-мм орудие-пусковая, 30-мм пушка и пулемёты в одной башне."},
+  marder:{f:"11_marder", by:AI, d:"Первая БМП бундесвера. Надёжная, хорошо защищённая, с 20-мм пушкой. Долго служила основой немецкой пехоты."},
+  bradley:{f:"12_m2a4_bradley", by:AI, d:"Основная БМП армии США: 25-мм пушка «Бушмастер» и ПТУР TOW, способные поражать даже танки."},
+  zbd04:{f:"13_zbd04a", by:AI, d:"Китайская плавающая БМП: 30-мм пушка, ракеты, цифровая связь. Основа механизированных бригад НОАК."},
+  btr82:{f:"14_btr82a", by:"Vitaly V. Kuzmin, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Модернизированный колёсный БТР с 30-мм пушкой, тепловизором и противоосколочным подбоем. Плавает и быстро идёт по дорогам."},
+  patria:{f:"15_patria_amv", by:"Jorchr, Wikimedia Commons", lic:"CC BY-SA 3.0", d:"Финский модульный колёсный бронетранспортёр 8×8. Выпускается по лицензии в Польше («Росомак»), Хорватии и ЮАР."},
+  stryker:{f:"16_stryker", by:AI, d:"Колёсная платформа армии США: быстро перебрасывается по воздуху, есть десятки вариантов от БТР до самоходной пушки."},
+  zsl92:{f:"17_zsl92", by:AI, d:"Китайский колёсный БТР 6×6 с 25-мм пушкой. Недорогой и простой, широко экспортируется."},
+  akacia:{f:"18_2s3", by:AI, d:"Советская 152-мм самоходная гаубица. Простая и надёжная, до сих пор стоит на вооружении многих армий."},
+  msta:{f:"19_2s19", by:"Vitaly V. Kuzmin, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Мощная 152-мм САУ с автоматизированной системой наведения. Стреляет на 25–30 км, до 10 выстрелов в минуту."},
+  paladin:{f:"20_m109a7", by:"Capt. Marcelo Marta, U.S. Army", lic:"Общественное достояние", d:"Новейшая версия самой массовой западной САУ. Новое шасси от «Брэдли» и цифровое управление огнём."},
+  pzh:{f:"21_pzh2000", by:"Italian Army (esercito.difesa.it)", lic:"CC BY 2.5", d:"Одна из лучших САУ мира: 155-мм ствол длиной 52 калибра, стрельба на 40 км и режим «огневой вал» из нескольких снарядов."},
+  plz05:{f:"22_plz05", by:AI, d:"Китайская 155-мм САУ с автоматом заряжания. Дальность стрельбы до 50 км управляемыми снарядами."},
+  grad:{f:"23_grad", by:"Vitaly V. Kuzmin, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Легендарная РСЗО: 40 ракет калибра 122 мм за 20 секунд. Самая массовая реактивная система в мире."},
+  tornado:{f:"24_tornado_s", by:"Nickel nitride, Wikimedia Commons", lic:"CC0", d:"Наследник «Смерча»: 12 ракет калибра 300 мм, дальность до 120 км, корректируемые боеприпасы."},
+  m270:{f:"25_m270", by:"Photo: Cpl Jamie Peters RLC/MOD", lic:"OGL v1.0", d:"Гусеничная РСЗО НАТО на шасси «Брэдли». Стреляет ракетами GMLRS и тактическими ракетами ATACMS."},
+  himars:{f:"26_himars", by:"Capt. Angelo Mejia, U.S. Army", lic:"Общественное достояние", d:"Колёсная лёгкая версия M270: пакет из 6 ракет, быстро меняет позицию, перевозится самолётом C-130."},
+  phl03:{f:"27_phl03", by:AI, d:"Китайская 300-мм РСЗО по мотивам «Смерча»: 12 управляемых ракет, дальность до 150 км."},
+  tochka:{f:"28_tochka_u", by:AIB("Kalabaha1969, Wikimedia Commons, CC0"), d:"Советский тактический ракетный комплекс на плавающем шасси. Дальность около 120 км."},
+  iskander:{f:"29_iskander", by:"Алексей Иванов, Mil.ru", lic:"CC BY 4.0", d:"Высокоточный ракетный комплекс: баллистические ракеты с манёвром на траектории и крылатые ракеты, дальность до 500 км."},
+  mig29:{f:"30_mig29", by:"TSgt Michael Ammons, U.S. Air Force", lic:"Общественное достояние", d:"Лёгкий фронтовой истребитель четвёртого поколения. Манёвренный и недорогой, служит в 30 странах."},
+  su35:{f:"31_su35s", by:"Дмитрий Пичугин, Mil.ru", lic:"CC BY 4.0", d:"Многоцелевой истребитель поколения «4++» с отклоняемым вектором тяги и радаром «Ирбис». Сверхманёвренный."},
+  su57:{f:"32_su57", by:"Dmitry Zherdin, Wikimedia Commons", lic:"CC BY-SA 3.0", d:"Российский истребитель пятого поколения: малозаметность, внутренние отсеки вооружения, сверхзвук без форсажа."},
+  f16:{f:"33_f16c", by:"Master Sgt. Andy Dunaway, U.S. Air Force", lic:"Общественное достояние", d:"Самый массовый современный истребитель мира: выпущено более 4600 машин, служит в 25 странах."},
+  f15ex:{f:"34_f15ex", by:"Ethan Wagner, U.S. Air Force", lic:"Общественное достояние", d:"Новейший «Игл»: несёт до 12 ракет «воздух-воздух», цифровая кабина и радар с АФАР."},
+  f35:{f:"35_f35a", by:"Photo: SAC Tim Laurence/MOD", lic:"OGL v1.0", d:"Малозаметный истребитель пятого поколения. Мощнейшие сенсоры, обменивается данными со всей группировкой."},
+  j10:{f:"36_j10", by:"Минобороны РФ (Mil.ru), Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Китайский лёгкий многоцелевой истребитель по схеме «утка». Версия C получила радар с АФАР и ракеты PL-15."},
+  j20:{f:"37_j20", by:"N509FZ, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Китайский тяжёлый малозаметный истребитель пятого поколения, рассчитанный на дальние перехваты."},
+  su25:{f:"38_su25", by:"Ministry of Defense of Ukraine, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Бронированный штурмовик «Грач»: летает низко, держит попадания, поддерживает пехоту бомбами и ракетами."},
+  a10:{f:"39_a10c", by:"Master Sgt. William Greer, U.S. Air Force", lic:"Общественное достояние", d:"Штурмовик «Бородавочник» с огромной 30-мм пушкой GAU-8. Кабина в титановой «ванне», живучесть легендарная."},
+  su34:{f:"40_su34", by:"Vitaly V. Kuzmin, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Фронтовой бомбардировщик: экипаж сидит рядом, бронированная кабина, до 8 тонн оружия."},
+  tu22:{f:"41_tu22m3", by:"Max071086, Wikimedia Commons", lic:"CC BY-SA 3.0", d:"Дальний ракетоносец с изменяемой стреловидностью крыла. Создавался против авианосных групп."},
+  b1b:{f:"42_b1b", by:"Staff Sgt. Aaron Allmon, U.S. Air Force", lic:"Общественное достояние", d:"Стратегический бомбардировщик «Лансер»: крупнейшая боевая нагрузка среди бомбардировщиков США."},
+  mi24:{f:"43_mi24p", by:"FOX 52, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"«Летающий танк»: ударный вертолёт, который ещё и перевозит 8 десантников. Версия П с неподвижной 30-мм пушкой."},
+  ka52:{f:"44_ka52", by:"Aleksandr Medvedev, Wikimedia Commons", lic:"GFDL 1.2", d:"Ударный вертолёт «Аллигатор» соосной схемы: два пилота рядом, катапультные кресла, ракеты «Вихрь»."},
+  ah1z:{f:"45_ah1z", by:"Cpl. Jonathan L. Gonzalez, U.S. Marine Corps", lic:"Общественное достояние", d:"Ударный вертолёт морской пехоты США. Узкий силуэт, ракеты Hellfire, может базироваться на кораблях."},
+  apache:{f:"46_ah64", by:"Jerry Gunner, Wikimedia Commons", lic:"CC BY 2.0", d:"Главный ударный вертолёт Запада. В версии E — радар Longbow над винтом и управление дронами прямо из кабины."},
+  z10:{f:"47_z10", by:"Peng Chen, Wikimedia Commons", lic:"CC BY-SA 2.0", d:"Первый китайский специализированный ударный вертолёт: тандемная кабина, ПТУР и ракеты «воздух-воздух»."},
+  tb2:{f:"48_tb2", by:AI, d:"Турецкий ударный беспилотник средней высоты. Недорогой, держится в воздухе сутки, несёт 4 управляемые бомбы."},
+  reaper:{f:"49_mq9", by:"Lt. Col. Leslie Pratt, U.S. Air Force", lic:"Общественное достояние", d:"Тяжёлый ударный дрон США: ракеты Hellfire и управляемые бомбы, летает более 24 часов."},
+  wingloong:{f:"50_wingloong", by:AI, d:"Китайский ударный беспилотник класса «Рипера»: 6 точек подвески, продаётся на Ближний Восток и в Африку."},
+  shahed:{f:"51_shahed136", by:AI, d:"Дешёвый дрон-камикадзе с треугольным крылом. Запускается роями, летит на сотни километров."},
+  lancet:{f:"52_lancet3", by:AI, d:"Барражирующий боеприпас: кружит над полем боя, находит цель камерой и пикирует на технику."},
+  switchblade:{f:"53_switchblade600", by:AI, d:"Американский противотанковый барражирующий боеприпас: запускается из трубы, летит 40 минут."},
+  il76:{f:"54_il76md", by:"Alexander Kopitar, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Военно-транспортный самолёт: 48 тонн груза или 145 десантников, садится на грунтовые полосы."},
+  c130:{f:"55_c130j", by:"U.S. Air Force", lic:"Общественное достояние", d:"Самый массовый военный транспортник мира. Взлетает с коротких полос, служит в 70 странах."},
+  y20:{f:"56_y20", by:"N509FZ, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Китайский тяжёлый транспортник «Кунпэн»: до 66 тонн груза, дальние переброски войск."},
+  tor:{f:"57_tor", by:AI, d:"Зенитный ракетный комплекс ближнего радиуса. Сам находит и сбивает дроны, вертолёты и ракеты, даже на ходу."},
+  pantsir:{f:"58_pantsir", by:"Vitaly V. Kuzmin, Wikimedia Commons", lic:"CC BY-SA 4.0", d:"Пушечно-ракетный комплекс: 12 ракет и две 30-мм пушки. Прикрывает объекты от дронов и крылатых ракет."},
+  gepard:{f:"59_gepard", by:"Hans-Hermann Bühling, Wikimedia Commons", lic:"GFDL 1.2", d:"Немецкая зенитная самоходка с двумя 35-мм пушками и собственными радарами. Отлично сбивает дроны."},
+  hq17:{f:"61_hq17", by:AI, d:"Китайский ЗРК ближнего радиуса, развитие идей «Тора». Колёсная версия AE поставляется на экспорт."},
+  irist:{f:"60_iris_t", by:AIB("Boevaya mashina, Wikimedia Commons, CC BY-SA 4.0"), d:"Немецкий ЗРК с ракетами IRIS-T: вертикальный пуск, поражение целей на 40 км."},
+  buk:{f:"62_buk_m2", by:AI, d:"Самоходный ЗРК средней дальности. Сбивает самолёты, вертолёты и крылатые ракеты на дальности до 50 км."},
+  nasams:{f:"63_nasams", by:AI, d:"Норвежско-американский ЗРК: стреляет авиационными ракетами AMRAAM. Защищает столицу США."},
+  hq16:{f:"64_hq16", by:AIB("Tyg728, Wikimedia Commons, CC BY-SA 4.0"), d:"Китайский ЗРК средней дальности с вертикальным пуском. Ракеты стартуют из транспортных контейнеров."},
+  s300:{f:"65_s300pmu2", by:AIB("Vitaly V. Kuzmin, Wikimedia Commons, CC BY-SA 4.0"), d:"Зенитная система большой дальности, классика ПВО. Поражает цели на 200 км, экспортирована во многие страны."},
+  s400:{f:"66_s400", by:AIB("Vitaly V. Kuzmin, Wikimedia Commons, CC BY-SA 4.0"), d:"Комплекс ПВО большой дальности: четыре типа ракет, цели на расстоянии до 400 км."},
+  s500:{f:"67_s500", by:"Пресс-служба Минобороны РФ (Mil.ru)", lic:"CC BY 4.0", d:"Новейшая система ПВО и ПРО: перехватывает баллистические ракеты и цели в ближнем космосе."},
+  patriot:{f:"68_patriot", by:AIB("Mark Holloway, Wikimedia Commons, CC BY 2.0"), d:"Главная западная система ПВО и ПРО. Ракеты PAC-3 сбивают баллистические ракеты прямым попаданием."},
+  thaad:{f:"69_thaad", by:"Ralph Scott / Missile Defense Agency / U.S. DoD", lic:"Общественное достояние", d:"Система противоракетной обороны: перехватывает баллистические ракеты на конечном участке, на высоте до 150 км."},
+  hq9:{f:"70_hq9b", by:AIB("Jian Kang, Wikimedia Commons, CC BY 3.0"), d:"Китайский ЗРК большой дальности. Версия B дальше достаёт цели и умеет перехватывать ракеты."},
+  krasukha:{f:"71_krasukha4", by:AI, d:"Комплекс радиоэлектронной борьбы: глушит радары самолётов, разведывательных спутников и дронов."},
+  compass:{f:"72_ec37b", by:"SrA Andrew Garavito, U.S. Air Force", lic:"Общественное достояние", d:"Самолёт РЭБ на базе бизнес-джета: подавляет связь, радары и управление войсками противника."},
+  k20380:{f:"73_k20380", by:AIB("Морозов Л. Н., Wikimedia Commons, CC BY 3.0"), d:"Малозаметный корвет ближней морской зоны: ракеты «Уран», ЗРК «Редут», вертолёт на борту."},
+  type056:{f:"74_type056", by:AI, d:"Массовый китайский корвет: выпущено более 70 кораблей. Охраняет побережье и ищет подводные лодки."},
+  gorshkov:{f:"75_gorshkov", by:"Минобороны РФ (Mil.ru)", lic:"CC BY 4.0", d:"Новейший российский фрегат: несёт гиперзвуковые ракеты «Циркон» и крылатые «Калибры», ЗРК «Полимент-Редут»."},
+  fremm:{f:"76_fremm", by:AIB("Fabius1975, Wikimedia Commons, общественное достояние"), d:"Франко-итальянский многоцелевой фрегат: противолодочный, ПВО и ударный в одном корпусе."},
+  type054a:{f:"77_type054a", by:AIB("mclarenshen, Wikimedia Commons, CC BY 2.0"), d:"Основной фрегат флота КНР: 32 ячейки вертикального пуска, 76-мм пушка, вертолёт."},
+  burke:{f:"78_burke", by:AIB("JO2 Patrick Reilly, U.S. Navy, общественное достояние"), d:"Эсминец с системой «Иджис»: 90 ячеек для ракет. Основа флота США, построено более 70 кораблей."},
+  type055:{f:"79_type055", by:AIB("Объединённый штаб Сил самообороны Японии, Gov. of Japan 2.0"), d:"Крупнейший эсминец Азии: 112 ячеек вертикального пуска, радары с АФАР, по классу близок к крейсеру."},
+  kilo:{f:"80_kilo", by:AI, d:"Дизель-электрическая подлодка, прозванная «чёрной дырой» за тишину. Стреляет «Калибрами» из-под воды."},
+  type214:{f:"81_type214", by:AI, d:"Немецкая неатомная подлодка с воздухонезависимой установкой: неделями идёт под водой без всплытия."},
+  yasen:{f:"82_yasen", by:AIB("Минобороны РФ (Mil.ru), CC BY 4.0"), d:"Атомная многоцелевая подлодка: 32 крылатые ракеты, очень низкий шум, глубина погружения до 600 м."},
+  virginia:{f:"83_virginia", by:AIB("U.S. Navy / General Dynamics Electric Boat, общественное достояние"), d:"Атомная подлодка США: крылатые ракеты «Томагавк», спецназ на борту, перископ заменён камерами."},
+  nimitz:{f:"84_nimitz", by:AIB("U.S. Navy, общественное достояние"), d:"Атомный авианосец: более 60 самолётов, 5000 человек экипажа, 20 лет без перезарядки реактора."},
+  fujian:{f:"85_fujian", by:AI, d:"Третий авианосец Китая и первый с электромагнитными катапультами. Прямая палуба, как у американских кораблей."}
+};
+const AINFO = {
+  shell:{f:"86_shells", by:AI, d:"Снаряды для самоходных гаубиц и танков. Главный расходник войны: артиллерия тратит их тысячами в день."},
+  rocket:{f:"87_mlrs_rockets", by:AI, d:"Неуправляемые и корректируемые ракеты для «Градов», «Торнадо» и HIMARS."},
+  atgm:{f:"88_atgm", by:AI, d:"Противотанковые управляемые ракеты для БМП, вертолётов и пехоты. Без них техника противника неуязвима."},
+  bomb:{f:"89_guided_bombs", by:AI, d:"Управляемые авиабомбы: дешевле ракет, точность — несколько метров. Нужны штурмовикам и дронам."},
+  sam:{f:"90_sam_missiles", by:AI, d:"Ракеты для ЗРК и истребителей. Без запаса зенитных ракет небо остаётся открытым."},
+  missile:{f:"91_missiles", by:AI, d:"Крылатые и баллистические ракеты для ударов по тылу: «Искандеры», бомбардировщики, корабли."}
+};
+const photo = id => (UINFO[id] || AINFO[id]) ? `photos/${(UINFO[id] || AINFO[id]).f}.webp` : "";
+function credit(x){ return x.lic ? `Фото: ${x.by} · ${x.lic}` : x.by; }
+function showUnitInfo(id){
+  const m = MODELS[id], a = AMMO[id], x = UINFO[id] || AINFO[id]; if (!x) return;
+  let stats = "";
+  if (m){ const k = KINDS[m.kind], buy = canBuyModel(id), prod = canProduceModel(id), n = S.units[id] || 0;
+    stats = `<div class="ui-stats">
+      <span><small>Производитель</small><b>${flag(m.origin)} ${esc(partnerName(m.origin))}</b></span>
+      <span><small>Класс</small><b>${k.name}</b></span>
+      <span><small>Поколение</small><b>${m.gen}</b></span>
+      <span><small>Мощь</small><b class="num">${m.pw.toLocaleString("ru-RU")}</b></span>
+      <span><small>⚔ Удар по земле</small><b class="num">${m.ga}</b></span>
+      <span><small>✈ Удар по воздуху</small><b class="num">${m.aa}</b></span>
+      <span><small>🛡 Защита</small><b class="num">${m.df}</b></span>
+      <span><small>Цена за единицу</small><b class="num">${money(m.price)}</b></span>
+      <span><small>Содержание</small><b class="num">${money(modelUpkeep(m)/12)}/мес</b></span>
+      <span><small>В строю</small><b class="num">${n.toLocaleString("ru-RU")}</b></span>
+      ${k.ammo ? `<span><small>Боеприпасы</small><b>${AMMO[k.ammo].short}</b></span>` : ""}
+      ${m.req ? `<span><small>Требуется ВВП</small><b class="num">от ${money(m.req)}</b></span>` : ""}
+    </div>
+    <div class="label">${buy.ok ? `Закупка: ${money(buy.price)} за ед., доставка ${buy.days} дн.` : `Закупка: ${buy.why}`}${prod.ok ? " · можно производить у себя" : prod.why ? ` · своё производство: ${prod.why}` : ""}</div>`; }
+  else if (a){ stats = `<div class="ui-stats"><span><small>Цена партии</small><b class="num">${money(a.price*a.batch)}</b></span><span><small>Партия</small><b class="num">${a.batch.toLocaleString("ru-RU")} ${a.unit}</b></span><span><small>На складе</small><b class="num">${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${a.unit}</b></span></div>`; }
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(m ? m.name : a.name)}"><div class="sheet uinfo">
+    <figure class="ui-photo"><img src="${photo(id)}" alt="${esc(m ? m.name : a.name)}"><figcaption>${esc(credit(x))}</figcaption></figure>
+    <div class="ui-body"><div class="row"><h2>${m ? `${flag(m.origin)} ${esc(m.name)}` : esc(a.name)}</h2>${m ? `<span class="gen g${m.gen}">${m.gen} пок.</span>` : ""}</div>
+      <p>${x.d}</p>${stats}
+      <div class="btns"><button class="btn" data-close>Закрыть</button><button class="btn link" data-credits>Источники фото</button></div></div>
+  </div></div>`;
+}
+function showCredits(){
+  const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
+  const lics = [...new Set(rows.map(([,x]) => x.lic).filter(Boolean))];
+  modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Источники фото"><div class="sheet credits">
+    <h2>Источники фото</h2>
+    <p class="muted">Фотографии техники используются по свободным лицензиям. Все изображения обрезаны и сжаты для игры. Часть изображений создана нейросетью; если за основу взято чужое фото, автор указан. Знаки различия на фото не означают одобрения игры кем-либо.</p>
+    <div class="cr-list">${rows.map(([n,x]) => `<div class="cr-row"><b>${esc(n)}</b><small>${esc(x.lic ? `${x.by} — ${x.lic}` : x.by)}</small></div>`).join("")}</div>
+    <h3>Лицензии</h3>
+    <div class="cr-list">${lics.map(l => `<div class="cr-row"><b>${l}</b><small>${LIC[l] ? esc(LIC[l]) : "без ограничений"}</small></div>`).join("")}</div>
+    <p class="muted small">Фото с лицензией GNU FDL 1.2: разрешается копировать, распространять и/или изменять этот документ на условиях GNU Free Documentation License версии 1.2 или более поздней, опубликованной Free Software Foundation, без неизменяемых разделов и без текстов на обложке. Полный текст лицензии: ${LIC["GFDL 1.2"]}</p>
+    <button class="btn primary" data-close>Закрыть</button>
+  </div></div>`;
+}
+
 function viewArmy(){
   const c = me(), tab = S.armyTab || "ground";
   const wars = S.wars.map(w => { const e = C()[w.enemy]; const p = (w.progress+100)/2; return `<div class="panel">
@@ -4489,7 +4781,7 @@ function viewArmy(){
       <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button><button class="btn" data-tab="hq">${ic("army","sm")} Штаб и оккупация</button></div>
       ${garrisonTotal() ? `<div class="label">В гарнизонах: ${troops(garrisonTotal())}. На фронтах доступно: ${troops(freeArmy())}.</div>` : ""}
     </div>`;
-  const tabs = `<div class="filters armytabs">${UCLS.map(([id,l]) => `<button class="chip" data-armytab="${id}" aria-pressed="${tab===id}">${l}</button>`).join("")}</div>`;
+  const tabs = `<div class="filters armytabs">${UCLS.map(([id,l]) => `<button class="chip" data-armytab="${id}" aria-pressed="${tab===id}">${pic("cls_" + id, "sm")}${l}</button>`).join("")}</div>`;
   let body = "";
   if (["ground","air","ad","navy"].includes(tab)){
     if (tab === "navy" && !hasCoast()) body = `<div class="panel"><p class="muted" style="margin:0">У страны нет выхода к морю — флот недоступен. Его можно получить, присоединив прибрежную страну.</p></div>`;
@@ -4499,12 +4791,11 @@ function viewArmy(){
       return `<div class="panel"><div class="row"><h3>${ic(k.icon)} ${k.name}</h3><span class="num">${have.toLocaleString("ru-RU")} ед.</span></div>
         <div class="unit-grid">${ms.map(m => { const n = S.units[m.id]||0, buy = canBuyModel(m.id), prod = canProduceModel(m.id);
           return `<div class="ucard ${n?"have":""}">
-            <div class="row"><b>${flag(m.origin)} ${m.name}</b><span class="gen g${m.gen}">${m.gen} пок.</span></div>
-            <div class="ustats"><span title="Удар по наземным целям">⚔ ${m.ga}</span><span title="Удар по воздушным целям">✈ ${m.aa}</span><span title="Защита">🛡 ${m.df}</span><span>${money(m.price)}</span></div>
-            <div class="row"><span class="num ${n?"":"muted"}">В строю: <b>${n.toLocaleString("ru-RU")}</b></span>${n ? `<small class="muted">−${money(modelUpkeep(m)*n/12)}/мес</small>` : ""}</div>
+            <button class="uc-photo" data-uinfo="${m.id}" aria-label="Подробнее: ${esc(m.name)}"><img src="${photo(m.id)}" alt="" loading="lazy" draggable="false"><span class="gen g${m.gen}">${m.gen} пок.</span><i class="uc-i" aria-hidden="true">i</i></button>
+            <div class="uc-name"><b>${flag(m.origin)} ${m.name}</b></div>
+            <div class="row uc-meta"><span class="uc-pw">Мощь <b class="num">${m.pw.toLocaleString("ru-RU")}</b></span><span class="num ${n?"":"muted"}">В строю: <b>${n.toLocaleString("ru-RU")}</b></span></div>
             <div class="btns">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*k.batch ? "disabled" : ""}>+${k.batch} · ${money(buy.price*k.batch)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}
               ${n ? `<button class="btn sm" data-act="sellunit" data-arg="${m.id}">Списать ${Math.min(n, k.batch)}</button>` : ""}</div>
-            ${prod.ok ? `<small class="up">Можно производить у себя</small>` : ""}
           </div>`; }).join("")}</div></div>`; }).join("");
   } else if (tab === "bases"){
     body = `<div class="panel"><div class="row"><h3>${ic("army")} Военная инфраструктура</h3><span class="num">боеготовность ${Math.round(milBaseMult()*100)}%</span></div><div class="label">Если войскам, технике или самолётам не хватает мест на базах, армия воюет слабее. Тренировочные комплексы и склады снабжения дают бонусы сверх нормы.</div></div><div class="fac-grid">${Object.keys(FAC).filter(id=>FAC[id].cat==="defense").map(facCard).join("")}</div>`;
@@ -4512,10 +4803,10 @@ function viewArmy(){
     const need = ammoNeedMonth(), sellers = ammoSellers();
     body = `<div class="panel"><div class="row"><h3>${ic("ammo")} Склад боеприпасов</h3>${sellers[0] ? `<span class="label">Поставщик: ${flag(sellers[0].iso)} ${esc(partnerName(sellers[0].iso))}, ~${sellers[0].days} дн.</span>` : `<span class="label down">Нет поставщиков (нужны отношения от +10)</span>`}</div>
       ${Object.entries(AMMO).map(([k,a]) => { const have = S.ammo[k]||0, months = need[k] > 0 ? have/need[k] : Infinity;
-        return `<div class="stock"><div class="row"><b>${a.name} <small class="muted">· ${ammoTier(k)}</small></b><span class="num">${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}</span></div>
+        return `<div class="stock ammo-row"><button class="am-photo" data-uinfo="${k}" aria-label="Подробнее: ${a.name}"><img src="${photo(k)}" alt="" loading="lazy"><i class="uc-i" aria-hidden="true">i</i></button><div class="am-body"><div class="row"><b>${a.name} <small class="muted">· ${ammoTier(k)}</small></b><span class="num">${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}</span></div>
           <div class="bar ${months<2?"low":months<5?"mid":"high"}"><i style="width:${Math.min(100, (isFinite(months)?months:12)/12*100)}%"></i></div>
           <div class="row"><small class="muted">${isFinite(months) ? `Хватит примерно на ${months < 1 ? "меньше месяца" : Math.floor(months) + " мес."} войны` : "Сейчас не расходуется"}</small>
-          ${k === "missile" && !tlv("am_missile") ? `<small class="down">нужно исследование «Ракеты I»</small>` : ""}<button class="btn sm" data-act="buyammo" data-arg="${k}" ${(k === "missile" && !tlv("am_missile")) || !sellers[0] || S.treasury < a.price*a.batch*(sellers[0]?sellers[0].price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(sellers[0]?sellers[0].price:1.2))}</button></div></div>`; }).join("")}
+          ${k === "missile" && !tlv("am_missile") ? `<small class="down">нужно исследование «Ракеты I»</small>` : ""}<button class="btn sm" data-act="buyammo" data-arg="${k}" ${(k === "missile" && !tlv("am_missile")) || !sellers[0] || S.treasury < a.price*a.batch*(sellers[0]?sellers[0].price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(sellers[0]?sellers[0].price:1.2))}</button></div></div></div>`; }).join("")}
       <div class="label">На войне каждый бой тратит боеприпасы. Кончатся снаряды — артиллерия замолчит. Свой завод боеприпасов строится в разделе «Стройка → Военные заводы».</div></div>`;
   } else {
     const plants = [...Object.keys(PLANT_CAP), "ammoplant"];
@@ -4880,7 +5171,7 @@ let resizeT = 0, lastLand = LAND.matches;
 window.addEventListener("resize", () => {
   if (!S || !S.countries || S.over) return;
   clearTimeout(resizeT);
-  resizeT = setTimeout(() => { lastLand = LAND.matches; render(); }, 150);
+  resizeT = setTimeout(() => { const sz = innerWidth + "x" + innerHeight; if (sz === ui.vpSize) return; ui.vpSize = sz; lastLand = LAND.matches; ui.mapHtml = null; render(); }, 150);
 });
 
 function tradeBlock(iso){
@@ -5041,7 +5332,10 @@ function dipAct(a, id){
     case "nap": if (x.nap){ x.nap = false; x.rel -= 12; addLog(`Пакт о ненападении с ${x.name} расторгнут.`); } else { if (!x.emb || x.rel < 10) return toast("Нужны посольство и отношения от +10."); x.nap = true; x.rel += 4; addLog(`Подписан пакт о ненападении с ${x.name}.`); flashMap(id, "good"); } break;
     case "visit": if (x.visitCd > 0) return; if (!pay(visitCost())) return; x.rel = clamp(x.rel + 8, -100, 100); x.visitCd = 6; S.mods.push({stat:"approval",v:1,left:3}); addLog(`Государственный визит в страну ${x.name}.`); floatText(id, "+8", "cargo"); break;
     case "cult": if (x.cultCd > 0) return; if (!pay(cultCost())) return; x.rel = clamp(x.rel + 5, -100, 100); x.cultCd = 3; addLog(`Культурный обмен с ${x.name}: гастроли, выставки, студенты.`); break;
-    case "aid": if (x.aidCd > 0) return; if (!pay(aidCost())) return; x.rel = clamp(x.rel + 10, -100, 100); x.aidCd = 4; Object.values(C()).forEach(o => { if (!o.owner && o.id !== id) o.rel = clamp(o.rel + 1, -100, 100); }); addLog(`Отправлена гуманитарная помощь в страну ${x.name}.`); floatText(id, "+10", "cargo"); break;
+    case "aid": if (x.aidCd > 0) return; if (!pay(aidCost())) return; x.aidCd = 4;
+      if (airliftCap() > 0){ x.rel = clamp(x.rel + 14, -100, 100); Object.values(C()).forEach(o => { if (!o.owner && o.id !== id) o.rel = clamp(o.rel + 1, -100, 100); }); addLog(`Гуманитарная помощь доставлена самолётами в страну ${x.name}.`); floatText(id, "+14", "cargo"); }
+      else { const d = travelDays(id); S.shipments = S.shipments || []; S.shipments.push({id:shipId(), from:S.player, to:id, r:"food", qty:0, left:d, total:d, dir:"out", cat:"aid"}); addLog(`Гуманитарный конвой отправлен в страну ${x.name}, в пути ~${d} дн.`); toast(`Конвой в пути ~${d} дн. С транспортной авиацией помощь доходит сразу.`); }
+      break;
     case "loan": if (S.loans && S.loans[id]) return; if (x.rel < 0) return toast("Кредит дают только дружественным странам."); { const L = loanSize(); if (!pay(L)) return; if (!S.loans) S.loans = {}; S.loans[id] = {left:12, pay:L*1.1/12}; x.rel = clamp(x.rel + 12, -100, 100); addLog(`Выдан льготный кредит стране ${x.name}: ${money(L)} на год под 10%.`); } break;
     case "invest": if (x.rel < 10) return toast("Нужны отношения от +10."); { const I = investSize(); if (!pay(I)) return; if (!S.invest) S.invest = {}; S.invest[id] = (S.invest[id]||0) + I; x.gdp *= 1.004; x.rel = clamp(x.rel + 6, -100, 100); addLog(`Инвестиции в экономику страны ${x.name}: ${money(I)}.`); } break;
     case "milaid": if (x.milaidCd > 0) return; if (x.rel < 0) return toast("Военную помощь получают только дружественные страны."); if (!pay(milAidCost())) return; x.rel = clamp(x.rel + 15, -100, 100); x.army *= 1.04; x.milaidCd = 6; addLog(`Передана военная помощь стране ${x.name}.`); break;
@@ -5084,7 +5378,7 @@ function viewCountry(){
     {act:"visit", icon:"plane", title:"Государственный визит", sub: x.visitCd > 0 ? `снова через ${x.visitCd} мес.` : `отношения +8, рейтинг +1 · ${money(visitCost())}`, ok: !(x.visitCd > 0)},
     {act:"cult", icon:"star", title:"Культурный обмен", sub: x.cultCd > 0 ? `снова через ${x.cultCd} мес.` : `отношения +5 · ${money(cultCost())}`, ok: !(x.cultCd > 0)}];
   else if (tab === "aid") cards = [
-    {act:"aid", icon:"food", title:"Гуманитарная помощь", sub: x.aidCd > 0 ? `снова через ${x.aidCd} мес.` : `отношения +10, весь мир +1 · ${money(aidCost())}`, ok: !(x.aidCd > 0), tone:"aid"},
+    {act:"aid", icon:"food", title:"Гуманитарная помощь", sub: x.aidCd > 0 ? `снова через ${x.aidCd} мес.` : airliftCap() > 0 ? `самолётами сразу: отношения +14, мир +1 · ${money(aidCost())}` : `конвоем ~${travelDays(id)} дн.: отношения +10, мир +1 · ${money(aidCost())}`, ok: !(x.aidCd > 0), tone:"aid"},
     {act:"loan", icon:"budget", title:"Льготный кредит", sub: S.loans && S.loans[id] ? `возвращают ${money(S.loans[id].pay)}/мес, ещё ${S.loans[id].left} мес.` : `${money(loanSize())} на год под 10% · отношения +12`, on: !!(S.loans && S.loans[id]), ok: !!(S.loans && S.loans[id]) || x.rel >= 0, tone:"aid"},
     {act:"invest", icon:"gdp", title:"Инвестиции в экономику", sub: `${money(investSize())} · доход 1,2% в месяц${S.invest && S.invest[id] ? ` · вложено ${money(S.invest[id])}` : ""}`, on: !!(S.invest && S.invest[id]), ok: x.rel >= 10, tone:"aid"}];
   else if (tab === "mil") cards = [
@@ -5098,7 +5392,7 @@ function viewCountry(){
         <div class="bstats"><span>Агентов готово <b class="num">${S.intel.pts.toFixed(1).replace(".",",")}</b></span><span>Бонус к операциям <b class="num">+${netLvl(id)*6}%</b></span></div>${intelReport(id)}</div>${opCards(x)}`
     : tab === "trade" ? `<div class="panel">${S.rails[id] ? (S.rails[id].done ? `<div class="row"><span>Железная дорога работает</span><span class="num up">+${money(railIncome(id))}/мес</span></div>` : `<div class="row"><span>Железная дорога строится</span><span class="num">${Math.ceil(S.rails[id].left)} дн.</span></div>`) : canReach(x) ? `<div class="row"><span>Железная дорога: доход ~${money(railIncome(id))}/мес <small class="muted">· от +40</small></span><button class="btn" data-act="rail" data-arg="${id}" ${x.rel<40||S.treasury<railTotal()||!railMatOk()?"disabled":""}>${money(railTotal())} + ${fmtQ(RAIL_MAT.steel)} тыс. т стали, ${fmtQ(RAIL_MAT.wood)} тыс. т древесины</button></div>` : ""}${tradeBlock(id)}</div>`
     : `<div class="dgrid">${cards.map(dcard).join("")}</div>
-       ${tab === "mil" && canReach(x) && !x.ally ? `<div class="panel war-zone"><div class="row"><span><b>Объявить войну</b> <small class="muted">${x.nap ? "· нарушит пакт о ненападении: репутация агрессора +10" : S.council.banned[id] ? "· нарушит резолюцию Совета наций" : "· весь мир это запомнит"}</small></span>
+       ${tab === "mil" && canReach(x) && !x.ally ? `<div class="panel war-zone"><div class="row"><span><b>Объявить войну</b> <small class="muted">${!nearReach(x) ? "· далёкая цель: воюем силами авианосцев " : ""}${x.nap ? "· нарушит пакт о ненападении: репутация агрессора +10" : S.council.banned[id] ? "· нарушит резолюцию Совета наций" : "· весь мир это запомнит"}</small></span>
           ${ui.warConfirm === id ? `<button class="btn danger" data-act="war" data-arg="${id}">Подтвердить</button><button class="btn" data-warconfirm="">Отмена</button>` : `<button class="btn danger" data-warconfirm="${id}">Объявить войну</button>`}</div></div>` : ""}`;
   return `${countryBanner(id)}${tabs}${body}`;
 }
@@ -5574,6 +5868,8 @@ document.addEventListener("click", e => {
     S.laws[t.dataset.law] = !S.laws[t.dataset.law]; addLog(`${S.laws[t.dataset.law]?"Принят":"Отменён"} закон «${LAWS.find(l=>l.id===t.dataset.law).name}».`); checkAchievements(); save(); render(); return; }
   if (t.dataset.choice !== undefined){ chooseEvent(+t.dataset.choice); return; }
   if (t.hasAttribute("data-close")){ closeModal(); return; }
+  if (t.dataset.uinfo){ showUnitInfo(t.dataset.uinfo); return; }
+  if (t.hasAttribute("data-credits")){ showCredits(); return; }
   const a = t.dataset.act; if (!a) return;
   if (a === "next"){ if (S.pendingEvent){ showReport(); return; } nextMonth(); return; }
   if (a === "continue"){ ui.tab="map"; ui.mapFocus = S.player; render(); return; }
