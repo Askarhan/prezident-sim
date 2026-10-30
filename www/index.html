@@ -1423,11 +1423,11 @@ const BUILDINGS = {
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
   airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от торговых договоров +10%; максимум 3",deal:0.1,max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"экспорт +5%; максимум 2",trade:0.05,max:2},
-  tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО на $60 млн в месяц",req:{tech:"armor"}},
-  heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны на $40 млн в месяц",req:{tech:"rotor"}},
-  aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"самолёты на $120 млн в месяц",req:{tech:"aviation"}},
-  samplant:{cat:"mil",name:"Завод ПВО и ракет",days:420,cost:0.016,desc:"ПВО, РЭБ, ракетные комплексы и ракеты на $100 млн в месяц",req:{tech:"missile"}},
-  shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки на $350 млн в месяц; нужен выход к морю",req:{coast:true}},
+  tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО",req:{tech:"armor"}},
+  heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны",req:{tech:"rotor"}},
+  aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"самолёты",req:{tech:"aviation"}},
+  samplant:{cat:"mil",name:"Завод ПВО и ракет",days:420,cost:0.016,desc:"ПВО, РЭБ, ракетные комплексы и ракеты",req:{tech:"missile"}},
+  shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки; нужен выход к морю",req:{coast:true}},
   institute:{cat:"sci",name:"НИИ и университет",days:200,cost:0.004,desc:"+6 очков исследований в месяц; каждый следующий дороже и даёт чуть меньше",scale:0.25,dscale:15},
   enrich:{cat:"sci",name:"Центр обогащения урана",days:540,cost:0.02,desc:"нужен для ядерной программы; после «Ядерной боеголовки» собирает боезаряды",req:{tech:"nuc_enrich"},max:4},
   npp:{cat:"energy",name:"Атомная электростанция",days:600,cost:0.012,desc:"+12 ед. электроэнергии и +2 за каждый уровень «Мирного атома»",req:{tech:"nuc_reactor"},use:{metal:2}},
@@ -1662,10 +1662,11 @@ function orderAmmo(type, qty){
   toast(ad ? `Боеприпасы летят воздушным мостом, ~${days} дн.` : `Боеприпасы в пути из страны ${partnerName(best.iso)}, ~${days} дн.`); flashMap(best.iso, "info");
 }
 function milMult(){ return Math.max(0.2, 1 + lawSum("mil")); }
-function plantCap(pid){ return PLANT_CAP[pid]*objCount(pid)*(1 + 0.5*tech("automation"))*milMult(); }
+function plantOne(pid){ return (me().gdp*BUILDINGS[pid].cost/(1 - MAT_SHARE))*0.025; }
+function plantCap(pid){ return plantOne(pid)*objCount(pid)*(1 + 0.5*tech("automation"))*milMult(); }
 function prodChoices(pid){ return MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => KINDS[m.kind].plant === pid); }
 function prodSpendMonthly(){ return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && objCount(pid) ? plantCap(pid)*0.5 : 0), 0) + (objCount("ammoplant") ? ammoPlantCost() : 0); }
-function ammoPlantOut(){ const n = objCount("ammoplant")*(1 + 0.5*tech("automation"))*milMult(); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
+function ammoPlantOut(){ const n = objCount("ammoplant")*(1 + 0.5*tech("automation"))*milMult()*plantOne("ammoplant")/0.0712; return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
 function ammoPlantCost(){ const o = ammoPlantOut(); return Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].price*0.5, 0); }
 function armsExportIncome(){
   if (!armsBuyers().length) return 0;
@@ -2550,7 +2551,7 @@ function selfSuff(r){
   return Math.max(0, v);
 }
 function deficits(){ return RES.filter(r => selfSuff(r.id) < 60).length; }
-function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = me().gdp*b.cost*b.roi; if ((id==="factory"||id==="auto") && tech("automation")) v *= 1.5; return v; }
+function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = me().gdp*b.cost/(1 - MAT_SHARE)*b.roi; if ((id==="factory"||id==="auto") && tech("automation")) v *= 1.5; return v; }
 function objUpkeep(id){ return me().gdp*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
@@ -4613,22 +4614,26 @@ function viewBuildObj(){
         const chk = canBuild(id), up = objUpkeep(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat);
         const outR = b.out ? Object.keys(b.out)[0] : null, outQ = outR ? objOut(id) : 0;
         const inc = outR ? (commodOpen(outR) ? outQ*commodPrice(outR) : 0) : objIncome(id);
-        const pay = inc > up ? Math.ceil(buildTotal(id)/(inc-up)) : 0;
+        const milOut = PLANT_CAP[id] !== undefined || id === "ammoplant" ? plantOne(id)*(1 + 0.5*tech("automation"))*milMult() : 0;
+        const resPct = b.cat === "res" ? 4/demandK() : 0;
         return `<div class="bcard ${chk.ok?"":"blocked"}">
           <div class="row"><b class="bname">${ic(BUILD_ICON[id],"lg")}${b.name}</b><span class="num muted">×${n}${queued(id)?` (+${queued(id)})`:""}</span></div>
           <small class="muted">${b.desc}</small>
           <div class="bstats">
             ${outR ? `<span>Выпуск <b class="num">+${fmtQ(outQ)}</b> ${COMMOD[outR].unit}/мес</span>` : ""}
-            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?4:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : b.use && b.use.power ? `<span>${ic("power","sm")} <b class="num down">−${b.use.power}</b> ед.</span>` : ""}
-            ${inc ? `<span>Доход${outR?" при продаже":""} <b class="up num">+${money(inc)}</b>/мес</span>` : b.cat==="res" ? `<span>Доход через экспорт ресурса</span>` : ""}
+            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?4:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : b.use && b.use.power ? `<span>${ic("power","sm")} <b class="num down">−${String(b.use.power).replace(".",",")}</b> ед.</span>` : ""}
+            ${!outR && inc ? `<span>Доход <b class="up num">+${money(inc)}</b>/мес</span>` : ""}
+            ${resPct ? `<span>${ic(id === "farm" ? "food" : id === "oil" ? "oil" : "metal","sm")} <b class="num up">+${resPct.toFixed(1).replace(".",",")}%</b> ${id === "farm" ? "продовольствия" : id === "oil" ? "топлива" : "руды"}</span>` : ""}
+            ${milOut ? `<span>Производит техники на <b class="num">${money(milOut)}</b>/мес</span>` : ""}
+            ${id === "goldmine" ? `<span>${pic("coins","sm")} <b class="num up">+${(3*Math.pow(0.93, buildN(id))*(1 + 0.25*(Math.max(1, tlv("gold"))-1))).toFixed(1).replace(".",",")}</b> монет/мес</span>` : ""}
+            ${id === "institute" ? `<span>${pic("rp","sm")} <b class="num up">+${(6*Math.pow(0.95, buildN(id))).toFixed(1).replace(".",",")}</b> ОИ/мес</span>` : ""}
             <span>Содержание <b class="down num">−${money(up)}</b>/мес</span>
-            ${pay ? `<span>Окупаемость <b class="num">~${pay} мес.</b></span>` : ""}
             <span>Срок <b class="num">${buildDays(id)} дн.</b></span>
             ${Object.keys(mat).length ? `<span class="mat">${Object.entries(mat).map(([r,q]) => `${ic(r,"sm")}<b class="num ${sh.miss[r]?"down":""}" title="${COMMOD[r].name}">${fmtQ(q)}</b>`).join(" ")}</span>` : ""}
           </div>
           ${b.scale ? `<div class="label">${buildN(id) ? `Объект № ${buildN(id)+1}: дороже первого на ${Math.round(b.scale*buildN(id)*100)}%, выпуск ${Math.round(Math.pow(b.decay,buildN(id))*100)}% от первого` : `Строить можно сколько угодно; каждый следующий дороже на ${Math.round(b.scale*100)}% и даёт на ${Math.round((1-b.decay)*100)}% меньше`}</div>` : ""}
           ${Object.keys(sh.miss).length ? (() => { const tr = Object.keys(sh.miss).map(r=>inTransit(r)).reduce((a,b)=>a+b,0); const est = Object.keys(sh.miss).reduce((a,r)=>{ const best = suppliers(r)[0]; return a + (best ? Math.max(0, Math.ceil(sh.miss[r]-inTransit(r)))*best.price : 0); }, 0); const dd = Math.max(0, ...Object.keys(sh.miss).map(r=>(suppliers(r)[0]||{days:0}).days)); return `<div class="row"><span class="label down">Материалов нет на складе${tr ? ` · в пути ${tr}` : ""}</span>${est > 0 ? `<button class="btn sm" data-act="ordermat" data-arg="${id}">Заказать · ${money(est)} · ~${dd} дн.</button>` : ""}</div>`; })() : ""}
-          ${n && inc ? `<div class="label">Все ${n} приносят: <span class="up num">+${money((outR ? objOutTotal(id)*commodPrice(outR) : n*inc) - objUpkeep(id)*n)}</span>/мес</div>` : ""}
+          ${n && outR ? `<div class="label">Все ${n} дают: <span class="up num">+${fmtQ(objOutTotal(id))} ${COMMOD[outR].unit}</span>/мес</div>` : n && inc ? `<div class="label">Все ${n} приносят: <span class="up num">+${money(n*inc)}</span>/мес</div>` : ""}
           <div class="row"><span class="label ${chk.ok?"":"down"}">${chk.ok?"Можно строить":chk.why}</span><button class="btn ${chk.ok?"primary":""}" data-act="build" data-arg="${id}" ${chk.ok?"":"disabled"}>${money(buildTotal(id))}</button></div>
         </div>`; }).join("")}</div>
     </div>
