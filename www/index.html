@@ -1442,6 +1442,20 @@ const MAT = {farm:{wood:5,steel:3}, oil:{wood:2,steel:9}, mine:{wood:6,steel:5},
   tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:30,steel:160}};
 const RAIL_MAT = {wood:80, steel:120};
 Object.entries(MAT).forEach(([k, m]) => { if (BUILDINGS[k]) BUILDINGS[k].mat = m; });
+/* recipes: share of material value by resource; materials make 55% of the full price, money pays for the work */
+const MAT_SHARE = 0.55;
+const RECIPE = {
+  res:{wood:0.3, steel:0.7}, mat:{wood:0.3, steel:0.7}, energy:{wood:0.15, steel:0.85}, ind:{wood:0.15, steel:0.85}, inf:{wood:0.25, steel:0.75},
+  mil:{wood:0.1, steel:0.8, rare:0.1}, sci:{wood:0.3, steel:0.7},
+  npp:{wood:0.1, steel:0.75, uran:0.15}, enrich:{wood:0.1, steel:0.75, uran:0.15}, chips:{wood:0.1, steel:0.6, rare:0.3}, aviaplant:{wood:0.1, steel:0.65, rare:0.25}, samplant:{wood:0.1, steel:0.65, rare:0.25}
+};
+const BASE_PRICE = {wood:0.000012, steel:0.00003, oil:0.00007, rare:0.0001, uran:0.0002};   // share of GDP per base unit (same as COMMOD.price)
+Object.entries(BUILDINGS).forEach(([id, b]) => {
+  const old = b.mat || {}, total = b.cost + Object.entries(old).reduce((a,[r,q]) => a + q*BASE_PRICE[r], 0);
+  const rec = RECIPE[id] || RECIPE[b.cat] || RECIPE.ind;
+  b.cost = total*(1 - MAT_SHARE);
+  b.mat = Object.fromEntries(Object.entries(rec).map(([r, sh]) => [r, Math.round(sh*MAT_SHARE*total/BASE_PRICE[r]*10)/10]));
+});
 // stock commodities; price = share of the player's GDP per unit, multiplied by a monthly market index
 const COMMOD = {
   wood:{name:"Древесина",gen:"древесины",unit:"тыс. т",price:0.000012,vol:0.03,lo:0.8,hi:1.25,steps:[0,10,25,50],reserve:150,buy:25},
@@ -1541,7 +1555,7 @@ const AMMO = {
 };
 /* world prices (bln $ per unit) and physical quantities in real units.
    Every country's volumes are scaled once at the start (S.uq) so that one tonne costs the same everywhere. */
-const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.075, rare:0.00005, uran:0.00033};   // $180/t, $700/t, $75/bbl, $50k/t REO, $330k/t U3O8
+const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.075, rare:0.0005, uran:0.00033};   // $180/t, $700/t, $75/bbl, $500k/t refined rare-earth metals, $330k/t U3O8
 function U(r){ return (S && S.uq && S.uq[r]) || 1; }
 function niceQ(v){ if (v >= 1000) return Math.round(v/10)*10; if (v >= 100) return Math.round(v); if (v >= 10) return Math.round(v*10)/10; if (v >= 1) return Math.round(v*100)/100; return Math.round(v*1000)/1000; }
 function fmtQ(v){ const a = Math.abs(v); return (a >= 100 ? Math.floor(v).toLocaleString("ru-RU") : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(".", ","); }
@@ -1550,7 +1564,7 @@ Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st
   Object.defineProperty(d, "buy", {get: () => buy ? niceQ(buy*U(r)) : buy});
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
 Object.values(BUILDINGS).forEach(b => {
-  const m = b.mat; if (m) Object.defineProperty(b, "mat", {get: () => ({wood: niceQ((m.wood||0)*U("wood")), steel: niceQ((m.steel||0)*U("steel"))}), set(){}, configurable:true});
+  const m = b.mat; if (m) Object.defineProperty(b, "mat", {get: () => Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*U(r))])), set(){}, configurable:true});
   const o = b.out; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v*U(r)])), set(){}, configurable:true}); });
 { const R0 = {wood:RAIL_MAT.wood, steel:RAIL_MAT.steel}; ["wood","steel"].forEach(r => Object.defineProperty(RAIL_MAT, r, {get: () => niceQ(R0[r]*U(r))})); }
 Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*U("steel")}); });
@@ -1657,20 +1671,26 @@ function armsExportIncome(){
   if (!armsBuyers().length) return 0;
   return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && S.prodExport[pid] && objCount(pid) ? plantCap(pid)*0.9*(1 + 0.5*tech("armsexport")) : 0), 0);
 }
+const RARE_KINDS = new Set(["shorad","mrsam","lrsam","ew","srbm","drone","loiter","fighter"]);
+function unitRare(m){ const sh = (RARE_KINDS.has(m.kind) ? 0.08 : 0) + (m.gen >= 3 ? 0.06 : 0); return sh ? m.price*sh/COMMOD_WORLD.rare : 0; }
+const AMMO_RARE = {atgm:0.08, sam:0.1, missile:0.08};
+function ammoRare(k){ return AMMO_RARE[k] ? AMMO[k].price*AMMO_RARE[k]/COMMOD_WORLD.rare : 0; }
 function militaryProduction(){
   Object.keys(PLANT_CAP).forEach(pid => {
     const id = S.prod[pid]; if (!id || !objCount(pid)) return;
-    if (id.startsWith("ammo:")){ const t = id.slice(5); if (t === "missile" && !tlv("am_missile")) return; const q = Math.floor(plantCap(pid)/AMMO[t].price); if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.ammo[t] = (S.ammo[t]||0) + q; return; }
+    if (id.startsWith("ammo:")){ const t = id.slice(5); if (t === "missile" && !tlv("am_missile")) return; const q = Math.floor(plantCap(pid)/AMMO[t].price); if ((S.stock.rare||0) < q*ammoRare(t)){ addLog(`${BUILDINGS[pid].name}: не хватает редкоземельных металлов для боеприпасов.`); return; } if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.stock.rare = (S.stock.rare||0) - q*ammoRare(t); S.ammo[t] = (S.ammo[t]||0) + q; return; }
     const m = MODELS[id]; if (!m || !canProduceModel(id).ok) return;
     S.prodAcc[pid] = (S.prodAcc[pid]||0) + plantCap(pid);
     let made = 0;
     while (S.prodAcc[pid] >= m.price){
       if (S.stock.steel < KINDS[m.kind].steel){ addLog(`${BUILDINGS[pid].name}: выпуск остановлен — не хватает стали.`); S.prodAcc[pid] = Math.min(S.prodAcc[pid], m.price); break; }
-      S.stock.steel -= KINDS[m.kind].steel; S.prodAcc[pid] -= m.price; made++;
+      if ((S.stock.rare||0) < unitRare(m)){ addLog(`${BUILDINGS[pid].name}: выпуск остановлен — не хватает редкоземельных металлов.`); S.prodAcc[pid] = Math.min(S.prodAcc[pid], m.price); break; }
+      S.stock.steel -= KINDS[m.kind].steel; S.stock.rare = (S.stock.rare||0) - unitRare(m); S.prodAcc[pid] -= m.price; made++;
     }
     if (made && !(S.prodExport[pid] && armsBuyers().length)){ S.units[id] = (S.units[id]||0) + made; }
   });
   if (objCount("ammoplant")){ const o = ammoPlantOut(); const steel = Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].steel, 0);
+    if ((S.stock.rare||0) < o.atgm*ammoRare("atgm")){ addLog("Завод боеприпасов: ПТУР не выпущены — не хватает редкоземельных металлов."); o.atgm = 0; } else S.stock.rare = (S.stock.rare||0) - o.atgm*ammoRare("atgm");
     if (S.stock.steel >= steel){ S.stock.steel -= steel; Object.entries(o).forEach(([k,q]) => S.ammo[k] = (S.ammo[k]||0) + q); } else addLog("Завод боеприпасов простаивает: не хватает стали."); }
 }
 
@@ -1772,6 +1792,13 @@ function warDay(w){
     }
   }
   if (w.blockade !== w.lastBlock){ if (w.blockade === 1) warEvent(w, `Наш флот блокировал побережье: экспорт и импорт ${e.name} остановлены.`, "good"); else if (w.blockade === -1) warEvent(w, "Флот противника блокирует наши порты: торговля страдает.", "bad"); w.lastBlock = w.blockade; }
+  // fuel: the army burns oil every day; shortfall is bought on the market, without fuel the army fights worse
+  { const need = armyUpkeepMonthly()/30*0.08*share/COMMOD_WORLD.oil, have = S.stock.oil||0;
+    if (have >= need){ S.stock.oil = have - need; w.fuel = 1; }
+    else { const lack = need - have, cost = lack*importPrice("oil"); S.stock.oil = 0;
+      if (!Object.values(C()).some(x => x.sanctionsUs) && S.treasury > cost){ S.treasury -= cost; w.fuel = 1; w.fuelBought = (w.fuelBought||0) + cost; }
+      else { if (w.fuel !== 0) warEvent(w, "Кончилось топливо: техника встаёт, армия воюет вполсилы.", "bad"); w.fuel = 0; } } }
+  if (w.fuel === 0) w.progress = clamp(w.progress - 0.3, -100, 100);
   // 4. losses
   const rM = 0.0036*(atkT/(atkT + defM))*Mm.loss, rT = 0.0036*(atkM/(atkM + defT))*(w.aiMode === "attack" ? 1 : 0.7);
   const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
@@ -1908,6 +1935,7 @@ function viewHQ(){
     ${w.far ? `<div class="row"><small>${w.carriers ? `Далёкая война: авианосцы (${w.carriers}) дают авиации аэродромы рядом с фронтом` : `<span class="down">Далёкая война: авианосцев не осталось, авиация работает на 45%</span>`}</small></div>` : ""}
     ${w.sea ? `<div class="row"><small>Удары с моря крылатыми ракетами</small><small class="up num">+${w.sea.toFixed(2).replace(".",",")}% в день</small></div>` : ""}
     ${w.blockade ? `<div class="row"><small>${w.blockade > 0 ? `<span class="up">Морская блокада противника: его экономика сжимается</span>` : `<span class="down">Флот противника блокирует наши порты</span>`}</small></div>` : ""}
+    <div class="row"><small>Топливо: ${w.fuel === 0 ? `<span class="down">нет — армия воюет вполсилы</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}</small></div>
     ${airliftCap() ? `<div class="row"><small>Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны</small></div>` : ""}
   </div>
   <div class="grid2" style="margin-top:12px">
@@ -2513,7 +2541,7 @@ function selfSuff(r){
   const c = me(); let v = c.prof[r]*100 + S.annexBonus[r];
   const b = RES.find(x=>x.id===r).build; v += S.buildings[b]*4;
   Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*S.buildings[id]; });
-  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + objCount("npp")*(12 + 2*tlv("nuc_reactor")); }
+  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + (S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor"))); }
   if (r==="food") v += 20*tech("agro");
   if (r==="oil" || r==="metal") v += 20*tech("deep");
   v *= 1 + lawSum("res");
@@ -2532,7 +2560,8 @@ function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().
 function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(b.days*2.5, b.days + (b.dscale||0)*buildN(type)) * (1 + lawSum("build"))); }
 function matShort(mat){ let cost = 0; const miss = {}; for (const r in mat){ const lack = Math.max(0, mat[r] - S.stock[r]); if (lack > 0){ miss[r] = lack; cost += lack*importPrice(r); } } return {miss, cost}; }
 function takeMat(mat){ for (const r in mat) S.stock[r] = Math.max(0, S.stock[r] - mat[r]); }
-function buildTotal(type){ return buildCost(type); }
+function matValue(mat){ return Object.entries(mat||{}).reduce((a,[r,q]) => a + q*commodPrice(r), 0); }
+function buildTotal(type){ return buildCost(type) + matValue(BUILDINGS[type].mat); }
 
 
 /* ---------- Map data: capitals (lat, lon), oil of minor countries ---------- */
@@ -2667,8 +2696,8 @@ function commodProjection(){
   return rev;
 }
 function minorTradeIncome(){ return Object.entries(S.partners).filter(([iso,p])=>p.trade && !C()[iso]).reduce((a,[iso]) => a + Math.min(me().gdp/12*0.0006, partnerGdp(iso)/12*0.004), 0); }
-const IMPORTABLE = ["wood","steel"];
-function supplyProf(iso, r){ const x = C()[iso]; if (x) return r==="wood" ? woodProf(iso) : x.prof.metal; return 0.6 + (hashIso(iso+"s"+r) % 100)/100; }
+const IMPORTABLE = ["wood","steel","oil","rare","uran"];
+function supplyProf(iso, r){ if (r === "rare") return rareProf(iso); if (r === "uran") return uranProf(iso); if (r === "oil") return resProfile(iso, "oil"); const x = C()[iso]; if (x) return r==="wood" ? woodProf(iso) : x.prof.metal; return 0.6 + (hashIso(iso+"s"+r) % 100)/100; }
 function sells(iso, r){ return IMPORTABLE.includes(r) && supplyProf(iso, r) >= 0.9; }
 function travelDays(iso){ const a = LABELS && LABELS[S.player], b = LABELS && LABELS[iso]; if (!a || !b) return 30; return Math.round(clamp(6 + Math.hypot(a.x-b.x, a.y-b.y)*0.12, 6, 75)); }
 // buying is always dearer than selling on the exchange, so goods cannot be flipped for profit
@@ -2862,9 +2891,19 @@ function canReach(c){ return nearReach(c) || (unitsOf(["carrier"]) > 0 && hasCoa
 function controlled(){ return Object.values(C()).filter(c=>c.owner==="player"); }
 
 /* ---------- Turn ---------- */
+function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*BUILDINGS.npp.cost*me().gdp*0.002/COMMOD_WORLD.uran; }
+function uranTurn(){
+  const need = uranMonthly(); if (!need){ S.uranOk = true; return; }
+  const have = S.stock.uran||0;
+  if (have >= need){ S.stock.uran = have - need; S.uranOk = true; return; }
+  const lack = need - have, cost = lack*importPrice("uran"); S.stock.uran = 0;
+  if (!Object.values(C()).some(x => x.sanctionsUs) && S.treasury > cost){ S.treasury -= cost; S.uranOk = true; addLog(`Уран для АЭС куплен на рынке: ${money(cost)}.`); }
+  else { if (S.uranOk !== false) advise("econ", "Урана нет: атомные станции остановлены, энергии не хватает.", {mood:"alert", tab:"economy"}); S.uranOk = false; }
+}
 function nextMonth(){
   if (S.pendingEvent || S.over) return;
   const c = me();
+  uranTurn();
   const cm = coinsMonthly(); if (cm > 0){ S.coins = (S.coins||0) + cm; }
   const before = {treasury:S.treasury, gdp:c.gdp, approval:S.approval, stability:S.stability};
   const startLog = S.log.length;
@@ -3930,7 +3969,7 @@ function powerSupply(){
   const t = objCount("power")*4; if (t) out.push(["tpp","Тепловые электростанции ×"+objCount("power"), t]);
   const h = objCount("hydro")*8; if (h) out.push(["hpp","ГЭС ×"+objCount("hydro"), h]);
   const s = objCount("solar")*2*(1 + 0.05*minEff("ecology")); if (s) out.push(["solar","Солнце и ветер ×"+objCount("solar"), s]);
-  const n = objCount("npp")*(12 + 2*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
+  const n = S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
   const bonus = (lawOn("green") ? 15 : 0) + 10*tech("smartgrid") + 40*tech("fusion") + 1.5*minDelta("energy") + modSum("power");
   if (Math.abs(bonus) > 0.05) out.push(["bonus","Технологии, законы, Минэнерго", bonus]);
   return out;
@@ -4364,15 +4403,19 @@ function facCanStart(id){
   const mn = id === "renov" ? "housing" : FAC[id].cat;
   if (MIN_BY[mn] && minLvl(mn) === 0) return {ok:false, why:"ведомство не финансируется"};
   const cost = facProgCost(id); if (S.treasury < cost) return {ok:false, why:"не хватает денег"};
+  { const sh = matShort(facProgMat(id)); if (Object.keys(sh.miss).length) return {ok:false, mat:true, why:"не хватает: " + Object.entries(sh.miss).map(([k,q])=>`${COMMOD[k].name.toLowerCase()} ${fmtQ(q)}`).join(", ")}; }
   return {ok:true};
 }
 function facProgN(id){ return id === "renov" ? Math.max(1, Math.min(Math.ceil(S.facBad||0), Math.round(facCount("house")*0.03))) : facBatch(id); }
-function facProgCost(id){ return id === "renov" ? facProgN(id)*facUnitCost("house")*0.8 : facProgN(id)*facUnitCost(id); }
+function facProgFull(id){ return id === "renov" ? facProgN(id)*facUnitCost("house")*0.8 : facProgN(id)*facUnitCost(id); }
+function facProgCost(id){ return facProgFull(id)*(1 - MAT_SHARE); }
+function facProgMat(id){ const rec = id !== "renov" && FAC[id].mil ? {wood:0.3, steel:0.7} : {wood:0.6, steel:0.4}, v = facProgFull(id)*MAT_SHARE;
+  return Object.fromEntries(Object.entries(rec).map(([r, sh]) => [r, niceQ(sh*v/COMMOD[r].world)])); }
 function facProgDays(id){ return id === "renov" ? 120 : FAC[id].days; }
 function startProg(id){
   const chk = facCanStart(id); if (!chk.ok) return toast(chk.why);
   const n = facProgN(id), cost = facProgCost(id), d = facProgDays(id);
-  S.treasury -= cost; S.progs.push({id, n, left:d, total:d});
+  S.treasury -= cost; takeMat(facProgMat(id)); S.progs.push({id, n, left:d, total:d});
   addLog(id === "renov" ? `Запущена программа расселения: ${n.toLocaleString("ru-RU")} аварийных домов, ${money(cost)}.` : `Запущена госпрограмма: ${FAC[id].name.toLowerCase()} +${n.toLocaleString("ru-RU")}, ${money(cost)}.`);
   sfx("success"); save(); render();
 }
@@ -4469,7 +4512,7 @@ function facCard(id){
       ${F.mil && cov !== null ? `<small class="muted">${F.desc}</small>` : ""}
       <small>${facEffectText(id)}</small>
       ${prog ? `<div class="f-prog"><div class="bar"><i style="width:${((1 - prog.left/prog.total)*100).toFixed(1)}%"></i></div><small class="muted">+${fmtN(prog.n)} · ещё ${Math.ceil(prog.left)} дн.</small></div>`
-        : `<button class="btn ${chk.ok ? "primary" : ""} sm" data-prog="${id}" ${chk.ok ? "" : "disabled"} title="${chk.ok ? "" : chk.why}">+${fmtN(facProgN(id))} · ${money(facProgCost(id))} · ${facProgDays(id)} дн.</button>${chk.ok ? "" : `<small class="down">${chk.why}</small>`}`}
+        : `<button class="btn ${chk.ok ? "primary" : ""} sm" data-prog="${id}" ${chk.ok ? "" : "disabled"} title="${chk.ok ? "" : chk.why}">+${fmtN(facProgN(id))} · ${money(facProgCost(id))} · ${Object.entries(facProgMat(id)).map(([r,q]) => `${ic(r,"sm")}${fmtQ(q)}`).join(" ")} · ${facProgDays(id)} дн.</button>${chk.ok ? "" : `<small class="down">${chk.why}</small>`}`}
     </div></div>`;
 }
 function viewFacilities(){
@@ -4579,7 +4622,7 @@ function viewBuildObj(){
             <span>Содержание <b class="down num">−${money(up)}</b>/мес</span>
             ${pay ? `<span>Окупаемость <b class="num">~${pay} мес.</b></span>` : ""}
             <span>Срок <b class="num">${buildDays(id)} дн.</b></span>
-            ${mat.wood||mat.steel ? `<span class="mat">${ic("wood","sm")}<b class="num ${sh.miss.wood?"down":""}">${fmtQ(mat.wood||0)}</b> ${ic("steel","sm")}<b class="num ${sh.miss.steel?"down":""}">${fmtQ(mat.steel||0)}</b></span>` : ""}
+            ${Object.keys(mat).length ? `<span class="mat">${Object.entries(mat).map(([r,q]) => `${ic(r,"sm")}<b class="num ${sh.miss[r]?"down":""}" title="${COMMOD[r].name}">${fmtQ(q)}</b>`).join(" ")}</span>` : ""}
           </div>
           ${b.scale ? `<div class="label">${buildN(id) ? `Объект № ${buildN(id)+1}: дороже первого на ${Math.round(b.scale*buildN(id)*100)}%, выпуск ${Math.round(Math.pow(b.decay,buildN(id))*100)}% от первого` : `Строить можно сколько угодно; каждый следующий дороже на ${Math.round(b.scale*100)}% и даёт на ${Math.round((1-b.decay)*100)}% меньше`}</div>` : ""}
           ${Object.keys(sh.miss).length ? (() => { const tr = Object.keys(sh.miss).map(r=>inTransit(r)).reduce((a,b)=>a+b,0); const est = Object.keys(sh.miss).reduce((a,r)=>{ const best = suppliers(r)[0]; return a + (best ? Math.max(0, Math.ceil(sh.miss[r]-inTransit(r)))*best.price : 0); }, 0); const dd = Math.max(0, ...Object.keys(sh.miss).map(r=>(suppliers(r)[0]||{days:0}).days)); return `<div class="row"><span class="label down">Материалов нет на складе${tr ? ` · в пути ${tr}` : ""}</span>${est > 0 ? `<button class="btn sm" data-act="ordermat" data-arg="${id}">Заказать · ${money(est)} · ~${dd} дн.</button>` : ""}</div>`; })() : ""}
