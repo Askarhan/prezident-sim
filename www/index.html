@@ -1411,7 +1411,9 @@ const BUILDINGS = {
   sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу",out:{wood:20},scale:0.2,dscale:6,decay:0.96},
   steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь; при нехватке руды — вдвое меньше",out:{steel:15},scale:0.2,dscale:8,decay:0.96,use:{power:2}},
   oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:6},scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
-  goldmine:{cat:"mat",name:"Золотой прииск",days:150,cost:0.007,desc:"золото на продажу; выход зависит от месторождений",out:{gold:2},scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
+  raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
+  uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
+  goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
   factory:{cat:"ind",name:"Машиностроительный завод",days:180,cost:0.006,roi:0.03,desc:"рост ВВП +0,3% в год",use:{power:8,metal:5}},
   chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,roi:0.032,desc:"нужна нефть от 80%",use:{power:6,oil:6},req:{res:{oil:80}}},
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,roi:0.035,desc:"нужна «Автоматизация»",use:{power:6,metal:8},req:{tech:"automation"}},
@@ -1434,7 +1436,7 @@ const BUILDINGS = {
 const BUILD_CATS = [["energy","Энергетика"],["mat","Сырьё и материалы"],["sci","Наука и атом"],["res","Ресурсы"],["ind","Промышленность"],["inf","Инфраструктура"],["mil","Военные заводы"]];
 // construction materials per object (thousand tonnes)
 const MAT = {farm:{wood:5,steel:3}, oil:{wood:2,steel:9}, mine:{wood:6,steel:5}, power:{wood:3,steel:12}, hydro:{wood:9,steel:36}, solar:{wood:2,steel:8},
-  sawmill:{wood:0,steel:5}, steelworks:{wood:15,steel:10}, oilrig:{wood:5,steel:30}, goldmine:{wood:20,steel:20},
+  sawmill:{wood:0,steel:5}, steelworks:{wood:15,steel:10}, oilrig:{wood:5,steel:30}, goldmine:{wood:20,steel:20}, raremine:{wood:10,steel:35}, uranmine:{wood:10,steel:40},
   factory:{wood:20,steel:50}, chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
   tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:30,steel:160}};
@@ -1445,8 +1447,14 @@ const COMMOD = {
   wood:{name:"Древесина",gen:"древесины",unit:"тыс. т",price:0.000012,vol:0.03,lo:0.8,hi:1.25,steps:[0,10,25,50],reserve:150,buy:25},
   steel:{name:"Сталь",gen:"стали",unit:"тыс. т",price:0.00003,vol:0.035,lo:0.8,hi:1.3,steps:[0,5,15,30],reserve:120,buy:20},
   oil:{name:"Нефть",gen:"нефти",unit:"млн барр.",price:0.00007,vol:0.07,lo:0.6,hi:1.6,steps:[0,5,15,30],reserve:0,tech:"geo"},
-  gold:{name:"Золото",gen:"золота",unit:"т",price:0.00025,vol:0.035,lo:0.85,hi:1.5,steps:[0,1,2,5],reserve:0,tech:"gold"}
+  rare:{name:"Редкоземельные металлы",gen:"РЗМ",unit:"т",price:0.0001,vol:0.05,lo:0.7,hi:1.6,steps:[0,1,3,6],reserve:0,tech:"rareearth"},
+  uran:{name:"Уран",gen:"урана",unit:"т",price:0.0002,vol:0.04,lo:0.8,hi:1.5,steps:[0,1,2,4],reserve:0,tech:"uranium"}
 };
+/* rare earths and uranium deposits (1 = average producer) */
+const RARE_PROF = {cn:2,us:0.8,au:1.2,mm:1,ru:0.8,in:0.6,br:0.6,vn:0.8,kg:1,kz:0.8,th:0.4,mg:0.6,za:0.5,ca:0.5,gl:1,mn:0.5,la:0.4,my:0.4};
+const URAN_PROF = {kz:2,ca:1.6,au:1.4,uz:1.2,ru:1,ne:1.2,na:1.2,cn:0.6,us:0.5,ua:0.6,za:0.5,in:0.4,ir:0.3,mn:0.5,kg:0.3,br:0.3,cz:0.2,ml:0.3};
+function rareProf(id){ return RARE_PROF[id] ?? 0.1; }
+function uranProf(id){ return URAN_PROF[id] ?? 0.05; }
 const WOOD_PROF = {ru:2,ca:2,br:1.8,us:1.3,id:1.4,cn:1,by:1.4,de:1,fr:1,pl:1.2,vn:1,ar:0.9,au:0.9,mx:0.9,ng:0.9,kz:0.5,kg:0.5,uz:0.3,az:0.5,sa:0.1,eg:0.1,ir:0.4,tr:0.8,gb:0.6,it:0.7,es:0.8,in:0.9,jp:1.1,kr:0.7,pk:0.3,za:0.6,
   se:1.8,fi:1.9,no:1.2,ee:1.5,lv:1.6,lt:1.3,cd:1.5,cg:1.4,ga:1.5,cm:1.2,pg:1.4,my:1.3,mm:1.2,pe:1.2,co:1.2,bo:1.1,ve:1.1,gy:1.5,sr:1.5,nz:1.3,cl:1.3,ua:0.9};
 const GOLD_PROF = {ru:1.5,kz:1.2,kg:2,uz:2,cn:1.4,au:1.8,za:1.5,ca:1.2,us:1,br:0.8,mx:1,id:1,ar:0.6,tr:0.6,ir:0.4,in:0.3,sa:0.3,eg:0.5,pk:0.3,
@@ -1533,7 +1541,7 @@ const AMMO = {
 };
 /* world prices (bln $ per unit) and physical quantities in real units.
    Every country's volumes are scaled once at the start (S.uq) so that one tonne costs the same everywhere. */
-const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.075, gold:0.09};   // $180/t, $700/t, $75/bbl, $90 mln/t
+const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.075, rare:0.00005, uran:0.00033};   // $180/t, $700/t, $75/bbl, $50k/t REO, $330k/t U3O8
 function U(r){ return (S && S.uq && S.uq[r]) || 1; }
 function niceQ(v){ if (v >= 1000) return Math.round(v/10)*10; if (v >= 100) return Math.round(v); if (v >= 10) return Math.round(v*10)/10; if (v >= 1) return Math.round(v*100)/100; return Math.round(v*1000)/1000; }
 function fmtQ(v){ const a = Math.abs(v); return (a >= 100 ? Math.floor(v).toLocaleString("ru-RU") : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(".", ","); }
@@ -2156,7 +2164,9 @@ const TECH = [
   {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — самолёты и корабли 2–3 поколения",v:0},
   {id:"armsexport",br:"mil",tier:4,max:5,cost:360,days:260,name:"Экспорт вооружений",fx:"доход от экспорта техники +#%",v:50},
   {id:"geo",br:"geo",tier:1,max:5,cost:60,days:90,name:"Геологоразведка",fx:"открывает нефть; базовая добыча нефти ×#",v:1,lin:true},
-  {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"открывает золото; базовая добыча золота ×#",v:1,lin:true},
+  {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"золотые шахты: золотые монеты ×#",v:1,lin:true},
+  {id:"rareearth",br:"geo",tier:2,max:3,cost:140,days:150,name:"Добыча РЗМ",fx:"рудники редкоземельных металлов; добыча ×#",v:1,lin:true},
+  {id:"uranium",br:"geo",tier:3,max:3,cost:180,days:170,name:"Добыча урана",fx:"урановые рудники; добыча ×#",v:1,lin:true},
   {id:"refining",br:"geo",tier:3,max:5,cost:200,days:190,name:"Нефтепереработка",fx:"нефть дороже на #%",v:35},
   {id:"exchange",br:"geo",tier:4,max:5,cost:320,days:250,name:"Сырьевая биржа",fx:"всё сырьё дороже на #%",v:15},
   // ammunition & missiles: each level unlocks a stronger type
@@ -2196,7 +2206,7 @@ function fxText(t, lv){
   const val = v => t.lin ? v*lv : v*TECH_EFF[lv];
   let s = t.fx;
   if (Array.isArray(t.v)) s = s.replace("#1", f(val(t.v[0]))).replace("#2", f(val(t.v[1])));
-  else if (t.id === "geo" || t.id === "gold") s = s.replace("#", f(1 + 0.25*(lv-1)));
+  else if (t.id === "geo" || t.id === "gold" || t.id === "rareearth" || t.id === "uranium") s = s.replace("#", f(1 + 0.25*(lv-1)));
   else s = s.replace("#", f(val(t.v)));
   if (t.tiers) s = `${t.tiers[lv]} · ${s}`;
   return s;
@@ -2347,7 +2357,7 @@ const SPEED_MS = {1:15000, 2:5000, 3:2000}; // ms per in-game day: 4 / 12 / 30 d
 
 /* ---------- Helpers ---------- */
 const COLOR_IC = new Set(["ship","drone","ammo","wood", "steel", "oil", "gold", "food", "power", "metal", "factory", "bridge", "road", "metro", "plane", "port", "tank", "heli", "jet", "sam", "budget", "gdp", "approval", "stability", "balance", "debt", "build", "economy", "trade", "politics", "army", "science", "intel", "diplomacy", "summary", "trophy", "alert", "rail", "map"]);
-const PIC = {budget:"money_big", money:"money", steel:"steel", wood:"wood", oil:"oil", gold:"gold", trophy:"trophy", power:"power", stability:"stability", gdp:"economy", approval:"trust", science:"rp", flask:"rp", rp:"rp", calendar:"calendar", intel:"agents", diplomacy:"handshake", factory:"industry", population:"population", food:"food", ore:"ore", milpower:"milpower",
+const PIC = {coins:"coins", rare:"ore", uran:"power", budget:"money_big", money:"money", steel:"steel", wood:"wood", oil:"oil", gold:"gold", trophy:"trophy", power:"power", stability:"stability", gdp:"economy", approval:"trust", science:"rp", flask:"rp", rp:"rp", calendar:"calendar", intel:"agents", diplomacy:"handshake", factory:"industry", population:"population", food:"food", ore:"ore", milpower:"milpower",
   cls_ground:"cls_ground", cls_air:"cls_air", cls_ad:"cls_ad", cls_navy:"cls_navy", cls_ammo:"cls_ammo", cls_bases:"cls_bases", cls_prod:"cls_prod"};
 const pic = (name, cls="") => `<img class="pic ${cls}" src="icons/${PIC[name] || name}.webp" alt="" aria-hidden="true" draggable="false">`;
 const ic = (name, cls="") => PIC[name] ? pic(name, cls) : COLOR_IC.has(name) ? `<svg class="ci ${cls}" aria-hidden="true"><use href="#c-${name}"/></svg>` : `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
@@ -2412,11 +2422,19 @@ function migrate(s){
   if (!s.rails) s.rails = {};
   if (!s.armsExport) s.armsExport = {};
   if (!s.buildCat) s.buildCat = "ind";
-  if (!s.stock) s.stock = {wood:150, steel:120, oil:0, gold:0};
-  if (!s.market) s.market = {wood:1, steel:1, oil:1, gold:1};
-  if (!s.mhist) s.mhist = {wood:[1], steel:[1], oil:[1], gold:[1]};
+  if (!s.stock) s.stock = {wood:150, steel:120, oil:0, rare:0, uran:0};
+  if (!s.market) s.market = {wood:1, steel:1, oil:1, rare:1, uran:1};
+  if (!s.mhist) s.mhist = {wood:[1], steel:[1], oil:[1], rare:[1], uran:[1]};
   if (!s.contracts) s.contracts = {};
-  if (!s.autoSell) s.autoSell = {wood:false, steel:false, oil:true, gold:true};
+  if (!s.autoSell) s.autoSell = {wood:false, steel:false, oil:true, rare:false, uran:false};
+  if (s.coins === undefined){ s.coins = 0;
+    if (s.stock && s.stock.gold > 0) s.coins += 5;
+    ["stock","market","mhist","autoSell"].forEach(k => { if (s[k]) delete s[k].gold; });
+    [s.contracts, s.imports].forEach(o => Object.keys(o||{}).forEach(k => { if (k.endsWith(":gold")) delete o[k]; }));
+    if (s.shipments) s.shipments = s.shipments.filter(x => x.r !== "gold");
+    if (s.uq) delete s.uq.gold; }
+  ["rare","uran"].forEach(r => { if (s.stock && s.stock[r] === undefined) s.stock[r] = 0; if (s.market && s.market[r] === undefined) s.market[r] = 1; if (s.mhist && !s.mhist[r]) s.mhist[r] = [1]; if (s.autoSell && s.autoSell[r] === undefined) s.autoSell[r] = false;
+    if (s.uq && s.uq[r] === undefined && s.countries) s.uq[r] = (s.gdp0 || s.countries[s.player].gdp)*COMMOD[r].price/COMMOD_WORLD[r]; });
   if (!s.partners) s.partners = {};
   if (!s.shipments) s.shipments = [];
   if (!s.imports) s.imports = {};
@@ -2534,12 +2552,13 @@ function proj(lat, lon){
 function resProfile(iso, r){
   const x = C()[iso];
   if (r === "oil") return x ? x.prof.oil : (MINOR_OIL[iso] ?? 0.2);
-  if (r === "gold") return goldProf(iso);
+  if (r === "rare") return rareProf(iso);
+  if (r === "uran") return uranProf(iso);
   if (r === "wood") return x ? woodProf(iso) : (WOOD_PROF[iso] ?? supplyProf(iso, "wood"));
   return x ? x.prof.metal : supplyProf(iso, "steel");
 }
 const hexMix = (a, b, t) => { const pa = a.match(/\w\w/g).map(h=>parseInt(h,16)), pb = b.match(/\w\w/g).map(h=>parseInt(h,16)); return "#" + pa.map((v,i)=>Math.round(v + (pb[i]-v)*t).toString(16).padStart(2,"0")).join(""); };
-const RES_COLOR = {oil:"#F2A93B", wood:"#5FD38D", steel:"#8FB8E8", gold:"#F7D54A"};
+const RES_COLOR = {oil:"#F2A93B", wood:"#5FD38D", steel:"#8FB8E8", rare:"#C77DFF", uran:"#7CE38B"};
 function modeFill(iso){
   const mode = ui.mapMode || "pol"; if (mode === "pol" || iso === S.player) return null;
   const x = C()[iso]; if (x && x.owner) return null;
@@ -2581,7 +2600,8 @@ function outMult(r){
   if (r==="wood") return Math.max(0.5, woodProf(S.player));
   if (r==="steel") return selfSuff("metal") < 60 ? 0.5 : 1;
   if (r==="oil") return Math.max(0.2, me().prof.oil);
-  if (r==="gold") return Math.max(0.2, goldProf(S.player));
+  if (r==="rare") return Math.max(0.1, rareProf(S.player))*(1 + 0.25*(tlv("rareearth")-1));
+  if (r==="uran") return Math.max(0.05, uranProf(S.player))*(1 + 0.25*(tlv("uranium")-1));
   return 1;
 }
 function baseOut(r){ return baseOut0(r)*U(r); }
@@ -2591,9 +2611,12 @@ function baseOut0(r){
   if (r==="wood") return 10*woodProf(S.player);
   if (r==="steel") return 8*c.prof.metal*(selfSuff("metal") < 60 ? 0.5 : 1);
   if (r==="oil") return 4*c.prof.oil*(1 + 0.25*(tlv("geo")-1));
-  return 0.8*goldProf(S.player)*(1 + 0.25*(tlv("gold")-1));
+  if (r==="rare") return 0.5*rareProf(S.player);
+  if (r==="uran") return 0.4*uranProf(S.player);
+  return 0;
 }
 // each next producer yields a bit less (deposits deplete): k-th object gives out * decay^k
+function coinsMonthly(){ const n = objCount("goldmine"); return n ? 3*(1 - Math.pow(0.93, n))/(1 - 0.93)*(1 + 0.25*(Math.max(1, tlv("gold"))-1)) : 0; }
 function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0]; return b.out[r]*outMult(r)*Math.pow(b.decay||1, buildN(id)); }
 function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1; return b.out[r]*outMult(r)*(d < 1 ? (1 - Math.pow(d, n))/(1 - d) : n); }
 function prodOf(r){ let v = baseOut(r); Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.out && b.out[r]) v += objOutTotal(id); }); return v*(1 + lawSum("res")); }
@@ -2611,7 +2634,7 @@ function relOf(iso){ const x = C()[iso]; return x ? x.rel : partner(iso).rel; }
 function tradeOn(iso){ const x = C()[iso]; return x ? x.trade : partner(iso).trade; }
 function demandPrem(iso, r){
   const x = C()[iso], g = partnerGdp(iso);
-  if (r==="gold") return g >= 1000 ? 0.15 : g >= 200 ? 0.08 : 0.03;
+  if (r==="rare" || r==="uran") return g >= 1000 ? 0.15 : g >= 200 ? 0.08 : 0.03;
   if (x){ const prof = r==="wood" ? woodProf(iso) : r==="steel" ? x.prof.metal : x.prof.oil; return clamp((1-prof)*0.3, -0.15, 0.35); }
   return ((hashIso(iso+r) % 40) - 8) / 100;
 }
@@ -2842,6 +2865,7 @@ function controlled(){ return Object.values(C()).filter(c=>c.owner==="player"); 
 function nextMonth(){
   if (S.pendingEvent || S.over) return;
   const c = me();
+  const cm = coinsMonthly(); if (cm > 0){ S.coins = (S.coins||0) + cm; }
   const before = {treasury:S.treasury, gdp:c.gdp, approval:S.approval, stability:S.stability};
   const startLog = S.log.length;
 
@@ -3357,7 +3381,7 @@ function advisorsTurn(){
   if (b.net < 0) advise("econ", `Господин президент, бюджет уходит в минус: ${money(b.net)} в месяц. Поднимите налоги или урежьте расходы.`, {tab:"economy", mood:"alert", key:"deficit", cd:4});
   else if (S.treasury > c.gdp*0.06 && S.queue.length < maxSlots()) advise("econ", `В казне ${money(S.treasury)}, а стройплощадки простаивают. Деньги должны работать.`, {tab:"build", key:"idlecash", cd:6});
   if (S.debt > c.gdp*0.9) advise("econ", `Госдолг уже ${pct(S.debt/c.gdp*100)} ВВП. Ещё немного — и кредиторы перестанут нам верить.`, {tab:"economy", mood:"alert", key:"debt", cd:6});
-  ["oil","gold"].forEach(r => { const h = S.mhist[r]; if (h.length > 1 && commodOpen(r) && S.stock[r] > 1 && h[h.length-1]/h[h.length-2] > 1.08) advise("econ", `${COMMOD[r].name} подорожала на ${pct((h[h.length-1]/h[h.length-2]-1)*100)}. На складе ${Math.floor(S.stock[r])} ${COMMOD[r].unit} — самое время продать.`, {tab:"trade", key:"price-"+r, cd:3}); });
+  ["oil","rare","uran"].forEach(r => { const h = S.mhist[r]; if (!h) return; if (h.length > 1 && commodOpen(r) && S.stock[r] > 1 && h[h.length-1]/h[h.length-2] > 1.08) advise("econ", `${COMMOD[r].name} подорожала на ${pct((h[h.length-1]/h[h.length-2]-1)*100)}. На складе ${Math.floor(S.stock[r])} ${COMMOD[r].unit} — самое время продать.`, {tab:"trade", key:"price-"+r, cd:3}); });
   const threat = Object.values(C()).filter(x => !x.owner && canReach(x) && x.rel < -40 && !S.wars.some(w=>w.enemy===x.id)).sort((p,q)=>aiPower(q)-aiPower(p))[0];
   if (threat && aiPower(threat) > myPower()*1.2) advise("gen", `${threat.name} стягивает войска к границе. Их армия сильнее нашей в ${(aiPower(threat)/Math.max(1,myPower())).toFixed(1).replace(".",",")} раза. Нужно усиливаться.`, {tab:"army", mood:"alert", key:"threat-"+threat.id, cd:8});
   S.wars.forEach(w => { const e = C()[w.enemy]; if (w.months > 0 && w.months % 2 === 0) advise("gen", w.progress >= 0 ? `Фронт с ${e.name}: мы продвигаемся, перевес ${Math.round(w.progress)}. Ещё усилие — и страна наша.` : `Фронт с ${e.name}: противник давит (${Math.round(w.progress)}). Нужны подкрепления или переговоры.`, {tab:"army", mood: w.progress < 0 ? "alert" : null, key:"war-"+w.enemy, cd:1}); });
@@ -3736,6 +3760,7 @@ function render(){
       <div class="tb-kpis">
         <button class="kpi" data-tab="economy" data-kpi="treasury" aria-label="Бюджет"><span class="kpi-ic">${pic("budget")}</span><span class="kpi-t"><span class="label">Бюджет</span><span class="v">${money(S.treasury).replace(" $","")}</span>${kpiDelta("treasury")}</span></button>
         <button class="kpi k-rp" data-tab="science" aria-label="Очки исследований"><span class="kpi-ic">${pic("rp")}</span><span class="kpi-t"><span class="label">Исследования</span><span class="v"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span></span>${kpiDelta("rp")}</span></button>
+        <button class="kpi k-coins" data-tab="build" aria-label="Золотые монеты"><span class="kpi-ic">${pic("coins")}</span><span class="kpi-t"><span class="label">Монеты</span><span class="v">${Math.floor(S.coins||0).toLocaleString("ru-RU")}</span></span></button>
       </div>
       <div class="tb-time">
         <div class="clock">
