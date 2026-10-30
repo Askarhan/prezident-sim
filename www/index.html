@@ -1287,6 +1287,7 @@ use.cu{fill:#000;stroke:none}
 :root .tile>:last-child:not(.tile-l):not(.tile-ic){position:static!important;transform:scale(.8)!important;margin-left:-4px}
 
 /* ===== war fronts ===== */
+.wcard{border-color:var(--gold)!important}
 .front-row{padding:8px 0;border-top:1px solid var(--line)}
 .front-row:first-of-type{border-top:0}
 .front-bar.thin{height:10px;position:relative;margin:6px 0}
@@ -1836,13 +1837,16 @@ function frontsDay(w, base){
     if (d > 0 && f.p >= 0){ const t = lineAhead(f.p); if (t - f.p < 3 && !(f.storm > 0)) d *= 0.15; }
     if (d < 0 && f.p <= 0){ const t = lineBehind(f.p); if (t + f.p < 3){ f.aiWait = (f.aiWait||0) + 1; if (f.aiWait < 10) d *= 0.15; } else f.aiWait = 0; }
     if (f.storm > 0){ f.storm--; if (d > 0) d *= w.phase === "pos" ? 3 : 2; }
+    if (f.pause > 0){ f.pause--; if (d > 0) d = 0; }
+    else if (f.buff > 0){ f.buff--; if (d > 0) d *= f.buffK || 1; }
+    if (f.defBuff > 0){ f.defBuff--; if (d < 0) d *= 0.5; }
     const before = f.p; f.p = clamp(f.p + d, -100, 100);
     LINES.forEach((t, k) => {
       if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); }
       if (before > -t && f.p <= -t){ warEvent(w, `${f.myName} направление: противник занял ${f.myPlaces[k]}.`, "bad"); S.mods.push({stat:"approval", v:-2, left:3}); }
     });
   });
-  warSync(w); phaseTick(w);
+  warSync(w); phaseTick(w); wcardTick(w);
 }
 function stormLine(w, i){
   const f = w.fronts[i]; if (!f || f.storm > 0) return;
@@ -1851,6 +1855,71 @@ function stormLine(w, i){
   S.ammo.shell = Math.max(0, S.ammo.shell - Math.max(1, (S.ammo.shell||0)*0.06));
   Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = Math.floor(S.units[id]*warShare(w)*f.share*0.015); S.units[id] -= l; w.lossMy[id] = (w.lossMy[id]||0) + l; } });
   f.storm = 7; warEvent(w, f.p >= 0 && t - f.p < 3 ? `${f.name} направление: начат штурм рубежа «${f.places[LINES.indexOf(t)]}».` : `${f.name} направление: штурм позиций противника.`, "");
+}
+
+/* ---------- HQ decisions: every 10–15 days the staff brings a situation with 2–3 options ---------- */
+function hitUnits(units, share, rate, tally){ Object.keys(units).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = Math.floor(units[id]*share*rate); units[id] -= l; if (tally) tally[id] = (tally[id]||0) + l; } }); }
+const WCARDS = [
+  {id:"river", when:(w,f) => f.p >= 0 && f.p < 100, def:1,
+    title:f => `${f.name} направление: противник окопался`, text:(w,f) => `Противник закрепился на реке у рубежа «${frontPlace(f).name}». Разведка видит минные поля и доты.`,
+    opts:[
+      {t:"Штурм в лоб", d:"быстро, но тяжёлые потери", fx:(w,f) => { f.p = clamp(f.p + 4, -100, 100); hitUnits(S.units, warShare(w)*f.share, 0.025, w.lossMy); return "Штурм прорвал оборону, но цена высока."; }},
+      {t:"Обход через горы", d:"дольше, потерь почти нет", fx:(w,f) => { f.buff = 10; f.buffK = 1.35; return "Колонны пошли в обход — через неделю ударим во фланг."; }},
+      {t:"Артподготовка", d:"тратит снаряды, потом штурм легче", fx:(w,f) => { if ((S.ammo.shell||0) < 1) return "Снарядов нет — артподготовка сорвалась."; S.ammo.shell -= S.ammo.shell*0.08; f.storm = 7; return "Артиллерия перепахала позиции, пехота пошла вперёд."; }}]},
+  {id:"cauldron", when:(w,f) => f.p >= 10 && f.p < 100 && w.phase !== "pos", def:0,
+    title:f => `${f.name} направление: котёл`, text:(w,f) => `Под «${frontPlace(f).name}» окружена группировка противника.`,
+    opts:[
+      {t:"Добить", d:"уничтожить технику врага", fx:(w,f) => { hitUnits(w.eu, f.share, 0.05, w.lossTh); f.p = clamp(f.p + 2, -100, 100); return "Группировка уничтожена, взяты трофеи."; }},
+      {t:"Принять сдачу", d:"пленные, мир смотрит одобрительно", fx:(w,f) => { hitUnits(w.eu, f.share, 0.03, w.lossTh); Object.values(C()).forEach(x => { if (!x.owner && x.id !== w.enemy) x.rel = clamp(x.rel + 2, -100, 100); }); S.mods.push({stat:"approval", v:1, left:3}); return "Тысячи солдат сложили оружие. В мире отметили гуманность."; }},
+      {t:"Идти дальше", d:"скорость, но котёл может прорваться", fx:(w,f) => { if (Math.random() < 0.3){ f.p = clamp(f.p - 3, -100, 100); return "Окружённые прорвались и ударили нам в тыл."; } f.p = clamp(f.p + 4, -100, 100); return "Обошли котёл и продвинулись вглубь."; }}]},
+  {id:"supply", when:(w,f) => f.p >= 35 && f.p < 100, def:0,
+    title:f => `${f.name} направление: снабжение отстаёт`, text:(w,f) => `Колонны с боеприпасами и топливом не успевают за войсками у «${frontPlace(f).name}».`,
+    opts:[
+      {t:"Остановиться на 10 дней", d:"подтянуть тылы, потом рывок", fx:(w,f) => { f.pause = 10; f.buff = 20; f.buffK = 1.25; return "Войска встали, тылы подтягиваются."; }},
+      {t:"Перебросить транспортниками", d:"деньги и нефть, темп сохраняется", ok:() => airliftCap() > 0, fx:(w,f) => { const c = me().gdp*0.0004; if (S.treasury < c) return "Не хватило денег на воздушный мост."; S.treasury -= c; S.stock.oil = Math.max(0, (S.stock.oil||0)*0.9); f.buff = 10; f.buffK = 1.1; return `Воздушный мост: ${money(c)}, наступление продолжается.`; }},
+      {t:"Наступать дальше", d:"риск окружения", fx:(w,f) => { if (Math.random() < 0.35){ hitUnits(S.units, warShare(w)*f.share, 0.03, w.lossMy); f.p = clamp(f.p - 5, -100, 100); return "Растянутые колонны попали в окружение."; } f.p = clamp(f.p + 3, -100, 100); return "Рискнули — и выиграли темп."; }}]},
+  {id:"city", when:(w,f) => f.p >= 55 && f.p < 100, def:0,
+    title:f => `${f.name} направление: город`, text:(w,f) => `В «${f.places[f.p >= 60 ? 2 : 1]}» остаются мирные жители. Противник превращает кварталы в крепость.`,
+    opts:[
+      {t:"Гуманитарный коридор", d:"медленнее, мир одобряет", fx:(w,f) => { f.buff = 10; f.buffK = 0.6; Object.values(C()).forEach(x => { if (!x.owner && x.id !== w.enemy) x.rel = clamp(x.rel + 3, -100, 100); }); S.mods.push({stat:"approval", v:1, left:3}); return "Жители выходят по коридору, штурм отложен."; }},
+      {t:"Штурмовать город", d:"быстро, но осуждение и санкции", fx:(w,f) => { f.p = clamp(f.p + 6, -100, 100); infamyAdd(5); Object.values(C()).forEach(x => { if (!x.owner && x.id !== w.enemy) x.rel = clamp(x.rel - 4, -100, 100); }); return "Город взят штурмом. Мир осуждает жертвы среди мирных."; }}]},
+  {id:"breach", when:(w,f) => f.p <= -8 && f.p > -100, def:0,
+    title:f => `${f.myName} направление: прорыв противника`, text:(w,f) => `Противник прорвался к «${frontPlace(f).name}». Командиры просят решения.`,
+    opts:[
+      {t:"Перебросить резервы", d:"оборона здесь крепче на 10 дней", fx:(w,f) => { f.defBuff = 10; return "Резервы выдвинулись к месту прорыва."; }},
+      {t:"Мобилизовать резервистов", d:"армия +3%, рейтинг −2", fx:(w,f) => { me().army *= 1.03; S.mods.push({stat:"approval", v:-2, left:6}); f.defBuff = 5; return "Резервисты призваны и отправлены на фронт."; }},
+      {t:"Держаться", d:"без изменений", fx:() => "Части держат оборону своими силами."}]},
+  {id:"truce", when:(w) => w.progress >= 35 && w.progress < 100, once:true, def:1, front:false,
+    title:() => "Противник просит перемирия", text:(w) => `${C()[w.enemy].name} готова к переговорам: фронт против неё.`,
+    opts:[
+      {t:"Сесть за стол переговоров", d:"откроются условия мира", fx:(w) => { setTimeout(() => showPeace(w.enemy), 50); return "Делегации встретятся на нейтральной территории."; }},
+      {t:"Добиваться победы", d:"рейтинг +1, война продолжается", fx:() => { S.mods.push({stat:"approval", v:1, left:3}); return "Президент: «Только безоговорочная капитуляция»."; }}]}
+];
+function wcardTick(w){
+  if (w.card){ w.card.left--; if (w.card.left <= 0){ const c = WCARDS.find(x => x.id === w.card.id); resolveWcard(w, c.def, true); } return; }
+  w.nextCard = w.nextCard ?? 12; if (w.days < w.nextCard) return;
+  const pool = [];
+  WCARDS.forEach(c => { if (c.once && (w.cardsSeen||[]).includes(c.id)) return;
+    if (c.front === false){ if (c.when(w)) pool.push({id:c.id, f:-1}); return; }
+    w.fronts.forEach((f, i) => { if (c.when(w, f)) pool.push({id:c.id, f:i}); }); });
+  w.nextCard = w.days + 10 + Math.floor(Math.random()*6);
+  if (!pool.length) return;
+  const pick = pool[Math.floor(Math.random()*pool.length)], c = WCARDS.find(x => x.id === pick.id), f = w.fronts[pick.f];
+  w.card = {id:pick.id, f:pick.f, left:3, title:c.title(f), text:c.text(w, f)}; w.cardsSeen = [...(w.cardsSeen||[]), c.id];
+  advise("gen", `${w.card.title}. Нужно ваше решение — штаб.`, {tab:"hq", mood:"alert"});
+}
+function resolveWcard(w, k, auto){
+  if (!w.card) return; const c = WCARDS.find(x => x.id === w.card.id), o = c.opts[k], f = w.fronts[w.card.f];
+  if (!o || (o.ok && !o.ok())) return toast("Этот вариант сейчас недоступен.");
+  const res = o.fx(w, f); warSync(w);
+  warEvent(w, `${auto ? "Генерал решил сам" : "Решение"}: ${o.t.toLowerCase()}. ${res}`, ""); w.card = null;
+}
+function wcardPanel(w){
+  if (!w.card) return "";
+  const c = WCARDS.find(x => x.id === w.card.id);
+  return `<div class="panel wcard" style="margin-top:12px"><div class="row"><h3>${esc(w.card.title)}</h3><span class="pill bad">${w.card.left} дн. на решение</span></div>
+    <p style="margin:0 0 8px">${esc(w.card.text)}</p>
+    <div class="choices">${c.opts.map((o, k) => `<button class="choice" data-wcard="${k}" ${o.ok && !o.ok() ? "disabled" : ""}><b>${o.t}</b><small>${o.d}${k === c.def ? " · по умолчанию" : ""}</small></button>`).join("")}</div></div>`;
 }
 
 function frontsPanel(w){
@@ -2065,7 +2134,8 @@ function viewHQ(){
   const need = ammoNeedFor(S.units), amm = Object.entries(AMMO).filter(([k]) => need[k] > 0).map(([k,a]) => { const days = need[k] > 0 ? (S.ammo[k]||0)/(need[k]/30*share*(WAR_MODES[w.mode].ammo)) : 999; return `<span class="pill ${days < 14 ? "bad" : days < 45 ? "warn" : "good"}">${a.short}: ${days > 365 ? "много" : Math.floor(days) + " дн."}</span>`; }).join("");
   const loss = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 5).map(([id,n]) => `<span>${MODELS[id].name} <b class="num">${n}</b></span>`).join("") || `<span class="muted">нет</span>`;
   return `${S.wars.length > 1 ? `<div class="filters">${S.wars.map(x => `<button class="chip" data-hqwar="${x.enemy}" aria-pressed="${x.enemy===w.enemy}">${flag(x.enemy)} ${esc(C()[x.enemy].name)}</button>`).join("")}</div>` : ""}
-  <div class="panel hq-front">
+  ${wcardPanel(w)}
+  <div class="panel hq-front" style="margin-top:12px">
     <div class="row"><h3>${flag(S.player)} ${esc(me().name)} <span class="muted">против</span> ${flag(e.id)} ${esc(e.name)}</h3><span class="pill ${w.progress >= 0 ? "good" : "bad"}">${w.months} мес. ${w.days % 30} дн.</span></div>
     <div class="front-bar"><i class="mine" style="width:${clamp(50 + w.progress/2, 0, 100)}%"></i><b style="left:${clamp(50 + w.progress/2, 0, 100)}%"></b></div>
     <div class="row"><small>${w.progress >= 0 ? `Занято ${Math.round(w.progress)}% территории противника` : `Противник занял ${Math.round(-w.progress)}% нашей территории`}</small><small>100% — капитуляция</small></div>
@@ -6151,6 +6221,7 @@ document.addEventListener("click", e => {
   if (t.dataset.garrison){ const [iso, v] = t.dataset.garrison.split(":"); S.occupied[iso].garrison = +v; save(); render(); return; }
   if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
+  if (t.dataset.wcard !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) resolveWcard(w, +t.dataset.wcard); save(); render(); return; }
   if (t.dataset.warplan){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.plan = t.dataset.warplan; applyPlan(w); } save(); render(); return; }
   if (t.dataset.storm !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) stormLine(w, +t.dataset.storm); save(); render(); return; }
   if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
