@@ -384,7 +384,18 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 #worldmap #map-fx .fx-rail.wip{stroke-dasharray:3 5;opacity:.6}
 #worldmap #map-fx .fx-war{stroke:#FF5D5D;stroke-width:2.6;stroke-dasharray:10 6;animation:fxDash .6s linear infinite;filter:drop-shadow(0 0 3px rgb(255 93 93 / .8))}
 @keyframes fxDash{to{stroke-dashoffset:-22}}
-#worldmap #map-fx .fx-arrow{fill:#FF5D5D;stroke:#2A0A0F;stroke-width:1}
+#worldmap #map-fx .fx-arrow{fill:#FF5D5D;stroke:#2A0A0F;stroke-width:1.2}
+#worldmap #map-fx .fx-arrow.us{fill:#FFB020}
+#occ-layer{pointer-events:none}
+#occ-layer .occ-fill{fill-opacity:.62}
+#occ-layer .occ-hatch{opacity:.45}
+#occ-layer .us .occ-fill{fill:#F5A524}#occ-layer .them .occ-fill{fill:#E5484D}#occ-layer .held .occ-fill{fill:#F6C76B;fill-opacity:.3}
+#occ-layer .us .occ-hatch{fill:url(#hatch-us)}#occ-layer .them .occ-hatch{fill:url(#hatch-them)}#occ-layer .held .occ-hatch{fill:url(#hatch-held);opacity:.3}
+#occ-layer .occ-line-u{fill:none;stroke:rgb(8 14 28 / .9);stroke-width:5.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+#occ-layer .occ-line{fill:none;stroke-width:2.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:8 5;animation:fxDash 1.2s linear infinite}
+#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{display:none}#occ-layer .held .occ-line-u{display:none}
+.fc-dot{stroke:#081224;stroke-width:1.6}.fc-dot.foe{fill:#E8EEF8}.fc-dot.taken{fill:#FFB020}.fc-dot.own{fill:#9FD3FF}.fc-dot.lost{fill:#FF5D5D}
+.fc-name{font:600 9.5px var(--f-data);fill:#F2F5FA;paint-order:stroke;stroke:#081224;stroke-width:3}.fc-name.taken{fill:#FFD27A}.fc-name.lost{fill:#FF9A9A}
 #worldmap #map-fx .fx-front{fill:rgb(255 93 93 / .2);stroke:#FF5D5D;stroke-width:1.5;animation:fxPulse 1.4s ease-in-out infinite}
 .fx-swords{stroke:#FFD0D0!important;stroke-width:2!important;vector-effect:none!important}
 @keyframes fxPulse{50%{fill:rgb(255 93 93 / .45)}}
@@ -1779,13 +1790,82 @@ const FRONTS = {
   za:[["Северное","p",["Лимпопо","Гаутенг","Претория"]],["Восточное","m",["Мпумаланга","Квазулу-Натал","Дурбан"]],["Западное","d",["Северо-Капская провинция","Западно-Капская провинция","Кейптаун"]]],
   au:[["Восточное","u",["Новый Южный Уэльс","Австралийская столичная территория","Канберра"]],["Северное","d",["Северная территория","Квинсленд","Брисбен"]],["Южное","p",["Южная Австралия","Виктория","Мельбурн"]]]
 };
+const FRONT_LL = {
+  ru:[[[54.8,32.0],[53.2,34.4],[55.75,37.62]],[[47.7,40.7],[51.0,40.0],[48.7,44.5]],[[55.0,79.0],[58.6,61.5],[56.84,60.6]]],
+  kz:[[[54.0,69.5],[52.0,70.0],[51.17,71.43]],[[44.0,72.0],[44.5,77.5],[43.24,76.95]],[[44.0,53.5],[47.5,52.0],[50.28,57.17]]],
+  kg:[[[42.4,72.2],[42.75,73.8],[42.87,74.59]],[[39.9,70.8],[40.2,73.0],[40.93,73.0]],[[41.4,75.5],[42.2,77.5],[42.49,78.39]]],
+  uz:[[[40.5,68.7],[41.2,69.8],[41.30,69.24]],[[40.4,71.6],[40.75,72.35],[41.0,71.67]],[[43.5,59.5],[40.0,63.5],[39.65,66.96]]],
+  by:[[[52.3,25.5],[53.6,25.0],[53.9,27.56]],[[55.2,29.0],[53.7,30.3],[52.44,31.0]]],
+  az:[[[41.36,48.51],[40.63,48.64],[40.41,49.87]],[[41.09,45.37],[40.68,46.36],[40.76,47.06]]],
+  de:[[[51.05,13.4],[52.4,13.0],[52.52,13.40]],[[49.9,7.4],[51.5,7.5],[50.94,6.96]],[[48.6,9.0],[49.0,11.5],[48.14,11.58]]],
+  fr:[[[50.3,2.8],[48.7,2.5],[48.86,2.35]],[[48.7,6.2],[47.3,4.8],[45.76,4.84]],[[43.6,2.0],[43.8,6.0],[43.3,5.37]]],
+  gb:[[[51.2,0.8],[51.25,-0.4],[51.51,-0.13]],[[52.5,-1.9],[53.8,-2.6],[53.48,-2.24]],[[55.2,-2.0],[56.5,-4.0],[55.95,-3.19]]],
+  it:[[[43.4,11.0],[41.9,12.8],[41.90,12.50]],[[45.6,9.8],[44.5,11.0],[45.46,9.19]],[[41.0,16.5],[40.9,14.8],[40.85,14.27]]],
+  es:[[[41.8,-4.6],[40.5,-3.7],[40.42,-3.70]],[[41.8,1.5],[41.5,-0.7],[41.65,-0.88]],[[37.4,-4.5],[38.0,-1.5],[37.39,-5.98]]],
+  pl:[[[51.2,22.9],[52.3,21.0],[52.23,21.01]],[[51.0,16.3],[52.3,17.0],[52.41,16.93]],[[50.0,22.2],[49.9,20.3],[50.06,19.94]]],
+  tr:[[[39.78,30.52],[39.6,32.6],[39.93,32.86]],[[41.4,27.3],[41.1,28.7],[41.01,28.98]],[[40.6,43.1],[39.9,41.27],[37.91,40.23]]],
+  ir:[[[35.6,47.0],[34.8,48.5],[35.69,51.39]],[[31.3,48.7],[29.5,53.0],[29.59,52.58]],[[38.6,45.8],[37.3,49.6],[38.08,46.29]]],
+  sa:[[[29.9,39.3],[27.5,41.7],[24.71,46.68]],[[26.4,49.5],[25.4,49.6],[26.43,50.10]],[[28.4,36.6],[24.47,39.61],[21.54,39.17]]],
+  eg:[[[30.6,33.8],[30.6,32.27],[30.04,31.24]],[[31.0,29.8],[30.8,31.0],[31.20,29.92]],[[24.09,32.9],[25.69,32.64],[27.18,31.18]]],
+  cn:[[[42.0,113.0],[39.0,115.5],[39.90,116.40]],[[33.0,119.5],[29.5,120.0],[31.23,121.47]],[[24.5,101.5],[23.8,108.5],[23.13,113.26]]],
+  in:[[[30.9,75.5],[29.2,76.3],[28.61,77.21]],[[26.9,73.0],[22.7,71.5],[19.08,72.88]],[[26.2,92.9],[23.5,88.0],[22.57,88.36]]],
+  jp:[[[35.4,139.4],[36.2,139.6],[35.68,139.69]],[[43.2,142.8],[39.7,140.9],[38.27,140.87]],[[32.6,130.8],[34.7,135.5],[34.69,135.50]]],
+  kr:[[[37.8,128.2],[37.4,127.3],[37.57,126.98]],[[34.9,126.9],[35.3,128.3],[35.18,129.08]]],
+  id:[[[0.0,101.5],[-6.4,106.1],[-6.21,106.85]],[[-1.0,114.0],[-7.2,110.2],[-7.25,112.75]],[[-2.0,120.5],[-8.4,115.2],[-5.15,119.43]]],
+  vn:[[[22.4,104.0],[21.6,105.8],[21.03,105.85]],[[16.75,107.0],[16.4,107.6],[16.05,108.2]],[[11.3,106.1],[11.1,106.7],[10.82,106.63]]],
+  pk:[[[34.5,71.8],[33.6,73.05],[33.68,73.05]],[[31.0,72.5],[31.5,74.2],[31.55,74.34]],[[26.0,68.5],[25.4,68.37],[24.86,67.0]]],
+  us:[[[40.9,-77.8],[39.0,-76.7],[38.90,-77.04]],[[43.3,-84.5],[40.3,-82.8],[41.88,-87.63]],[[31.0,-99.0],[34.5,-106.0],[29.76,-95.37]]],
+  ca:[[[46.0,-80.0],[44.9,-76.0],[45.42,-75.70]],[[53.7,-123.0],[54.5,-114.5],[51.05,-114.07]],[[46.5,-66.2],[47.5,-71.5],[45.50,-73.57]]],
+  mx:[[[22.8,-102.6],[20.6,-100.4],[19.43,-99.13]],[[28.6,-106.1],[27.0,-102.0],[25.69,-100.32]],[[16.5,-92.5],[17.0,-96.7],[19.17,-96.13]]],
+  br:[[[-13.0,-56.0],[-16.0,-49.5],[-15.79,-47.88]],[[-30.0,-53.0],[-24.6,-51.5],[-23.55,-46.63]],[[-4.0,-64.0],[-4.0,-53.0],[-3.12,-60.02]]],
+  ar:[[[-31.4,-64.2],[-36.5,-60.0],[-34.60,-58.38]],[[-26.4,-60.5],[-30.7,-60.8],[-32.95,-60.65]],[[-48.8,-69.8],[-38.9,-69.9],[-32.89,-68.84]]],
+  ng:[[[11.8,13.2],[12.0,8.5],[9.08,7.40]],[[7.0,3.4],[8.2,3.6],[6.52,3.38]],[[4.8,6.9],[6.45,7.5],[4.82,7.03]]],
+  za:[[[-23.9,29.4],[-26.1,28.1],[-25.75,28.19]],[[-25.6,30.5],[-28.6,30.9],[-29.86,31.02]],[[-29.0,21.9],[-33.2,20.5],[-33.92,18.42]]],
+  au:[[[-32.0,147.0],[-35.47,149.0],[-35.28,149.13]],[[-19.5,133.5],[-22.5,144.5],[-27.47,153.03]],[[-30.0,135.5],[-37.0,144.5],[-37.81,144.96]]]
+};
 const LINES = [25, 60, 100];
+/* directions of an attack chosen by real geography: the capital and the other key cities, each reached through the places
+   that lie on the way from the attacker; where nothing fits, the border area and the approaches to the city */
+function llDist(a, b){ const k = Math.cos((a[0] + b[0])/2*Math.PI/180); return Math.hypot(a[0] - b[0], (a[1] - b[1])*k); }
+function placePool(iso){
+  const out = [], fr = frontsOf(iso), ll = FRONT_LL[iso], cap = CAPITALS[iso];
+  fr.forEach((d, i) => d[2].forEach((nm, k) => { const c = ll && ll[i] && ll[i][k]; if (c) out.push({name:nm, ll:c, dir:i, key:k === 2, t:d[1], dname:d[0]}); }));
+  if (cap && !out.some(p => p.name === cap[0])) out.push({name:cap[0], ll:[cap[1], cap[2]], dir:0, key:true, t:(fr[0]||["","p"])[1], dname:(fr[0]||["Основное"])[0]});
+  return out;
+}
+function frontRoutes(att, tgt, n){
+  const pool = placePool(tgt), cap = CAPITALS[tgt], fr = frontsOf(tgt);
+  if (!cap || pool.length < 3) return null;
+  const capLL = [cap[1], cap[2]], aPts = placePool(att).map(p => p.ll), ac = CAPITALS[att];
+  if (ac) aPts.push([ac[1], ac[2]]);
+  if (!aPts.length) return null;
+  const A = aPts.reduce((b, p) => llDist(p, capLL) < llDist(b, capLL) ? p : b, aPts[0]);
+  const capP = pool.find(p => p.name === cap[0]) || {name:cap[0], ll:capLL, dir:0, t:fr[0][1], dname:fr[0][0]};
+  const keys = [capP, ...pool.filter(p => p.key && p !== capP).sort((a, b) => llDist(A, a.ll) - llDist(A, b.ll))];
+  pool.filter(p => !p.key).sort((a, b) => llDist(A, b.ll) - llDist(A, a.ll)).forEach(p => keys.push(p));
+  const used = new Set(), out = [], names = new Set();
+  keys.slice(0, n).forEach(K => used.add(K.name));
+  keys.slice(0, n).forEach((K, i) => {
+    // the first line lies in the first half of the way, the second one further on; both close to the straight way
+    const dk = llDist(A, K.ll), detour = p => llDist(A, p.ll) + llDist(p.ll, K.ll) - dk;
+    const pick = (lo, hi, after) => { const c = pool.filter(p => !used.has(p.name) && !p.key && llDist(A, p.ll) > Math.max(lo*dk, after) && llDist(A, p.ll) <= hi*dk && detour(p) < 0.45*dk).sort((a, b) => detour(a) - detour(b))[0];
+      if (c) used.add(c.name); return c; };
+    const p1 = pick(0, 0.5, 0), p2 = pick(0.3, 0.92, p1 ? llDist(A, p1.ll) : 0);
+    // a missing line gets a generic name; the map puts it on the way from the border (coordinates unknown here)
+    const mid = [p1 ? {name:p1.name, ll:p1.ll} : {name:"Приграничный район", ll:null}, p2 ? {name:p2.name, ll:p2.ll} : {name:"Дальние подступы", ll:null}];
+    let nm = K.dname; if (names.has(nm)) nm = i === 0 ? "Столичное" : ["Северное","Южное","Западное","Восточное","Центральное"].find(x => !names.has(x)) || nm; names.add(nm);
+    out.push({name:nm, t:K.t, places:[mid[0].name, mid[1].name, K.name], ll:[mid[0].ll, mid[1].ll, K.ll]});
+  });
+  return out;
+}
 const WAR_EXP = 1.6, WAR_SPEED = 2.2, DEF_K = 1.25;   // DEF_K: the defender's edge — equal armies get stuck, superiority is needed to advance
 function frontsOf(iso){ return FRONTS[iso] || [["Основное","p",["Приграничье","Центральные районы", (CAPITALS[iso]||["Столица"])[0]]]]; }
 function initFronts(w){
   if (w.fronts) return;
   const th = frontsOf(w.enemy), mine = frontsOf(S.player), n = th.length;
-  w.fronts = th.map((d, i) => { const m = mine[i % mine.length]; return {name:d[0], t:d[1], places:d[2], myName:m[0], myT:m[1], myPlaces:m[2], p:clamp(w.progress||0, -99, 99), share:1/n, mode:null, storm:0}; });
+  const rT = frontRoutes(S.player, w.enemy, n), rM = frontRoutes(w.enemy, S.player, n);
+  w.fronts = th.map((d, i) => { const m = mine[i % mine.length], a = rT && rT[i], b = rM && rM[i];
+    return {name:a ? a.name : d[0], t:a ? a.t : d[1], places:a ? a.places : d[2], ll:a && a.ll, myName:b ? b.name : m[0], myT:b ? b.t : m[1], myPlaces:b ? b.places : m[2], myLL:b && b.ll, p:clamp(w.progress||0, -99, 99), share:1/n, mode:null, storm:0}; });
   w.fronts[0].capital = true;   // the first direction of every country leads to its capital
   w.plan = w.plan || "even";
 }
@@ -2154,32 +2234,198 @@ function doStrike(w, type){
 }
 // daily refresh of occupation shading and front markers without re-rendering the whole screen
 function updateWarMap(){
-  const svg = document.getElementById("worldmap"); if (!svg || !LABELS) return;
-  let defs = svg.querySelector("defs"); if (!defs) return;
-  const NS = "http://www.w3.org/2000/svg";
-  S.wars.forEach(w => {
-    const g = warGradient(w); if (!g) return;
-    let gr = document.getElementById("occ-" + g.iso);
-    const a = g.mine ? "#F5A524" : "#D94848", b = g.partial ? "#F6B7AA" : g.mine ? "#EC5A5A" : "#F5A524";
-    if (!gr){ gr = document.createElementNS(NS, "linearGradient"); gr.id = "occ-" + g.iso; gr.setAttribute("gradientUnits", "userSpaceOnUse"); for (let i = 0; i < 4; i++) gr.appendChild(document.createElementNS(NS, "stop")); defs.appendChild(gr); }
-    [["x1",g.x1],["y1",g.y1],["x2",g.x2],["y2",g.y2]].forEach(([k,v]) => gr.setAttribute(k, v.toFixed(1)));
-    const st = gr.querySelectorAll("stop"), offs = [0, g.f, g.f, 1], cols = [a, a, b, b];
-    st.forEach((el, i) => { el.setAttribute("offset", offs[i].toFixed(3)); el.setAttribute("stop-color", cols[i]); });
-    const path = svg.querySelector(`path[data-iso="${g.iso}"]`); if (path){ path.style.fill = `url(#occ-${g.iso})`; path.classList.add("m-occ"); }
-  });
-  if ((S.day||1) % 4 === 0){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } }
+  if (!document.getElementById("worldmap") || !LABELS) return;
+  drawOcc(true);
+  if ((S.day||1) % 2 === 0){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } }
 }
-function warGradient(w){
-  // occupied part of the country painted from the attacker's side
-  if (!LABELS) return null;
-  const A = LABELS[S.player], B = LABELS[w.enemy]; if (!A || !B) return null;
-  const p = w.progress; if (Math.abs(p) < 1) return null;
-  const capPt = iso => { const c = CAPITALS[iso]; const q = c && proj(c[1], c[2]); return q ? {x:q.x, y:q.y} : LABELS[iso]; };
-  const tgt = p > 0 ? B : A, from = capPt(p > 0 ? S.player : w.enemy);
-  let dx = tgt.x - from.x, dy = tgt.y - from.y; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
-  const ext = (Math.abs(dx)*tgt.w + Math.abs(dy)*tgt.h)/2;
-  return {iso: p > 0 ? w.enemy : S.player, x1: tgt.x - dx*ext, y1: tgt.y - dy*ext, x2: tgt.x + dx*ext, y2: tgt.y + dy*ext, f: Math.abs(p)/100, mine: p > 0,
-    front: {x: tgt.x - dx*ext + dx*2*ext*Math.abs(p)/100, y: tgt.y - dy*ext + dy*2*ext*Math.abs(p)/100}};
+/* ---------- front on the map: every direction is a route border → 1st line → 2nd line → key city over real places;
+   the land of each direction is painted from the border inward along its route, clipped by the real outline ---------- */
+const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[246,199,107]};
+function capPoint(iso){ const c = CAPITALS[iso]; const q = c && proj(c[1], c[2]); return q ? {x:q.x, y:q.y} : (LABELS && LABELS[iso]); }
+function countryPath(iso){ return document.querySelector(`#worldmap path[data-iso="${iso}"]`); }
+function inCountry(path, x, y){ try { return path.isPointInFill(new DOMPoint(x, y)); } catch(e){ return true; } }
+// distance from a point to a polyline with its route value (0 at the border … 100 at the key city)
+function routeAt(R, x, y){
+  let best = {d:Infinity, t:0, ang:0};
+  for (let s = 0; s < R.pts.length - 1; s++){
+    const a = R.pts[s], b = R.pts[s + 1], dx = b.x - a.x, dy = b.y - a.y, L2 = dx*dx + dy*dy || 1e-9;
+    let k = ((x - a.x)*dx + (y - a.y)*dy)/L2; const raw = k; k = clamp(k, 0, 1);
+    const px = a.x + dx*k, py = a.y + dy*k, d = Math.hypot(x - px, y - py);
+    if (d < best.d){ best = {d, t: R.ts[s] + (R.ts[s + 1] - R.ts[s])*k, ang: Math.atan2(dy, dx), raw}; }
+  }
+  return best;
+}
+function routePoint(R, t){
+  for (let s = 0; s < R.pts.length - 1; s++){ if (t <= R.ts[s + 1] || s === R.pts.length - 2){ const a = R.pts[s], b = R.pts[s + 1], k = clamp((t - R.ts[s])/((R.ts[s + 1] - R.ts[s]) || 1), 0, 1); return {x:a.x + (b.x - a.x)*k, y:a.y + (b.y - a.y)*k, ang:Math.atan2(b.y - a.y, b.x - a.x)}; } }
+  return R.pts[R.pts.length - 1];
+}
+// coordinates of the places of every direction (old saves: looked up by name in the reference data)
+function frontLL(w, mine){
+  const iso = mine ? S.player : w.enemy, pool = placePool(iso);
+  return w.fronts.map(f => { const own = mine ? f.myLL : f.ll; if (own) return own; const names = mine ? f.myPlaces : f.places;
+    const L = names.map(nm => { const p = pool.find(q => q.name === nm); return p ? p.ll : null; }); return L; });
+}
+// field of an attack from `att` into `tgt`: a grid over the country, each inside cell owned by the nearest route, with its route value
+function occField(att, tgt, lls){
+  lls = lls || [null]; const n = lls.length;
+  const key = att + ">" + tgt + ":" + lls.map(x => x ? x.map(p => p ? p.join(",") : "-").join(";") : "-").join("|"); ui.occF = ui.occF || {};
+  if (ui.occF[key]) return ui.occF[key];
+  const B = LABELS && LABELS[tgt], path = countryPath(tgt), from = capPoint(att); if (!B || !path || !from) return null;
+  const pad = 0.04, x0 = B.x - B.w*(0.5 + pad), y0 = B.y - B.h*(0.5 + pad), W0 = B.w*(1 + 2*pad), H0 = B.h*(1 + 2*pad);
+  const N = 120, cs = Math.max(W0, H0)/N, gw = Math.max(8, Math.ceil(W0/cs)), gh = Math.max(8, Math.ceil(H0/cs));
+  const inside = new Uint8Array(gw*gh);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) inside[j*gw + i] = inCountry(path, x0 + (i + 0.5)*cs, y0 + (j + 0.5)*cs) ? 1 : 0;
+  const cell = (i, j) => ({x: x0 + (i + 0.5)*cs, y: y0 + (j + 0.5)*cs});
+  // border cells facing the attacker
+  const cen = {x:B.x, y:B.y}, fx = from.x - cen.x, fy = from.y - cen.y, border = [];
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){
+    if (!inside[j*gw + i]) continue;
+    const edge = i === 0 || j === 0 || i === gw - 1 || j === gh - 1 || !inside[j*gw + i - 1] || !inside[j*gw + i + 1] || !inside[(j - 1)*gw + i] || !inside[(j + 1)*gw + i];
+    if (edge){ const c = cell(i, j); border.push({...c, face: (c.x - cen.x)*fx + (c.y - cen.y)*fy}); }
+  }
+  // where the attacker can come from: the shared land border, otherwise the side facing it
+  const D8 = [[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
+  const attP = countryPath(att), land = attP ? border.filter(b => D8.some(([a, c]) => [1.5, 3].some(r => inCountry(attP, b.x + a*cs*r, b.y + c*cs*r)))) : [];
+  const facing = border.filter(b => b.face > 0), pool = land.length ? land : facing.length ? facing : border;
+  const routes = [];
+  for (let r = 0; r < n; r++){
+    const L = lls[r];
+    let P = L ? L.map(q => q ? proj(q[0], q[1]) : null) : [null, null, null];
+    if (!P[2]) P[2] = capPoint(tgt);
+    // entry: the cell of that border nearest to the first line
+    let E = pool[0] || cen, bs = Infinity; const t1 = P[0] || P[1] || P[2];
+    const wA = land.length ? 0 : 0.6;
+    pool.forEach(b => { const s = Math.hypot(b.x - t1.x, b.y - t1.y) + wA*Math.hypot(b.x - from.x, b.y - from.y); if (s < bs){ bs = s; E = b; } });
+    const lp = (a, b, t) => ({x:a.x + (b.x - a.x)*t, y:a.y + (b.y - a.y)*t});
+    if (!P[0] && !P[1]){ P[0] = lp(E, P[2], 0.25); P[1] = lp(E, P[2], 0.6); }
+    else if (!P[0]) P[0] = lp(E, P[1], 25/60);
+    else if (!P[1]) P[1] = lp(P[0], P[2], 35/75);
+    const pts = [E, ...P], len = pts.slice(1).reduce((a, p, k) => a + Math.hypot(p.x - pts[k].x, p.y - pts[k].y), 0) || 1;
+    routes.push({pts, ts:[0, ...LINES], len});
+  }
+  // route value of every cell for every direction; the farther from the route, the later it falls (a widening wedge behind the front)
+  const tv = routes.map(() => new Float32Array(gw*gh));
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){
+    const k = j*gw + i; if (!inside[k]) continue; const c = cell(i, j);
+    // a cell can fall to a direction only if that route passes near it, and the surroundings of another direction's key city
+    // fall only to that direction
+    const at = routes.map(R => routeAt(R, c.x, c.y)), dmin = Math.min(...at.map(x => x.d)), diag = Math.hypot(gw, gh)*cs;
+    routes.forEach((R, r) => {
+      const guarded = routes.some((Q, q) => q !== r && Math.hypot(c.x - Q.pts[3].x, c.y - Q.pts[3].y) < 0.12*diag);
+      tv[r][k] = !guarded && at[r].d <= 1.5*dmin + 0.03*diag ? at[r].t + 90*at[r].d/Math.max(R.len, 0.4*diag) : 1e9;
+    });
+  }
+  const F = {key, iso:tgt, x0, y0, cs, gw, gh, inside, tv, routes, cell};
+  // a point inside the country nearest to (x, y)
+  F.snap = (x, y) => { const i = clamp(Math.floor((x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((y - y0)/cs), 0, gh - 1); if (inside[j*gw + i]) return {x, y};
+    let best = null, bd = Infinity; for (let jj = Math.max(0, j - 12); jj <= Math.min(gh - 1, j + 12); jj++) for (let ii = Math.max(0, i - 12); ii <= Math.min(gw - 1, i + 12); ii++){ if (!inside[jj*gw + ii]) continue; const c = cell(ii, jj), d = Math.hypot(c.x - x, c.y - y); if (d < bd){ bd = d; best = c; } } return best || {x, y}; };
+  ui.occF[key] = F; return F;
+}
+// occupied share of the field for the given per-route progress, as an image and a front line
+function occRender(F, prog, rgb){
+  const {gw, gh, inside, tv} = F, cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
+  const cx = cv.getContext("2d"), im = cx.createImageData(gw, gh), val = new Float32Array(gw*gh);
+  let any = false;
+  for (let k = 0; k < gw*gh; k++){
+    if (!inside[k]){ val[k] = NaN; continue; }
+    // a direction taken to the end holds all its land; otherwise the wedge behind its front
+    let v = -50; for (let r = 0; r < tv.length; r++){ const p = prog[r] || 0; if (p > 0.05 && tv[r][k] < 1e8) v = Math.max(v, p >= 99.9 ? 50 : p - tv[r][k]); } val[k] = v;
+    const a = clamp(v/3 + 0.5, 0, 1); if (a > 0) any = true;
+    im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = Math.round(a*185);
+  }
+  if (!any) return null;
+  // grow the painted cells one step outward so the clip by the real border leaves no gaps at the edges
+  const alpha = new Uint8Array(gw*gh); for (let k = 0; k < gw*gh; k++) alpha[k] = im.data[k*4 + 3];
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){ const k = j*gw + i; if (inside[k]) continue; let m = 0;
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a, b]) => { const ii = i + a, jj = j + b; if (ii >= 0 && jj >= 0 && ii < gw && jj < gh && inside[jj*gw + ii]) m = Math.max(m, alpha[jj*gw + ii]); });
+    if (m){ im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = m; } }
+  cx.putImageData(im, 0, 0);
+  // front line: marching squares on the 0 level, only between inside cells
+  const seg = [], P = (i, j) => F.cell(i, j);
+  for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++){
+    const a = val[j*gw + i], b = val[j*gw + i + 1], c = val[(j + 1)*gw + i + 1], d = val[(j + 1)*gw + i];
+    if (isNaN(a) || isNaN(b) || isNaN(c) || isNaN(d)) continue;
+    const idx = (a > 0 ? 8 : 0) | (b > 0 ? 4 : 0) | (c > 0 ? 2 : 0) | (d > 0 ? 1 : 0); if (idx === 0 || idx === 15) continue;
+    const pa = P(i, j), pb = P(i + 1, j), pc = P(i + 1, j + 1), pd = P(i, j + 1);
+    const lerp = (p1, p2, v1, v2) => { const t = v1/((v1 - v2) || 1e-9); return {x:p1.x + (p2.x - p1.x)*t, y:p1.y + (p2.y - p1.y)*t}; };
+    const T = lerp(pa, pb, a, b), R = lerp(pb, pc, b, c), Bm = lerp(pd, pc, d, c), L = lerp(pa, pd, a, d);
+    const add = (p, q) => seg.push(`M${p.x.toFixed(2)},${p.y.toFixed(2)}L${q.x.toFixed(2)},${q.y.toFixed(2)}`);
+    switch (idx){ case 1: case 14: add(L, Bm); break; case 2: case 13: add(Bm, R); break; case 3: case 12: add(L, R); break; case 4: case 11: add(T, R); break;
+      case 6: case 9: add(T, Bm); break; case 7: case 8: add(L, T); break; case 5: add(L, T); add(Bm, R); break; case 10: add(T, R); add(L, Bm); break; }
+  }
+  return {img: cv.toDataURL(), x:F.x0, y:F.y0, w:gw*F.cs, h:gh*F.cs, line: seg.join("")};
+}
+// what to draw: for every war both countries with per-direction progress there; partly held land after a peace
+function occTargets(){
+  const out = [];
+  S.wars.forEach(w => {
+    if (!w.fronts) return;
+    const FT = occField(S.player, w.enemy, frontLL(w, false)), FM = occField(w.enemy, S.player, frontLL(w, true)); if (!FT || !FM) return;
+    out.push({key:"w" + w.enemy, F:FT, p:w.fronts.map(f => Math.max(0, f.p)), cls:"us"}, {key:"m" + w.enemy, F:FM, p:w.fronts.map(f => Math.max(0, -f.p)), cls:"them"});
+  });
+  Object.values(S.occupied||{}).forEach(o => {
+    if (o.share >= 1 || S.wars.some(w => w.enemy === o.iso)) return;
+    const F = occField(S.player, o.iso, null); if (F) out.push({key:"o" + o.iso, F, p:[o.share*100], cls:"held"});
+  });
+  return out;
+}
+let occRaf = 0;
+function drawOcc(animate){
+  const layer = document.getElementById("occ-layer"); if (!layer || !LABELS) return;
+  const T = occTargets(); ui.occShown = ui.occShown || {};
+  const NS = "http://www.w3.org/2000/svg";
+  [...layer.children].forEach(el => { if (!T.some(t => t.key === el.dataset.k)) el.remove(); });
+  T.forEach(t => {
+    let el = layer.querySelector(`[data-k="${t.key}"]`);
+    if (!el){
+      el = document.createElementNS(NS, "g"); el.dataset.k = t.key; el.setAttribute("class", "occ " + t.cls);
+      const src = countryPath(t.F.iso);
+      el.innerHTML = `<clipPath id="occ-clip-${t.key}"><path d="${src ? src.getAttribute("d") : ""}"/></clipPath><g clip-path="url(#occ-clip-${t.key})"><image class="occ-img" preserveAspectRatio="none"/><path class="occ-hatch"/><path class="occ-line-u"/><path class="occ-line"/></g>`;
+      layer.appendChild(el);
+    }
+    const prev = ui.occShown[t.key];
+    t.el = el; t.from = prev && prev.length === t.p.length ? prev.slice() : t.p.map(() => 0);
+  });
+  cancelAnimationFrame(occRaf);
+  const frames = animate ? 8 : 1; let fno = 0, last = 0;
+  const paint = e => T.forEach(t => {
+    const cur = t.p.map((v, i) => t.from[i] + (v - t.from[i])*e); ui.occShown[t.key] = cur;
+    const r = occRender(t.F, cur, OCC_RGB[t.cls]);
+    t.el.style.display = r ? "" : "none"; if (!r) return;
+    const [img] = t.el.getElementsByTagName("image"), [ha, lu, ln] = t.el.querySelectorAll("g > path");
+    img.setAttribute("href", r.img); img.setAttribute("x", r.x.toFixed(2)); img.setAttribute("y", r.y.toFixed(2)); img.setAttribute("width", r.w.toFixed(2)); img.setAttribute("height", r.h.toFixed(2));
+    ha.setAttribute("d", ""); lu.setAttribute("d", r.line); ln.setAttribute("d", r.line);
+  });
+  const step = now => {
+    if (now - last >= 70 || fno === 0){ last = now; fno++; const k = fno/frames; paint(1 - Math.pow(1 - k, 3)); }
+    if (fno < frames) occRaf = requestAnimationFrame(step);
+  };
+  if (animate) occRaf = requestAnimationFrame(step); else paint(1);
+}
+// markers of the war: battle points, offensive arrows, the real cities of every direction (taken / held / lost)
+function warFxMarks(w){
+  if (!w.fronts) return "";
+  const FT = occField(S.player, w.enemy, frontLL(w, false)), FM = occField(w.enemy, S.player, frontLL(w, true)); if (!FT || !FM) return "";
+  const track = w.track || [], old = track[Math.max(0, track.length - 8)] || [];
+  let out = "";
+  const city = (F, i, k, name, state) => { const q = F.routes[i].pts[k + 1], p = F.snap(q.x, q.y); const generic = name === "Приграничный район" || name === "Дальние подступы";
+    return mark(p.x, p.y, `<circle r="${generic ? 3 : 4.2}" class="fc-dot ${state}"/>${generic ? "" : `<text x="7" y="3.5" class="fc-name ${state}">${esc(name)}</text>`}`, "fx-city " + state); };
+  w.fronts.forEach((f, i) => {
+    LINES.forEach((t, k) => {
+      if (!(k === 2 && f.capital)) out += city(FT, i, k, f.places[k], f.p >= t ? "taken" : "foe");
+      if (f.p < 0 && !(k === 2 && i === 0)) out += city(FM, i, k, f.myPlaces[k], f.p <= -t ? "lost" : "own");
+    });
+    if (f.p >= 100) return;
+    const inThem = f.p >= 0, F = inThem ? FT : FM, R = F.routes[i], rp = routePoint(R, Math.max(2, Math.abs(f.p))), pt = F.snap(rp.x, rp.y);
+    const mv = f.p - (old[i] ?? f.p);
+    out += mark(pt.x, pt.y, `<circle r="10" class="fx-front"/><path d="M-4.5,-4.5L4.5,4.5M4.5,-4.5L-4.5,4.5" class="fx-swords"/>`, "fx-battle");
+    if (Math.abs(mv) > 0.4){
+      // the arrow points where the front is moving: deeper along the route, or back towards the border
+      const deeper = inThem ? mv > 0 : mv < 0, ang = rp.ang*180/Math.PI + (deeper ? 0 : 180);
+      out += mark(pt.x, pt.y, `<g transform="translate(16 0)"><path class="fx-arrow ${mv > 0 ? "us" : "them"}" d="M-12,-5 L2,-5 L2,-10 L13,0 L2,10 L2,5 L-12,5z"/></g>`, "", ang);
+    }
+  });
+  return out;
 }
 function viewHQ(){
   if (!S.wars.length) return `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Штаб оживёт, когда начнётся война. Объявить войну можно в карточке страны на карте.</p></div><div class="army-body" style="margin-top:12px">${viewOccupation()}</div>`;
@@ -5371,11 +5617,10 @@ function viewMap(){
   let svg;
   if (WORLD){
     const [w,h] = mapSize();
-    const occ = {}; Object.values(S.occupied||{}).forEach(o => { if (o.share < 1){ const g = warGradient({enemy:o.iso, progress:o.share*100}); if (g){ g.partial = true; occ[g.iso] = g; } } }); S.wars.forEach(w => { const g = warGradient(w); if (g && !(occ[g.iso] && occ[g.iso].f > g.f)) occ[g.iso] = g; });
-    const occDefs = Object.values(occ).map(g => { const a = g.mine ? "#F5A524" : "#D94848", b = g.partial ? "#F6B7AA" : g.mine ? "#EC5A5A" : "#F5A524"; return `<linearGradient id="occ-${g.iso}" gradientUnits="userSpaceOnUse" x1="${g.x1.toFixed(1)}" y1="${g.y1.toFixed(1)}" x2="${g.x2.toFixed(1)}" y2="${g.y2.toFixed(1)}"><stop offset="0" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${a}"/><stop offset="${g.f.toFixed(3)}" stop-color="${b}"/><stop offset="1" stop-color="${b}"/></linearGradient>`; }).join("");
-    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = occ[iso] ? `url(#occ-${iso})` : modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${occ[iso]?"m-occ":""} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
+    const occDefs = "";
+    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
     const grid = (() => { const out = []; for (let lat = -60; lat <= 60; lat += 30){ const a = proj(lat, -168), b = proj(lat, 191); if (a) out.push(`<path d="M0,${a.y.toFixed(1)}H${w}" class="${lat===0?"eq":""}"/>`); } for (let lon = -150; lon <= 180; lon += 30){ const a = proj(80, lon), b = proj(-60, lon); if (a) out.push(`<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)}V${b.y.toFixed(1)}"/>`); } return out.join(""); })();
-    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g></g></svg>`;
+    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g><g id="occ-layer"></g></g></svg>`;
   } else svg = `<div class="map-empty">${worldFailed ? "Не удалось загрузить карту. Проверьте интернет — список стран доступен во вкладке «Дипломатия»." : "Загружаем карту мира…"}</div>`;
   const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
@@ -5504,6 +5749,7 @@ function attachLabels(){
   fx.innerHTML = fxMarkup();
   g.appendChild(fx);
   g.appendChild(lg);
+  ui.occShown = {}; drawOcc(false);
   updateLabels();
 }
 /* floating income numbers */
@@ -5573,12 +5819,8 @@ function fxMarkup(){
     const L = LABELS[x.id]; if (!L) return;
     const cv = fxCurve(home, L);
     const wr = S.wars.find(w=>w.enemy===x.id);
-    if (wr){
-      const g = warGradient(wr), F = g ? g.front : L, cf = fxCurve(home, F);
-      lines += `<path class="fx-war" d="${cf.d}"/>`;
-      marks += mark(F.x, F.y, `<path class="fx-arrow" d="M-9,-7 L4,0 L-9,7 L-5,0z"/>`, "", cf.ang) + mark(F.x, F.y, `<circle r="12" class="fx-front"/><path d="M-5,-5L5,5M5,-5L-5,5" class="fx-swords"/>`, "fx-off")
-        + mark(F.x, F.y, `<g transform="translate(-24 14)"><circle r="9" class="fx-bld"/><use href="#${iref("tank")}" x="-6" y="-6" width="12" height="12" class="cu"/></g><g transform="translate(22 -16)"><circle r="9" class="fx-bld"/><use href="#${iref("jet")}" x="-6" y="-6" width="12" height="12" class="cu"/></g>`, "");
-    } else if (S.rails[x.id]) lines += `<path class="fx-rail ${S.rails[x.id].done?"":"wip"}" d="${cv.d}"/>`;
+    if (wr) marks += warFxMarks(wr);
+    else if (S.rails[x.id]) lines += `<path class="fx-rail ${S.rails[x.id].done?"":"wip"}" d="${cv.d}"/>`;
     else if (x.trade) lines += `<path class="fx-trade" d="${cv.d}"/>`;
   });
   contractIsos.forEach(iso => { const L = LABELS[iso]; if (!L || S.wars.some(w=>w.enemy===iso)) return; lines += `<path class="fx-contract" d="${fxCurve(home, L).d}"/>`; });
@@ -5652,6 +5894,7 @@ function updateLabels(){
   document.querySelectorAll("#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
   document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
   document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 ? "" : "none"; });
+  document.querySelectorAll("#map-fx .fc-name").forEach(el => { el.style.display = k >= 1.8 ? "" : "none"; });
   document.querySelectorAll("#map-fx .fx-ocean").forEach(el => { el.style.display = k <= 2.4 ? "" : "none"; });
 }
 let resizeT = 0, lastLand = LAND.matches;
