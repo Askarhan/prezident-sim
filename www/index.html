@@ -1285,6 +1285,12 @@ use.cu{fill:#000;stroke:none}
 :root .tb-flag,:root .tb-flag *:not(.badge){max-height:24px!important;height:24px}
 :root .tb-flag .flag{width:36px!important}
 :root .tile>:last-child:not(.tile-l):not(.tile-ic){position:static!important;transform:scale(.8)!important;margin-left:-4px}
+
+/* ===== war fronts ===== */
+.front-row{padding:8px 0;border-top:1px solid var(--line)}
+.front-row:first-of-type{border-top:0}
+.front-bar.thin{height:10px;position:relative;margin:6px 0}
+.front-bar.thin s{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--gold-lo);opacity:.8}
 </style>
 
 
@@ -1731,6 +1737,118 @@ function ammoNeedFor(units){
   const by = k => Object.entries(units||{}).filter(([id]) => MODELS[id] && KINDS[MODELS[id].kind].ammo === k).reduce((a,[id,v]) => a + v*(MODELS[id].kind==="tank"||MODELS[id].kind==="ifv"?0.3:1), 0);
   return {shell: by("shell")*0.02, rocket: by("rocket")*12, atgm: by("atgm")*1.5, bomb: by("bomb")*8, sam: by("sam")*2, missile: by("missile")*1.5};
 }
+/* ---------- War fronts: real regions on every direction (3 lines: first, second, key city) ---------- */
+const TERRAIN = {p:{n:"равнина", def:1, tank:1.15}, m:{n:"горы", def:1.5, tank:0.8}, f:{n:"лес", def:1.2, tank:0.9}, u:{n:"город", def:1.4, tank:0.85}, d:{n:"пустыня", def:1, tank:1.1}};
+const FRONTS = {
+  ru:[["Западное","p",["Смоленская область","Брянская область","Москва"]],["Южное","p",["Ростовская область","Воронежская область","Волгоград"]],["Восточное","f",["Новосибирская область","Свердловская область","Екатеринбург"]]],
+  kz:[["Северное","p",["Северо-Казахстанская обл.","Акмолинская обл.","Астана"]],["Южное","m",["Жамбылская обл.","Алматинская обл.","Алматы"]],["Западное","d",["Мангистауская обл.","Атырауская обл.","Актобе"]]],
+  kg:[["Северное","m",["Таласская область","Чуйская область","Бишкек"]],["Южное","m",["Баткенская область","Ошская область","Джалал-Абад"]],["Восточное","m",["Нарынская область","Иссык-Кульская область","Каракол"]]],
+  uz:[["Центральное","p",["Сырдарьинская обл.","Ташкентская обл.","Ташкент"]],["Восточное","m",["Ферганская обл.","Андижанская обл.","Наманган"]],["Западное","d",["Каракалпакстан","Бухарская обл.","Самарканд"]]],
+  by:[["Западное","f",["Брестская обл.","Гродненская обл.","Минск"]],["Восточное","f",["Витебская обл.","Могилёвская обл.","Гомель"]]],
+  az:[["Северное","m",["Губинский район","Шемахинский район","Баку"]],["Западное","m",["Газахский район","Гянджа","Мингечевир"]]],
+  de:[["Восточное","p",["Саксония","Бранденбург","Берлин"]],["Западное","u",["Рейнланд-Пфальц","Северный Рейн — Вестфалия","Кёльн"]],["Южное","m",["Баден-Вюртемберг","Бавария","Мюнхен"]]],
+  fr:[["Северное","p",["О-де-Франс","Иль-де-Франс","Париж"]],["Восточное","f",["Гранд-Эст","Бургундия","Лион"]],["Южное","m",["Окситания","Прованс","Марсель"]]],
+  gb:[["Южное","p",["Кент","Суррей","Лондон"]],["Центральное","u",["Мидлендс","Северо-Западная Англия","Манчестер"]],["Северное","m",["Нортумберленд","Шотландия","Эдинбург"]]],
+  it:[["Центральное","m",["Тоскана","Лацио","Рим"]],["Северное","m",["Ломбардия","Эмилия-Романья","Милан"]],["Южное","p",["Апулия","Кампания","Неаполь"]]],
+  es:[["Центральное","p",["Кастилия и Леон","Мадридское сообщество","Мадрид"]],["Северное","m",["Каталония","Арагон","Сарагоса"]],["Южное","p",["Андалусия","Мурсия","Севилья"]]],
+  pl:[["Восточное","f",["Люблинское воеводство","Мазовецкое воеводство","Варшава"]],["Западное","p",["Нижняя Силезия","Великая Польша","Познань"]],["Южное","m",["Подкарпатье","Малая Польша","Краков"]]],
+  tr:[["Центральное","m",["Эскишехир","Анкара (провинция)","Анкара"]],["Западное","u",["Восточная Фракия","Стамбул (провинция)","Стамбул"]],["Восточное","m",["Карс","Эрзурум","Диярбакыр"]]],
+  ir:[["Западное","m",["Курдистан","Хамадан","Тегеран"]],["Южное","d",["Хузестан","Фарс","Шираз"]],["Северное","m",["Восточный Азербайджан","Гилян","Тебриз"]]],
+  sa:[["Северное","d",["Эль-Джауф","Хаиль","Эр-Рияд"]],["Восточное","d",["Восточная провинция","Эль-Хаса","Даммам"]],["Западное","m",["Тебук","Медина","Джидда"]]],
+  eg:[["Восточное","d",["Северный Синай","Исмаилия","Каир"]],["Северное","u",["Мухафаза Александрия","Дельта Нила","Александрия"]],["Южное","d",["Асуан","Луксор","Асьют"]]],
+  cn:[["Северное","p",["Внутренняя Монголия","Хэбэй","Пекин"]],["Восточное","u",["Цзянсу","Чжэцзян","Шанхай"]],["Южное","m",["Юньнань","Гуанси","Гуанчжоу"]]],
+  in:[["Северное","m",["Пенджаб","Харьяна","Нью-Дели"]],["Западное","d",["Раджастхан","Гуджарат","Мумбаи"]],["Восточное","f",["Ассам","Западная Бенгалия","Калькутта"]]],
+  jp:[["Центральное","u",["Канагава","Канто","Токио"]],["Северное","m",["Хоккайдо","Тохоку","Сендай"]],["Южное","m",["Кюсю","Кансай","Осака"]]],
+  kr:[["Северное","m",["Канвондо","Кёнгидо","Сеул"]],["Южное","m",["Чолла-Намдо","Кёнсан-Намдо","Пусан"]]],
+  id:[["Западное","f",["Суматра","Бантен","Джакарта"]],["Центральное","f",["Калимантан","Центральная Ява","Сурабая"]],["Восточное","f",["Сулавеси","Бали","Макасар"]]],
+  vn:[["Северное","m",["Лаокай","Тхайнгуен","Ханой"]],["Центральное","m",["Куангчи","Тхыатхьен-Хюэ","Дананг"]],["Южное","f",["Тэйнинь","Биньзыонг","Хошимин"]]],
+  pk:[["Северное","m",["Хайбер-Пахтунхва","Равалпинди","Исламабад"]],["Восточное","p",["Пенджаб","Округ Лахор","Лахор"]],["Южное","d",["Синд","Хайдарабад","Карачи"]]],
+  us:[["Восточное","u",["Пенсильвания","Мэриленд","Вашингтон"]],["Северное","f",["Мичиган","Огайо","Чикаго"]],["Южное","d",["Техас","Нью-Мексико","Хьюстон"]]],
+  ca:[["Южное","f",["Онтарио","Восточный Онтарио","Оттава"]],["Западное","m",["Британская Колумбия","Альберта","Калгари"]],["Восточное","f",["Нью-Брансуик","Квебек","Монреаль"]]],
+  mx:[["Центральное","m",["Сакатекас","Керетаро","Мехико"]],["Северное","d",["Чиуауа","Коауила","Монтеррей"]],["Южное","f",["Чьяпас","Оахака","Веракрус"]]],
+  br:[["Центральное","p",["Мату-Гросу","Гояс","Бразилиа"]],["Южное","p",["Риу-Гранди-ду-Сул","Парана","Сан-Паулу"]],["Северное","f",["Амазонас","Пара","Манаус"]]],
+  ar:[["Центральное","p",["Кордова","Провинция Буэнос-Айрес","Буэнос-Айрес"]],["Северное","p",["Чако","Санта-Фе","Росарио"]],["Южное","m",["Санта-Крус","Неукен","Мендоса"]]],
+  ng:[["Северное","d",["Борно","Кано","Абуджа"]],["Западное","f",["Огун","Ойо","Лагос"]],["Восточное","f",["Риверс","Энугу","Порт-Харкорт"]]],
+  za:[["Северное","p",["Лимпопо","Гаутенг","Претория"]],["Восточное","m",["Мпумаланга","Квазулу-Натал","Дурбан"]],["Западное","d",["Северо-Капская провинция","Западно-Капская провинция","Кейптаун"]]],
+  au:[["Восточное","u",["Новый Южный Уэльс","Австралийская столичная территория","Канберра"]],["Северное","d",["Северная территория","Квинсленд","Брисбен"]],["Южное","p",["Южная Австралия","Виктория","Мельбурн"]]]
+};
+const LINES = [25, 60, 100];
+function frontsOf(iso){ return FRONTS[iso] || [["Основное","p",["Приграничье","Центральные районы", (CAPITALS[iso]||["Столица"])[0]]]]; }
+function initFronts(w){
+  if (w.fronts) return;
+  const th = frontsOf(w.enemy), mine = frontsOf(S.player), n = th.length;
+  w.fronts = th.map((d, i) => { const m = mine[i % mine.length]; return {name:d[0], t:d[1], places:d[2], myName:m[0], myT:m[1], myPlaces:m[2], p:clamp(w.progress||0, -99, 99), share:1/n, mode:null, storm:0}; });
+  w.fronts[0].capital = true;   // the first direction of every country leads to its capital
+  w.plan = w.plan || "even";
+}
+function applyPlan(w){
+  const n = w.fronts.length, plan = w.plan || "even";
+  w.fronts.forEach((f, i) => {
+    if (plan === "defend"){ f.share = 1/n; f.mode = "defend"; }
+    else if (plan.startsWith("main:")){ const k = +plan.slice(5); f.share = n === 1 ? 1 : i === k ? 0.6 : 0.4/(n - 1); f.mode = i === k ? null : "hold"; }
+    else { f.share = 1/n; f.mode = null; }
+  });
+}
+function lineAhead(p){ return LINES.find(t => t > p + 0.001) || 100; }
+function lineBehind(p){ return LINES.find(t => t > -p + 0.001) || 100; }   // for the enemy advancing into our land (p < 0)
+function frontPlace(f){ if (f.p >= 0){ const k = LINES.findIndex(t => f.p < t); return {mine:false, name:f.places[Math.max(0, k)], k}; } const k = LINES.findIndex(t => -f.p < t); return {mine:true, name:f.myPlaces[Math.max(0, k)], k}; }
+function warSync(w){
+  if (!w.fronts) return;
+  const cap = w.fronts.find(f => f.capital);
+  w.progress = w.fronts.reduce((a, f) => a + f.p, 0)/w.fronts.length;
+  if (cap && cap.p >= 100) w.progress = 100;
+  if (cap && cap.p <= -100) w.progress = -100;
+}
+function warPush(w, v){ initFronts(w); w.fronts.forEach(f => f.p = clamp(f.p + v, -100, 100)); warSync(w); }
+function frontsDay(w, base){
+  const {atkM, atkT, defM, defT} = base, n = w.fronts.length;
+  // AI: when attacking, it masses on the direction where we are weakest; when defending, it mirrors our deployment
+  const weak = w.fronts.reduce((b, f, i) => f.share < w.fronts[b].share ? i : b, 0);
+  w.fronts.forEach((f, i) => {
+    const es = w.aiMode === "attack" ? (n === 1 ? 1 : i === weak ? 0.5 : 0.5/(n - 1)) : f.share;
+    const M = WAR_MODES[f.mode || w.mode] || WAR_MODES.attack;
+    const terT = TERRAIN[f.t] || TERRAIN.p, terM = TERRAIN[f.myT] || TERRAIN.p;
+    const aM = atkM*f.share*M.atk/(WAR_MODES[w.mode] || WAR_MODES.attack).atk*(f.p >= 0 ? terT.tank : 1);
+    const dT = defT*es*(f.p >= 0 ? terT.def : 1);
+    const aT = atkT*es*(f.p < 0 ? terM.tank : 1);
+    const dM = defM*f.share*(f.p < 0 ? terM.def : 1)*(f.mode === "defend" ? 1.3 : 1);
+    let d = (aM/(aM + dT) - aT/(aT + dM))*0.85 + rnd(-0.2, 0.2);
+    // fortified lines slow the attacker down until it storms them
+    if (d > 0 && f.p >= 0){ const t = lineAhead(f.p); if (t - f.p < 3 && !(f.storm > 0)) d *= 0.15; }
+    if (d < 0 && f.p <= 0){ const t = lineBehind(f.p); if (t + f.p < 3){ f.aiWait = (f.aiWait||0) + 1; if (f.aiWait < 10) d *= 0.15; } else f.aiWait = 0; }
+    if (f.storm > 0){ f.storm--; if (d > 0) d *= 2; }
+    const before = f.p; f.p = clamp(f.p + d, -100, 100);
+    LINES.forEach((t, k) => {
+      if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); }
+      if (before > -t && f.p <= -t){ warEvent(w, `${f.myName} направление: противник занял ${f.myPlaces[k]}.`, "bad"); S.mods.push({stat:"approval", v:-2, left:3}); }
+    });
+  });
+  warSync(w);
+}
+function stormLine(w, i){
+  const f = w.fronts[i]; if (!f || f.storm > 0) return;
+  const t = lineAhead(f.p); if (f.p < 0 || t - f.p >= 3) return toast("Штурм возможен, когда войска подошли к рубежу.");
+  if ((S.ammo.shell||0) < 1) return toast("Для штурма нужны снаряды.");
+  S.ammo.shell = Math.max(0, S.ammo.shell - Math.max(1, (S.ammo.shell||0)*0.06));
+  Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = Math.floor(S.units[id]*warShare(w)*f.share*0.015); S.units[id] -= l; w.lossMy[id] = (w.lossMy[id]||0) + l; } });
+  f.storm = 7; warEvent(w, `${f.name} направление: начат штурм рубежа «${f.places[LINES.indexOf(t)]}».`, "");
+}
+
+function frontsPanel(w){
+  initFronts(w); applyPlan(w);
+  const plans = [["even","Поровну"], ...w.fronts.map((f, i) => ["main:" + i, `Главный удар: ${f.name.toLowerCase()}`]), ["defend","Всё на оборону"]];
+  const rows = w.fronts.map((f, i) => { const pl = frontPlace(f), t = lineAhead(f.p), canStorm = f.p >= 0 && t - f.p < 3 && !(f.storm > 0);
+    const ticks = LINES.map(v => `<s style="left:${50 + v/2}%"></s><s style="left:${50 - v/2}%"></s>`).join("");
+    return `<div class="front-row">
+      <div class="row"><b>${f.name} направление${f.capital ? " · к столице" : ""}</b><small class="muted">${TERRAIN[f.p >= 0 ? f.t : f.myT].n} · войск ${Math.round(f.share*100)}% · ${WAR_MODES[f.mode || w.mode].name.toLowerCase()}</small></div>
+      <div class="front-bar thin"><i class="mine" style="width:${clamp(50 + f.p/2, 0, 100)}%"></i>${ticks}<b style="left:${clamp(50 + f.p/2, 0, 100)}%"></b></div>
+      <div class="row"><small class="${pl.mine ? "down" : "up"}">${pl.mine ? `Бои на нашей земле: ${pl.name}` : f.p > 0.5 ? `Бои: ${pl.name}` : `Граница · впереди ${f.places[0]}`}${f.storm > 0 ? " · штурм" : ""}</small>${canStorm ? `<button class="btn sm primary" data-storm="${i}">Штурм рубежа</button>` : ""}</div>
+    </div>`; }).join("");
+  return `<div class="panel fronts" style="margin-top:12px"><h3>Направления</h3>
+    <div class="filters">${plans.map(([id, l]) => `<button class="chip" data-warplan="${id}" aria-pressed="${(w.plan||"even") === id}">${l}</button>`).join("")}</div>
+    ${rows}
+    <div class="label">Рубежи на каждом направлении: первая линия (25%), вторая линия (60%) и ключевой город (100%). У рубежа наступление вязнет — нужен штурм. Взятие столицы — капитуляция. Горы и города усиливают оборону, на равнине сильнее танки.</div></div>`;
+}
 function initWar(w){
   if (w.eu) return w;
   const e = C()[w.enemy];
@@ -1762,7 +1880,7 @@ function spendAmmo(ammo, units, mult){
   Object.keys(need).forEach(k => { ammo[k] = Math.max(0, (ammo[k]||0) - need[k]/30*mult); });
 }
 function warDay(w){
-  initWar(w); w.days++;
+  initWar(w); initFronts(w); applyPlan(w); w.days++;
   const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
   const my = forceStats(S.units, S.ammo, share), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const myTroops = freeArmy()*share*(1 + 0.1*tlv("am_small")), thTroops = e.army;
@@ -1780,13 +1898,12 @@ function warDay(w){
   const atkT = (th.g + th.airG*(0.25 + 0.75*(1 - w.air))*(1 - ewM*0.5) + thTroops*2)*aiAtk*techMult(e.tech)*(tech("cyber") ? 0.9 : 1);
   // the deeper an army goes, the longer its supply lines: defence grows with occupied depth
   const defM = (my.gd + myTroops*3)*(1 + Math.max(0, -w.progress)/120)*milBaseMult() + 1, defT = (th.gd + thTroops*3)*1.15*(1 + Math.max(0, w.progress)/120) + 1;
-  const delta = (atkM/(atkM + defT) - atkT/(atkT + defM))*0.85 + rnd(-0.2, 0.2);
-  w.progress = clamp(w.progress + delta, -100, 100);
+  frontsDay(w, {atkM, atkT, defM, defT});
   // navy: cruise missiles from frigates, destroyers and submarines; blockade of the coast
   w.sea = 0; w.blockade = 0;
   if (hasCoast()){
     const sp = seaPower(S.units, share);
-    if (sp > 0 && (S.ammo.missile||0) >= 1){ w.sea = clamp(sp/(sp + 120), 0, 0.6)*0.5*(1 - clamp(th.ad/(th.ad + 400), 0, 0.5)); w.progress = clamp(w.progress + w.sea, -100, 100); S.ammo.missile = Math.max(0, S.ammo.missile - Math.max(0.2, sp/400)); }
+    if (sp > 0 && (S.ammo.missile||0) >= 1){ w.sea = clamp(sp/(sp + 120), 0, 0.6)*0.5*(1 - clamp(th.ad/(th.ad + 400), 0, 0.5)); warPush(w, w.sea); S.ammo.missile = Math.max(0, S.ammo.missile - Math.max(0.2, sp/400)); }
     if (hasCoast(e.id)){
       if (my.navy > th.navy*1.3 + 10){ w.blockade = 1; e.gdp *= 0.9996; }
       else if (th.navy > my.navy*1.3 + 10){ w.blockade = -1; me().gdp *= 0.9997; }
@@ -1799,7 +1916,7 @@ function warDay(w){
     else { const lack = need - have, cost = lack*importPrice("oil"); S.stock.oil = 0;
       if (!Object.values(C()).some(x => x.sanctionsUs) && S.treasury > cost){ S.treasury -= cost; w.fuel = 1; w.fuelBought = (w.fuelBought||0) + cost; }
       else { if (w.fuel !== 0) warEvent(w, "Кончилось топливо: техника встаёт, армия воюет вполсилы.", "bad"); w.fuel = 0; } } }
-  if (w.fuel === 0) w.progress = clamp(w.progress - 0.3, -100, 100);
+  if (w.fuel === 0) warPush(w, -0.3);
   // 4. losses
   const rM = 0.0036*(atkT/(atkT + defM))*Mm.loss, rT = 0.0036*(atkM/(atkM + defT))*(w.aiMode === "attack" ? 1 : 0.7);
   const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
@@ -1848,8 +1965,8 @@ function doStrike(w, type){
     const p = ((w.ea.sam||0) > 0 ? clamp(th.ad/(th.ad + 60), 0, 0.8) : 0.05)*(1 - 0.15*tlv("am_missile")), down = Math.round(fired*p), hits = fired - down;
     if ([1,2].includes(tlv("am_warhead"))) infamyAdd(1);
     w.ea.sam = Math.max(0, (w.ea.sam||0) - down*1.5);
-    if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); w.progress = clamp(w.progress + hits*0.25, -100, 100); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
-    else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; w.progress = clamp(w.progress + hits*0.12, -100, 100); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
+    if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); warPush(w, hits*0.25); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
+    else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; warPush(w, hits*0.12); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
     good = hits >= down;
   } else if (type === "air"){
     if (my.airG < 20) return toast("Нет ударной авиации: нужны штурмовики, бомбардировщики, вертолёты или дроны.");
@@ -1857,7 +1974,7 @@ function doStrike(w, type){
     const eff = w.air, lossR = w.air < 0.4 ? 0.03 : 0.006;
     Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && STRIKE_K.has(m.kind) && m.kind !== "loiter"){ const lost = Math.floor(S.units[id]*warShare(w)*lossR + (Math.random() < lossR*20 ? 1 : 0)); if (lost){ S.units[id] -= lost; w.lossMy[id] = (w.lossMy[id]||0) + lost; } } });
     Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const lost = Math.floor(w.eu[id]*0.015*eff + (Math.random() < eff ? 1 : 0)); if (lost){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } } });
-    w.progress = clamp(w.progress + 2 + 6*eff, -100, 100); good = w.air >= 0.4;
+    warPush(w, 2 + 6*eff); good = w.air >= 0.4;
     text = w.air >= 0.4 ? `Авиаудар: господство в воздухе ${Math.round(w.air*100)}%, позиции противника разбиты.` : `Авиаудар без господства в воздухе (${Math.round(w.air*100)}%): тяжёлые потери самолётов.`;
   } else if (type === "drones"){
     const have = Object.entries(S.units).filter(([id]) => MODELS[id] && MODELS[id].kind === "loiter").reduce((a,[,n]) => a+n, 0);
@@ -1865,18 +1982,18 @@ function doStrike(w, type){
     let left = 50; Object.keys(S.units).forEach(id => { if (left > 0 && MODELS[id] && MODELS[id].kind === "loiter"){ const u = Math.min(left, S.units[id]); S.units[id] -= u; left -= u; } });
     const jam = clamp(th.ew/(th.ew + 30), 0, 0.7), hits = Math.round(50*(1 - jam)*rnd(0.5, 0.8));
     let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3 && w.eu[id] > 0){ const l = Math.min(w.eu[id], Math.ceil(hits*0.08)); w.eu[id] -= l; killed += l; w.lossTh[id] = (w.lossTh[id]||0) + l; } }));
-    w.progress = clamp(w.progress + 1.2, -100, 100); good = jam < 0.4;
+    warPush(w, 1.2); good = jam < 0.4;
     text = `Удар дронами: ${hits} из 50 долетели${jam > 0.2 ? ` (РЭБ противника заглушила ${Math.round(jam*100)}%)` : ""}, уничтожено единиц техники: ${killed}.`;
   } else if (type === "airborne"){
     if (airliftCap() < 2) return toast("Нужно хотя бы 2 транспортных самолёта.");
     if (w.air < 0.5) return toast("Без господства в воздухе десант собьют на подлёте.");
     const p = clamp(w.air, 0.5, 0.95); good = Math.random() < p + 0.1;
-    if (good){ w.progress = clamp(w.progress + 6, -100, 100); text = "Воздушный десант захватил плацдарм в тылу врага: фронт продвинулся на 6%."; }
+    if (good){ warPush(w, 6); text = "Воздушный десант захватил плацдарм в тылу врага: фронт продвинулся на 6%."; }
     else { const lost = Object.keys(S.units).find(id => MODELS[id] && MODELS[id].kind === "transport" && S.units[id] > 0); if (lost){ S.units[lost]--; w.lossMy[lost] = (w.lossMy[lost]||0) + 1; } me().army = Math.max(1, me().army*0.995); text = "Десант попал под огонь ПВО: потерян транспортник, плацдарм не удержан."; }
   } else if (type === "landing"){
     if (!hasCoast() || !hasCoast(e.id)) return toast("Десант возможен только между странами с выходом к морю.");
     if (my.navy < th.navy*1.2 + 20) return toast("Флот слабее вражеского: десант сорвётся.");
-    w.progress = clamp(w.progress + 8, -100, 100);
+    warPush(w, 8);
     Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && (m.kind === "ifv" || m.kind === "apc")){ const l = Math.floor(S.units[id]*warShare(w)*0.02); S.units[id] -= l; w.lossMy[id] = (w.lossMy[id]||0) + l; } });
     text = "Морской десант высажен: фронт продвинулся на 8%.";
   } else if (type === "mobilize"){
@@ -1939,8 +2056,9 @@ function viewHQ(){
     <div class="row"><small>Топливо: ${w.fuel === 0 ? `<span class="down">нет — армия воюет вполсилы</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}</small></div>
     ${airliftCap() ? `<div class="row"><small>Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны</small></div>` : ""}
   </div>
+  ${frontsPanel(w)}
   <div class="grid2" style="margin-top:12px">
-    <div class="panel"><h3>Режим фронта</h3>
+    <div class="panel"><h3>Режим главного удара</h3>
       <div class="modes">${Object.entries(WAR_MODES).map(([id, m]) => `<button class="choice ${w.mode===id?"on":""}" data-warmode="${id}"><b>${m.name}</b><small>${m.hint}</small></button>`).join("")}</div>
       ${S.wars.length > 1 ? `<div class="row"><span>Приоритет фронта</span><span class="seg">${[1,2,3].map(v => `<button data-warprio="${v}" aria-pressed="${w.prio===v}">${["Низкий","Обычный","Высокий"][v-1]}</button>`).join("")}</span></div><div class="label">На этот фронт идёт ${Math.round(share*100)}% армии.</div>` : ""}
     </div>
@@ -2318,7 +2436,7 @@ function nuclearStrike(w){
   S.infamy = 100; me().worldSanctions = 60;
   Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id){ x.rel = clamp(x.rel - 60, -100, 100); x.trade = false; if (x.ally && x.rel < 30) x.ally = false; } });
   S.mods.push({stat:"approval", v: ideo("auth") ? -10 : -20, left:24}, {stat:"stability", v:-15, left:12});
-  w.progress = 100;
+  warPush(w, 200); w.progress = 100;
   addLog(`☢ Нанесён ядерный удар по стране ${e.name}. Мир в ужасе: санкции на 5 лет, отношения со всеми разорваны.`);
   flashMap(e.id, "bad"); sfx("boom"); setTimeout(() => sfx("boom"), 400); buzz(400);
   warOutcomes(); dirty = true;
@@ -6012,6 +6130,8 @@ document.addEventListener("click", e => {
   if (t.dataset.garrison){ const [iso, v] = t.dataset.garrison.split(":"); S.occupied[iso].garrison = +v; save(); render(); return; }
   if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
+  if (t.dataset.warplan){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.plan = t.dataset.warplan; applyPlan(w); } save(); render(); return; }
+  if (t.dataset.storm !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) stormLine(w, +t.dataset.storm); save(); render(); return; }
   if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
   if (t.dataset.warprio){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) w.prio = +t.dataset.warprio; save(); render(); return; }
   if (t.dataset.strike){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) doStrike(w, t.dataset.strike); save(); render(); return; }
