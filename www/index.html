@@ -2712,13 +2712,17 @@ function suppliers(r){
 function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r && !x.cat).reduce((a,x)=>a+x.qty, 0); }
 function cargoIcon(x){ return x.air ? "plane" : x.cat === "aid" ? "food" : x.cat === "unit" ? KINDS[MODELS[x.r].kind].icon : x.cat === "ammo" ? "ammo" : x.r; }
 function shipId(){ S.shipSeq = (S.shipSeq||0) + 1; return S.shipSeq; }
+/* every seller can ship only so much a month: proportional to its economy and its deposits */
+function sellerCap(iso, r){ return Math.max(0, partnerGdp(iso)*COMMOD[r].price*supplyProf(iso, r)/COMMOD_WORLD[r]*5); }
+function sellerLeft(iso, r){ return Math.max(0, sellerCap(iso, r) - ((S.importUsed||{})[iso+":"+r] || 0)); }
 function orderGoods(iso, r, qty, quiet){
-  qty = Math.ceil(qty); if (qty <= 0) return false;
+  qty = Math.min(Math.ceil(qty), Math.floor(sellerLeft(iso, r))); if (qty <= 0){ if (!quiet) toast(`${partnerName(iso)}: лимит поставок на этот месяц исчерпан.`); return false; }
   const cost = qty*importPriceFrom(iso, r), days = travelDays(iso);
   if (S.treasury < cost){ if (!quiet) toast("Не хватает денег на закупку."); return false; }
   S.treasury -= cost;
   S.shipments = S.shipments || [];
   S.shipments.push({id:shipId(), from:iso, to:S.player, r, qty, left:days, total:days, dir:"in"});
+  S.importUsed = S.importUsed || {}; S.importUsed[iso+":"+r] = (S.importUsed[iso+":"+r] || 0) + qty;
   if (!quiet){ addLog(`Заказано: ${COMMOD[r].name.toLowerCase()} ${fmtQ(qty)} ${COMMOD[r].unit} из страны ${partnerName(iso)} за ${money(cost)}. Доставка ~${days} дн.`); toast(`Груз в пути: ${COMMOD[r].name.toLowerCase()} ${qty}, ~${days} дн.`); }
   flashMap(iso, "info");
   return true;
@@ -2727,9 +2731,11 @@ function orderForBuilding(id){
   const sh = matShort(BUILDINGS[id].mat||{}); let any = false, days = 0;
   for (const r in sh.miss){
     const need = Math.ceil(sh.miss[r] - inTransit(r)); if (need <= 0) continue;
-    const best = suppliers(r)[0];
-    if (!best){ toast(`Никто сейчас не продаёт: ${COMMOD[r].name.toLowerCase()}.`); continue; }
-    if (orderGoods(best.iso, r, need)) { any = true; days = Math.max(days, best.days); }
+    const list = suppliers(r).filter(x => sellerLeft(x.iso, r) >= 1);
+    if (!list.length){ toast(`Сейчас никто не может продать: ${COMMOD[r].name.toLowerCase()} — лимиты продавцов на месяц исчерпаны.`); continue; }
+    let left = need;
+    for (const x of list){ if (left <= 0) break; const q = Math.min(left, Math.floor(sellerLeft(x.iso, r))); if (orderGoods(x.iso, r, q)){ any = true; left -= q; days = Math.max(days, x.days); } }
+    if (left > 0) toast(`${COMMOD[r].name}: продавцы смогут отгрузить остальное (${fmtQ(left)} ${COMMOD[r].unit}) в следующем месяце.`);
   }
   if (!any && Object.keys(sh.miss).length) toast("Нужные материалы уже в пути.");
   return any;
@@ -2907,6 +2913,7 @@ function uranTurn(){
 function nextMonth(){
   if (S.pendingEvent || S.over) return;
   const c = me();
+  S.importUsed = {};
   uranTurn();
   const cm = coinsMonthly(); if (cm > 0){ S.coins = (S.coins||0) + cm; }
   const before = {treasury:S.treasury, gdp:c.gdp, approval:S.approval, stability:S.stability};
@@ -4606,9 +4613,8 @@ function viewBuildObj(){
     </div>
     <div class="panel">
       <h3>Материалы</h3>
-      <div class="row"><span class="mat">${ic("wood")} Древесина</span><span class="num">${fmtQ(S.stock.wood)} ${COMMOD.wood.unit} · +${fmtQ(prodOf("wood"))}/мес</span></div>
-      <div class="row"><span class="mat">${ic("steel")} Сталь</span><span class="num">${fmtQ(S.stock.steel)} ${COMMOD.steel.unit} · +${fmtQ(prodOf("steel"))}/мес</span></div>
-      <div class="label">Больше материалов дают лесопилки и металлургические заводы — раздел «Сырьё и материалы».</div>
+      ${Object.entries(COMMOD).map(([r,d]) => `<div class="row"><span class="mat">${ic(r)} ${d.name}</span><span class="num">${fmtQ(S.stock[r]||0)} ${d.unit}${commodOpen(r) ? ` · +${fmtQ(prodOf(r))}/мес` : ` · <small class="muted">своей добычи нет</small>`}</span></div>`).join("")}
+      <div class="label">Материалы дают лесопилки, металлургия, нефтяные вышки, рудники РЗМ и урана — раздел «Сырьё и материалы». Недостающее можно купить: у каждого продавца есть лимит в месяц.</div>
     </div>
     <div class="panel" style="grid-column:1/-1">
       <div class="row pw-chip-row"><div class="filters">${BUILD_CATS.map(([id,n])=>`<button class="chip" data-buildcat="${id}" aria-pressed="${S.buildCat===id}">${n}</button>`).join("")}</div><button class="pw-chip ${powerBalance()<0?"bad":""}" data-tab="economy" data-govtab-go2="energy">${ic("power","sm")} ${powerBalance()>=0?"Избыток":"Дефицит"} электроэнергии: <b class="num">${pw(powerBalance())}</b></button></div>
@@ -5440,7 +5446,7 @@ function viewTrade(){
       <button class="btn" data-tab="build" style="align-self:flex-start">${ic("factory","sm")} К стройкам</button></div>
     <div class="panel" style="grid-column:1/-1"><h3>Склад</h3>${Object.entries(COMMOD).map(([r,d])=>stockRow(r,d)).join("")}</div>
     <div class="panel"><h3>Экспортные контракты</h3>${rowsC || `<p class="muted" style="margin:0">Контрактов пока нет. Выберите страну на карте и задайте объём поставок — товар будет уходить со склада каждый месяц по цене выше биржевой.</p>`}</div>
-    <div class="panel"><h3>Где купить материалы</h3>${IMPORTABLE.map(r => { const top = suppliers(r).slice(0,3); return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${COMMOD[r].name}</b></span><span class="btns">${top.map(x=>`<button class="chip" data-mapgo="${x.iso}">${flag(x.iso)} ${esc(partnerName(x.iso))} <span class="num warn">${money(x.price)} · ${x.days} дн.</span></button>`).join("") || `<span class="muted">никто не продаёт</span>`}</span></div>`; }).join("")}<div class="label">Цена за ${COMMOD.wood.unit}, с доставкой. Ближе — быстрее.</div></div>
+    <div class="panel"><h3>Где купить материалы</h3>${IMPORTABLE.map(r => { const top = suppliers(r).slice(0,3); return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${COMMOD[r].name}</b></span><span class="btns">${top.map(x=>`<button class="chip" data-mapgo="${x.iso}">${flag(x.iso)} ${esc(partnerName(x.iso))} <span class="num warn">${money(x.price)} · ${x.days} дн. · до ${fmtQ(sellerLeft(x.iso, r))} ${COMMOD[r].unit}/мес</span></button>`).join("") || `<span class="muted">никто не продаёт</span>`}</span></div>`; }).join("")}<div class="label">Цена за единицу с доставкой. Ближе — быстрее. У каждого продавца лимит поставок в месяц.</div></div>
     <div class="panel"><h3>Лучшие покупатели</h3>${buyers || `<p class="muted" style="margin:0">Нечего продавать.</p>`}<div class="label">Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div></div>
   </div>`;
 }
