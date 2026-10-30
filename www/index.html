@@ -1824,12 +1824,16 @@ function frontsDay(w, base){
   const ph = PHASES[w.phase] || PHASES.man, surprise = w.phase === "mob" ? (w.byUs ? [1.3, 0.8] : [0.8, 1.3]) : [1, 1];
   // AI: when attacking, it masses on the direction where we are weakest; when defending, it mirrors our deployment
   const act = w.fronts.filter(f => f.p < 100), na = act.length || 1;
-  const weak = w.fronts.reduce((b, f, i) => f.p < 100 && (w.fronts[b].p >= 100 || f.share < w.fronts[b].share) ? i : b, 0);
+  const score = f => f.share*supplyK(f)*(f.mode === "defend" ? 1.3 : 1);
+  const weak = w.fronts.reduce((b, f, i) => f.p < 100 && (w.fronts[b].p >= 100 || score(f) < score(w.fronts[b])) ? i : b, 0);
+  if (w.counter && --w.counter.days <= 0) w.counter = null;
+  if (!w.counter && w.phase !== "mob" && Math.random() < 0.03){ const f = w.fronts[weak]; if (f && f.p < 100 && ((f.sup ?? 100) < 60 || f.share < 0.25)){ w.counter = {i:weak, days:7}; warEvent(w, `${f.name} направление: противник перешёл в контрнаступление.`, "bad"); advise("gen", `Контрнаступление противника на ${f.name.toLowerCase()} направлении! Там у нас ${f.share < 0.25 ? "мало войск" : "плохое снабжение"}.`, {tab:"hq", mood:"alert"}); } }
   w.fronts.forEach((f, i) => {
     if (f.p >= 100) return;
     const st = supplyTarget(w, f); f.sup = (f.sup ?? 100) + (st - (f.sup ?? 100))*0.1;
     if (f.sup < 45 && !f.supWarn){ f.supWarn = true; warEvent(w, `${f.name} направление: снабжение упало до ${Math.round(f.sup)}% — наступление вязнет.`, "bad"); } else if (f.sup > 60) f.supWarn = false;
-    const es = w.aiMode === "attack" ? (na === 1 ? 1 : i === weak ? 0.5 : 0.5/(na - 1)) : f.share;
+    let es = w.aiMode === "attack" ? (na === 1 ? 1 : i === weak ? 0.5 : 0.5/(na - 1)) : f.share;
+    if (w.counter && w.counter.i === i) es *= 1.6;
     const M = WAR_MODES[f.mode || w.mode] || WAR_MODES.attack;
     const terT = TERRAIN[f.t] || TERRAIN.p, terM = TERRAIN[f.myT] || TERRAIN.p;
     const aM = atkM*f.share*M.atk/(WAR_MODES[w.mode] || WAR_MODES.attack).atk*(f.p >= 0 ? terT.tank : 1)*supplyK(f);
@@ -1895,7 +1899,7 @@ const WCARDS = [
       {t:"Перебросить резервы", d:"оборона здесь крепче на 10 дней", fx:(w,f) => { f.defBuff = 10; return "Резервы выдвинулись к месту прорыва."; }},
       {t:"Мобилизовать резервистов", d:"армия +3%, рейтинг −2", fx:(w,f) => { me().army *= 1.03; S.mods.push({stat:"approval", v:-2, left:6}); f.defBuff = 5; return "Резервисты призваны и отправлены на фронт."; }},
       {t:"Держаться", d:"без изменений", fx:() => "Части держат оборону своими силами."}]},
-  {id:"truce", when:(w) => w.progress >= 35 && w.progress < 100, once:true, def:1, front:false,
+  {id:"truce", when:(w) => (w.progress >= 35 || (w.eArmy0 && C()[w.enemy].army < w.eArmy0*0.6)) && w.progress < 100, once:true, def:1, front:false,
     title:() => "Противник просит перемирия", text:(w) => `${C()[w.enemy].name} готова к переговорам: фронт против неё.`,
     opts:[
       {t:"Сесть за стол переговоров", d:"откроются условия мира", fx:(w) => { setTimeout(() => showPeace(w.enemy), 50); return "Делегации встретятся на нейтральной территории."; }},
@@ -1928,6 +1932,7 @@ function wcardPanel(w){
     <div class="choices">${c.opts.map((o, k) => `<button class="choice" data-wcard="${k}" ${o.ok && !o.ok() ? "disabled" : ""}><b>${o.t}</b><small>${o.d}${k === c.def ? " · по умолчанию" : ""}</small></button>`).join("")}</div></div>`;
 }
 
+function canReachFrom(x, e){ return x.region === e.region || (ADJ[e.region]||[]).includes(x.region); }
 function frontsPanel(w){
   initFronts(w); applyPlan(w);
   const plans = [["even","Поровну"], ...w.fronts.map((f, i) => ["main:" + i, `Главный удар: ${f.name.toLowerCase()}`]), ["defend","Всё на оборону"]];
@@ -1950,7 +1955,7 @@ function initWar(w){
   const e = C()[w.enemy];
   w.eu = defaultUnits(e, e.tech); w.eu0 = Object.assign({}, w.eu); w.ea = defaultAmmo(w.eu);
   Object.keys(w.ea).forEach(k => w.ea[k] *= 1.5);
-  w.mode = w.mode || "attack"; w.aiMode = "attack"; w.air = 0.5; w.prio = w.prio || 2;
+  w.mode = w.mode || "attack"; w.aiMode = "attack"; w.air = 0.5; w.prio = w.prio || 2; w.eArmy0 = e.army;
   w.accMy = {}; w.accTh = {}; w.lossMy = {}; w.lossTh = {}; w.mLossMy = {}; w.mLossTh = {};
   w.cd = {}; w.events = []; w.days = 0; w.troopsLost = 0;
   return w;
@@ -2022,6 +2027,17 @@ function warDay(w){
   const tl = myTroops*rM*0.5; me().army = Math.max(1, me().army - tl); w.troopsLost += tl; e.army = Math.max(0.5, e.army - thTroops*rT*0.5);
   // ammunition
   spendAmmo(S.ammo, S.units, share*Mm.ammo*(1 - 0.03*Math.min(10, facCount("depot")))); spendAmmo(w.ea, w.eu, aiAtk);
+  // enemy kamikaze drones: our EW jams them, short-range air defence shoots them down
+  { const ids = Object.keys(w.eu).filter(id => MODELS[id] && MODELS[id].kind === "loiter" && w.eu[id] > 0), have = ids.reduce((a, id) => a + w.eu[id], 0);
+    if (have >= 10 && Math.random() < 0.1){
+      const n = Math.min(have, 20 + Math.floor(Math.random()*40)); let left = n; ids.forEach(id => { const u = Math.min(left, w.eu[id]); w.eu[id] -= u; left -= u; });
+      const jam = clamp(my.ew/(my.ew + 30), 0, 0.7), shot = (S.ammo.sam||0) > 0 ? clamp(my.ad/(my.ad + 80), 0, 0.6) : 0.05;
+      const jammed = Math.round(n*jam), down = Math.round((n - jammed)*shot), hits = n - jammed - down;
+      S.ammo.sam = Math.max(0, (S.ammo.sam||0) - down*0.3);
+      let killed = 0; ["tank","sph","mlrs","ifv","apc"].forEach(kind => Object.keys(S.units).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.4 && S.units[id] > 0){ const l = Math.min(S.units[id], Math.ceil(hits*0.1)); S.units[id] -= l; killed += l; w.lossMy[id] = (w.lossMy[id]||0) + l; } }));
+      w.droneLog = {n, jammed, down, hits, killed};
+      warEvent(w, `${e.name}: удар ${n} дронов-камикадзе — РЭБ заглушила ${jammed}, ПВО сбила ${down}, потеряно техники: ${killed}.`, hits > n*0.4 ? "bad" : "good");
+    } }
   // enemy missile strikes on us
   w.cd = w.cd || {};
   if ((w.ea.missile||0) >= 6 && Math.random() < 0.08){
@@ -2044,6 +2060,11 @@ function warMonth(w){
   const re = defaultAmmo(w.eu0); Object.keys(re).forEach(k => w.ea[k] = (w.ea[k]||0) + re[k]*0.12);
   const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   w.aiMode = th.g + th.airG > (my.g + my.airG)*0.8 || w.progress < -20 ? "attack" : "hold";
+  if (!w.helped && w.progress > 25){
+    const friend = Object.values(C()).filter(x => !x.owner && x.id !== e.id && x.id !== S.player && x.rel < 10 && canReachFrom(x, e)).sort((a, b) => b.gdp - a.gdp)[0];
+    if (friend && Math.random() < 0.5){ w.helped = friend.id; e.army *= 1.08; Object.keys(w.ea).forEach(k => w.ea[k] *= 1.3); friend.rel = clamp(friend.rel - 10, -100, 100);
+      warEvent(w, `${friend.name} передала ${e.name} оружие и боеприпасы.`, "bad"); advise("dipl", `${friend.name} помогает противнику оружием. Отношения с ней ухудшились.`, {tab:"diplomacy"}); }
+  }
   const top = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 3).map(([id,n]) => `${MODELS[id].name} ×${n}`).join(", ");
   const lm = top(w.mLossMy), lt = top(w.mLossTh);
   advise("gen", `Фронт с ${e.name}: ${w.progress >= 0 ? `заняли ${Math.round(w.progress)}% территории` : `противник продвинулся на ${Math.round(-w.progress)}% нашей земли`}. Наши потери: ${lm || "нет"}. Уничтожено у врага: ${lt || "ничего"}.`, {tab:"hq", mood: w.progress < 0 ? "alert" : null});
@@ -2151,6 +2172,8 @@ function viewHQ(){
     ${w.sea ? `<div class="row"><small>Удары с моря крылатыми ракетами</small><small class="up num">+${w.sea.toFixed(2).replace(".",",")}% в день</small></div>` : ""}
     ${w.blockade ? `<div class="row"><small>${w.blockade > 0 ? `<span class="up">Морская блокада противника: его экономика сжимается</span>` : `<span class="down">Флот противника блокирует наши порты</span>`}</small></div>` : ""}
     <div class="row"><small>Топливо: ${w.fuel === 0 ? `<span class="down">нет — армия воюет вполсилы</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}</small></div>
+    ${w.droneLog ? `<div class="row"><small>Последний удар дронов: ${w.droneLog.n} шт · РЭБ ${w.droneLog.jammed} · ПВО ${w.droneLog.down} · прорвалось ${w.droneLog.hits}</small></div>` : ""}
+    ${w.counter ? `<div class="row"><small class="down">Контрнаступление противника: ${w.fronts[w.counter.i].name.toLowerCase()} направление, ещё ${w.counter.days} дн.</small></div>` : ""}
     ${airliftCap() ? `<div class="row"><small>Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны</small></div>` : ""}
   </div>
   ${frontsPanel(w)}
