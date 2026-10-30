@@ -2191,7 +2191,7 @@ const TECH = [
   {id:"rotor",br:"mil",tier:2,max:3,cost:150,days:160,name:"Вертолётостроение",fx:"вертолётный завод; ур. 2–3 — вертолёты 2–3 поколения",v:0},
   {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — самолёты и корабли 2–3 поколения",v:0},
   {id:"armsexport",br:"mil",tier:4,max:5,cost:360,days:260,name:"Экспорт вооружений",fx:"доход от экспорта техники +#%",v:50},
-  {id:"geo",br:"geo",tier:1,max:5,cost:60,days:90,name:"Геологоразведка",fx:"открывает нефть; базовая добыча нефти ×#",v:1,lin:true},
+  {id:"geo",br:"geo",tier:1,max:5,cost:60,days:90,name:"Геологоразведка",fx:"открывает нефть в странах без своих месторождений; добыча нефти ×#",v:1,lin:true},
   {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"золотые шахты: золотые монеты ×#",v:1,lin:true},
   {id:"rareearth",br:"geo",tier:2,max:3,cost:140,days:150,name:"Добыча РЗМ",fx:"рудники редкоземельных металлов; добыча ×#",v:1,lin:true},
   {id:"uranium",br:"geo",tier:3,max:3,cost:180,days:170,name:"Добыча урана",fx:"урановые рудники; добыча ×#",v:1,lin:true},
@@ -2624,7 +2624,9 @@ window.__flagFail = u => { if (u && FLAG_BASE && u.startsWith(FLAG_BASE)) flagFa
 /* ---------- Commodities & trade ---------- */
 function woodProf(id){ return WOOD_PROF[id] ?? 0.8; }
 function goldProf(id){ return GOLD_PROF[id] ?? 0.2; }
-function commodOpen(r){ const t = COMMOD[r].tech; return !t || !!tech(t); }
+/* countries with their own oil fields extract it from the start; the rest need «Геологоразведка» */
+function ownOil(){ return me().prof.oil >= 0.4; }
+function commodOpen(r){ if (r === "oil" && ownOil()) return true; const t = COMMOD[r].tech; return !t || !!tech(t); }
 function outMult(r){
   if (r==="wood") return Math.max(0.5, woodProf(S.player));
   if (r==="steel") return selfSuff("metal") < 60 ? 0.5 : 1;
@@ -2639,7 +2641,7 @@ function baseOut0(r){
   const c = me();
   if (r==="wood") return 10*woodProf(S.player);
   if (r==="steel") return 8*c.prof.metal*(selfSuff("metal") < 60 ? 0.5 : 1);
-  if (r==="oil") return 4*c.prof.oil*(1 + 0.25*(tlv("geo")-1));
+  if (r==="oil") return 4*c.prof.oil*(1 + 0.25*(Math.max(1, tlv("geo"))-1));
   if (r==="rare") return 0.5*rareProf(S.player);
   if (r==="uran") return 0.4*uranProf(S.player);
   return 0;
@@ -2780,7 +2782,7 @@ function marketTurn(){
 }
 function canBuild(id){
   const b = BUILDINGS[id], r = b.req || {}, n = objCount(id) + queued(id);
-  if (r.tech && !tech(r.tech)) return {ok:false, why:`нужна технология «${TECH.find(x=>x.id===r.tech).name}»`};
+  if (r.tech && !tech(r.tech) && !(r.tech === "geo" && ownOil())) return {ok:false, why:`нужна технология «${TECH.find(x=>x.id===r.tech).name}»`};
   if (r.res) for (const k in r.res) if (selfSuff(k) < r.res[k]) return {ok:false, why:`нужно ${RES.find(x=>x.id===k).name.toLowerCase()} от ${r.res[k]}%`};
   if (r.coast && !hasCoast()) return {ok:false, why:"нужен выход к морю"};
   if (r.pop && me().pop < r.pop) return {ok:false, why:`нужно население от ${r.pop} млн`};
