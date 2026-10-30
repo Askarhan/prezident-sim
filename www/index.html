@@ -712,6 +712,10 @@ use.cu{fill:#000;stroke:none}
 
 .sat-on #worldmap #countries-g path{stroke:none}
 .sat-on #worldmap #countries-g path.m-player{stroke:#56C1FF}
+#worldmap.bloc-on #countries-g path.m-player{stroke:none!important;filter:none!important}
+#worldmap path.bloc-mk,.sat-on #worldmap path.bloc-mk{fill:#000;stroke:#000;stroke-opacity:1;stroke-linejoin:round;vector-effect:none}   /* also closes the slivers between neighbouring outlines */
+#worldmap .bloc-out{fill:none;stroke:#FFE0A8;stroke-width:7;vector-effect:non-scaling-stroke;stroke-linejoin:round;pointer-events:none}
+.sat-on #worldmap .bloc-out{stroke:#56C1FF;stroke-opacity:1;stroke-width:7.8;filter:drop-shadow(0 0 3px rgb(40 150 255 / .95))}
 .sat-on #worldmap #countries-g path.m-sel{stroke:#FFE27A}
 #map-borders{pointer-events:none}
 #map-borders path{fill:none;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
@@ -1836,8 +1840,9 @@ function placePool(iso){
 function frontRoutes(att, tgt, n){
   const pool = placePool(tgt), cap = CAPITALS[tgt], fr = frontsOf(tgt);
   if (!cap || pool.length < 3) return null;
-  const capLL = [cap[1], cap[2]], aPts = placePool(att).map(p => p.ll), ac = CAPITALS[att];
-  if (ac) aPts.push([ac[1], ac[2]]);
+  // the attacker strikes from anywhere of its land — for us that includes the annexed countries
+  const capLL = [cap[1], cap[2]], aIsos = att === S.player ? blocIsos() : [att], aPts = [];
+  aIsos.forEach(a => { placePool(a).forEach(p => aPts.push(p.ll)); const ac = CAPITALS[a]; if (ac) aPts.push([ac[1], ac[2]]); });
   if (!aPts.length) return null;
   const A = aPts.reduce((b, p) => llDist(p, capLL) < llDist(b, capLL) ? p : b, aPts[0]);
   const capP = pool.find(p => p.name === cap[0]) || {name:cap[0], ll:capLL, dir:0, t:fr[0][1], dname:fr[0][0]};
@@ -2285,7 +2290,8 @@ function occField(att, tgt, lls){
   }
   // where the attacker can come from: the shared land border, otherwise the side facing it
   const D8 = [[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
-  const attP = countryPath(att), land = attP ? border.filter(b => D8.some(([a, c]) => [1.5, 3].some(r => inCountry(attP, b.x + a*cs*r, b.y + c*cs*r)))) : [];
+  const attPs = (att === S.player ? blocIsos() : [att]).map(countryPath).filter(Boolean);
+  const land = border.filter(b => D8.some(([a, c]) => [1.5, 3].some(r => attPs.some(P => inCountry(P, b.x + a*cs*r, b.y + c*cs*r)))));
   const facing = border.filter(b => b.face > 0), pool = land.length ? land : facing.length ? facing : border;
   const routes = [];
   for (let r = 0; r < n; r++){
@@ -3427,9 +3433,12 @@ function techCost(){ return me().gdp * 0.012 * me().tech; }
 function recruitAmount(){ return Math.max(2, me().army*0.05); }
 function recruitCost(){ const k = recruitAmount(); return k*0.004*gdppc() * (lawOn("conscription")?0.5:1) * (ideo("nat")?0.8:1); }
 function improveCost(){ return Math.max(0.02, me().gdp*0.002); }
-function nearReach(c){ const r = me().region; return c.region === r || ADJ[r].includes(c.region); }
+// reach by land from our country or from any annexed one: annexations open the way further
+function nearReach(c){ return blocIsos().some(i => { const r = (C()[i] || me()).region; return c.region === r || (ADJ[r]||[]).includes(c.region); }); }
 function canReach(c){ return nearReach(c) || (unitsOf(["carrier"]) > 0 && hasCoast() && hasCoast(c.id)); }
 function controlled(){ return Object.values(C()).filter(c=>c.owner==="player"); }
+// our country together with the annexed ones: one colour, one outline, no borders inside
+function blocIsos(){ return [S.player, ...controlled().map(c => c.id).filter(i => i !== S.player)]; }
 
 /* ---------- Turn ---------- */
 function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*BUILDINGS.npp.cost*me().gdp*0.002/COMMOD_WORLD.uran; }
@@ -5601,7 +5610,7 @@ function mapClass(iso){
   const x = C()[iso];
   if (!x){ const p = S.partners[iso]; return p && (p.trade || hasContract(iso)) ? "m-trade" : p && p.rel <= -40 ? "m-hostile" : "m-minor"; }
   if (x.id === S.player) return "m-player";
-  if (x.owner) return "m-own";
+  if (x.owner) return "m-player m-annex";
   if (S.wars.some(w=>w.enemy===x.id)) return "m-war";
   if (x.puppet) return "m-puppet";
   if (x.ally) return "m-ally";
@@ -5620,7 +5629,12 @@ function viewMap(){
     const occDefs = "";
     const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
     const grid = (() => { const out = []; for (let lat = -60; lat <= 60; lat += 30){ const a = proj(lat, -168), b = proj(lat, 191); if (a) out.push(`<path d="M0,${a.y.toFixed(1)}H${w}" class="${lat===0?"eq":""}"/>`); } for (let lon = -150; lon <= 180; lon += 30){ const a = proj(80, lon), b = proj(-60, lon); if (a) out.push(`<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)}V${b.y.toFixed(1)}"/>`); } return out.join(""); })();
-    svg = `<svg id="worldmap" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g><g id="occ-layer"></g></g></svg>`;
+    const bloc = blocIsos().filter(i => WORLD.paths[i.toUpperCase()]), merged = bloc.length > 1;
+    // the outline of the whole bloc: strokes of all its countries, with everything inside the bloc masked away
+    const blocD = merged ? bloc.map(i => WORLD.paths[i.toUpperCase()].path).join("") : "";
+    const blocDefs = merged ? `<mask id="bloc-mask" maskUnits="userSpaceOnUse" x="-100" y="-100" width="${w + 200}" height="${h + 200}"><rect x="-100" y="-100" width="${w + 200}" height="${h + 200}" fill="#fff"/><path class="bloc-mk" d="${blocD}"/></mask>` : "";
+    const blocLine = merged ? `<g id="bloc-g" mask="url(#bloc-mask)"><path class="bloc-out" d="${blocD}"/></g>` : "";
+    svg = `<svg id="worldmap" class="${merged ? "bloc-on" : ""}" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}${blocDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g>${blocLine}<g id="occ-layer"></g></g></svg>`;
   } else svg = `<div class="map-empty">${worldFailed ? "Не удалось загрузить карту. Проверьте интернет — список стран доступен во вкладке «Дипломатия»." : "Загружаем карту мира…"}</div>`;
   const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
@@ -5631,7 +5645,7 @@ function viewMap(){
       <p class="muted" style="margin:0">Значки над страной — ваши постройки: нажмите, чтобы открыть нужный раздел. «+» — новая стройка.</p></div>`;
   else if (!x.owner) card = null;
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
-  const legend = [["m-player","Вы"],["m-own","Под контролем"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
+  const legend = [["m-player","Вы и присоединённые земли"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
       <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}
         ${S && S.countries ? mapSideHTML() : ""}
@@ -5671,6 +5685,7 @@ function satBordersAttach(){
   const cg = document.getElementById("countries-g"); if (!cg || document.getElementById("map-borders")) return;
   const B = window.SAT_BORDERS, g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.id = "map-borders";
   g.innerHTML = `<path class="bd-under" d="${B.solid}"/><path class="bd" d="${B.solid}"/><path class="bd dis" d="${B.disputed}"/>`;
+  if (document.getElementById("bloc-mask")) g.setAttribute("mask", "url(#bloc-mask)");
   cg.after(g);
 }
 function satApply(){
@@ -5740,6 +5755,7 @@ function attachLabels(){
     const cls = iso===ui.mapSel ? "lb-sel" : iso===S.player ? "lb-me" : C()[iso] ? "lb-game" : "";
     if (cls) t.setAttribute("class", cls);
     t.textContent = partnerName(iso);
+    if (iso !== S.player && C()[iso] && C()[iso].owner === "player") return;
     lg.appendChild(t);
     const u = flagUrl(iso);
     if (u){ const im = document.createElementNS("http://www.w3.org/2000/svg", "image"); im.setAttribute("href", u); im.dataset.fiso = iso; im.setAttribute("class", "lb-flag"); im.setAttribute("preserveAspectRatio", "none");
@@ -5891,6 +5907,7 @@ function updateLabels(){
       else fl.style.display = "none"; }
   });
   const s = (upp/k).toFixed(4); ui.fxScale = s;
+  const mk = document.querySelector("#bloc-mask .bloc-mk"); if (mk) mk.style.strokeWidth = (3*upp/k).toFixed(4);   // ~3 px on screen at any zoom
   document.querySelectorAll("#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
   document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
   document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 ? "" : "none"; });
