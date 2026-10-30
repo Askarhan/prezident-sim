@@ -2866,7 +2866,7 @@ function growthMonthly(){
   g += 0.0003*Object.values(C()).filter(x=>x.trade && !x.owner).length;
   g -= 0.0008*Object.values(C()).filter(x=>x.sanctionsUs).length;
   g -= 0.002*S.wars.length;
-  g -= 0.0006*deficits();
+  g -= 0.00025*deficits();   // shortages are already paid for as imports in the budget; this is only the extra drag
   g += lawSum("growth") + facFx("growth") + orgGrowth() + (relig("secular") ? 0.00008 : relig("trad") ? -0.00008 : 0);
   g += modSum("growth");
   if (S.debt > me().gdp) g -= 0.001;
