@@ -1401,12 +1401,12 @@ const RES = [
 ];
 // cost = share of GDP; roi = monthly income as share of cost; upkeep = 0,4% of cost per month
 const BUILDINGS = {
-  farm:{cat:"res",name:"Агрокомплекс",days:90,cost:0.004,desc:"+15% продовольствия"},
-  oil:{cat:"res",name:"Нефтегазовое месторождение",days:150,cost:0.005,desc:"+15% нефти и газа"},
-  mine:{cat:"res",name:"Рудник",days:120,cost:0.0045,desc:"+15% руды (нужна металлургии)"},
-  power:{cat:"energy",name:"Тепловая электростанция",days:150,cost:0.005,desc:"+15 ед. электроэнергии; работает на угле и газе"},
-  hydro:{cat:"energy",name:"Гидроэлектростанция",days:360,cost:0.008,desc:"+30 ед. электроэнергии; число ГЭС ограничено реками страны",maxFn:"hydroMax"},
-  solar:{cat:"energy",name:"Солнечная и ветровая станция",days:90,cost:0.003,desc:"+6 ед. электроэнергии, рейтинг +0,3; каждая следующая дороже",scale:0.12,dscale:4},
+  farm:{cat:"res",name:"Агрокомплекс",days:60,cost:0.0011,desc:"+4% продовольствия",use:{power:0.5}},
+  oil:{cat:"res",name:"Нефтегазовое месторождение",days:90,cost:0.0014,desc:"+4% топлива для экономики"},
+  mine:{cat:"res",name:"Рудник",days:75,cost:0.0012,desc:"+4% руды (нужна металлургии)",use:{power:0.5}},
+  power:{cat:"energy",name:"Тепловая электростанция",days:90,cost:0.0014,desc:"+4 ед. электроэнергии; тратит топливо",use:{oil:1}},
+  hydro:{cat:"energy",name:"Гидроэлектростанция",days:240,cost:0.0024,desc:"+8 ед. электроэнергии; число ГЭС ограничено реками страны",maxFn:"hydroMax"},
+  solar:{cat:"energy",name:"Солнечная и ветровая станция",days:60,cost:0.0009,desc:"+2 ед. электроэнергии, рейтинг +0,2; каждая следующая дороже",scale:0.05,dscale:2},
   // material & commodity producers: unlimited, every next one costs more and takes longer
   sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу",out:{wood:20},scale:0.2,dscale:6,decay:0.96},
   steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь; при нехватке руды — вдвое меньше",out:{steel:15},scale:0.2,dscale:8,decay:0.96,use:{power:2}},
@@ -1428,16 +1428,16 @@ const BUILDINGS = {
   shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки на $350 млн в месяц; нужен выход к морю",req:{coast:true}},
   institute:{cat:"sci",name:"НИИ и университет",days:200,cost:0.004,desc:"+6 очков исследований в месяц; каждый следующий дороже и даёт чуть меньше",scale:0.25,dscale:15},
   enrich:{cat:"sci",name:"Центр обогащения урана",days:540,cost:0.02,desc:"нужен для ядерной программы; после «Ядерной боеголовки» собирает боезаряды",req:{tech:"nuc_enrich"},max:4},
-  npp:{cat:"energy",name:"Атомная электростанция",days:720,cost:0.03,desc:"+20 ед. электроэнергии и +5 за каждый уровень «Мирного атома»",req:{tech:"nuc_reactor"},use:{metal:2}},
+  npp:{cat:"energy",name:"Атомная электростанция",days:600,cost:0.012,desc:"+12 ед. электроэнергии и +2 за каждый уровень «Мирного атома»",req:{tech:"nuc_reactor"},use:{metal:2}},
   ammoplant:{cat:"mil",name:"Завод боеприпасов",days:240,cost:0.008,desc:"снаряды, ракеты РСЗО, ПТУР и бомбы каждый месяц"}
 };
 const BUILD_CATS = [["energy","Энергетика"],["mat","Сырьё и материалы"],["sci","Наука и атом"],["res","Ресурсы"],["ind","Промышленность"],["inf","Инфраструктура"],["mil","Военные заводы"]];
 // construction materials per object (thousand tonnes)
-const MAT = {farm:{wood:15,steel:10}, oil:{wood:5,steel:30}, mine:{wood:20,steel:15}, power:{wood:10,steel:40}, hydro:{wood:30,steel:120}, solar:{wood:5,steel:25},
+const MAT = {farm:{wood:5,steel:3}, oil:{wood:2,steel:9}, mine:{wood:6,steel:5}, power:{wood:3,steel:12}, hydro:{wood:9,steel:36}, solar:{wood:2,steel:8},
   sawmill:{wood:0,steel:5}, steelworks:{wood:15,steel:10}, oilrig:{wood:5,steel:30}, goldmine:{wood:20,steel:20},
   factory:{wood:20,steel:50}, chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
-  tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:80,steel:400}};
+  tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:30,steel:160}};
 const RAIL_MAT = {wood:80, steel:120};
 Object.entries(MAT).forEach(([k, m]) => { if (BUILDINGS[k]) BUILDINGS[k].mat = m; });
 // stock commodities; price = share of the player's GDP per unit, multiplied by a monthly market index
@@ -2388,6 +2388,8 @@ function load(){
   try { const s = JSON.parse(raw); if (!s || !s.countries || s.over) return false; if (!s.capital) s.capital = {health:33,edu:33,infra:33,police:33}; if (!s.research) s.research = {current:null, done:{}, prog:{}}; if (s.science===undefined) s.science = 1; migrate(s); S = s; return true; } catch(e){ return false; }
 }
 function migrate(s){
+  if (!s.gdp0 && s.countries && s.countries[s.player]) s.gdp0 = s.countries[s.player].gdp;
+  if (!s.resV2 && s.buildings){ const k = {farm:3.75, oil:3.75, mine:3.75, power:3.75, hydro:3.75, solar:3, npp:5/3}; Object.entries(k).forEach(([id,m]) => { if (s.buildings[id]) s.buildings[id] = Math.round(s.buildings[id]*m); }); s.resV2 = true; }
   [s.units, ...(s.wars||[]).map(w => w.eu)].forEach(u => { if (u && u.m113){ u.patria = (u.patria||0) + u.m113; delete u.m113; } if (u && u.irist){ u.irist_sls = (u.irist_sls||0) + u.irist; delete u.irist; } });
   if (!s.intel) s.intel = {level:1, pts:3, ok:0};
   if (!s.council) s.council = {res:null, next:4, banned:{}, propCd:0};
@@ -2486,15 +2488,18 @@ function checkAchievements(){
 }
 function scienceCost(){ return S.min ? minCostOf("science") : me().gdp/12 * 0.005 * S.science; }
 function lawSum(key){ return LAWS.filter(l=>lawOn(l.id) && l[key]).reduce((a,l)=>a+l[key],0); }
+/* demand for food, fuel, ore and power grows with the economy: coverage = supply / demand */
+function demandK(){ return clamp(me().gdp / (S.gdp0 || me().gdp), 0.6, 6); }
 function selfSuff(r){
   if (r === "power") return Math.max(0, 100 + powerBalance());
   const c = me(); let v = c.prof[r]*100 + S.annexBonus[r];
-  const b = RES.find(x=>x.id===r).build; v += S.buildings[b]*15;
+  const b = RES.find(x=>x.id===r).build; v += S.buildings[b]*4;
   Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*S.buildings[id]; });
-  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + objCount("npp")*(20 + 5*tlv("nuc_reactor")); }
+  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + objCount("npp")*(12 + 2*tlv("nuc_reactor")); }
   if (r==="food") v += 20*tech("agro");
   if (r==="oil" || r==="metal") v += 20*tech("deep");
   v *= 1 + lawSum("res");
+  v = v/demandK();
   v += modSum(r);
   return Math.max(0, v);
 }
@@ -3897,17 +3902,17 @@ function hydroMax(){ return HYDRO[S.player] ?? 2; }
 function powerSupply(){
   const c = me(), out = [];
   out.push(["grid","Действующие станции и сети", c.prof.power*100 + (S.annexBonus.power||0)]);
-  const t = objCount("power")*15; if (t) out.push(["tpp","Тепловые электростанции ×"+objCount("power"), t]);
-  const h = objCount("hydro")*30; if (h) out.push(["hpp","ГЭС ×"+objCount("hydro"), h]);
-  const s = objCount("solar")*6*(1 + 0.05*minEff("ecology")); if (s) out.push(["solar","Солнце и ветер ×"+objCount("solar"), s]);
-  const n = objCount("npp")*(20 + 5*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
+  const t = objCount("power")*4; if (t) out.push(["tpp","Тепловые электростанции ×"+objCount("power"), t]);
+  const h = objCount("hydro")*8; if (h) out.push(["hpp","ГЭС ×"+objCount("hydro"), h]);
+  const s = objCount("solar")*2*(1 + 0.05*minEff("ecology")); if (s) out.push(["solar","Солнце и ветер ×"+objCount("solar"), s]);
+  const n = objCount("npp")*(12 + 2*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
   const bonus = (lawOn("green") ? 15 : 0) + 10*tech("smartgrid") + 40*tech("fusion") + 1.5*minDelta("energy") + modSum("power");
   if (Math.abs(bonus) > 0.05) out.push(["bonus","Технологии, законы, Минэнерго", bonus]);
   return out;
 }
 function milPlants(){ return ["tankplant","heliplant","aviaplant","samplant","shipyard","ammoplant"].reduce((a,id)=>a+objCount(id),0); }
 function powerUse(){
-  const out = [["home","Население и сфера услуг", 90]];
+  const out = [["home","Население и сфера услуг", 90*demandK()]];
   let ind = 0; Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.use && b.use.power) ind += b.use.power*objCount(id); });
   if (ind) out.push(["ind","Промышленность", ind]);
   out.push(["army","Армия и военные заводы", 3 + 2*milPlants()]);
@@ -4544,7 +4549,7 @@ function viewBuildObj(){
           <small class="muted">${b.desc}</small>
           <div class="bstats">
             ${outR ? `<span>Выпуск <b class="num">+${fmtQ(outQ)}</b> ${COMMOD[outR].unit}/мес</span>` : ""}
-            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?15:id==="hydro"?30:id==="solar"?(6*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):20+5*tlv("nuc_reactor")}</b> ед.</span>` : b.use && b.use.power ? `<span>${ic("power","sm")} <b class="num down">−${b.use.power}</b> ед.</span>` : ""}
+            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?4:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : b.use && b.use.power ? `<span>${ic("power","sm")} <b class="num down">−${b.use.power}</b> ед.</span>` : ""}
             ${inc ? `<span>Доход${outR?" при продаже":""} <b class="up num">+${money(inc)}</b>/мес</span>` : b.cat==="res" ? `<span>Доход через экспорт ресурса</span>` : ""}
             <span>Содержание <b class="down num">−${money(up)}</b>/мес</span>
             ${pay ? `<span>Окупаемость <b class="num">~${pay} мес.</b></span>` : ""}
@@ -6018,12 +6023,13 @@ function newGame(id){
     taxes:{inc:13,corp:20,vat:12,exc:5,eco:2}, sectors:{health:1,edu:1,infra:1,police:1},
     laws:{}, buildings:{farm:0,oil:0,mine:0,power:0,factory:0}, queue:[], mods:[], wars:[], log:[],
     hist:{gdp:[mine.gdp], appr:[55]}, terms:0, electionIn:48, lowStab:0, topMonths:0, adCd:0, eventCd:3,
-    annexBonus:{food:0,oil:0,metal:0,power:0}, capital:{health:33,edu:33,infra:33,police:33}, research:{current:null, done:{}, prog:{}}, science:1, over:null, last:null, pendingEvent:null };
+    annexBonus:{food:0,oil:0,metal:0,power:0}, gdp0:null, resV2:true, capital:{health:33,edu:33,infra:33,police:33}, research:{current:null, done:{}, prog:{}}, science:1, over:null, last:null, pendingEvent:null };
   migrate(S); S.scenario = scen;
   if (scen==="zero"){ S.treasury = 0; S.debt = mine.gdp*0.9; S.approval = 40; S.stability = 45; }
   if (scen==="crisis"){ Object.values(countries).forEach(c=>c.gdp*=0.9); S.mods.push({stat:"growth",v:-0.003,left:12},{stat:"approval",v:-5,left:12}); }
   if (scen==="coldwar"){ S.aggr = 3; Object.values(countries).forEach(c=>{ if (c.id!==id) c.rel = Math.random()<0.5 ? -55 + rnd(-10,10) : 35 + rnd(-10,10); }); }
   if (scen==="lastchance"){ S.debt = mine.gdp*1.4; S.electionIn = 12; S.approval = 42; S.stability = 50; }
+  S.gdp0 = mine.gdp;
   S.hist.appr = [S.approval];
   addLog(`Вы приняли присягу как глава государства ${mine.name}. Сценарий: «${SCENARIOS.find(s=>s.id===scen).name}». Выборы через ${S.electionIn} мес.`);
   ui.tab = "map"; ui.mapSel = null; ui.map = {k:1,x:0,y:null}; ui.mapFocus = id; ui.pins = null; ui.mapMode = "pol"; ui.speed = 0; pausedBy = null;
