@@ -712,8 +712,19 @@ use.cu{fill:#000;stroke:none}
 
 .sat-on #worldmap #countries-g path{stroke:none}
 .sat-on #worldmap #countries-g path.m-player{stroke:#56C1FF}
-#worldmap.bloc-on #countries-g path.m-player{stroke:none!important;filter:none!important}
-#worldmap path.bloc-mk,.sat-on #worldmap path.bloc-mk{fill:#000;stroke:#000;stroke-opacity:1;stroke-linejoin:round;vector-effect:none}   /* also closes the slivers between neighbouring outlines */
+#worldmap.bloc-on #countries-g path.m-player:not(.m-occupied){stroke:none!important;filter:none!important;fill-opacity:0!important}
+/* the bloc is filled once as a whole: no seams or double tint where outlines of its countries meet */
+#worldmap .bloc-fill{pointer-events:none}
+#worldmap .bloc-fill path,.sat-on #worldmap .bloc-fill path{fill:#F5A524;stroke:#F5A524;stroke-opacity:1;stroke-width:1.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.sat-on #worldmap .bloc-fill{opacity:.16}
+.sat-on #worldmap .bloc-fill path{fill:#2E9BFF;stroke:#2E9BFF}
+#worldmap #countries-g path.m-occupied,.sat-on #worldmap #countries-g path.m-occupied{stroke:#FF8A5C;stroke-width:1.8;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;filter:none;fill-opacity:1}
+.occh-bg{fill:#2E9BFF;fill-opacity:.16}
+#worldmap .bloc-out.sel,.sat-on #worldmap .bloc-out.sel{stroke:#FFE27A;filter:drop-shadow(0 0 3px rgb(255 226 122 / .9))}
+#worldmap .join-fx{fill:none;stroke:#FFE27A;stroke-width:3;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none;animation:joinFx 5s ease-out forwards}
+@keyframes joinFx{0%{stroke-opacity:1}100%{stroke-opacity:0}}
+#map-labels .lb-occ{fill:#FFB08A;font-style:italic}
+#worldmap path.bloc-mk,.sat-on #worldmap path.bloc-mk{fill:#000;fill-opacity:1!important;stroke:#000;stroke-opacity:1;stroke-linejoin:round;vector-effect:none}   /* also closes the slivers between neighbouring outlines */
 #worldmap .bloc-out{fill:none;stroke:#FFE0A8;stroke-width:7;vector-effect:non-scaling-stroke;stroke-linejoin:round;pointer-events:none}
 .sat-on #worldmap .bloc-out{stroke:#56C1FF;stroke-opacity:1;stroke-width:7.8;filter:drop-shadow(0 0 3px rgb(40 150 255 / .95))}
 .sat-on #worldmap #countries-g path.m-sel{stroke:#FFE27A}
@@ -1841,7 +1852,7 @@ function frontRoutes(att, tgt, n){
   const pool = placePool(tgt), cap = CAPITALS[tgt], fr = frontsOf(tgt);
   if (!cap || pool.length < 3) return null;
   // the attacker strikes from anywhere of its land — for us that includes the annexed countries
-  const capLL = [cap[1], cap[2]], aIsos = att === S.player ? blocIsos() : [att], aPts = [];
+  const capLL = [cap[1], cap[2]], aIsos = att === S.player ? landIsos() : [att], aPts = [];
   aIsos.forEach(a => { placePool(a).forEach(p => aPts.push(p.ll)); const ac = CAPITALS[a]; if (ac) aPts.push([ac[1], ac[2]]); });
   if (!aPts.length) return null;
   const A = aPts.reduce((b, p) => llDist(p, capLL) < llDist(b, capLL) ? p : b, aPts[0]);
@@ -1915,7 +1926,7 @@ function phaseTick(w){
   else if (w.phase === "pos" && w.track.length > 10 && !(w.phaseCd > 0) && moved(10) >= 3){ w.phase = "man"; w.phaseCd = 30; warEvent(w, "Прорыв! Фронт снова пришёл в движение.", "good"); }
 }
 /* supply of a direction: the deeper the army goes, the worse; depots, a railway to the enemy, highways and transport aircraft hold it up */
-function supplySupport(w){ return Math.min(40, 4*facCount("depot")) + (S.rails && S.rails[w.enemy] && S.rails[w.enemy].done ? 25 : 0) + Math.min(10, 2*objCount("highway")) + Math.min(20, 4*airliftCap()); }
+function supplySupport(w){ return (viaOccupied(w.enemy) ? -15 : 0) + Math.min(40, 4*facCount("depot")) + (S.rails && S.rails[w.enemy] && S.rails[w.enemy].done ? 25 : 0) + Math.min(10, 2*objCount("highway")) + Math.min(20, 4*airliftCap()); }
 function supplyTarget(w, f){ return f.p <= 0 ? 100 : clamp(100 - Math.max(0, f.p - 15)*0.9 + supplySupport(w), 10, 100); }
 function supplyK(f){ const v = f.sup ?? 100; return v >= 70 ? 1 : 0.45 + v/127; }
 function frontsDay(w, base){
@@ -2290,7 +2301,7 @@ function occField(att, tgt, lls){
   }
   // where the attacker can come from: the shared land border, otherwise the side facing it
   const D8 = [[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
-  const attPs = (att === S.player ? blocIsos() : [att]).map(countryPath).filter(Boolean);
+  const attPs = (att === S.player ? landIsos() : [att]).map(countryPath).filter(Boolean);
   const land = border.filter(b => D8.some(([a, c]) => [1.5, 3].some(r => attPs.some(P => inCountry(P, b.x + a*cs*r, b.y + c*cs*r)))));
   const facing = border.filter(b => b.face > 0), pool = land.length ? land : facing.length ? facing : border;
   const routes = [];
@@ -2505,7 +2516,7 @@ const OCC_POLICY = {
 };
 const GARRISON_LV = [[0.5,"Мало"],[1,"Норма"],[2,"Много"]];
 function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1), 0, 100); }
-function garrisonNeed(o){ const e = C()[o.iso]; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2); }
+function garrisonNeed(o){ const e = C()[o.iso]; if (o.referendum) return 0; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2); }
 function garrisonOf(o){ return garrisonNeed(o)*(o.garrison || 1); }
 function garrisonTotal(){ return Object.values(S.occupied||{}).reduce((a,o) => a + garrisonOf(o), 0); }
 function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal() - abroadTotal()); }
@@ -2612,14 +2623,25 @@ function occupationTurn(){
   const meC = me();
   Object.values(S.occupied || {}).slice().forEach(o => {
     const e = C()[o.iso];
+    if (o.referendum){
+      // joined: quiet, unless the state shakes — then separatists may bring the land back under occupation
+      o.res = 0; o.integ = 1; const tgt = occIncomeTarget(o); meC.gdp += tgt - o.added; o.added = tgt;
+      const shaky = (S.lostWarT != null && S.turn - S.lostWarT < 12) || (meC.stability ?? 60) < 25;
+      if (shaky && Math.random() < 0.04){ o.referendum = false; o.res = 55; o.integ = 0.6; o.garrison = 1; flashMap(o.iso, "bad"); sfx("alarm");
+        addLog(`Сепаратисты в регионе ${partnerName(o.iso)} подняли мятеж: территория снова под оккупационным режимом.`);
+        advise("gen", `Мятеж сепаратистов в ${partnerName(o.iso)}! Нужен гарнизон, иначе регион отколется.`, {tab:"hq", mood:"alert"}); }
+      return;
+    }
     const gr = o.garrison || 1, pol = o.policy;
     let d = 1.2 - (gr - 1)*3.2 - (gr < 1 ? -3 : 0) + o.damage*4 + (S.infamy||0)*0.02 - (ideo("nat") ? 1.2 : 0);
     if (pol === "rebuild") d -= 1.6*(ideo("dem") ? 1.5 : 1);
     if (pol === "self") d -= 2.8;
     if (pol === "iron"){ d -= 5.5; infamyAdd(0.8); if (!ideo("auth")) S.mods.push({stat:"approval", v: ideo("dem") ? -2 : -1, left:1}); }
     if (o.integ > 0.6) d -= 1.5;
+    // our wars stir the occupied land, most of all when the army marches across it
+    if (o.share >= 1 && S.wars.length) d += S.wars.some(w => viaOccupied(w.enemy)) ? 3 : 1;
     o.res = clamp(o.res + d + rnd(-1.5, 1.5), 0, 100);
-    if (o.res < 40) o.integ = Math.min(1, o.integ + (pol === "rebuild" ? 0.035 : 0.02)*(1 - o.damage*0.5));
+    if (o.res < 40) o.integ = Math.min(1, o.integ + (pol === "rebuild" ? 0.065 : 0.045)*(1 - o.damage*0.5));
     if (pol === "rebuild"){ S.treasury -= rebuildCost(o); o.damage = Math.max(0, o.damage - 0.05); } else o.damage = Math.max(0, o.damage - 0.008);
     const tgt = occIncomeTarget(o)*(o.res > 70 ? 0.8 : 1); meC.gdp += tgt - o.added; o.added = tgt;
     if (Math.random() < 0.18){ const evs = OCC_EVENTS.filter(([c]) => c(o)); if (evs.length){ const [, f, who] = pick(evs); const txt = f(o); addLog(txt); advise(who, txt, {tab:"hq", mood: who === "gen" || who === "intel" ? "alert" : null}); } }
@@ -2632,7 +2654,7 @@ function occupationTurn(){
       addLog(`Восстание! ${partnerName(o.iso)} вернула независимость.`);
       advise("gen", `Восстание в ${partnerName(o.iso)}: наши войска выбиты, страна снова независима.`, {mood:"alert"});
     }
-    if (o.integ >= 1 && o.res < 15 && !o.referendum){ o.referendum = true; S.mods.push({stat:"approval", v:4, left:6}); addLog(`Референдум в ${partnerName(o.iso)}: жители проголосовали за вхождение в состав страны. Сопротивление сошло на нет.`); advise("sec", `Референдум в ${partnerName(o.iso)} прошёл в нашу пользу: территория полностью интегрирована.`, {}); }
+    if (o.integ >= 1 && o.res < 15 && !o.referendum && o.share >= 1){ o.referendum = true; o.garrison = 1; ui.joinFx = {iso:o.iso, t:Date.now()}; flashMap(o.iso, "good"); sfx("success"); S.mods.push({stat:"approval", v:4, left:6}); addLog(`Референдум в ${partnerName(o.iso)}: жители проголосовали за вхождение в состав страны. Сопротивление сошло на нет.`); advise("sec", `Референдум в ${partnerName(o.iso)} прошёл в нашу пользу: территория полностью интегрирована.`, {}); }
   });
   // puppets
   Object.entries(S.puppets || {}).slice().forEach(([iso, pp]) => {
@@ -2656,6 +2678,7 @@ function occupationTurn(){
   }
 }
 function occCard(o){
+  if (o.referendum) return `<div class="occ"><div class="row"><b>${flag(o.iso)} ${esc(partnerName(o.iso))}</b><span class="pill good">в составе страны</span></div><small class="muted">Жители проголосовали за вхождение. Гарнизон не нужен, доход ${money(o.added/12)}/мес. Если страна проиграет войну или стабильность упадёт ниже 25, могут подняться сепаратисты.</small></div>`;
   const e = C()[o.iso], need = garrisonNeed(o);
   return `<div class="occ"><div class="row"><b>${flag(o.iso)} ${esc(partnerName(o.iso))}${o.share < 1 ? ` · ${Math.round(o.share*100)}% территории` : ""}</b><span class="pill ${o.res > 70 ? "bad" : o.res > 40 ? "warn" : "good"}">сопротивление ${Math.round(o.res)}%</span></div>
     <div class="row"><small>Сопротивление</small><small class="num">${o.unrest ? `<span class="down">восстание через ${3 - o.unrest} мес.!</span>` : ""}</small></div><div class="bar ${o.res > 70 ? "low" : o.res > 40 ? "mid" : "high"}"><i style="width:${o.res}%"></i></div>
@@ -3434,11 +3457,17 @@ function recruitAmount(){ return Math.max(2, me().army*0.05); }
 function recruitCost(){ const k = recruitAmount(); return k*0.004*gdppc() * (lawOn("conscription")?0.5:1) * (ideo("nat")?0.8:1); }
 function improveCost(){ return Math.max(0.02, me().gdp*0.002); }
 // reach by land from our country or from any annexed one: annexations open the way further
-function nearReach(c){ return blocIsos().some(i => { const r = (C()[i] || me()).region; return c.region === r || (ADJ[r]||[]).includes(c.region); }); }
+function nearReach(c){ return regionReach(landIsos(), c); }
 function canReach(c){ return nearReach(c) || (unitsOf(["carrier"]) > 0 && hasCoast() && hasCoast(c.id)); }
 function controlled(){ return Object.values(C()).filter(c=>c.owner==="player"); }
 // our country together with the annexed ones: one colour, one outline, no borders inside
-function blocIsos(){ return [S.player, ...controlled().map(c => c.id).filter(i => i !== S.player)]; }
+function joined(iso){ const o = S.occupied && S.occupied[iso]; return iso === S.player || !!(o && o.referendum && o.share >= 1); }
+function blocIsos(){ return [S.player, ...controlled().map(c => c.id).filter(i => i !== S.player && joined(i))]; }
+// all our land, including annexed countries still under occupation: armies can strike from there
+function landIsos(){ return [S.player, ...controlled().map(c => c.id).filter(i => i !== S.player)]; }
+const regionReach = (isos, c) => isos.some(i => { const r = (C()[i] || me()).region; return c.region === r || (ADJ[r]||[]).includes(c.region); });
+// a war waged across land that is not yet ours at heart: worse supply, the locals resist harder
+function viaOccupied(iso){ const c = C()[iso]; return !!c && !regionReach(blocIsos(), c) && regionReach(landIsos(), c); }
 
 /* ---------- Turn ---------- */
 function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*BUILDINGS.npp.cost*me().gdp*0.002/COMMOD_WORLD.uran; }
@@ -3620,6 +3649,7 @@ function warOutcomes(){
       meC.gdp *= 0.85; S.treasury = Math.max(0, S.treasury - meC.gdp*0.02);
       S.mods.push({stat:"approval",v:-15,left:12});
       e.rel = -60;
+      S.lostWarT = S.turn;
       addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −15% ВВП.`); advise("gen", `Мы проиграли войну с ${e.name}. Подписан тяжёлый мир.`, {mood:"alert"}); dirty = true;
     }
   });
@@ -5609,8 +5639,8 @@ function ruName(iso){ try { regionNames = regionNames || new Intl.DisplayNames([
 function mapClass(iso){
   const x = C()[iso];
   if (!x){ const p = S.partners[iso]; return p && (p.trade || hasContract(iso)) ? "m-trade" : p && p.rel <= -40 ? "m-hostile" : "m-minor"; }
-  if (x.id === S.player) return "m-player";
-  if (x.owner) return "m-player m-annex";
+  if (x.id === S.player) return "m-player";   // (selection of the whole bloc is drawn by its common outline)
+  if (x.owner) return joined(iso) ? "m-player m-annex" : "m-player m-annex m-occupied";
   if (S.wars.some(w=>w.enemy===x.id)) return "m-war";
   if (x.puppet) return "m-puppet";
   if (x.ally) return "m-ally";
@@ -5627,14 +5657,19 @@ function viewMap(){
   if (WORLD){
     const [w,h] = mapSize();
     const occDefs = "";
-    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = modeFill(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso?"m-sel":""}"${mf ? ` style="fill:${mf}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
+    // annexed but not yet joined: hatched, with a dashed border that fades as the land integrates
+    const occStyle = iso => { const o = S.occupied && S.occupied[iso]; if (!o || o.referendum || !C()[iso] || !C()[iso].owner) return ""; const k = 1 - 0.75*o.integ; return `fill:url(#occh-${iso});stroke-opacity:${k.toFixed(2)}`; };
+    const occPat = controlled().filter(c => c.id !== S.player && !joined(c.id)).map(c => { const o = S.occupied[c.id], a = (0.55*(1 - o.integ) + 0.08).toFixed(2); return `<pattern id="occh-${c.id}" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="1.6" class="occh-bg"/><rect width="0.5" height="1.6" fill="#FF8A5C" fill-opacity="${a}"/></pattern>`; }).join("");
+    const selBloc = blocIsos().length > 1 && blocIsos().includes(ui.mapSel);
+    const paths = Object.entries(WORLD.paths).map(([code,p]) => { const iso = code.toLowerCase(); const mf = modeFill(iso), os = !mf && occStyle(iso); return `<path d="${p.path}" data-iso="${iso}" class="${mapClass(iso)} ${ui.mapSel===iso && !selBloc?"m-sel":""}"${mf ? ` style="fill:${mf}"` : os ? ` style="${os}"` : ""}><title>${esc(partnerName(iso))}</title></path>`; }).join("");
     const grid = (() => { const out = []; for (let lat = -60; lat <= 60; lat += 30){ const a = proj(lat, -168), b = proj(lat, 191); if (a) out.push(`<path d="M0,${a.y.toFixed(1)}H${w}" class="${lat===0?"eq":""}"/>`); } for (let lon = -150; lon <= 180; lon += 30){ const a = proj(80, lon), b = proj(-60, lon); if (a) out.push(`<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)}V${b.y.toFixed(1)}"/>`); } return out.join(""); })();
     const bloc = blocIsos().filter(i => WORLD.paths[i.toUpperCase()]), merged = bloc.length > 1;
     // the outline of the whole bloc: strokes of all its countries, with everything inside the bloc masked away
     const blocD = merged ? bloc.map(i => WORLD.paths[i.toUpperCase()].path).join("") : "";
     const blocDefs = merged ? `<mask id="bloc-mask" maskUnits="userSpaceOnUse" x="-100" y="-100" width="${w + 200}" height="${h + 200}"><rect x="-100" y="-100" width="${w + 200}" height="${h + 200}" fill="#fff"/><path class="bloc-mk" d="${blocD}"/></mask>` : "";
-    const blocLine = merged ? `<g id="bloc-g" mask="url(#bloc-mask)"><path class="bloc-out" d="${blocD}"/></g>` : "";
-    svg = `<svg id="worldmap" class="${merged ? "bloc-on" : ""}" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}${blocDefs}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g>${blocLine}<g id="occ-layer"></g></g></svg>`;
+    const jf = ui.joinFx && Date.now() - ui.joinFx.t < 6000 && WORLD.paths[ui.joinFx.iso.toUpperCase()];
+    const blocLine = (merged ? `<g class="bloc-fill"><path d="${blocD}"/></g><g id="bloc-g" mask="url(#bloc-mask)"><path class="bloc-out ${selBloc ? "sel" : ""}" d="${blocD}"/></g>` : "") + (jf ? `<path class="join-fx" d="${jf.path}"/>` : "");
+    svg = `<svg id="worldmap" class="${merged ? "bloc-on" : ""}" viewBox="0 0 ${w} ${mapVH()}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Карта мира"><defs>${occDefs}${blocDefs}${occPat}</defs><g id="map-g" transform="translate(${ui.map.x} ${ui.map.y||0}) scale(${ui.map.k})"><g id="map-grid">${grid}</g><g id="countries-g">${paths}</g>${blocLine}<g id="occ-layer"></g></g></svg>`;
   } else svg = `<div class="map-empty">${worldFailed ? "Не удалось загрузить карту. Проверьте интернет — список стран доступен во вкладке «Дипломатия»." : "Загружаем карту мира…"}</div>`;
   const sel = ui.mapSel, x = sel ? C()[sel] : null;
   let card;
@@ -5755,7 +5790,10 @@ function attachLabels(){
     const cls = iso===ui.mapSel ? "lb-sel" : iso===S.player ? "lb-me" : C()[iso] ? "lb-game" : "";
     if (cls) t.setAttribute("class", cls);
     t.textContent = partnerName(iso);
-    if (iso !== S.player && C()[iso] && C()[iso].owner === "player") return;
+    if (iso !== S.player && C()[iso] && C()[iso].owner === "player"){
+      if (joined(iso)) return;
+      const o = S.occupied[iso]; t.textContent = partnerName(iso) + (o.res >= 40 ? " · оккупация" : ` · интеграция ${Math.round(o.integ*100)}%`); t.setAttribute("class", "lb-occ"); lg.appendChild(t); return;
+    }
     lg.appendChild(t);
     const u = flagUrl(iso);
     if (u){ const im = document.createElementNS("http://www.w3.org/2000/svg", "image"); im.setAttribute("href", u); im.dataset.fiso = iso; im.setAttribute("class", "lb-flag"); im.setAttribute("preserveAspectRatio", "none");
@@ -6043,7 +6081,7 @@ function attachMap(){
       if (btn){ ghostUntil = performance.now() + 450; const [tab, cat] = btn.dataset.go.split(":"); if (cat) S.buildCat = cat; ui.tab = tab; sfx("tap"); render(); return; }
       const p = el && el.closest("path[data-iso]");
       if (!p && ui.mapSel){ ui.mapSel = null; render(); return; }
-      if (p){ ghostUntil = performance.now() + 450; const iso = p.dataset.iso, cx = C()[iso]; ui.mapSel = iso; ui.cardHidden = false;
+      if (p){ ghostUntil = performance.now() + 450; const iso = p.dataset.iso, cx = C()[iso]; ui.mapSel = blocIsos().includes(iso) ? S.player : iso; ui.cardHidden = false;
         if (iso !== S.player && !(cx && cx.owner)){ ui.ctry = iso; ui.ctab = "dip"; ui.warConfirm = null; ui.tab = "country"; sfx("tap"); }
         render(); } } };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
@@ -6557,7 +6595,7 @@ document.addEventListener("click", e => {
   if (t.dataset.mapzoom){ const [w] = WORLD ? mapSize() : [900,440], h = mapVH(); if (t.dataset.mapzoom==="reset") ui.map = {k:1,x:0,y:null}; else mapZoomAt(w/2, h/2, t.dataset.mapzoom==="in" ? 1.5 : 1/1.5); mapApply(); return; }
   if (t.dataset.mapmode){ ui.mapMode = t.dataset.mapmode; render(); return; }
   if (t.dataset.resmode){ ui.resMode = t.dataset.resmode; render(); return; }
-  if (t.dataset.mapgo){ ui.tab = "map"; ui.mapSel = t.dataset.mapgo; ui.cardHidden = false; ui.mapFocus = t.dataset.mapgo; render(); window.scrollTo(0,0); return; }
+  if (t.dataset.mapgo){ ui.tab = "map"; ui.mapSel = S && S.countries && blocIsos().includes(t.dataset.mapgo) ? S.player : t.dataset.mapgo; ui.cardHidden = false; ui.mapFocus = t.dataset.mapgo; render(); window.scrollTo(0,0); return; }
   if (t.dataset.settle){ settleVictory(S.pendingVictory.iso, t.dataset.settle); return; }
   if (t.dataset.peace){ tryPeace(t.dataset.iso, t.dataset.peace); return; }
   if (t.hasAttribute("data-closepeace")){ S.wars.forEach(w => { if (w.offer){ w.offer = false; warEvent(w, "Мы отвергли мирное предложение. Война продолжается.", ""); } }); closeModal(); resumeAfter("peace"); return; }
