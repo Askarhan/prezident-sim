@@ -2841,9 +2841,10 @@ function budget(){
   const pens = S.pens ? pensionCost() : 0, wages = S.wages ? wageCost() : 0, print = S.print ? printIncome() : 0;
   const war = m * 0.012 * S.wars.length;
   const loans = loanIncome() + investIncome(), dipl = dipUpkeep() + orgDues();
-  const income = taxes + Math.max(0,trade) + objects + rail + arms + commod + tourism + loans + print;
-  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + milprod + dipl + pens + wages + Math.max(0,-trade);
-  return {taxes, tourism, loans, dipl, pens, wages, print, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
+  const other = m*(S.budFix||0);   // other revenue and spending of the state, set once at the start so every country begins with the same margin
+  const income = taxes + Math.max(0,trade) + objects + rail + arms + commod + tourism + loans + print + Math.max(0, other);
+  const spend = sectors + army + laws + interest + war + science + intel + upkeep + imports + milprod + dipl + pens + wages + Math.max(0,-trade) + Math.max(0, -other);
+  return {other, taxes, tourism, loans, dipl, pens, wages, print, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
 }
 function growthMonthly(){
   let g = (S.cb !== undefined ? trendGrowthYear()/12 + macroGrowth() : 0.0015);
@@ -4276,6 +4277,7 @@ function viewEconomy(){
       <table class="budget">
         <tr><td><button class="linkbtn" data-govtab="econTab:taxes">Налоги ›</button></td><td class="up">+${money(b.taxes)}</td></tr>
         ${b.tourism? `<tr><td>Туризм</td><td class="up">+${money(b.tourism)}</td></tr>`:""}
+        ${Math.abs(b.other) > 1e-9 ? `<tr><td>Прочие статьи бюджета</td><td class="${b.other > 0 ? "up" : "down"}">${b.other > 0 ? "+" : "−"}${money(Math.abs(b.other))}</td></tr>` : ""}
         ${b.print? `<tr><td>Эмиссия (печатный станок)</td><td class="up">+${money(b.print)}</td></tr>`:""}
         ${b.loans? `<tr><td>Кредиты и инвестиции за рубежом</td><td class="up">+${money(b.loans)}</td></tr>`:""}
         ${b.objects? `<tr><td>Доход от объектов</td><td class="up">+${money(b.objects)}</td></tr>`:""}
@@ -6100,6 +6102,8 @@ function newGame(id){
     hist:{gdp:[mine.gdp], appr:[55]}, terms:0, electionIn:48, lowStab:0, topMonths:0, adCd:0, eventCd:3,
     annexBonus:{food:0,oil:0,metal:0,power:0}, gdp0:null, resV2:true, capital:{health:33,edu:33,infra:33,police:33}, research:{current:null, done:{}, prog:{}}, science:1, over:null, last:null, pendingEvent:null };
   migrate(S); S.scenario = scen;
+  /* equal start: every country begins with the same monthly surplus (0,1% of GDP) */
+  S.budFix = 0; { const m = mine.gdp/12, b = budget(); S.budFix = (0.012*m - b.net)/m; }
   if (scen==="zero"){ S.treasury = 0; S.debt = mine.gdp*0.9; S.approval = 40; S.stability = 45; }
   if (scen==="crisis"){ Object.values(countries).forEach(c=>c.gdp*=0.9); S.mods.push({stat:"growth",v:-0.003,left:12},{stat:"approval",v:-5,left:12}); }
   if (scen==="coldwar"){ S.aggr = 3; Object.values(countries).forEach(c=>{ if (c.id!==id) c.rel = Math.random()<0.5 ? -55 + rnd(-10,10) : 35 + rnd(-10,10); }); }
