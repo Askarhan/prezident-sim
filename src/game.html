@@ -3155,6 +3155,7 @@ function openBattle(enemy, i){
   root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div>`;
   document.body.appendChild(root);
   const st = BF.open = {enemy, i, cam:{x:BF_W/2, y:BF_H/2 - 4, z:-0.85}, root, dirty:true, gen:null, t0:performance.now()};
+  root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) closeBattle(); });
   bfTitle(st);
   if (bf3dOk()){ bf3dOpen(st, w, i); sfx("tap"); return; }
   setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); root.querySelector(".bf-load")?.remove(); bfFit(st); st.dirty = true; }, 30);
@@ -3242,7 +3243,6 @@ function bfInput(st){
   const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; };
   cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
   cv.addEventListener("wheel", e => { e.preventDefault(); st.cam.z -= e.deltaY*0.0015; bfClamp(st); st.dirty = true; }, {passive:false});
-  st.root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) closeBattle(); });
 }
 function bfLoop(now){
   const st = BF.open; if (!st || !st.root.isConnected) return;
@@ -7778,6 +7778,7 @@ if (NATIVE){
   if (NP.App){
     NP.App.addListener("backButton", () => {
       if (document.getElementById("offline")) return;
+      if (BF.open){ closeBattle(); return; }
       if (modalRoot.innerHTML){ const x = modalRoot.querySelector("[data-close],[data-close-offer]"); if (x) x.click(); return; }
       if (ui.more){ ui.more = false; render(); return; }
       if (S && S.countries && !S.over && ui.tab !== "map"){ ui.tab = "map"; render(); return; }
