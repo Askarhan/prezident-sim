@@ -64,7 +64,8 @@ def sf_split_gun(tur, min_len=0.8, max_cross=0.45):
 def sf_decimate(ob, target):
     n = len(ob.data.polygons)
     if n <= target: return n
-    mn, mx = sf_bounds([ob]); pad = 0.03
+    vs = [v.co for v in ob.data.vertices]; pad = 0.03   # local space: the bmesh below works on local coordinates
+    mn = Vector((min(v.x for v in vs), min(v.y for v in vs), min(v.z for v in vs))); mx = Vector((max(v.x for v in vs), max(v.y for v in vs), max(v.z for v in vs)))
     md = ob.modifiers.new("dec", "DECIMATE"); md.ratio = max(0.05, target/n)
     bpy.context.view_layer.objects.active = ob; bpy.ops.object.select_all(action="DESELECT"); ob.select_set(True)
     bpy.ops.object.modifier_apply(modifier=md.name)
@@ -188,4 +189,96 @@ def sf_make(root_name, mid, front, **kw):
     objs[0].location = (0, 0, 0)
     path = os.path.join(OUT, mid + ".glb"); export_glb(objs, path)
     objs[0].location = (len(mid)*20, 820, 0)
-    return {"file": os.path.getsize(path), "faces": [len(o.data.polygons) for o in objs]}
+    return {"file": os.path.getsize(path), "faces": [len(o.data.polygons) for o in objs], "lo": sf_lod(mid)}
+
+def sf_lod(mid, targets=(1700, 900, 120), tex_div=2):
+    """the far / weak-phone copy: <mid>_lo.glb with the same node names, fewer triangles, smaller textures"""
+    src = [bpy.data.objects.get("g_" + mid + s) for s in ("_hull", "_turret", "_gun")]
+    src = [o for o in src if o]
+    copies = {}
+    for o in src:
+        c = o.copy(); c.data = o.data.copy(); bpy.context.scene.collection.objects.link(c); copies[o] = c
+    for o, c in copies.items():
+        if o.parent in copies: c.parent = copies[o.parent]; c.matrix_parent_inverse = o.matrix_parent_inverse.copy()
+    made = []
+    for (o, c), t in zip(copies.items(), targets):
+        sf_decimate(c, t)
+        for i, m in enumerate(c.data.materials):
+            if not m or m.name == "accent": continue
+            m2 = m.copy(); m2.name = m.name + "_lo"; made.append(m2)
+            for n in m2.node_tree.nodes:
+                if n.type == "TEX_IMAGE" and n.image:
+                    im = n.image.copy(); im.name = n.image.name + "_lo"
+                    im.scale(max(64, n.image.size[0]//tex_div), max(64, n.image.size[1]//tex_div)); n.image = im
+            c.data.materials[i] = m2
+    # swap names so the exported nodes keep the names the game looks for
+    names = {o: o.name for o in copies}
+    for o in copies: o.name = o.name + "_hi"
+    for o, c in copies.items(): c.name = names[o]
+    root = copies[src[0]]; loc = src[0].location.copy(); root.location = (0, 0, 0)
+    path = os.path.join(OUT, mid + "_lo.glb"); export_glb(list(copies.values()), path)
+    tris = sum(sum(len(p.vertices) - 2 for p in c.data.polygons) for c in copies.values())
+    for c in copies.values(): bpy.data.objects.remove(c, do_unlink=True)
+    for o in copies: o.name = names[o]
+    src[0].location = loc
+    for m2 in made:
+        for n in m2.node_tree.nodes:
+            if n.type == "TEX_IMAGE" and n.image and n.image.name.endswith("_lo"): bpy.data.images.remove(n.image)
+        bpy.data.materials.remove(m2)
+    return {"file": os.path.getsize(path), "tris": tris}
+
+def sf_info(root_name="Sketchfab_model", depth=3, min_faces=200):
+    """what an import consists of: named nodes with their mesh face counts and world boxes"""
+    root = bpy.data.objects[root_name]; root.location = (0, 0, 0); bpy.context.view_layer.update(); out = []
+    def box(objs):
+        pts = [o.matrix_world @ Vector(c) for o in objs for c in o.bound_box]
+        return [round(min(p[i] for p in pts), 2) for i in range(3)], [round(max(p[i] for p in pts), 2) for i in range(3)]
+    def walk(o, d):
+        sub = [x for x in [o] + list(o.children_recursive) if x.type == "MESH" and len(x.data.polygons)]
+        if not sub: return
+        n = sum(len(x.data.polygons) for x in sub)
+        if n < min_faces and d > 1: return
+        mn, mx = box(sub); out.append("  "*d + f"{o.name} [{len(sub)} meshes, {n} f] {mn} {mx}")
+        if d < depth and len(o.children) > 1 or (d < depth and o.type != "MESH"):
+            for c in o.children: walk(c, d + 1)
+    walk(root, 0); return "\n".join(out)
+
+def sf_group(root_name, pred, weld=True, split=True):
+    """break merged meshes into loose parts and put the parts pred(mn, mx, centre) accepts under an empty named turret_grp"""
+    root = bpy.data.objects[root_name]; root.location = (0, 0, 0); bpy.context.view_layer.update()
+    meshes = [o for o in root.children_recursive if o.type == "MESH" and len(o.data.polygons)]
+    par = meshes[0].parent
+    grp = bpy.data.objects.new("turret_grp", None); bpy.context.scene.collection.objects.link(grp)
+    grp.parent = par; bpy.context.view_layer.update(); grp.matrix_world = par.matrix_world.copy() if par else grp.matrix_world
+    if split:
+        for o in meshes:
+            k = o.matrix_world.to_scale()[0] or 1
+            if weld:
+                bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001/k); bm.to_mesh(o.data); bm.free()
+            o.hide_set(False); bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
+            bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT"); bpy.ops.mesh.separate(type="LOOSE"); bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update(); n = 0
+    for p in [x for x in root.children_recursive if x.type == "MESH" and x.parent != grp and len(x.data.vertices)]:
+        pts = [p.matrix_world @ v.co for v in p.data.vertices]
+        mn = [min(q[i] for q in pts) for i in range(3)]; mx = [max(q[i] for q in pts) for i in range(3)]; c = [(mn[i] + mx[i])/2 for i in range(3)]
+        if pred(mn, mx, c): mw = p.matrix_world.copy(); p.parent = grp; p.matrix_world = mw; n += 1
+    return n
+
+def sf_parts(root_name="Sketchfab_model", top=25):
+    """the biggest loose parts after welding (without changing the import): to find the turret box"""
+    root = bpy.data.objects[root_name]; root.location = (0, 0, 0); bpy.context.view_layer.update(); parts = []
+    for o in [x for x in root.children_recursive if x.type == "MESH" and len(x.data.polygons)]:
+        bm = bmesh.new(); bm.from_mesh(o.data); bm.transform(o.matrix_world); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)
+        bm.faces.ensure_lookup_table(); seen = set()
+        for f in bm.faces:
+            if f.index in seen: continue
+            st = [f]; seen.add(f.index); pf = []
+            while st:
+                g = st.pop(); pf.append(g)
+                for e in g.edges:
+                    for h in e.link_faces:
+                        if h.index not in seen: seen.add(h.index); st.append(h)
+            vs = {v for g in pf for v in g.verts}
+            parts.append((len(pf), o.name, [round(min(v.co[i] for v in vs), 2) for i in range(3)], [round(max(v.co[i] for v in vs), 2) for i in range(3)]))
+        bm.free()
+    parts.sort(key=lambda p: -p[0]); return "\n".join(f"{n} {nm} {a} {b}" for n, nm, a, b in parts[:top])

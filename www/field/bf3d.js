@@ -6,6 +6,10 @@ import { GLTFLoader } from "../lib/three/GLTFLoader.js";
 const FIELD = 240;                 // metres, square
 const MODEL_CACHE = new Map();     // glb name -> Promise<gltf scene>
 const loader = new GLTFLoader();
+// models that also ship a light copy <name>_lo.glb (~2.5-4k triangles, half-size textures)
+const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96"]);
+// graphics levels: pixel ratio cap, shadow map (0 = off), distance beyond which the light copy is drawn, effects share, squads per side at the front
+const QL = {high:{pr:1.6, sh:2048, soft:true, lod:150, fx:1, cap:6}, mid:{pr:1, sh:1024, soft:false, lod:90, fx:0.65, cap:6}, low:{pr:0.8, sh:0, soft:false, lod:0, fx:0.4, cap:4}};
 function loadModel(name){
   // the app ships .glb files; the web page gets the same files as base64 text (hosts that don't serve .glb)
   if (!MODEL_CACHE.has(name)) MODEL_CACHE.set(name, new Promise((res, rej) => loader.load(`field/models/${name}.glb`, g => res(g.scene), undefined,
@@ -210,18 +214,19 @@ class Particles {
 
 /* ---------- the scene ---------- */
 export async function start(el, ctx){
-  const quality = ctx.quality || "high";
-  const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:"high-performance"});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === "high" ? 1.6 : 1));
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  let level = QL[ctx.quality] ? ctx.quality : ctx.quality === "medium" ? "mid" : "high", Q = QL[level];
+  const quality = level === "high" ? "high" : "low";   // ground texture and relief detail are fixed at start
+  const renderer = new THREE.WebGLRenderer({antialias:level !== "low", powerPreference:"high-performance"});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pr));
+  renderer.shadowMap.enabled = Q.sh > 0; renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.outputColorSpace = THREE.SRGBColorSpace;
   el.appendChild(renderer.domElement); renderer.domElement.className = "bf3d-cv";
   const scene = new THREE.Scene(), haze = ctx.terrain === "d" ? 0xc9b48e : 0x9aa6a0;
   scene.background = new THREE.Color(haze); scene.fog = new THREE.Fog(haze, 160, 430);
   const camera = new THREE.PerspectiveCamera(32, 1, 2, 900);
   const hemi = new THREE.HemisphereLight(0xcfdcff, 0x4a4234, 0.55); scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff0d8, 3.6); sun.castShadow = true;
-  sun.shadow.mapSize.set(quality === "high" ? 2048 : 1024, quality === "high" ? 2048 : 1024);
+  const sun = new THREE.DirectionalLight(0xfff0d8, 3.6); sun.castShadow = Q.sh > 0;
+  sun.shadow.mapSize.set(Q.sh || 1024, Q.sh || 1024);
   Object.assign(sun.shadow.camera, {left:-90, right:90, top:90, bottom:-90, near:10, far:400}); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
   const R = rng(ctx.seed), N = noise2(ctx.seed);
@@ -237,19 +242,50 @@ export async function start(el, ctx){
   }));
   scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]));
   // load models and place them
-  const models = {}; await Promise.all([...new Set(units.map(u => u.model))].map(async m => { try { models[m] = await loadModel(m); } catch(e){ models[m] = null; } }));
+  // weak phones load only the light copies; the others load the full models now and the light ones in the background
+  const models = {};
+  async function getModel(m, lo){ const k = lo && HAS_LO.has(m) ? m + "_lo" : m;
+    if (!(k in models)){ try { models[k] = await loadModel(k); } catch(e){ models[k] = k !== m ? await getModel(m, false) : null; } }
+    return models[k]; }
+  await Promise.all([...new Set(units.map(u => u.model))].map(m => getModel(m, level === "low")));
+  if (level !== "low") [...new Set(units.map(u => u.model))].forEach(m => getModel(m, true));
   const accent = [new THREE.MeshStandardMaterial({color:ctx.accentUs || 0x2f6bff, emissive:ctx.accentUs || 0x2f6bff, emissiveIntensity:0.35, roughness:0.5}),
                   new THREE.MeshStandardMaterial({color:ctx.accentThem || 0xe03030, emissive:ctx.accentThem || 0xe03030, emissiveIntensity:0.35, roughness:0.5})];
+  function makeSet(u, src){
+    const set = {obj:src.clone(true)};
+    set.obj.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.name === "accent") o.material = accent[u.side]; else if (o.material){ o.material = o.material.clone(); } }
+      if (/_turret$/.test(o.name)) set.turret = o; if (/_gun$/.test(o.name)) set.gun = o; if (/_hull$/.test(o.name)) set.hull = o; });
+    return set;
+  }
+  function useSet(u, set){ u.turret = set.turret; u.gun = set.gun; u.hull = set.hull; }
   function dress(u){
-    const src = models[u.model]; if (!src) { u.alive = false; return; }
-    const obj = src.clone(true); const root = new THREE.Group(); root.add(obj);
-    obj.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.name === "accent") o.material = accent[u.side]; else if (o.material){ o.material = o.material.clone(); } }
-      if (/_turret$/.test(o.name)) u.turret = o; if (/_gun$/.test(o.name)) u.gun = o; if (/_hull$/.test(o.name)) u.hull = o; });
+    const lo = level === "low" && HAS_LO.has(u.model);
+    const src = models[lo ? u.model + "_lo" : u.model] || models[u.model] || models[u.model + "_lo"]; if (!src) { u.alive = false; return; }
+    const set = makeSet(u, src), root = new THREE.Group(); root.add(set.obj);
+    u.sets = {[lo ? "lo" : "hi"]:set}; u.lod = lo ? "lo" : "hi"; useSet(u, set);
     u.muzzle = (u.hull && u.hull.userData && u.hull.userData.muzzle) || 4.6;
     u.obj = root; u.gun0 = u.gun ? u.gun.position.x : 0; scene.add(root);
   }
+  // swap a unit between its full and light model, carrying over where the turret and gun point
+  function setLod(u, want){
+    if (u.lod === want || !u.alive || !u.obj) return;
+    let set = u.sets[want];
+    if (!set){ const src = models[want === "lo" ? u.model + "_lo" : u.model]; if (!src){ getModel(u.model, want === "lo"); return; } set = makeSet(u, src); u.sets[want] = set; u.obj.add(set.obj); }
+    const old = u.sets[u.lod];
+    if (old.turret && set.turret){ set.turret.rotation.copy(old.turret.rotation); set.turret.position.copy(old.turret.position); }
+    if (old.gun && set.gun){ set.gun.rotation.copy(old.gun.rotation); set.gun.position.copy(old.gun.position); set.gun.visible = old.gun.visible; }
+    if (old.hull && set.hull) set.hull.rotation.copy(old.hull.rotation);
+    old.obj.visible = false; set.obj.visible = true; u.lod = want; useSet(u, set);
+  }
+  let lodT = 0;
+  function lodPass(dt){
+    lodT -= dt; if (lodT > 0) return; lodT = 0.3;
+    for (const u of units){ if (!u.alive || !u.obj || !HAS_LO.has(u.model)) continue;
+      setLod(u, level === "low" || camera.position.distanceTo(u.obj.position) > Q.lod ? "lo" : "hi"); }
+  }
   units.forEach(dress);
-  const fxSmoke = new Particles(scene, quality === "high" ? 1400 : 700, false), fxFire = new Particles(scene, quality === "high" ? 700 : 400, true);
+  const fxSmoke = new Particles(scene, 1400, false), fxFire = new Particles(scene, 700, true);
+  fxSmoke.max = Math.round(1400*Q.fx); fxFire.max = Math.round(700*Q.fx);
   // tracers
   const TR_MAX = 64, trPos = new Float32Array(TR_MAX*6), trCol = new Float32Array(TR_MAX*6), trGeo = new THREE.BufferGeometry();
   trGeo.setAttribute("position", new THREE.BufferAttribute(trPos, 3).setUsage(THREE.DynamicDrawUsage)); trGeo.setAttribute("color", new THREE.BufferAttribute(trCol, 3).setUsage(THREE.DynamicDrawUsage));
@@ -263,8 +299,8 @@ export async function start(el, ctx){
   function scorch(x, z, r){ const m = new THREE.Mesh(scorchGeo, scorchMat); m.position.set(x, G.height(x, z) + 0.05, z); m.scale.set(r*2.4, 1, r*2.4); m.rotation.y = Math.random()*6; scene.add(m); scorches.push(m); if (scorches.length > 80) scene.remove(scorches.shift()); }
   /* ---- effects ---- */
   function muzzle(u){
-    const p = new THREE.Vector3(u.muzzle + 0.3, 0, 0); u.gun.localToWorld(p);
-    const d = new THREE.Vector3(1, 0, 0).transformDirection(u.gun.matrixWorld);
+    const g = u.gun || u.turret || u.obj, p = new THREE.Vector3(u.gun ? u.muzzle + 0.3 : 4, u.gun ? 0 : 1.6, 0); g.localToWorld(p);
+    const d = new THREE.Vector3(1, 0, 0).transformDirection(g.matrixWorld);
     for (let i = 0; i < 6; i++) fxFire.emit({x:p.x, y:p.y, z:p.z, vx:d.x*(8 + i*4) + (Math.random() - 0.5)*3, vy:d.y*8 + Math.random()*2, vz:d.z*(8 + i*4) + (Math.random() - 0.5)*3, life:0.12 + Math.random()*0.08, s0:2.6, s1:1.2, c:[1, 0.85, 0.5], c1:[1, 0.4, 0.1], a:1, drag:4});
     for (let i = 0; i < 10; i++) fxSmoke.emit({x:p.x, y:p.y, z:p.z, vx:d.x*(4 + Math.random()*6) + (Math.random() - 0.5)*2, vy:0.6 + Math.random(), vz:d.z*(4 + Math.random()*6) + (Math.random() - 0.5)*2, life:1.6 + Math.random()*1.4, s0:1.2, s1:5, c:[0.62, 0.6, 0.56], c1:[0.75, 0.73, 0.7], a:0.55, drag:1.4, fadeIn:0.05});
     // blast lifts dust around the tank
@@ -461,11 +497,30 @@ export async function start(el, ctx){
     if (flashT > 0){ flashT -= dt; if (flashT <= 0) flash.intensity = 0; }
     fxSmoke.update(dt); fxFire.update(dt);
   }
+  // automatic graphics: measure the frame rate in 3-second windows and step down while it stays under ~27 fps
+  const perf = {t0:performance.now() + 2500, frames:0, time:0};
+  function lower(){
+    if (level === "low") return false;
+    level = level === "high" ? "mid" : "low"; Q = QL[level];
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pr)); resize();
+    if (Q.sh){ sun.shadow.mapSize.set(Q.sh, Q.sh); if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; } renderer.shadowMap.type = Q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; }
+    else { renderer.shadowMap.enabled = false; sun.castShadow = false; }
+    scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
+    fxSmoke.max = Math.round(1400*Q.fx); fxFire.max = Math.round(700*Q.fx);
+    if (level === "low") [...new Set(units.map(u => u.model))].forEach(m => getModel(m, true));
+    if (ctx.onQuality) ctx.onQuality(level);
+    return true;
+  }
+  function measure(now, raw){
+    if (!ctx.auto || now < perf.t0 || raw > 2500) return;   // longer gaps are pauses (app in background), not slow frames
+    perf.frames++; perf.time += raw;
+    if (perf.time >= 3000){ const fps = perf.frames*1000/perf.time; perf.frames = 0; perf.time = 0; perf.last = Math.round(fps); if (fps < 27 && lower()) perf.t0 = now + 1500; }
+  }
   function frame(now){
     if (!running) return; requestAnimationFrame(frame);
     if (document.hidden) { last = now; return; }
-    const dt = clamp((now - last)/1000, 0, 0.05); last = now;
-    step(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+    const raw = now - last, dt = clamp(raw/1000, 0, 0.05); last = now; measure(now, raw);
+    step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
     renderer.render(scene, camera); drawHud(dt);
   }
   requestAnimationFrame(frame);
@@ -474,7 +529,7 @@ export async function start(el, ctx){
     hit(side, id, n){ let pool = units.filter(u => u.alive && u.obj && u.side === side && u.id === id); if (!pool.length) pool = units.filter(u => u.alive && u.obj && u.side === side); if (!pool.length) return;
       const u = pool.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a); u.pend += n; },
     // what the army really has on this front: reinforce from the map edge when there is more than the squads hold
-    sync(side, have){ const CAP = {front:6, arty:2, ad:2}, roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front", slots = id => units.filter(u => u.alive && u.side === side && (u.role || "front") === roleOf(id)).length < CAP[roleOf(id)];
+    sync(side, have){ const CAP = {front:Q.cap, arty:2, ad:2}, roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front", slots = id => units.filter(u => u.alive && u.side === side && (u.role || "front") === roleOf(id)).length < CAP[roleOf(id)];
       for (const [id, n] of Object.entries(have)){ const mine = units.filter(u => u.alive && u.side === side && u.id === id), held = mine.reduce((a, u) => a + u.hp - u.pend - (u.inbound || 0), 0), diff = n - held;
         const per = mine.length ? held/mine.length : n;
         if (diff > Math.max(1, per*0.5) && slots(id)){ reinforce(side, id, diff); }
@@ -485,6 +540,8 @@ export async function start(el, ctx){
     focus(i, dist, yaw){ const u = units.filter(v => v.obj)[i]; if (!u) return; cam.x = u.x; cam.z = u.z; cam.dist = dist || 40; if (yaw != null) cam.yaw = yaw; placeCamera(); },
     advance(sec){ for (let t = 0; t < sec; t += 1/30) step(1/30); },
     list(){ return units.filter(v => v.obj).map(v => v.side + ':' + v.model); },
+    quality(lv){ if (lv && QL[lv]){ while (level !== lv && lower()); } return {level, fps:perf.last || null}; },
+    lods(){ return units.filter(u => u.obj).map(u => u.model + ":" + u.lod); },
     info(){ return {alive:[0, 1].map(s => units.filter(u => u.side === s && u.alive).length), particles:fxSmoke.items.length + fxFire.items.length, calls:renderer.info.render.calls, tris:renderer.info.render.triangles}; },
     dispose(){ running = false; ro.disconnect(); renderer.dispose(); scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); renderer.domElement.remove(); }
   };

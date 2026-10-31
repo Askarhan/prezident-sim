@@ -93,6 +93,7 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{border:0;background:var(--panel);padding:5px 10px;font-size:12px;font-family:var(--f-data)}
 .seg button+button{border-left:1px solid var(--line)}
+.gfx-seg{display:flex;margin:4px 0 8px}.gfx-seg button{flex:1;padding:8px 4px}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);font-weight:600}
 .bar{height:8px;background:#172846;border-radius:99px;overflow:hidden;position:relative}
 .bar>i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--good);box-shadow:0 0 8px rgb(57 208 195 / .5)}
@@ -3201,7 +3202,7 @@ function bf3dOpen(st, w, i){
   const ms = forceStats(S.units, S.ammo, warShare(w)), ts = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const atk = ms.g + ms.airG + 1, def = ts.g + ts.airG + 1, edge = atk/(atk + def);
   const arty = (u, m) => Object.entries(u||{}).reduce((a, [id, n]) => a + (MODELS[id] && ["sph","mlrs"].includes(MODELS[id].kind) ? n*m*MODELS[id].ga : 0), 0);
-  const ctx = {terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:ui.gfx || "high",
+  const ctx = {terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:gfxLevel(), auto:(settings.gfx || "auto") === "auto", onQuality:lv => { settings.gfxAuto = lv; settingsSave(); },
     hitUs:0.22 + 0.4*edge, hitThem:0.22 + 0.4*(1 - edge), rofUs:7 - 2.5*edge, rofThem:4.5 + 2.5*edge, artyUs:arty(w.dep[i], 1), artyThem:arty(w.eu, 1),
     accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)])), kindOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.kind])), roleOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, BF3D_ROLE[m.kind] || "front"]))};
   st.root.querySelector("#bf-cv").style.display = "none";
@@ -4790,6 +4791,9 @@ function advHead(who, mood, size){ const a = ADVISORS[who]; return `<div class="
 /* settings (per device) */
 const SETTINGS_KEY = "president-settings-v1", TUT_KEY = "president-tut-v1";
 let settings = (() => { const d = {sound:true, vibro:true, music:true, musicVol:55}; try { return Object.assign(d, JSON.parse(localStorage.getItem(SETTINGS_KEY))||{}); } catch(e){ return d; } })();
+// battlefield graphics: "auto" starts from the level the last fields settled on and steps down when the phone struggles
+const GFX_NAMES = {auto:"Авто", high:"Высокая", mid:"Средняя", low:"Низкая"};
+function gfxLevel(){ const g = settings.gfx || "auto"; return g === "auto" ? (settings.gfxAuto || "high") : g; }
 function settingsSave(){ try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e){} }
 
 /* synthesized sound effects: no audio files needed */
@@ -4905,6 +4909,9 @@ function viewSettings(){
     <div class="panel"><h3>Звук и отклик</h3>${sw("music","Музыка","Спокойная фоновая музыка")}
       <div class="slider"><label for="music-vol">Громкость музыки</label><span class="num">${settings.musicVol}%</span><input type="range" id="music-vol" min="0" max="100" value="${settings.musicVol}" data-musicvol></div>
       ${sw("sound","Звуки","Нажатия, уведомления советников, события")}${sw("vibro","Вибрация","Короткий отклик при важных новостях")}</div>
+    <div class="panel"><h3>Графика поля боя</h3>
+      <div class="seg gfx-seg" role="group" aria-label="Графика поля боя">${Object.entries(GFX_NAMES).map(([k, n]) => `<button aria-pressed="${(settings.gfx || "auto") === k}" data-gfx="${k}">${n}</button>`).join("")}</div>
+      <small class="muted">${(settings.gfx || "auto") === "auto" ? `Игра сама подбирает качество под телефон. Сейчас: ${GFX_NAMES[gfxLevel()].toLowerCase()}.` : "Низкая: упрощённые модели, без теней, меньше дыма — для слабых телефонов."}</small></div>
     <div class="panel"><h3>Игра</h3>
       <div class="row"><span>Первые шаги<br><small class="muted">Обучение с подсветкой кнопок</small></span><button class="btn" data-tut="restart">Пройти снова</button></div>
       <div class="row"><span>Как устроено<br><small class="muted">Все уроки: война, оккупация, бюджет…</small></span><button class="btn" data-guide>Открыть</button></div>
@@ -7586,6 +7593,7 @@ document.addEventListener("click", e => {
   if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
   if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
+  if (t.dataset.gfx){ settings.gfx = t.dataset.gfx; if (t.dataset.gfx === "auto") settings.gfxAuto = null; settingsSave(); sfx("tap"); render(); return; }
   if (t.dataset.setting){ settings[t.dataset.setting] = !settings[t.dataset.setting]; settingsSave(); sfx("tap"); if (t.dataset.setting === "music"){ if (settings.music) musicStart(); else musicStop(); } render(); return; }
   if (t.dataset.tut){ const v = t.dataset.tut; if (v === "skip"){ tutDone(); tutStop(); } else if (v === "go"){ tutDone(); tutStart(); } else if (v === "restart"){ closeModal(); tutStart(true); } return; }
   if (t.dataset.lesson){ startLesson(t.dataset.lesson); return; }
