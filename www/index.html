@@ -6526,11 +6526,20 @@ function showUnitInfo(id){
 }
 /* 3D models from Sketchfab (CC BY 4.0): simplified, re-textured and split into hull/turret/gun for the battlefield */
 const CREDITS3D = [
-  ["M2A4 Bradley", "«M2 Bradley IFV» — 42manako", "https://sketchfab.com/3d-models/ab022158ab5f4fbfa55d4142db7595ab"],
-  ["БМП-2", "«BMP-2» — 42manako", "https://sketchfab.com/3d-models/a843e922897c499ca53e718235b3875a"],
-  ["БМ-21 «Град»", "«БМ-21 \"Град\" (BM-21 Grad)» — Hsu.Pei.Ge", "https://sketchfab.com/3d-models/c90559a30e6a414d993a0d3bdf6c5ff8"],
-  ["Т-72", "«Ukrainian T-72B1» — 42manako (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/31baebd56b5f4e34aaf1261a1e60ae91"],
-  ["M1 Abrams", "«General Dynamics M1A2 Abrams Main Battle Tank» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/10a16c96ca8b4ebc855915f5d5202046"],
+  ["bradley", "«M2 Bradley IFV» — 42manako", "https://sketchfab.com/3d-models/ab022158ab5f4fbfa55d4142db7595ab"],
+  ["bmp2", "«BMP-2» — 42manako", "https://sketchfab.com/3d-models/a843e922897c499ca53e718235b3875a"],
+  ["grad", "«БМ-21 \"Град\" (BM-21 Grad)» — Hsu.Pei.Ge", "https://sketchfab.com/3d-models/c90559a30e6a414d993a0d3bdf6c5ff8"],
+  ["t72", "«Ukrainian T-72B1» — 42manako (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/31baebd56b5f4e34aaf1261a1e60ae91"],
+  ["abrams", "«General Dynamics M1A2 Abrams Main Battle Tank» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/10a16c96ca8b4ebc855915f5d5202046"],
+  ["armata", "«T-14 Armata» — 42manako", "https://sketchfab.com/3d-models/24c9a06973a64651a8b0baedee29fd57"],
+  ["t90", "«Uralvagonzavod T-90AM Main Battle Tank» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/619de9f0908e4c8395fe036ffe6e3884"],
+  ["m1a1", "«M1A2 Abrams Main Battle Tank Woodland Camouflage» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/5a4e7e7e036e4f8cb4ac0d48bc8de352"],
+  ["leo", "«Leopard 2A6 Main Battle Tank» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/3440ba1ba8ce48469ae489a99eaca45c"],
+  ["ztz99", "«Type 99 MBT» — philano", "https://sketchfab.com/3d-models/7075c92c5ef1408497f1530703ff2942"],
+  ["type96", "«ZTZ96» — jzmhhhhh", "https://sketchfab.com/3d-models/b0da178e50dc423983445841615d9e80"],
+  ["marder", "«MARDER 1A3 INFANTRY COMBAT VEHICLE» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/53238479325448fcb158e5ea58568e38"],
+  ["stryker", "«M1126 Stryker (low-poly)» — ScurvyWoof", "https://sketchfab.com/3d-models/66eef8e96a3f477eba57e656ce8ac7a0"],
+  ["btr82", "«Syrian BTR-82A» — 42manako", "https://sketchfab.com/3d-models/f8643495950446e69ce9ef62e0b2b256"]
 ];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
@@ -6541,7 +6550,7 @@ function showCredits(){
     <div class="cr-list">${rows.map(([n,x]) => `<div class="cr-row"><b>${esc(n)}</b><small>${esc(x.lic ? `${x.by} — ${x.lic}` : x.by)}</small></div>`).join("")}</div>
     <h3>3D-модели</h3>
     <p class="muted small">Модели с Sketchfab по лицензии CC BY 4.0 (${LIC["CC BY 4.0"]}). Для игры упрощены, разделены на корпус, башню и орудие и получили полосу цвета стороны. Остальная техника смоделирована для игры.</p>
-    <div class="cr-list">${CREDITS3D.map(([n,by,u]) => `<div class="cr-row"><b>${esc(n)}</b><small>${esc(by)} — CC BY 4.0 · ${esc(u)}</small></div>`).join("")}<div class="cr-row"><b>three.js</b><small>3D-движок поля боя — лицензия MIT · threejs.org</small></div></div>
+    <div class="cr-list">${CREDITS3D.map(([n,by,u]) => `<div class="cr-row"><b>${esc(MODELS[n] ? MODELS[n].name : n)}</b><small>${esc(by)} — CC BY 4.0 · ${esc(u)}</small></div>`).join("")}<div class="cr-row"><b>three.js</b><small>3D-движок поля боя — лицензия MIT · threejs.org</small></div></div>
     <h3>Лицензии</h3>
     <div class="cr-list">${lics.map(l => `<div class="cr-row"><b>${l}</b><small>${LIC[l] ? esc(LIC[l]) : "без ограничений"}</small></div>`).join("")}</div>
     <p class="muted small">Фото с лицензией GNU FDL 1.2: разрешается копировать, распространять и/или изменять этот документ на условиях GNU Free Documentation License версии 1.2 или более поздней, опубликованной Free Software Foundation, без неизменяемых разделов и без текстов на обложке. Полный текст лицензии: ${LIC["GFDL 1.2"]}</p>

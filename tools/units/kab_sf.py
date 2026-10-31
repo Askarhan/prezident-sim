@@ -202,6 +202,8 @@ def sf_lod(mid, targets=(1700, 900, 120), tex_div=2):
         if o.parent in copies: c.parent = copies[o.parent]; c.matrix_parent_inverse = o.matrix_parent_inverse.copy()
     made = []
     for (o, c), t in zip(copies.items(), targets):
+        # after baking, collapse stalls on the many tiny open pieces: weld near vertices first (UVs live on loops and survive)
+        bm = bmesh.new(); bm.from_mesh(c.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.015); bm.to_mesh(c.data); bm.free()
         sf_decimate(c, t)
         for i, m in enumerate(c.data.materials):
             if not m or m.name == "accent": continue
