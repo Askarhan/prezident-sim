@@ -393,7 +393,7 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 #occ-layer .us .occ-hatch{fill:url(#hatch-us)}#occ-layer .them .occ-hatch{fill:url(#hatch-them)}#occ-layer .held .occ-hatch{fill:url(#hatch-held);opacity:.3}
 #occ-layer .occ-line-u{fill:none;stroke:rgb(8 14 28 / .9);stroke-width:5.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 #occ-layer .occ-line{fill:none;stroke-width:2.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:8 5;animation:fxDash 1.2s linear infinite}
-#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{display:none}#occ-layer .held .occ-line-u{display:none}
+#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{stroke:#FF8A5C;animation:none}
 .fc-dot{stroke:#081224;stroke-width:1.6}.fc-dot.foe{fill:#E8EEF8}.fc-dot.taken{fill:#FFB020}.fc-dot.own{fill:#9FD3FF}.fc-dot.lost{fill:#FF5D5D}
 .fc-name{font:600 9.5px var(--f-data);fill:#F2F5FA;paint-order:stroke;stroke:#081224;stroke-width:3}.fc-name.taken{fill:#FFD27A}.fc-name.lost{fill:#FF9A9A}
 #worldmap #map-fx .fx-front{fill:rgb(255 93 93 / .2);stroke:#FF5D5D;stroke-width:1.5;animation:fxPulse 1.4s ease-in-out infinite}
@@ -2263,7 +2263,7 @@ function updateWarMap(){
 }
 /* ---------- front on the map: every direction is a route border → 1st line → 2nd line → key city over real places;
    the land of each direction is painted from the border inward along its route, clipped by the real outline ---------- */
-const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[246,199,107]};
+const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[46,155,255]};   // held after a peace: our colour
 function capPoint(iso){ const c = CAPITALS[iso]; const q = c && proj(c[1], c[2]); return q ? {x:q.x, y:q.y} : (LABELS && LABELS[iso]); }
 function countryPath(iso){ return document.querySelector(`#worldmap path[data-iso="${iso}"]`); }
 function inCountry(path, x, y){ try { return path.isPointInFill(new DOMPoint(x, y)); } catch(e){ return true; } }
@@ -2327,34 +2327,48 @@ function occField(att, tgt, lls){
     const pts = [E, ...P], len = pts.slice(1).reduce((a, p, k) => a + Math.hypot(p.x - pts[k].x, p.y - pts[k].y), 0) || 1;
     routes.push({pts, ts:[0, ...LINES], len});
   }
-  // route value of every cell for every direction; the farther from the route, the later it falls (a widening wedge behind the front)
-  const tv = routes.map(() => new Float32Array(gw*gh));
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){
-    const k = j*gw + i; if (!inside[k]) continue; const c = cell(i, j);
-    // a cell can fall to a direction only if that route passes near it, and the surroundings of another direction's key city
-    // fall only to that direction
-    const at = routes.map(R => routeAt(R, c.x, c.y)), dmin = Math.min(...at.map(x => x.d)), diag = Math.hypot(gw, gh)*cs;
-    routes.forEach((R, r) => {
-      const guarded = routes.some((Q, q) => q !== r && Math.hypot(c.x - Q.pts[3].x, c.y - Q.pts[3].y) < 0.12*diag);
-      tv[r][k] = !guarded && at[r].d <= 1.5*dmin + 0.03*diag ? at[r].t + 90*at[r].d/Math.max(R.len, 0.4*diag) : 1e9;
-    });
-  }
-  const F = {key, iso:tgt, x0, y0, cs, gw, gh, inside, tv, routes, cell};
+  // distance from the attacker's border through the country (Dijkstra over the grid): the front spreads inward from it
+  const dist = new Float32Array(gw*gh).fill(Infinity), heap = [];
+  const push = (k, d) => { heap.push([d, k]); let i = heap.length - 1; while (i > 0){ const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length){ heap[0] = last; let i = 0; for (;;){ const l = 2*i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  pool.forEach(b => { const i = clamp(Math.floor((b.x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((b.y - y0)/cs), 0, gh - 1), k = j*gw + i; if (inside[k] && dist[k] > 0){ dist[k] = 0; push(k, 0); } });
+  const NB = [[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.414],[1,-1,1.414],[-1,1,1.414],[-1,-1,1.414]];
+  while (heap.length){ const [d, k] = pop(); if (d > dist[k]) continue; const i = k % gw, j = (k - i)/gw;
+    NB.forEach(([a, b, w]) => { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= gw || jj >= gh) return; const q = jj*gw + ii; if (!inside[q]) return; const nd = d + w; if (nd < dist[q]){ dist[q] = nd; push(q, nd); } }); }
+  // every cell belongs to the direction whose route is nearest; inside it, distances count from the nearest point of that area
+  const own = new Int8Array(gw*gh).fill(-1), minD = routes.map(() => Infinity);
+  for (let k = 0; k < gw*gh; k++){ if (!inside[k] || !isFinite(dist[k])) continue; const i = k % gw, c = cell(i, (k - i)/gw);
+    let bo = 0, bd = Infinity; routes.forEach((R, r) => { const d = routeAt(R, c.x, c.y).d; if (d < bd){ bd = d; bo = r; } }); own[k] = bo; minD[bo] = Math.min(minD[bo], dist[k]); }
+  const cellOf = p => { const i = clamp(Math.floor((p.x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((p.y - y0)/cs), 0, gh - 1); return j*gw + i; };
+  // the lines' places are where the front stands when a line is taken: thresholds 25 / 60 / 100 follow their real distances
+  routes.forEach((R, r) => {
+    const base = isFinite(minD[r]) ? minD[r] : 0, maxD = Math.max(1, ...[...dist].filter((d, k) => own[k] === r && isFinite(d)).map(d => d - base));
+    const dk = R.pts.slice(1).map(p => { let best = Infinity, k0 = cellOf(p); if (inside[k0] && isFinite(dist[k0])) best = dist[k0] - base;
+      else { const i0 = k0 % gw, j0 = (k0 - i0)/gw; for (let jj = Math.max(0, j0 - 6); jj <= Math.min(gh - 1, j0 + 6); jj++) for (let ii = Math.max(0, i0 - 6); ii <= Math.min(gw - 1, i0 + 6); ii++){ const q = jj*gw + ii; if (inside[q] && isFinite(dist[q])) best = Math.min(best, dist[q] - base); } }
+      return isFinite(best) ? Math.max(0, best) : maxD; });
+    const d1 = Math.max(1, dk[0]), d2 = Math.max(d1 + 1, dk[1]), d3 = Math.max(d2 + 1, Math.min(maxD, Math.max(dk[2], d2 + 1)));
+    R.base = base; R.dk = [0, d1, d2, d3]; R.maxD = maxD;
+  });
+  const thr = (r, p) => { const R = routes[r]; if (p >= 99.9) return Infinity; if (p <= 0.05) return -1;
+    const T = [0, 25, 60, 100]; for (let s = 0; s < 3; s++) if (p <= T[s + 1]) return R.dk[s] + (R.dk[s + 1] - R.dk[s])*(p - T[s])/(T[s + 1] - T[s]); return R.dk[3]; };
+  const F = {key, iso:tgt, x0, y0, cs, gw, gh, inside, dist, own, routes, cell, thr, cellOf};
   // a point inside the country nearest to (x, y)
   F.snap = (x, y) => { const i = clamp(Math.floor((x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((y - y0)/cs), 0, gh - 1); if (inside[j*gw + i]) return {x, y};
     let best = null, bd = Infinity; for (let jj = Math.max(0, j - 12); jj <= Math.min(gh - 1, j + 12); jj++) for (let ii = Math.max(0, i - 12); ii <= Math.min(gw - 1, i + 12); ii++){ if (!inside[jj*gw + ii]) continue; const c = cell(ii, jj), d = Math.hypot(c.x - x, c.y - y); if (d < bd){ bd = d; best = c; } } return best || {x, y}; };
   ui.occF[key] = F; return F;
 }
 // occupied share of the field for the given per-route progress, as an image and a front line
-function occRender(F, prog, rgb){
-  const {gw, gh, inside, tv} = F, cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
+function occRender(F, prog, rgb, share){
+  // land kept after a peace: one clean band from the border holding that share of the country
+  let gT = null; if (share != null){ const ds = [...F.dist].filter(isFinite).sort((a, b) => a - b); gT = ds.length ? ds[Math.min(ds.length - 1, Math.floor(ds.length*share))] : 0; }
+  const {gw, gh, inside, dist, own} = F, cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
   const cx = cv.getContext("2d"), im = cx.createImageData(gw, gh), val = new Float32Array(gw*gh);
   let any = false;
   for (let k = 0; k < gw*gh; k++){
     if (!inside[k]){ val[k] = NaN; continue; }
-    // a direction taken to the end holds all its land; otherwise the wedge behind its front
-    let v = -50; for (let r = 0; r < tv.length; r++){ const p = prog[r] || 0; if (p > 0.05 && tv[r][k] < 1e8) v = Math.max(v, p >= 99.9 ? 50 : p - tv[r][k]); } val[k] = v;
-    const a = clamp(v/3 + 0.5, 0, 1); if (a > 0) any = true;
+    // a direction taken to the end holds all its land; otherwise everything closer to the border than its front
+    const r = own[k]; let v = -50; if (gT != null){ if (isFinite(dist[k])) v = gT - dist[k]; } else if (r >= 0 && isFinite(dist[k])){ const t = F.thr(r, prog[r] || 0); v = t === Infinity ? 50 : t < 0 ? -50 : t - (dist[k] - F.routes[r].base); } val[k] = v;
+    const a = clamp(v/1.5 + 0.5, 0, 1); if (a > 0) any = true;
     im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = Math.round(a*185);
   }
   if (!any) return null;
@@ -2389,7 +2403,7 @@ function occTargets(){
   });
   Object.values(S.occupied||{}).forEach(o => {
     if (o.share >= 1 || S.wars.some(w => w.enemy === o.iso)) return;
-    const F = occField(S.player, o.iso, null); if (F) out.push({key:"o" + o.iso, F, p:[o.share*100], cls:"held"});
+    const F = occField(S.player, o.iso, o.lls || null); if (F) out.push({key:"o" + o.iso, F, p:[o.share*100], share:o.share, cls:"held"});
   });
   return out;
 }
@@ -2414,7 +2428,7 @@ function drawOcc(animate){
   const frames = animate ? 8 : 1; let fno = 0, last = 0;
   const paint = e => T.forEach(t => {
     const cur = t.p.map((v, i) => t.from[i] + (v - t.from[i])*e); ui.occShown[t.key] = cur;
-    const r = occRender(t.F, cur, OCC_RGB[t.cls]);
+    const r = occRender(t.F, cur, OCC_RGB[t.cls], t.share);
     t.el.style.display = r ? "" : "none"; if (!r) return;
     const [img] = t.el.getElementsByTagName("image"), [ha, lu, ln] = t.el.querySelectorAll("g > path");
     img.setAttribute("href", r.img); img.setAttribute("x", r.x.toFixed(2)); img.setAttribute("y", r.y.toFixed(2)); img.setAttribute("width", r.w.toFixed(2)); img.setAttribute("height", r.h.toFixed(2));
@@ -2427,6 +2441,18 @@ function drawOcc(animate){
   if (animate) occRaf = requestAnimationFrame(step); else paint(1);
 }
 // markers of the war: battle points, offensive arrows, the real cities of every direction (taken / held / lost)
+// where the front of a direction stands on the map, and which way is «deeper» there
+function frontPoint(F, r, p){
+  const {gw, gh, inside, dist, own} = F, R = F.routes[r], t = Math.max(0.5, F.thr(r, p) === Infinity ? R.maxD : F.thr(r, p));
+  let best = -1, bs = Infinity;
+  for (let k = 0; k < gw*gh; k++){ if (own[k] !== r || !isFinite(dist[k])) continue; const dd = Math.abs(dist[k] - R.base - t); if (dd > 1.6) continue;
+    const i = k % gw, c = F.cell(i, (k - i)/gw), s2 = routeAt(R, c.x, c.y).d/F.cs + dd*2; if (s2 < bs){ bs = s2; best = k; } }
+  if (best < 0){ best = F.cellOf(R.pts[0]); }
+  const i = best % gw, j = (best - i)/gw, c = F.cell(i, j);
+  // inward: towards the deeper cells around
+  let gx = 0, gy = 0; for (let jj = Math.max(0, j - 4); jj <= Math.min(gh - 1, j + 4); jj++) for (let ii = Math.max(0, i - 4); ii <= Math.min(gw - 1, i + 4); ii++){ const q = jj*gw + ii; if (!inside[q] || !isFinite(dist[q]) || !isFinite(dist[best])) continue; const w = dist[q] - dist[best]; gx += (ii - i)*w; gy += (jj - j)*w; }
+  return {x:c.x, y:c.y, ang: Math.atan2(gy, gx)};
+}
 function warFxMarks(w){
   if (!w.fronts) return "";
   const FT = occField(S.player, w.enemy, frontLL(w, false)), FM = occField(w.enemy, S.player, frontLL(w, true)); if (!FT || !FM) return "";
@@ -2440,7 +2466,7 @@ function warFxMarks(w){
       if (f.p < 0 && !(k === 2 && i === 0)) out += city(FM, i, k, f.myPlaces[k], f.p <= -t ? "lost" : "own");
     });
     if (f.p >= 100) return;
-    const inThem = f.p >= 0, F = inThem ? FT : FM, R = F.routes[i], rp = routePoint(R, Math.max(2, Math.abs(f.p))), pt = F.snap(rp.x, rp.y);
+    const inThem = f.p >= 0, F = inThem ? FT : FM, fp = frontPoint(F, i, Math.max(1.5, Math.abs(f.p))), pt = fp, rp = fp;
     const mv = f.p - (old[i] ?? f.p);
     out += mark(pt.x, pt.y, `<circle r="10" class="fx-front"/><path d="M-4.5,-4.5L4.5,4.5M4.5,-4.5L-4.5,4.5" class="fx-swords"/>`, "fx-battle");
     if (Math.abs(mv) > 0.4){
@@ -2613,7 +2639,9 @@ function tryPeace(iso, id){
   const w = S.wars.find(x => x.enemy === iso), e = C()[iso], t = peaceTerms(w).find(x => x.id === id);
   if (!(w.offer && id !== "concede") && Math.random() > t.chance){ w.peaceCd = 30; toast(`${e.name} отклонила условия.`); closeModal(); resumeAfter("peace"); render(); return; }
   S.wars = S.wars.filter(x => x !== w); e.rel = -50;
-  if (id === "land"){ const share = w.progress/100; occupy(iso, share, w); e.gdp *= 1 - share*0.9; e.pop *= 1 - share; e.army *= 0.7; e.rel = -80; infamyAdd(8 + 12*share); addLog(`Мир с ${e.name}: к нам отходит ${Math.round(share*100)}% её территории.`); }
+  if (id === "land"){ const share = w.progress/100; const o = occupy(iso, share, w);
+    // the border is fixed where the front stood: the map keeps exactly the land we held
+    if (o && w.fronts){ o.lls = frontLL(w, false); o.fp = w.fronts.map(f => Math.max(0, f.p)); } e.gdp *= 1 - share*0.9; e.pop *= 1 - share; e.army *= 0.7; e.rel = -80; infamyAdd(8 + 12*share); addLog(`Мир с ${e.name}: к нам отходит ${Math.round(share*100)}% её территории.`); }
   else if (id === "pay"){ const sum = e.gdp*0.05*(w.progress/50); S.treasury += sum; floatText(S.player, `+${money(sum)}`, "cash big"); infamyAdd(3); addLog(`Мир с ${e.name}: получена контрибуция ${money(sum)}.`); }
   else if (id === "concede"){ const sum = me().gdp*0.03*(-w.progress/50); S.treasury -= sum; S.mods.push({stat:"approval", v:-6, left:6}); addLog(`Мир с ${e.name}: мы заплатили ${money(sum)}.`); }
   else addLog(`Подписан белый мир со страной ${e.name}.`);
