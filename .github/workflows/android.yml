@@ -32,6 +32,9 @@ jobs:
       - name: Bundle flags
         run: npm run flags
 
+      - name: Bundle three.js
+        run: npm run three
+
       - name: Create Android project
         run: npx cap add android
 
