@@ -125,6 +125,7 @@ def sf_build(root_name, mid, front, turret_key="turret", drop=(), length=None, t
     for o, t in zip((H, T, G), targets):
         if o: sf_decimate(o, t)
     if T and accent: sf_accent(T, None)
+    elif accent: sf_accent(H, None)   # launchers without a turret carry the side colour on the roof of the hull
     for o in (H, T, G):
         if o: bpy.context.view_layer.objects.active = o; bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40)) if hasattr(bpy.ops.object, "shade_smooth_by_angle") else None
     if T: set_origin(T, tp)

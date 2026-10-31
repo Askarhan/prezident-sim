@@ -7,7 +7,7 @@ const FIELD = 240;                 // metres, square
 const MODEL_CACHE = new Map();     // glb name -> Promise<gltf scene>
 const loader = new GLTFLoader();
 // models that also ship a light copy <name>_lo.glb (~2.5-4k triangles, half-size textures)
-const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05"]);
+const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams"]);
 // graphics levels: pixel ratio cap, shadow map (0 = off), distance beyond which the light copy is drawn, effects share, squads per side at the front
 const QL = {high:{pr:1.6, sh:2048, soft:true, lod:150, fx:1, cap:6}, mid:{pr:1, sh:1024, soft:false, lod:90, fx:0.65, cap:6}, low:{pr:0.8, sh:0, soft:false, lod:0, fx:0.4, cap:4}};
 function loadModel(name){
