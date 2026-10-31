@@ -15,7 +15,8 @@ def group_join(parts, name):
     except Exception: pass
     return ob
 def set_origin(ob, p):
-    ob.data.transform(Matrix.Translation(-Vector(p))); ob.location = Vector(p)
+    """move the pivot to world point p without moving the geometry (the mesh is stored relative to the current origin)"""
+    o = ob.matrix_world.translation.copy(); ob.data.transform(Matrix.Translation(o - Vector(p))); ob.location = Vector(p)
 
 def tank_glb(name, tur="ru", L=7.0, nw=6, gun=4.6, era=True, era_turret=True, skirts=5, rws=False, slats=False, drums=True, bustle=True, hullH=1.6, width=2.2):
     """the same tank as m_tank_v, split into hull, turret and gun with pivots at the turret ring and the trunnions"""
@@ -71,6 +72,7 @@ def tank_glb(name, tur="ru", L=7.0, nw=6, gun=4.6, era=True, era_turret=True, sk
     H = group_join(ph, name + "_hull"); Tt = group_join(pt, name + "_turret"); G = group_join(pg, name + "_gun")
     zmin = min((H.matrix_world @ Vector(c)).z for c in H.bound_box)
     set_origin(H, (0, 0, zmin)); set_origin(Tt, (tx, 0, hullH)); set_origin(G, (gx0, 0, gz))
+    bpy.context.view_layer.update()   # matrix_world must see the new pivots before parenting
     for o, par in ((Tt, H), (G, Tt)):
         mw = o.matrix_world.copy(); o.parent = par; o.matrix_world = mw
     H["muzzle"] = gun

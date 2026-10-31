@@ -378,6 +378,7 @@ export async function start(el, ctx){
   return {
     kill(side, n){ killQ[side] += n; },
 
+    focus(i, dist, yaw){ const u = units.filter(v => v.obj)[i]; if (!u) return; cam.x = u.x; cam.z = u.z; cam.dist = dist || 40; if (yaw != null) cam.yaw = yaw; placeCamera(); },
     advance(sec){ for (let t = 0; t < sec; t += 1/30) step(1/30); },
     info(){ return {alive:[0, 1].map(s => units.filter(u => u.side === s && u.alive).length), particles:fxSmoke.items.length + fxFire.items.length, calls:renderer.info.render.calls, tris:renderer.info.render.triangles}; },
     dispose(){ running = false; ro.disconnect(); renderer.dispose(); scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); renderer.domElement.remove(); }
