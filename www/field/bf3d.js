@@ -86,15 +86,19 @@ function buildGround(ctx, R, N, quality){
   dg.putImageData(di, 0, 0);
   const det = new THREE.CanvasTexture(dc); det.wrapS = det.wrapT = THREE.RepeatWrapping; det.anisotropy = 8;
   // relief: low hills, sunken trenches and craters
-  const seg = quality === "high" ? 200 : 128, geo = new THREE.PlaneGeometry(FIELD, FIELD, seg, seg); geo.rotateX(-Math.PI/2);
+  // the land goes on beyond the field into the haze: one big mesh, the field texture mirrored outside
+  const BIG = FIELD*2.5, seg = quality === "high" ? 250 : 160, geo = new THREE.PlaneGeometry(BIG, BIG, seg, seg); geo.rotateX(-Math.PI/2);
+  tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
   const amp = ter === "m" ? 9 : ter === "d" ? 4 : 2.4, pos3 = geo.attributes.position;
   const height = (x, z) => {
     let h = (N.fbm(x/70 + 9, z/70 + 3, 4) - 0.5)*amp*2;
     if (Math.abs(z) < 60) h *= 0.35 + Math.abs(z)/60*0.65;           // the front sits in a flatter valley
+    if (Math.abs(x) > FIELD/2 + 4 || Math.abs(z) > FIELD/2 + 4) return h;
     for (const tr of trenches) for (let i = 0; i < tr.pts.length - 1; i++){ const [a, b] = tr.pts[i], [c, d] = tr.pts[i + 1], dx = c - a, dz = d - b, L2 = dx*dx + dz*dz, t = clamp(((x - a)*dx + (z - b)*dz)/L2, 0, 1), dd = Math.hypot(x - a - dx*t, z - b - dz*t); if (dd < 1.6) h -= (1.6 - dd)*0.9; }
     for (const [cx, cz, r] of craters){ const dd = Math.hypot(x - cx, z - cz); if (dd < r*1.6) h -= Math.max(0, 1 - dd/r)*r*0.35; }
     return h; };
-  for (let i = 0; i < pos3.count; i++) pos3.setY(i, height(pos3.getX(i), pos3.getZ(i)));
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < pos3.count; i++){ const x = pos3.getX(i), z = pos3.getZ(i); pos3.setY(i, height(x, z)); uv.setXY(i, 0.5 + x/FIELD, 0.5 - z/FIELD); }
   geo.computeVertexNormals();
   const mat = new THREE.MeshStandardMaterial({map:tex, roughness:0.96, metalness:0});
   mat.onBeforeCompile = sh => {
@@ -222,26 +226,28 @@ export async function start(el, ctx){
   scene.add(sun); scene.add(sun.target);
   const R = rng(ctx.seed), N = noise2(ctx.seed);
   const G = buildGround(ctx, R, N, quality); scene.add(G.mesh);
+
   // units: positions first so props keep away from them
   const units = [];
   const sideCount = [0, 0];
   ctx.units.forEach(u => sideCount[u.side]++);
   const idx = [0, 0];
   ctx.units.forEach(u => { const s = u.side ? -1 : 1, k = idx[u.side]++, n = sideCount[u.side], x = (k + 0.5 - n/2)*(FIELD*0.75/Math.max(n, 1)) + (R() - 0.5)*8, z = s*((ctx.phase === "pos" ? 15 : 19) + 5 + R()*14);
-    units.push({...u, x, z, h: u.side ? -Math.PI/2 : Math.PI/2, home:[x, z], hp:1, alive:true, reload:2 + R()*4, state:"hold", next:R()*8}); });
+    units.push({...u, x, z, h: u.side ? -Math.PI/2 : Math.PI/2, home:[x, z], hp:u.hp || 1, hpMax:u.hp || 1, pend:0, alive:true, reload:2 + R()*4, state:"hold", next:R()*8}); });
   scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]));
   // load models and place them
   const models = {}; await Promise.all([...new Set(units.map(u => u.model))].map(async m => { try { models[m] = await loadModel(m); } catch(e){ models[m] = null; } }));
   const accent = [new THREE.MeshStandardMaterial({color:ctx.accentUs || 0x2f6bff, emissive:ctx.accentUs || 0x2f6bff, emissiveIntensity:0.35, roughness:0.5}),
                   new THREE.MeshStandardMaterial({color:ctx.accentThem || 0xe03030, emissive:ctx.accentThem || 0xe03030, emissiveIntensity:0.35, roughness:0.5})];
-  for (const u of units){
-    const src = models[u.model]; if (!src) { u.alive = false; continue; }
+  function dress(u){
+    const src = models[u.model]; if (!src) { u.alive = false; return; }
     const obj = src.clone(true); const root = new THREE.Group(); root.add(obj);
     obj.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; if (o.material && o.material.name === "accent") o.material = accent[u.side]; else if (o.material){ o.material = o.material.clone(); } }
       if (/_turret$/.test(o.name)) u.turret = o; if (/_gun$/.test(o.name)) u.gun = o; if (/_hull$/.test(o.name)) u.hull = o; });
     u.muzzle = (u.hull && u.hull.userData && u.hull.userData.muzzle) || 4.6;
     u.obj = root; u.gun0 = u.gun ? u.gun.position.x : 0; scene.add(root);
   }
+  units.forEach(dress);
   const fxSmoke = new Particles(scene, quality === "high" ? 1400 : 700, false), fxFire = new Particles(scene, quality === "high" ? 700 : 400, true);
   // tracers
   const TR_MAX = 64, trPos = new Float32Array(TR_MAX*6), trCol = new Float32Array(TR_MAX*6), trGeo = new THREE.BufferGeometry();
@@ -278,22 +284,35 @@ export async function start(el, ctx){
   }
   function fireAt(u, t){
     const {p, d} = muzzle(u);
-    const tx = t.obj.position.x, tz = t.obj.position.z, hit = Math.random() < (u.side ? ctx.hitThem : ctx.hitUs);
+    const tx = t.obj.position.x, tz = t.obj.position.z, dmg = t.pend >= 1 ? Math.floor(t.pend) : 0, hit = dmg > 0; t.pend -= dmg; if (hit) t.inbound = (t.inbound || 0) + dmg;
     const ex = hit ? tx + (Math.random() - 0.5)*1.5 : tx + (Math.random() - 0.5)*16, ez = hit ? tz + (Math.random() - 0.5)*1.5 : tz + (Math.random() - 0.5)*16;
     const ey = G.height(ex, ez) + (hit ? 1.4 : 0.2), dist = Math.hypot(ex - p.x, ez - p.z);
-    shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:dist/900 + 0.08, c:u.side ? [1, 0.45, 0.3] : [1, 0.85, 0.5], onHit:() => { explosion(ex, ez, false); if (hit && t.alive){ t.hp -= 0.22; for (let i = 0; i < 12; i++) fxFire.emit({x:tx, y:ey, z:tz, vx:(Math.random() - 0.5)*14, vy:Math.random()*8, vz:(Math.random() - 0.5)*14, g:-12, life:0.4 + Math.random()*0.4, s0:0.6, s1:0.3, c:[1, 0.9, 0.6], a:1, drag:0.5}); } }});
+    shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:dist/900 + 0.08, c:u.side ? [1, 0.45, 0.3] : [1, 0.85, 0.5], onHit:() => { explosion(ex, ez, false); if (hit){ t.inbound -= dmg; damage(t, dmg); for (let i = 0; i < 12; i++) fxFire.emit({x:tx, y:ey, z:tz, vx:(Math.random() - 0.5)*14, vy:Math.random()*8, vz:(Math.random() - 0.5)*14, g:-12, life:0.4 + Math.random()*0.4, s0:0.6, s1:0.3, c:[1, 0.9, 0.6], a:1, drag:0.5}); } }});
   }
+  // floating numbers over the squads: «−3» when the war destroys three of its machines
+  const floats = [];
+  function damage(t, dmg){ if (!t.alive) return; t.hp -= dmg; floats.push({u:t, text:"−" + Math.round(dmg), t:0}); if (t.hp <= 0.5) destroy(t); }
+  const wrecks = [];
   function destroy(u){
-    if (!u.alive) return; u.alive = false;
+    if (!u.alive) return; u.alive = false; u.pend = 0; wrecks.push(u);
+    // only the last wrecks stay on the field so the scene stays light
+    while (wrecks.length > 10){ const w = wrecks.shift(); if (w.obj){ scene.remove(w.obj); w.obj = null; } }
     explosion(u.obj.position.x, u.obj.position.z, true);
     u.obj.traverse(o => { if (o.isMesh && o.material && o.material.color){ o.material = o.material.clone(); o.material.color.multiplyScalar(0.18); if (o.material.emissive) o.material.emissiveIntensity = 0; } });
     if (u.turret && Math.random() < 0.55){ u.pop = {vy:9 + Math.random()*5, vx:(Math.random() - 0.5)*4, vz:(Math.random() - 0.5)*4, spin:(Math.random() - 0.5)*6}; }
     u.burn = 40 + Math.random()*40;
   }
+  // a new squad drives in from our (or their) edge of the map to the front
+  async function reinforce(side, id, hp){
+    const model = (ctx.modelOf && ctx.modelOf[id]) || "t72"; if (!models[model]){ try { models[model] = await loadModel(model); } catch(e){ return; } }
+    const s = side ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.7, z = s*(FIELD/2 - 6), hz = s*((ctx.phase === "pos" ? 15 : 19) + 5 + Math.random()*14);
+    const u = {id, model, side, x, z, h:side ? -Math.PI/2 : Math.PI/2, home:[x, hz], hp, hpMax:hp, pend:0, alive:true, reload:4, state:"move", wp:[x, hz], next:20};
+    units.push(u); dress(u); floats.push({u, text:"подкрепление", t:0});
+  }
   /* ---- camera: pan with one finger, pinch to zoom, twist to rotate ---- */
   const cam = {x:0, z:4, dist:135, yaw:0, pitch:0.92};
   function placeCamera(){
-    cam.dist = clamp(cam.dist, 40, 300); cam.x = clamp(cam.x, -FIELD/2 + 10, FIELD/2 - 10); cam.z = clamp(cam.z, -FIELD/2 + 10, FIELD/2 - 10);
+    cam.dist = clamp(cam.dist, 35, 230); const m = clamp(FIELD/2 - cam.dist*0.45, 10, FIELD/2 - 10); cam.x = clamp(cam.x, -m, m); cam.z = clamp(cam.z, -m, m);
     const ty = G.height(cam.x, cam.z), h = Math.sin(cam.pitch)*cam.dist, r = Math.cos(cam.pitch)*cam.dist;
     camera.position.set(cam.x + Math.sin(cam.yaw)*r, ty + h, cam.z + Math.cos(cam.yaw)*r); camera.lookAt(cam.x, ty, cam.z);
     sun.position.set(cam.x - 70, ty + 140, cam.z + 40); sun.target.position.set(cam.x, ty, cam.z);
@@ -313,10 +332,32 @@ export async function start(el, ctx){
   const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; };
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up); cv.addEventListener("contextmenu", e => e.preventDefault());
   cv.addEventListener("wheel", e => { e.preventDefault(); cam.dist *= Math.exp(e.deltaY*0.0012); placeCamera(); }, {passive:false});
+  const hud = document.createElement("canvas"); hud.className = "bf3d-hud"; el.appendChild(hud); const hg = hud.getContext("2d");
+  let selected = null, selT = 0, downAt = null;
+  cv.addEventListener("pointerdown", e => { downAt = {x:e.clientX, y:e.clientY, t:performance.now()}; });
+  cv.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
+    const r = cv.getBoundingClientRect(); let best = null, bd = 44; for (const u of units){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5); const d = Math.hypot(q.x - (e.clientX - r.left), q.y - (e.clientY - r.top)); if (d < bd){ bd = d; best = u; } }
+    selected = best; selT = 4; });
+  const v3 = new THREE.Vector3();
+  function screenOf(u, up){ v3.set(u.x, G.height(u.x, u.z) + up, u.z).project(camera); return {x:(v3.x + 1)/2*el.clientWidth, y:(1 - v3.y)/2*el.clientHeight, vis:v3.z < 1}; }
+  function drawHud(dt){
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = el.clientWidth, H = el.clientHeight;
+    if (hud.width !== Math.round(W*dpr)){ hud.width = Math.round(W*dpr); hud.height = Math.round(H*dpr); }
+    hg.setTransform(dpr, 0, 0, dpr, 0, 0); hg.clearRect(0, 0, W, H);
+    const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
+    hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
+    for (const u of units){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 4.2); if (!q.vis) continue;
+      const w = 26, k = clamp(u.hp/u.hpMax, 0, 1);
+      hg.fillStyle = "rgba(0,0,0,.55)"; hg.fillRect(q.x - w/2 - 1, q.y - 1, w + 2, 5);
+      hg.fillStyle = u.side ? "#ff5a4f" : "#4f8cff"; hg.fillRect(q.x - w/2, q.y, w*k, 3);
+      if (close || u === selected){ const t = `${ctx.names[u.id] || u.id} ×${Math.max(1, Math.round(u.hp))}`; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#fff"; hg.fillText(t, q.x, q.y - 4); } }
+    for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.t += dt; if (f.t > 1.6 || !f.u.obj){ floats.splice(i, 1); continue; }
+      const q = screenOf(f.u, 5 + f.t*3); hg.globalAlpha = 1 - f.t/1.6; hg.font = "700 14px system-ui, sans-serif"; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.75)"; hg.strokeText(f.text, q.x, q.y - 10); hg.fillStyle = f.u.side ? "#ffd2c8" : "#ffd27a"; hg.fillText(f.text, q.x, q.y - 10); hg.globalAlpha = 1; }
+  }
   function resize(){ const w = el.clientWidth, h = el.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
   const ro = new ResizeObserver(resize); ro.observe(el); resize(); placeCamera();
   /* ---- the battle itself ---- */
-  let last = performance.now(), running = true, artT = 3, killQ = [0, 0];
+  let last = performance.now(), running = true, artT = 3;
   const enemiesOf = u => units.filter(v => v.alive && v.side !== u.side && v.obj);
   function think(u, dt){
     if (!u.alive || !u.obj) return;
@@ -332,7 +373,7 @@ export async function start(el, ctx){
       const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move";
     }
     // target and turret
-    if (!u.target || !u.target.alive || Math.random() < dt*0.05){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z); if (d < bd){ bd = d; best = v; } } u.target = best; }
+    if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
     if (u.turret){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
@@ -340,9 +381,11 @@ export async function start(el, ctx){
       if (u.target && Math.abs(diff) < 0.035 && u.reload < 0){ fireAt(u, u.target); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(0.7 + Math.random()*0.6); }
     }
     if (u.recoil){ u.recoil = Math.max(0, u.recoil - dt*4); if (u.gun) u.gun.position.x = u.gun0 - Math.sin(u.recoil*Math.PI)*0.45; }
-    if (u.hp <= 0) destroy(u);
+    // losses no gun is aiming at arrive by artillery or a drone
+    if (u.pend >= 1){ u.pendT = (u.pendT || 0) + dt; if (u.pendT > 4){ const d = Math.floor(u.pend); u.pend -= d; u.pendT = 0; explosion(u.x + (Math.random() - 0.5)*2, u.z + (Math.random() - 0.5)*2, false); damage(u, d); } } else u.pendT = 0;
   }
   function step(dt){
+    for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
     for (const u of units){
       think(u, dt);
       if (!u.obj) continue;
@@ -353,8 +396,7 @@ export async function start(el, ctx){
         if (Math.random() < dt*30) fxFire.emit({x:bx + (Math.random() - 0.5)*2, y:y + 1.6, z:bz + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5)*0.6, vy:2 + Math.random()*2, vz:(Math.random() - 0.5)*0.6, life:0.5 + Math.random()*0.5, s0:2.4, s1:0.8, c:[1, 0.75, 0.3], c1:[0.9, 0.2, 0.04], a:0.9, drag:0.5});
         if (Math.random() < dt*14) fxSmoke.emit({x:bx, y:y + 2.5, z:bz, vx:0.9 + Math.random()*0.6, vy:3 + Math.random()*2, vz:(Math.random() - 0.5)*0.6, life:6 + Math.random()*4, s0:2.5, s1:16, c:[0.08, 0.075, 0.07], c1:[0.32, 0.31, 0.3], a:0.75, drag:0.2, fadeIn:0.04}); }
     }
-    // losses from the war go to the field
-    for (const s of [0, 1]) while (killQ[s] >= 1){ killQ[s] -= 1; const pool = units.filter(u => u.alive && u.side === s && u.obj); if (!pool.length) break; pool[Math.floor(Math.random()*pool.length)].hp = 0; }
+
     // artillery falls on both lines; more in the positional phase
     artT -= dt; if (artT < 0){ artT = (ctx.phase === "pos" ? 1.6 : 3.2)*(0.5 + Math.random());
       const s = Math.random() < ctx.artyUs/(ctx.artyUs + ctx.artyThem + 1e-6) ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.85, z = s*(20 + Math.random()*55); explosion(x, z, Math.random() < 0.3); }
@@ -372,11 +414,21 @@ export async function start(el, ctx){
     if (document.hidden) { last = now; return; }
     const dt = clamp((now - last)/1000, 0, 0.05); last = now;
     step(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
-    renderer.render(scene, camera);
+    renderer.render(scene, camera); drawHud(dt);
   }
   requestAnimationFrame(frame);
   return {
-    kill(side, n){ killQ[side] += n; },
+    // the war destroyed n machines of model id on this front
+    hit(side, id, n){ let pool = units.filter(u => u.alive && u.obj && u.side === side && u.id === id); if (!pool.length) pool = units.filter(u => u.alive && u.obj && u.side === side); if (!pool.length) return;
+      const u = pool.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a); u.pend += n; },
+    // what the army really has on this front: reinforce from the map edge when there is more than the squads hold
+    sync(side, have){ const slots = () => units.filter(u => u.alive && u.side === side).length;
+      for (const [id, n] of Object.entries(have)){ const mine = units.filter(u => u.alive && u.side === side && u.id === id), held = mine.reduce((a, u) => a + u.hp - u.pend - (u.inbound || 0), 0), diff = n - held;
+        const per = mine.length ? held/mine.length : n;
+        if (diff > Math.max(1, per*0.5) && slots() < 10){ reinforce(side, id, diff); }
+        else if (diff > 0.5 && mine.length){ mine.forEach(u => { u.hp += diff/mine.length; u.hpMax = Math.max(u.hpMax, u.hp); }); }
+        else if (diff < -0.5 && mine.length) mine[0].pend += -diff; } },
+    names(map){ Object.assign(ctx.names, map); },
 
     focus(i, dist, yaw){ const u = units.filter(v => v.obj)[i]; if (!u) return; cam.x = u.x; cam.z = u.z; cam.dist = dist || 40; if (yaw != null) cam.yaw = yaw; placeCamera(); },
     advance(sec){ for (let t = 0; t < sec; t += 1/30) step(1/30); },

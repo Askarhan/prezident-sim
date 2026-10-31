@@ -391,6 +391,7 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 #bf-root{position:fixed;inset:0;z-index:60;background:#12160F;touch-action:none;overscroll-behavior:none}
 #bf-root .bf3d{position:absolute;inset:0}
 #bf-root .bf3d-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#bf-root .bf3d-hud{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #bf-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
 #bf-root .bf-top{position:absolute;left:0;right:0;top:0;display:flex;gap:10px;align-items:flex-start;padding:max(8px,env(safe-area-inset-top)) 12px 18px;background:linear-gradient(rgb(6 9 6 / .85),rgb(6 9 6 / 0));pointer-events:none}
 #bf-root .bf-back{pointer-events:auto;width:40px;height:40px;flex:0 0 40px;border-radius:10px;border:1px solid rgb(255 255 255 / .18);background:rgb(14 20 30 / .85);color:#fff;display:grid;place-items:center}
@@ -3056,7 +3057,8 @@ function bf3dUnits(w, i){
     const N = tot > 0 ? clamp(Math.round(Math.sqrt(tot)*0.7), 2, 10) : 0;
     const cnt = list.map(([id, n]) => [id, n/(tot/mult/fs)*N]).map(([id, v]) => [id, Math.floor(v), v - Math.floor(v)]);
     let left = N - cnt.reduce((a, c) => a + c[1], 0); cnt.sort((a, b) => b[2] - a[2]).forEach(c => { if (left > 0){ c[1]++; left--; } });
-    cnt.forEach(([id, k]) => { for (let j = 0; j < k; j++) out.push({id, model:bf3dModel(id), side}); });
+    // every machine on the field is a squad: its HP is the real number of machines it stands for
+    cnt.forEach(([id, k]) => { const have = (units[id]||0)*mult*fs; for (let j = 0; j < k; j++) out.push({id, model:bf3dModel(id), side, hp:Math.max(1, have/k)}); });
   });
   return {units:out, counts};
 }
@@ -3068,17 +3070,20 @@ function bf3dOpen(st, w, i){
   const arty = (u, m) => Object.entries(u||{}).reduce((a, [id, n]) => a + (MODELS[id] && ["sph","mlrs"].includes(MODELS[id].kind) ? n*m*MODELS[id].ga : 0), 0);
   const ctx = {terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:ui.gfx || "high",
     hitUs:0.22 + 0.4*edge, hitThem:0.22 + 0.4*(1 - edge), rofUs:7 - 2.5*edge, rofThem:4.5 + 2.5*edge, artyUs:arty(S.units, warShare(w)), artyThem:arty(w.eu, 1),
-    accentUs:0x2f6bff, accentThem:0xe03030};
+    accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)]))};
   st.root.querySelector("#bf-cv").style.display = "none";
   const box = document.createElement("div"); box.className = "bf3d"; st.root.insertBefore(box, st.root.firstChild);
-  st.lost0 = [bf3dTanksLost(w.lossMy), bf3dTanksLost(w.lossTh)]; st.counts = counts; st.n3d = [units.filter(u => !u.side).length, units.filter(u => u.side).length];
+  st.lost0 = [Object.assign({}, w.lossMy), Object.assign({}, w.lossTh)];
   import("./field/bf3d.js").then(m => m.start(box, ctx)).then(api => {
     if (BF.open !== st){ api.dispose(); return; }
     st.api = api; st.root.querySelector(".bf-load")?.remove();
-    // every game day: losses of armour on this war reach the field in proportion
+    // the war reaches the field: this front's share of every destroyed machine becomes a hit on its squad,
+    // and what the army still has on this front comes as reinforcements
     st.tick3d = setInterval(() => { const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww) return closeBattle(true); bfTitle(st);
-      const now = [bf3dTanksLost(ww.lossMy), bf3dTanksLost(ww.lossTh)];
-      [0, 1].forEach(s => { const d = now[s] - st.lost0[s]; if (d > 0 && st.counts[s] > 0){ api.kill(s, d/(st.counts[s]/((ww.fronts[st.i] || {}).share || 0.33))*st.n3d[s]); } st.lost0[s] = now[s]; }); }, 700);
+      const fr = ww.fronts[st.i] || {}, fs = fr.share || 1/(ww.fronts.length || 1), ARM = ["tank","ifv","apc"];
+      [[ww.lossMy, 0], [ww.lossTh, 1]].forEach(([loss, s]) => { for (const id in loss||{}){ if (!MODELS[id] || !ARM.includes(MODELS[id].kind)) continue; const d = loss[id] - (st.lost0[s][id] || 0); if (d > 0) api.hit(s, id, d*fs); st.lost0[s][id] = loss[id]; } });
+      const tanks = (u, mult) => { const t = Object.entries(u||{}).filter(([id, n]) => MODELS[id] && MODELS[id].kind === "tank" && n > 0); const list = t.length ? t : Object.entries(u||{}).filter(([id, n]) => MODELS[id] && ["ifv","apc"].includes(MODELS[id].kind) && n > 0); return Object.fromEntries(list.map(([id, n]) => [id, n*mult*fs])); };
+      api.sync(0, tanks(S.units, warShare(ww))); api.sync(1, tanks(ww.eu, 1)); }, 1500);
   }).catch(e => { console.error(e); ui.bf2d = true; box.remove(); st.root.querySelector("#bf-cv").style.display = ""; setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); st.root.querySelector(".bf-load")?.remove(); bfFit(st); }, 30); bfInput(st); requestAnimationFrame(bfLoop); });
 }
 function bfTitle(st){
