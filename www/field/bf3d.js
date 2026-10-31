@@ -7,7 +7,10 @@ const FIELD = 240;                 // metres, square
 const MODEL_CACHE = new Map();     // glb name -> Promise<gltf scene>
 const loader = new GLTFLoader();
 function loadModel(name){
-  if (!MODEL_CACHE.has(name)) MODEL_CACHE.set(name, new Promise((res, rej) => loader.load(`field/models/${name}.glb`, g => res(g.scene), undefined, rej)));
+  // the app ships .glb files; the web page gets the same files as base64 text (hosts that don't serve .glb)
+  if (!MODEL_CACHE.has(name)) MODEL_CACHE.set(name, new Promise((res, rej) => loader.load(`field/models/${name}.glb`, g => res(g.scene), undefined,
+    () => fetch(`field/models/${name}.glb.txt`).then(r => { if (!r.ok) throw new Error("model " + name); return r.text(); })
+      .then(t => { const bin = atob(t.trim()), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i); loader.parse(buf.buffer, "", g => res(g.scene), rej); }).catch(rej))));
   return MODEL_CACHE.get(name);
 }
 function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0)/4294967296; }; }
