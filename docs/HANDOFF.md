@@ -3,7 +3,8 @@
 Read this first in a new session.
 
 ## Build and ship
-- Game source lives outside the repo, in a scratch copy of `index.html`. Build it with `python3 scripts/build-www.py <path to index.html>`, which writes `www/index.html`. If the scratch copy is gone, use `www/index.html` as the source.
+- Game source is `src/game.html`; edit only that file. Build with `python3 scripts/build-www.py src/game.html`, which writes `www/index.html` (never edit `www/index.html` by hand: the build wraps the source in a page head).
+- After changing `tools/units/credits3d.json`, run `python3 tools/units/gencredits.py` before building.
 - Pushing to `main` builds the APK in GitHub Actions. The APK lands at https://github.com/Askarhan/prezident-sim/raw/apk/kabinet-prezidenta-debug.apk
 - Web preview is the artifact https://claude.ai/artifact/ND3zG4d9MyEn23a7am5Hpm. It loads models as base64 `field/models/<id>.glb.txt`, because the host does not serve `.glb`.
 - Commits use the author `Askarhan <drakula199821@gmail.com>`.
