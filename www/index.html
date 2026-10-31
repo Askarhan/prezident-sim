@@ -386,6 +386,25 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 @keyframes fxDash{to{stroke-dashoffset:-22}}
 #worldmap #map-fx .fx-arrow{fill:#FF5D5D;stroke:#2A0A0F;stroke-width:1.2}
 #worldmap #map-fx .fx-arrow.us{fill:#FFB020}
+#battle-cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.ui-photo{position:relative}
+.ui-photo .ui-3d{position:absolute;right:6px;bottom:22px;width:96px;height:96px;border-radius:10px;background:radial-gradient(circle at 50% 60%,rgb(20 34 56 / .92),rgb(8 14 26 / .88));border:1px solid rgb(255 255 255 / .14);touch-action:none;cursor:grab}
+.ui-photo .ui-3d-l{position:absolute;right:12px;bottom:100px;font:700 9px/1 system-ui;letter-spacing:.08em;color:#9FC4FF;pointer-events:none}
+.who-row{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.who-row:first-of-type{border-top:0}
+.who-row.best .who-spr{filter:drop-shadow(0 0 6px rgb(255 200 80 / .55))}
+.spr{display:block;image-rendering:auto}
+.who-spr{width:52px;height:52px;flex:0 0 52px;object-fit:contain}
+.who-spr.sm{width:40px;height:40px;flex-basis:40px}
+.spr-ph{background:rgb(255 255 255 / .04);border-radius:8px}
+.who-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.who-b b small{font-weight:400}
+.who-bar{height:5px;border-radius:3px;background:rgb(255 255 255 / .07);overflow:hidden}
+.who-bar i{display:block;height:100%;background:linear-gradient(90deg,#3E7BFA,#7FB2FF);border-radius:3px}
+.who-threat{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.who-th{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.who-th span{display:flex;align-items:center;gap:6px;font-size:12px}
+.who-th span b{font-weight:600}
 #occ-layer{pointer-events:none}
 #occ-layer .occ-fill{fill-opacity:.62}
 #occ-layer .occ-hatch{opacity:.45}
@@ -2148,6 +2167,8 @@ function warDay(w){
       else { if (w.fuel !== 0) warEvent(w, "Кончилось топливо: техника встаёт, армия воюет вполсилы.", "bad"); w.fuel = 0; } } }
   if (w.fuel === 0) warPush(w, -0.3);
   // 4. losses
+  const W3 = fightWeights(S.units, S.ammo, share, null, w.air, ewT, reach), We3 = fightWeights(w.eu, w.ea, 1, e, 1 - w.air, ewM, 1);
+  const before3 = {th:lossSum(w.lossTh), my:lossSum(w.lossMy)};
   const rM = 0.0036*(atkT/(atkT + defM))*Mm.loss, rT = 0.0036*(atkM/(atkM + defT))*(w.aiMode === "attack" ? 1 : 0.7);
   const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
   takeLosses(S.units, w.accMy, w.lossMy, w.mLossMy, rM, airRM, share);
@@ -2166,6 +2187,8 @@ function warDay(w){
       S.ammo.sam = Math.max(0, (S.ammo.sam||0) - down*0.3);
       let killed = 0; ["tank","sph","mlrs","ifv","apc"].forEach(kind => Object.keys(S.units).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.4 && S.units[id] > 0){ const l = Math.min(S.units[id], Math.ceil(hits*0.1)); S.units[id] -= l; killed += l; w.lossMy[id] = (w.lossMy[id]||0) + l; } }));
       w.droneLog = {n, jammed, down, hits, killed};
+      bSplit(bTab(w, false), Object.keys(W3.dr).length ? W3.dr : W3.mis, "i", down); bSplit(bTab(w, false), W3.ew, "i", jammed);
+      battleEvent({kind:"drones", from:w.enemy, to:S.player, n, down, jam:jammed, id:topModel(w.eu, ["loiter"]) || "shahed", ad:topModel(S.units, ["shorad"])});
       warEvent(w, `${e.name}: удар ${n} дронов-камикадзе — РЭБ заглушила ${jammed}, ПВО сбила ${down}, потеряно техники: ${killed}.`, hits > n*0.4 ? "bad" : "good");
     } }
   // enemy missile strikes on us
@@ -2175,10 +2198,13 @@ function warDay(w){
     const p = (S.ammo.sam||0) > fired ? clamp(my.ad/(my.ad + 50), 0, 0.88) : 0.1, down = Math.round(fired*p), hits = fired - down;
     S.ammo.sam = Math.max(0, (S.ammo.sam||0) - down*1.5);
     me().gdp *= 1 - 0.0015*hits;
+    bSplit(bTab(w, false), Object.keys(W3.mis).length ? W3.mis : W3.dr, "i", down);
+    battleEvent({kind:"missile", from:w.enemy, to:S.player, n:fired, down, ballistic:!!topModel(w.eu, ["srbm"]), ad:topModel(S.units, ["lrsam","mrsam"])});
     warEvent(w, `${e.name}: ракетный удар — ${fired} ракет, сбито ${down}.`, hits > down ? "bad" : "good");
     flashMap(S.player, "bad");
     if (performance.now() - (ui.alarmT||0) > 20000){ ui.alarmT = performance.now(); advise("gen", `Ракетный удар! ${e.name} выпустила ${fired} ракет, ПВО сбило ${down}. ${hits ? `Попаданий: ${hits}.` : "Все отражены."}`, {tab:"hq", mood: hits > down ? "alert" : null}); sfx("alarm"); }
   }
+  bDay(w, W3, We3, before3);
   Object.keys(w.cd).forEach(k => { if (w.cd[k] > 0) w.cd[k]--; });
   if (w.peaceCd > 0) w.peaceCd--;
   if (w.offerCd > 0) w.offerCd--;
@@ -2199,6 +2225,8 @@ function warMonth(w){
   const top = t => Object.entries(t).sort((a,b) => b[1]-a[1]).slice(0, 3).map(([id,n]) => `${MODELS[id].name} ×${n}`).join(", ");
   const lm = top(w.mLossMy), lt = top(w.mLossTh);
   advise("gen", `Фронт с ${e.name}: ${w.progress >= 0 ? `заняли ${Math.round(w.progress)}% территории` : `противник продвинулся на ${Math.round(-w.progress)}% нашей земли`}. Наши потери: ${lm || "нет"}. Уничтожено у врага: ${lt || "ничего"}.`, {tab:"hq", mood: w.progress < 0 ? "alert" : null});
+  { const t = w.bsM || {}, b = Object.keys(t).filter(id => MODELS[id] && t[id].k + t[id].i >= 3).sort((a, b) => (t[b].k + t[b].i) - (t[a].k + t[a].i))[0];
+    if (b && w.months % 2 === 0) warEvent(w, `Лучше всех воюет ${MODELS[b].name}: уничтожено ${Math.round(t[b].k)}${t[b].i >= 1 ? `, сбито ${Math.round(t[b].i)}` : ""}.`, "good"); }
   w.mLossMy = {}; w.mLossTh = {};
   Object.entries(S.ammo).forEach(([k,v]) => { const need = ammoNeedFor(S.units)[k]; if (need > 0 && v < need*0.5) advise("gen", `Заканчиваются ${AMMO[k].short}: осталось меньше чем на 2 недели боёв. Срочно закупите или запустите производство.`, {tab:"army", mood:"alert", key:"ammo-"+k, cd:2}); });
 }
@@ -2208,11 +2236,14 @@ function doStrike(w, type){
   const my = forceStats(S.units, S.ammo, warShare(w)), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   if (st.ammo) for (const k in st.ammo) if ((S.ammo[k]||0) < st.ammo[k]) return toast(`Не хватает: ${AMMO[k].short}.`);
   let text = "", good = true;
+  const W3 = fightWeights(S.units, S.ammo, warShare(w), null, w.air, 0, 1), We3 = fightWeights(w.eu, w.ea, 1, e, 1 - w.air, 0, 1), k3 = lossSum(w.lossTh), tm3 = bTab(w, false), te3 = bTab(w, true);
   if (type === "missile" || type === "infra"){
     const fired = st.ammo.missile; S.ammo.missile -= fired;
     const p = ((w.ea.sam||0) > 0 ? clamp(th.ad/(th.ad + 60), 0, 0.8) : 0.05)*(1 - 0.15*tlv("am_missile")), down = Math.round(fired*p), hits = fired - down;
     if ([1,2].includes(tlv("am_warhead"))) infamyAdd(1);
     w.ea.sam = Math.max(0, (w.ea.sam||0) - down*1.5);
+    bSplit(te3, Object.keys(We3.mis).length ? We3.mis : We3.dr, "i", down);
+    battleEvent({kind:"missile", from:S.player, to:e.id, n:fired, down, ballistic:!!topModel(S.units, ["srbm"]), ad:topModel(w.eu, ["lrsam","mrsam"])});
     if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); warPush(w, hits*0.25); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
     else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; warPush(w, hits*0.12); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
     good = hits >= down;
@@ -2223,6 +2254,7 @@ function doStrike(w, type){
     Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && STRIKE_K.has(m.kind) && m.kind !== "loiter"){ const lost = Math.floor(S.units[id]*warShare(w)*lossR + (Math.random() < lossR*20 ? 1 : 0)); if (lost){ S.units[id] -= lost; w.lossMy[id] = (w.lossMy[id]||0) + lost; } } });
     Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const lost = Math.floor(w.eu[id]*0.015*eff + (Math.random() < eff ? 1 : 0)); if (lost){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } } });
     warPush(w, 2 + 6*eff); good = w.air >= 0.4;
+    battleEvent({kind:"air", from:S.player, to:e.id, n:6, down:w.air < 0.4 ? 2 : 0, id:topModel(S.units, ["bomber","attack"]) || topModel(S.units, ["fighter"]), ad:topModel(w.eu, ["shorad","mrsam"])});
     text = w.air >= 0.4 ? `Авиаудар: господство в воздухе ${Math.round(w.air*100)}%, позиции противника разбиты.` : `Авиаудар без господства в воздухе (${Math.round(w.air*100)}%): тяжёлые потери самолётов.`;
   } else if (type === "drones"){
     const have = Object.entries(S.units).filter(([id]) => MODELS[id] && MODELS[id].kind === "loiter").reduce((a,[,n]) => a+n, 0);
@@ -2231,6 +2263,8 @@ function doStrike(w, type){
     const jam = clamp(th.ew/(th.ew + 30), 0, 0.7), hits = Math.round(50*(1 - jam)*rnd(0.5, 0.8));
     let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3 && w.eu[id] > 0){ const l = Math.min(w.eu[id], Math.ceil(hits*0.08)); w.eu[id] -= l; killed += l; w.lossTh[id] = (w.lossTh[id]||0) + l; } }));
     warPush(w, 1.2); good = jam < 0.4;
+    bSplit(te3, We3.ew, "i", Math.round(50*jam));
+    battleEvent({kind:"drones", from:S.player, to:e.id, n:50, down:0, jam:Math.round(50*jam), id:topModel(S.units, ["loiter"]) || "lancet"});
     text = `Удар дронами: ${hits} из 50 долетели${jam > 0.2 ? ` (РЭБ противника заглушила ${Math.round(jam*100)}%)` : ""}, уничтожено единиц техники: ${killed}.`;
   } else if (type === "airborne"){
     if (airliftCap() < 2) return toast("Нужно хотя бы 2 транспортных самолёта.");
@@ -2250,6 +2284,8 @@ function doStrike(w, type){
     text = "Объявлена мобилизация: +10% личного состава.";
   }
   w.cd[type] = st.cd;
+  { const k4 = lossSum(w.lossTh), gk = k4.g - k3.g + k4.a - k3.a, ws = type === "missile" || type === "infra" ? W3.rk : type === "air" ? W3.str : type === "drones" ? W3.loi : null; if (ws) bSplit(tm3, ws, "k", gk); }
+  if (["missile","infra","air","drones"].includes(type)) text += " Удар виден на карте.";
   warEvent(w, text, good ? "good" : "bad");
   flashMap(type === "mobilize" ? S.player : e.id, good ? "bad" : "info");
   sfx(type === "mobilize" ? "alert" : "boom"); buzz(40);
@@ -2258,7 +2294,7 @@ function doStrike(w, type){
 // daily refresh of occupation shading and front markers without re-rendering the whole screen
 function updateWarMap(){
   if (!document.getElementById("worldmap") || !LABELS) return;
-  drawOcc(true);
+  drawOcc(true); if (S.wars.length) battleKick();
   if ((S.day||1) % 2 === 0){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } }
 }
 /* ---------- front on the map: every direction is a route border → 1st line → 2nd line → key city over real places;
@@ -2477,6 +2513,317 @@ function warFxMarks(w){
   });
   return out;
 }
+/* ---------- 3D models of the military: sprite atlas (8 directions), side colours, desert camouflage ---------- */
+const SPR_IDS = ["t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","mig29","su35","su57","f16","f15ex","f35","j10","j20","su25","a10","su34","tu22","b1b","mi24","ka52","ah1z","apache","z10","tb2","reaper","wingloong","shahed","lancet","switchblade","il76","c130","y20","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha","compass","k20380","type056","gorshkov","fremm","type054a","burke","type055","kilo","type214","yasen","virginia","nimitz","fujian","missile_cruise","missile_ballistic","missile_sam","truck"];
+const SPR = {img:null, ready:false, req:false, idx:Object.fromEntries(SPR_IDS.map((id, i) => [id, i])), cache:new Map(), url:new Map()};
+const DESERT = new Set(["sa","eg","ir","iq","sy","ae","ly","dz","om","ye","jo","kw","qa","bh","pk","af","tm","sd","td","ne","ml","mr","il"]);
+function sprLoad(){
+  if (SPR.req) return; SPR.req = true;
+  const im = new Image();
+  im.onload = () => { SPR.img = im; SPR.ready = true; SPR.url.clear(); if (S && S.countries && ["hq","army"].includes(ui.tab)) render(); };
+  im.onerror = () => { SPR.req = false; };
+  im.src = "units/units_atlas.webp";
+}
+const sprCamo = iso => DESERT.has(iso) ? 1 : 0;
+// one frame of a model: d = direction 0..7 (d*45° counter-clockwise from screen east), side 0 = ours (blue marks), 1 = enemy (red marks)
+function sprFrame(id, d, side, camo){
+  if (!SPR.ready) return null; const i = SPR.idx[id]; if (i == null) return null;
+  d = ((d % 8) + 8) % 8; const key = id + "|" + d + side + (camo ? 1 : 0);
+  let c = SPR.cache.get(key); if (c) return c;
+  c = document.createElement("canvas"); c.width = c.height = 96;
+  const g = c.getContext("2d", {willReadFrequently:true});
+  g.drawImage(SPR.img, ((i % 2)*8 + d)*96, Math.floor(i/2)*96, 96, 96, 0, 0, 96, 96);
+  try { sprRecolor(g, side, camo); } catch(e){}
+  if (SPR.cache.size > 500) SPR.cache.delete(SPR.cache.keys().next().value);
+  SPR.cache.set(key, c); return c;
+}
+function sprRecolor(g, side, camo){
+  const im = g.getImageData(0, 0, 96, 96), p = im.data;
+  for (let k = 0; k < p.length; k += 4){
+    if (p[k+3] < 8) continue;
+    const r = p[k]/255, gg = p[k+1]/255, b = p[k+2]/255, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), dl = mx - mn;
+    if (dl < 0.02) continue;
+    let h = mx === r ? ((gg - b)/dl) % 6 : mx === gg ? (b - r)/dl + 2 : (r - gg)/dl + 4; h *= 60; if (h < 0) h += 360;
+    let s = dl/mx, v = mx, nh = -1;
+    if (h > 160 && h < 215 && s > 0.12 && v > 0.4){ nh = side ? 0 : 212; s = Math.min(0.9, Math.max(0.6, s*2.6)); v = Math.min(1, v*1.05); }   // the side mark
+    else if (camo && h > 45 && h < 115 && s > 0.12){ nh = 36; s = Math.min(1, s*1.3); v = Math.min(1, v*1.5); }                  // olive → sand
+    if (nh < 0) continue;
+    const c = v*s, x = c*(1 - Math.abs((nh/60) % 2 - 1)), m = v - c, sx = Math.floor(nh/60) % 6;
+    const [rr, g2, bb] = [[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]][sx];
+    p[k] = (rr + m)*255; p[k+1] = (g2 + m)*255; p[k+2] = (bb + m)*255;
+  }
+  g.putImageData(im, 0, 0);
+}
+// a frame as an image URL for HTML (cards, HQ); empty until the atlas is loaded
+function sprURL(id, d, side, camo){
+  const key = id + "|" + d + side + (camo ? 1 : 0); if (SPR.url.has(key)) return SPR.url.get(key);
+  const c = sprFrame(id, d, side, camo); if (!c) { sprLoad(); return ""; }
+  let u = ""; try { u = c.toDataURL("image/png"); } catch(e){}
+  SPR.url.set(key, u); return u;
+}
+const sprImg = (id, side, camo, cls, d) => { const u = sprURL(id, d ?? 7, side, camo); return u ? `<img class="spr ${cls||""}" src="${u}" alt="" draggable="false">` : `<i class="spr ${cls||""} spr-ph"></i>`; };
+// the direction frame for a heading angle given in screen coordinates (y down)
+const sprDir = ang => ((Math.round(-ang/(Math.PI/4)) % 8) + 8) % 8;
+
+/* rotating model on the unit's info sheet: turns by itself, drag to spin */
+function sprTurntable(id){
+  const cv = document.querySelector(".ui-3d"); if (!cv || !SPR.idx[id] && SPR.idx[id] !== 0) return;
+  const g = cv.getContext("2d"), camo = sprCamo(S.player); let d = 7, last = 0, drag = null, auto = true;
+  const draw = () => { const f = sprFrame(id, d, 0, camo); g.clearRect(0, 0, cv.width, cv.height); if (f){ g.imageSmoothingQuality = "high"; g.drawImage(f, 0, 0, cv.width, cv.height); } };
+  const loop = t => { if (!cv.isConnected) return; if (!SPR.ready) sprLoad(); if (auto && t - last > 420){ last = t; d = (d + 1) % 8; draw(); } requestAnimationFrame(loop); };
+  cv.addEventListener("pointerdown", e => { drag = {x:e.clientX, d}; auto = false; cv.setPointerCapture(e.pointerId); e.stopPropagation(); });
+  cv.addEventListener("pointermove", e => { if (!drag) return; d = ((drag.d - Math.round((e.clientX - drag.x)/22)) % 8 + 8) % 8; draw(); });
+  cv.addEventListener("pointerup", () => { drag = null; setTimeout(() => auto = true, 2500); });
+  draw(); requestAnimationFrame(loop);
+}
+
+/* ---------- who fights: every model's share of the damage, kills and intercepts ---------- */
+function fightWeights(units, ammo, share, foe, air, ewF, reach){
+  const W = {g:{}, a:{}, dr:{}, mis:{}, ew:{}, sea:{}, rk:{}, str:{}, loi:{}};
+  for (const [id, n0] of Object.entries(units||{})){
+    const m = MODELS[id]; if (!m || n0 <= 0) continue;
+    const n = n0*share, k = KINDS[m.kind], amm = k.ammo ? ((ammo[k.ammo]||0) > 0 ? ammoMult(k.ammo, foe) : 0.35) : 1, af = (0.25 + 0.75*air)*(1 - ewF*0.5);
+    if (GROUND_K.has(m.kind)){ W.g[id] = m.ga*n*amm; if (m.kind === "srbm") W.rk[id] = m.ga*n; }
+    else if (m.kind === "fighter"){ W.a[id] = m.aa*n*amm*reach; W.g[id] = m.ga*n*0.3*amm*af; }
+    else if (m.kind === "loiter"){ W.g[id] = m.ga*n*af; W.loi[id] = n; }
+    else if (STRIKE_K.has(m.kind)){ W.g[id] = m.ga*n*amm*af; W.str[id] = m.ga*n; }
+    else if (k.cls === "ad"){ if (m.kind === "ew") W.ew[id] = m.aa*n; else { W.a[id] = m.aa*n*amm*0.35; if (m.kind === "shorad") W.dr[id] = m.aa*n*amm; else W.mis[id] = m.aa*n*amm; } }
+    else if (k.cls === "navy"){ W.sea[id] = (m.ga + m.aa)*n; if (k.ammo === "missile") W.rk[id] = m.ga*n*0.5; }
+  }
+  return W;
+}
+function bTab(w, enemy){ const k = enemy ? "bsT" : "bsM"; return w[k] || (w[k] = {}); }
+function bAdd(t, id, f, v){ if (!(v > 0)) return; const r = t[id] || (t[id] = {c:0, k:0, i:0}); r[f] = (r[f]||0) + v; }
+function bSplit(t, wts, f, total){ let s = 0; for (const id in wts) s += wts[id]; if (!(s > 0) || !(total > 0)) return false; for (const id in wts) bAdd(t, id, f, total*wts[id]/s); return true; }
+// enemy units destroyed, split into ground and air targets
+function lossSum(t){ let g = 0, a = 0; for (const id in t){ const m = MODELS[id]; if (!m) continue; if (KINDS[m.kind].cls === "air") a += t[id]; else g += t[id]; } return {g, a}; }
+// one day of the war: who dealt the damage and who scored the kills
+function bDay(w, W, We, before){
+  const tm = bTab(w, false), te = bTab(w, true);
+  const cont = (t, X) => { let s = 0; const all = {}; for (const id in X.g) all[id] = (all[id]||0) + X.g[id]; for (const id in X.a) all[id] = (all[id]||0) + X.a[id]*0.5; for (const id in X.sea) all[id] = (all[id]||0) + X.sea[id]*0.2; for (const id in X.ew) all[id] = (all[id]||0) + X.ew[id]*0.5; for (const id in all) s += all[id]; if (s > 0) for (const id in all) bAdd(t, id, "c", all[id]/s); };
+  cont(tm, W); cont(te, We);
+  const aTh = lossSum(w.lossTh), aMy = lossSum(w.lossMy);
+  bSplit(tm, W.g, "k", aTh.g - before.th.g); bSplit(tm, W.a, "k", aTh.a - before.th.a);
+  bSplit(te, We.g, "k", aMy.g - before.my.g); bSplit(te, We.a, "k", aMy.a - before.my.a);
+}
+// the panel in the HQ
+function whoPanel(w){
+  const tm = w.bsM || {}, te = w.bsT || {}, camoM = sprCamo(S.player), camoE = sprCamo(w.enemy);
+  const ids = Object.keys(tm).filter(id => MODELS[id] && ((S.units[id]||0) > 0 || tm[id].k >= 1 || tm[id].i >= 1));
+  if (!ids.length) return "";
+  const tot = ids.reduce((a, id) => a + tm[id].c, 0) || 1;
+  ids.sort((a, b) => tm[b].c - tm[a].c);
+  const lost = id => (w.lossMy && w.lossMy[id]) || 0;
+  const best = ids.filter(id => tm[id].k + tm[id].i >= 5).sort((a, b) => (tm[b].k + tm[b].i)/(lost(b) + 1) - (tm[a].k + tm[a].i)/(lost(a) + 1))[0];
+  const row = id => { const r = tm[id], p = r.c/tot*100, kills = Math.round(r.k), icp = Math.round(r.i), l = lost(id);
+    return `<div class="who-row ${id === best ? "best" : ""}">${sprImg(id, 0, camoM, "who-spr")}
+      <div class="who-b"><div class="row"><b>${esc(MODELS[id].name)} <small class="muted num">×${(S.units[id]||0).toLocaleString("ru-RU")}</small></b><span class="num">${p >= 1 ? Math.round(p) : "<1"}%</span></div>
+      <div class="who-bar"><i style="width:${Math.min(100, p*1.6)}%"></i></div>
+      <small class="muted">${kills ? `уничтожено <b class="up num">${kills.toLocaleString("ru-RU")}</b>` : ""}${kills && icp ? " · " : ""}${icp ? `сбито <b class="up num">${icp.toLocaleString("ru-RU")}</b>` : ""}${(kills || icp) && l ? " · " : ""}${l ? `потери <b class="down num">${l.toLocaleString("ru-RU")}</b>` : ""}${!kills && !icp && !l ? "в бою" : ""}${id === best ? ` · <span class="up">лучший размен</span>` : ""}</small></div></div>`; };
+  const top = ui.whoMore ? ids : ids.slice(0, 6);
+  const threat = Object.keys(te).filter(id => MODELS[id] && te[id].k >= 1).sort((a, b) => te[b].k - te[a].k).slice(0, 3);
+  return `<div class="panel who" style="margin-top:12px"><div class="row"><h3>Кто воюет</h3><small class="muted">вклад в урон за войну</small></div>
+    ${top.map(row).join("")}
+    ${ids.length > 6 ? `<button class="btn sm" data-whomore="1">${ui.whoMore ? "Свернуть" : `Ещё ${ids.length - 6}`}</button>` : ""}
+    ${threat.length ? `<div class="who-threat"><small class="muted">Главная угроза у противника</small><div class="who-th">${threat.map(id => `<span>${sprImg(id, 1, camoE, "who-spr sm", 3)}<b>${esc(MODELS[id].name)}</b><small class="down num">−${Math.round(te[id].k).toLocaleString("ru-RU")} у нас</small></span>`).join("")}</div></div>` : ""}
+    <div class="label">Вклад — доля техники в общем уроне противнику. Новая техника бьёт сильнее: это видно и здесь, и на карте фронта.</div></div>`;
+}
+
+/* ---------- the battle on the map: models at the front, shots, salvos, drones, interceptions ---------- */
+const BT = {fx:[], fronts:{}, raf:0, last:0, day:-1, k:0};
+const ROLE = {front:["tank","ifv","apc"], arty:["sph","mlrs"], rk:["srbm"], ad:["shorad","mrsam","lrsam"], air:["fighter"], strike:["attack","heli","drone","bomber"], loiter:["loiter"]};
+// the strongest model of a role that a side really has
+function topModel(units, kinds, skip){
+  let best = null, bs = 0;
+  for (const [id, n] of Object.entries(units||{})){ const m = MODELS[id]; if (!m || n <= 0 || !kinds.includes(m.kind) || id === skip || SPR.idx[id] == null) continue; const s = Math.sqrt(n)*m.pw*(1 + 0.15*m.gen); if (s > bs){ bs = s; best = id; } }
+  return best;
+}
+const roleCount = (units, kinds) => Object.entries(units||{}).reduce((a, [id, n]) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) ? n : 0), 0);
+// queue a big event to be shown on the map: missile strikes, drone waves, air raids
+function battleEvent(ev){ ev.t = performance.now(); (ui.bEv = ui.bEv || []).push(ev); if (ui.bEv.length > 8) ui.bEv.shift(); battleKick(); }
+function battleKick(){ if (!BT.raf) BT.raf = requestAnimationFrame(battleLoop); }
+function bScreen(){
+  const g = document.getElementById("map-g"), cv = document.getElementById("battle-cv"); if (!g || !cv) return null;
+  const M = g.getScreenCTM(), r = cv.getBoundingClientRect(); if (!M || !r.width) return null;
+  return {cv, r, M, map:(x, y) => ({x:M.a*x + M.e - r.left, y:M.d*y + M.f - r.top})};
+}
+// scene of every front: anchor point, which way is forward, the models of both sides
+function battleScene(){
+  const out = [];
+  S.wars.forEach(w => {
+    if (!w.fronts || !w.eu) return;
+    let FT, FM; try { FT = occField(S.player, w.enemy, frontLL(w, false)); FM = occField(w.enemy, S.player, frontLL(w, true)); } catch(e){ return; }
+    if (!FT || !FM) return;
+    const share = warShare(w), n = w.fronts.filter(f => f.p < 100).length || 1;
+    const my = {}, th = {};
+    for (const r in ROLE){ my[r] = topModel(S.units, ROLE[r]); th[r] = topModel(w.eu, ROLE[r]); }
+    my.front2 = topModel(S.units, ROLE.front, my.front); th.front2 = topModel(w.eu, ROLE.front, th.front);
+    const myG = roleCount(S.units, ROLE.front)*share/n, thG = roleCount(w.eu, ROLE.front)/n;
+    const ms = forceStats(S.units, S.ammo, share), ts = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
+    const atk = ms.g + ms.airG + 1, def = ts.g + ts.airG + 1, edge = atk/(atk + def);
+    w.fronts.forEach((f, i) => {
+      if (f.p >= 100) return;
+      const inThem = f.p >= 0, F = inThem ? FT : FM; let fp; try { fp = frontPoint(F, i, Math.max(1.5, Math.abs(f.p))); } catch(e){ return; }
+      // forward for us: deeper into their land, or back towards the border on our land
+      const ang = fp.ang + (inThem ? 0 : Math.PI);
+      out.push({key:w.enemy + ":" + i, w, i, x:fp.x, y:fp.y, ang, my, th, nMy:Math.max(1, Math.min(3, Math.round(Math.log10(myG + 1)))), nTh:Math.max(1, Math.min(3, Math.round(Math.log10(thG + 1)))),
+        edge, air:w.air, camoM:sprCamo(S.player), camoE:sprCamo(w.enemy), pos:w.phase === "pos", adMy:ms.ad, adTh:ts.ad, loiMy:ms.loiter, loiTh:ts.loiter});
+    });
+  });
+  return out;
+}
+function battleLoop(now){
+  BT.raf = 0;
+  const S2 = bScreen(), active = S && S.wars && S.wars.length && ui.tab === "map";
+  if (!S2 || !active){ if (S2){ const g = S2.cv.getContext("2d"); g.clearRect(0, 0, S2.cv.width, S2.cv.height); } BT.fx = []; return; }
+  if (!SPR.ready){ sprLoad(); BT.raf = requestAnimationFrame(battleLoop); return; }
+  const dt = Math.min(0.1, (now - (BT.last || now))/1000); BT.last = now;
+  if (now - BT.k < 30){ BT.raf = requestAnimationFrame(battleLoop); return; }   // ~30 fps is plenty
+  BT.k = now;
+  const {cv, r, map} = S2, dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(r.width*dpr) || cv.height !== Math.round(r.height*dpr)){ cv.width = Math.round(r.width*dpr); cv.height = Math.round(r.height*dpr); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
+  // the scene is rebuilt once a game day
+  const dayKey = (S.turn||0)*100 + (S.day||0) + "|" + S.wars.length;
+  if (BT.day !== dayKey || !BT.scene){ BT.day = dayKey; BT.scene = battleScene(); }
+  const k = ui.map.k, sz = clamp(11*Math.pow(k, 0.62), 14, 46);
+  BT.sz = sz;
+  // fronts that sit close on screen are drawn as one battle
+  const shown = [];
+  BT.scene.forEach(sc => { const P = map(sc.x, sc.y); if (P.x < -sz*4 || P.y < -sz*4 || P.x > r.width + sz*4 || P.y > r.height + sz*4) return; if (shown.some(q => Math.hypot(q.x - P.x, q.y - P.y) < sz*4.2)) return; shown.push(P); battleFront(g, map, sc, sz, now, dt); });
+  battleEvents(map, sz, now);
+  battleFx(g, map, sz, now);
+  BT.raf = requestAnimationFrame(battleLoop);
+}
+const rnd2 = (a, b) => a + Math.random()*(b - a);
+function drawSpr(g, id, ang, side, camo, x, y, s, alpha){
+  const f = sprFrame(id, sprDir(ang), side, camo); if (!f) return;
+  if (alpha != null) g.globalAlpha = alpha;
+  g.drawImage(f, x - s/2, y - s/2, s, s);
+  g.globalAlpha = 1;
+}
+// one front: two groups facing each other across the line, with fire both ways
+function battleFront(g, map, sc, sz, now, dt){
+  const P = map(sc.x, sc.y), ux = Math.cos(sc.ang), uy = Math.sin(sc.ang), vx = -uy, vy = ux;
+  const st = BT.fronts[sc.key] || (BT.fronts[sc.key] = {t:{}, seed:Math.random()*1000});
+  const gap = sz*0.42, spread = sz*0.8;
+  const place = (side, j, depth) => { const s = side ? 1 : -1, off = (j - (side ? sc.nTh : sc.nMy)/2 + 0.5)*spread, d = gap + depth*sz;
+    const wob = Math.sin(now/900 + j*1.7 + st.seed)*sz*0.04;
+    return {x:P.x + ux*s*(d + wob) + vx*off, y:P.y + uy*s*(d + wob) + vy*off}; };
+  const sides = [[0, sc.my, sc.nMy, sc.camoM, sc.ang], [1, sc.th, sc.nTh, sc.camoE, sc.ang + Math.PI]];
+  const pos = {0:{front:[], arty:null, ad:null}, 1:{front:[], arty:null, ad:null}};
+  sides.forEach(([side, U, n, camo, face]) => {
+    if (U.arty){ const p = place(side, (n - 1)/2, 1.25); pos[side].arty = p; drawSpr(g, U.arty, face, side, camo, p.x, p.y, sz*0.9); }
+    if (U.ad){ const p = place(side, (n - 1)/2 + 0.9, 1.9); pos[side].ad = p; drawSpr(g, U.ad, face, side, camo, p.x, p.y, sz*0.85); }
+    for (let j = 0; j < n; j++){ const id = j === 1 && U.front2 ? U.front2 : U.front; if (!id) continue; const p = place(side, j, 0.3); pos[side].front.push(p); drawSpr(g, id, face, side, camo, p.x, p.y, sz); }
+  });
+  // fire: the stronger side shoots more often, the positional phase is artillery-heavy
+  const due = (key, every) => { const t = st.t; if (!t[key]) t[key] = now + rnd2(0, every); if (now < t[key]) return false; t[key] = now + every*rnd2(0.6, 1.4); return true; };
+  const aim = side => { const tgt = pos[1 - side].front; if (!tgt.length) return {x:P.x + ux*(side ? -1 : 1)*gap*1.4, y:P.y + uy*(side ? -1 : 1)*gap*1.4}; const q = tgt[Math.floor(Math.random()*tgt.length)]; return {x:q.x + rnd2(-sz*0.3, sz*0.3), y:q.y + rnd2(-sz*0.3, sz*0.3)}; };
+  const toMap = q => bInv(q);
+  [0, 1].forEach(side => {
+    const e = side ? 1 - sc.edge : sc.edge, base = 1500/(0.4 + e*1.6), U = side ? sc.th : sc.my, camo = side ? sc.camoE : sc.camoM;
+    if (pos[side].front.length && due("gun" + side, base*(sc.pos ? 1.6 : 1))){
+      const a = pos[side].front[Math.floor(Math.random()*pos[side].front.length)], b = aim(side), fa = Math.atan2(b.y - a.y, b.x - a.x);
+      BT.fx.push({k:"flash", m:toMap({x:a.x + Math.cos(fa)*sz*0.42, y:a.y + Math.sin(fa)*sz*0.42}), t0:now, d:140});
+      BT.fx.push({k:"tracer", a:toMap(a), b:toMap(b), t0:now, d:320, c:side ? "#FF9A7A" : "#FFE7A0"});
+      BT.fx.push({k:"boom", m:toMap(b), t0:now + 300, d:700, r:0.32});
+    }
+    if (pos[side].arty && due("art" + side, base*(sc.pos ? 0.8 : 1.3))){
+      const a = pos[side].arty, mlrs = MODELS[U.arty] && MODELS[U.arty].kind === "mlrs", n = mlrs ? 5 : 1;
+      for (let q = 0; q < n; q++){ const b = aim(side), b2 = {x:b.x + rnd2(-sz*0.6, sz*0.6), y:b.y + rnd2(-sz*0.6, sz*0.6)};
+        BT.fx.push({k:"shell", a:toMap(a), b:toMap(b2), t0:now + q*90, d:900 + rnd2(0, 200), h:sz*(mlrs ? 0.9 : 1.4), c:mlrs ? "#FFB347" : "#FFE7A0"});
+        BT.fx.push({k:"boom", m:toMap(b2), t0:now + q*90 + 1000, d:800, r:mlrs ? 0.4 : 0.55}); }
+      BT.fx.push({k:"flash", m:toMap(a), t0:now, d:180});
+    }
+    // fighters cross the front; the side that owns the sky flies more
+    const sky = side ? 1 - sc.air : sc.air;
+    if (U.air && due("air" + side, 9000/(0.3 + sky*1.4))){
+      const s = side ? 1 : -1, from = {x:P.x + ux*s*sz*4 - vx*sz*3, y:P.y + uy*s*sz*4 - vy*sz*3}, to = {x:P.x - ux*s*sz*3 + vx*sz*3, y:P.y - uy*s*sz*3 + vy*sz*3};
+      BT.fx.push({k:"fly", id:U.air, side, camo:0, a:toMap(from), b:toMap(to), t0:now, d:2600, s:0.95, trail:"rgba(220,230,255,.35)"});
+    }
+    // attack helicopters, strike aircraft and drones: a run over the enemy line
+    if (U.strike && due("str" + side, 11000/(0.3 + sky*1.2))){
+      const s = side ? 1 : -1, from = {x:P.x + ux*s*sz*3.2 + vx*sz*rnd2(-1, 1), y:P.y + uy*s*sz*3.2 + vy*sz*rnd2(-1, 1)}, tgt = aim(side), heli = MODELS[U.strike].kind === "heli";
+      const end = {x:tgt.x - (tgt.x - from.x)*(heli ? 0.35 : -0.6), y:tgt.y - (tgt.y - from.y)*(heli ? 0.35 : -0.6)};
+      BT.fx.push({k:"fly", id:U.strike, side, camo:heli ? camo : 0, a:toMap(from), b:toMap(end), t0:now, d:heli ? 2400 : 1900, s:heli ? 0.85 : 0.9, back:heli});
+      BT.fx.push({k:"tracer", a:toMap(end), b:toMap(tgt), t0:now + (heli ? 2000 : 1300), d:350, c:"#FFB347"});
+      BT.fx.push({k:"boom", m:toMap(tgt), t0:now + (heli ? 2350 : 1650), d:800, r:0.6});
+      // the enemy short-range air defence answers
+      const ad = pos[1 - side].ad, adP = side ? sc.adMy : sc.adTh;
+      if (ad && Math.random() < clamp(adP/(adP + 60), 0.1, 0.7)) BT.fx.push({k:"shell", a:toMap(ad), b:toMap({x:(end.x + from.x)/2, y:(end.y + from.y)/2}), t0:now + 600, d:700, h:sz*0.5, c:"#BFE3FF", sam:1});
+    }
+    // kamikaze drones trickle over the line
+    const loi = side ? sc.loiTh : sc.loiMy;
+    if (U.loiter && loi > 0 && due("loi" + side, 7000/(0.4 + Math.min(2, Math.log10(loi + 1)/2)))){
+      const s = side ? 1 : -1, from = {x:P.x + ux*s*sz*2.6, y:P.y + uy*s*sz*2.6}, tgt = aim(side), ad = pos[1 - side].ad, adP = side ? sc.adMy : sc.adTh, shot = ad && Math.random() < clamp(adP/(adP + 80), 0.1, 0.6);
+      const hit = shot ? {x:(from.x + tgt.x)/2, y:(from.y + tgt.y)/2} : tgt;
+      BT.fx.push({k:"fly", id:U.loiter, side, camo:0, a:toMap(from), b:toMap(hit), t0:now, d:shot ? 1100 : 2000, s:0.5});
+      if (shot) BT.fx.push({k:"shell", a:toMap(ad), b:toMap(hit), t0:now + 500, d:600, h:sz*0.4, c:"#BFE3FF", sam:1});
+      BT.fx.push({k:"boom", m:toMap(hit), t0:now + (shot ? 1100 : 2000), d:600, r:shot ? 0.3 : 0.45});
+    }
+  });
+}
+// screen → map coordinates (the effects live in map space so they stay put while the map pans)
+function bInv(q){ const g = document.getElementById("map-g"), cv = document.getElementById("battle-cv"); const M = g.getScreenCTM(), r = cv.getBoundingClientRect(); return {x:(q.x + r.left - M.e)/M.a, y:(q.y + r.top - M.f)/M.d}; }
+// big events: missile strikes with interceptors, drone waves, our raids
+function battleEvents(map, sz, now){
+  const evs = (ui.bEv || []).filter(e => now - e.t < 15000); ui.bEv = [];
+  evs.forEach(ev => {
+    const A = capPoint(ev.from), B = capPoint(ev.to); if (!A || !B) return;
+    const side = ev.from === S.player ? 0 : 1, defSide = 1 - side;
+    const n = Math.min(12, ev.n), down = Math.round(Math.min(ev.n, ev.down || 0)*n/Math.max(1, ev.n)), jam = Math.round(Math.min(ev.n, ev.jam || 0)*n/Math.max(1, ev.n));
+    const Ap = map(A.x, A.y), Bp = map(B.x, B.y), dist = Math.hypot(Bp.x - Ap.x, Bp.y - Ap.y) || 1;
+    const ad = ev.ad || null;
+    for (let q = 0; q < n; q++){
+      const a = bInv({x:Ap.x + rnd2(-sz, sz), y:Ap.y + rnd2(-sz, sz)}), bS = {x:Bp.x + rnd2(-sz*1.6, sz*1.6), y:Bp.y + rnd2(-sz*1.6, sz*1.6)}, b = bInv(bS);
+      const t0 = now + q*rnd2(160, 320), d = clamp(dist*9, 1800, 4200)*(ev.kind === "drones" ? 1.6 : 1);
+      const fate = q < down ? "down" : q < down + jam ? "jam" : "hit";
+      const stop = fate === "down" ? rnd2(0.55, 0.8) : fate === "jam" ? rnd2(0.45, 0.7) : 1;
+      const id = ev.kind === "drones" ? ev.id || "shahed" : ev.kind === "air" ? ev.id || "su34" : ev.ballistic ? "missile_ballistic" : "missile_cruise";
+      BT.fx.push({k:"fly", id, side, camo:0, a, b, t0, d, s:ev.kind === "air" ? 0.95 : 0.6, h:ev.ballistic ? sz*3 : sz*0.6, stop, fall:fate === "jam", trail:ev.kind === "drones" ? null : "rgba(255,210,160,.55)"});
+      const end = {x:a.x + (b.x - a.x)*stop, y:a.y + (b.y - a.y)*stop};
+      if (fate === "down"){
+        const from = bInv({x:Bp.x + rnd2(-sz*1.2, sz*1.2), y:Bp.y + rnd2(-sz*1.2, sz*1.2)});
+        BT.fx.push({k:"fly", id:"missile_sam", side:defSide, camo:0, a:from, b:end, t0:t0 + d*stop - 900, d:900, s:0.5, trail:"rgba(200,230,255,.6)"});
+        BT.fx.push({k:"boom", m:end, t0:t0 + d*stop, d:700, r:0.5, air:1});
+      } else if (fate === "jam") BT.fx.push({k:"boom", m:{x:end.x, y:end.y}, t0:t0 + d*stop + 400, d:500, r:0.3});
+      else BT.fx.push({k:"boom", m:b, t0:t0 + d, d:1100, r:ev.kind === "air" ? 0.6 : 0.9});
+    }
+    if (ad) BT.fx.push({k:"spr", id:ad, side:defSide, m:bInv({x:Bp.x + sz*1.5, y:Bp.y + sz*0.6}), t0:now, d:Math.min(9000, n*400 + 5000), camo:sprCamo(ev.to)});
+  });
+}
+function battleFx(g, map, sz, now){
+  const keep = [];
+  for (const f of BT.fx){
+    const e = (now - f.t0)/f.d;
+    if (e >= 1){ continue; } keep.push(f); if (e < 0) continue;
+    if (f.k === "flash"){ const p = map(f.m.x, f.m.y), rr = sz*0.28*(1 - e*0.7); g.fillStyle = `rgba(255,236,170,${1 - e})`; g.beginPath(); g.arc(p.x, p.y, rr, 0, 7); g.fill(); }
+    else if (f.k === "tracer"){ const a = map(f.a.x, f.a.y), b = map(f.b.x, f.b.y), t = Math.min(1, e*1.3), t0 = Math.max(0, t - 0.35);
+      g.strokeStyle = f.c; g.lineWidth = 2.2; g.globalAlpha = 0.95; g.beginPath(); g.moveTo(a.x + (b.x - a.x)*t0, a.y + (b.y - a.y)*t0); g.lineTo(a.x + (b.x - a.x)*t, a.y + (b.y - a.y)*t); g.stroke(); g.globalAlpha = 1; }
+    else if (f.k === "shell"){ const a = map(f.a.x, f.a.y), b = map(f.b.x, f.b.y), pt = t => ({x:a.x + (b.x - a.x)*t, y:a.y + (b.y - a.y)*t - Math.sin(Math.PI*t)*f.h});
+      const p = pt(e), q = pt(Math.max(0, e - 0.12)); g.strokeStyle = f.c; g.lineWidth = f.sam ? 1.4 : 1.8; g.globalAlpha = 0.85; g.beginPath(); g.moveTo(q.x, q.y); g.lineTo(p.x, p.y); g.stroke();
+      g.fillStyle = "#fff"; g.beginPath(); g.arc(p.x, p.y, 1.4, 0, 7); g.fill(); g.globalAlpha = 1; }
+    else if (f.k === "boom"){ const p = map(f.m.x, f.m.y), R = sz*f.r*0.8;
+      if (!f.air){ g.fillStyle = `rgba(48,46,44,${0.55*(1 - e)})`; g.beginPath(); g.arc(p.x + e*R*0.3, p.y - e*R*1.1, R*(0.35 + e*0.8), 0, 7); g.fill(); }
+      const fire = Math.max(0, 1 - e*2.6); if (fire > 0){ const rr = R*(0.3 + e*1.1), gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr); gr.addColorStop(0, `rgba(255,240,180,${fire})`); gr.addColorStop(0.18, `rgba(255,170,50,${fire})`); gr.addColorStop(0.55, `rgba(230,70,20,${0.7*fire})`); gr.addColorStop(1, "rgba(120,20,5,0)"); g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, rr, 0, 7); g.fill(); }
+      else { g.strokeStyle = `rgba(255,255,255,${0.6*(1 - e)})`; g.lineWidth = 1.2; g.beginPath(); g.arc(p.x, p.y, R*(0.5 + e*1.6), 0, 7); g.stroke(); } }
+    else if (f.k === "fly"){
+      const a = map(f.a.x, f.a.y), b = map(f.b.x, f.b.y), stop = f.stop || 1, h = f.h || 0;
+      let t = f.back ? (e < 0.5 ? e*2 : 2 - e*2) : e*stop; if (f.back && e >= 0.5) t = Math.max(0.0001, t);
+      const pt = t => ({x:a.x + (b.x - a.x)*t, y:a.y + (b.y - a.y)*t - Math.sin(Math.PI*Math.min(1, t))*h});
+      let p = pt(t), q = pt(Math.max(0, t - 0.02)); if (f.back && e >= 0.5) [p, q] = [pt(t), pt(Math.min(1, t + 0.02))];
+      if (f.fall && e*stop > stop - 0.08){ p = {x:p.x, y:p.y + (e*stop - stop + 0.08)*sz*4}; }
+      if (f.trail){ const tt = pt(Math.max(0, t - 0.25)); const gr = g.createLinearGradient(tt.x, tt.y, p.x, p.y); gr.addColorStop(0, "rgba(255,255,255,0)"); gr.addColorStop(1, f.trail); g.strokeStyle = gr; g.lineWidth = 2; g.beginPath(); g.moveTo(tt.x, tt.y);
+        for (let s = 1; s <= 6; s++){ const z = pt(Math.max(0, t - 0.25 + 0.25*s/6)); g.lineTo(z.x, z.y); } g.stroke(); }
+      const ang = Math.atan2(p.y - q.y, p.x - q.x) + (f.fall ? Math.sin(now/80)*0.6 : 0);
+      g.save(); g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 4; g.shadowOffsetY = sz*0.12; drawSpr(g, f.id, ang, f.side, f.camo, p.x, p.y, sz*(f.s || 1)); g.restore();
+    }
+    else if (f.k === "spr"){ const p = map(f.m.x, f.m.y), al = e < 0.1 ? e*10 : e > 0.85 ? (1 - e)/0.15 : 1; drawSpr(g, f.id, -Math.PI/4, f.side, f.camo, p.x, p.y, sz, al); }
+  }
+  BT.fx = keep.length > 400 ? keep.slice(-400) : keep;
+}
+
 function viewHQ(){
   if (!S.wars.length) return `<div class="panel"><h3>Войн нет</h3><p class="muted" style="margin:0">Штаб оживёт, когда начнётся война. Объявить войну можно в карточке страны на карте.</p></div><div class="army-body" style="margin-top:12px">${viewOccupation()}</div>`;
   if (!ui.hqWar || !S.wars.some(w => w.enemy === ui.hqWar)) ui.hqWar = S.wars[0].enemy;
@@ -2515,6 +2862,7 @@ function viewHQ(){
   </div>
   ${wcardPanel(w)}
   ${frontsPanel(w)}
+  ${whoPanel(w)}
   <div class="panel" style="margin-top:12px"><h3>Режим войны</h3>
     <div class="seg hq-modes">${Object.entries(WAR_MODES).map(([id, m]) => `<button data-warmode="${id}" aria-pressed="${w.mode===id}">${m.name.replace("Генеральное наступление","Генеральное")}</button>`).join("")}</div>
     <small class="muted">${WAR_MODES[w.mode].hint}</small>
@@ -5701,11 +6049,12 @@ function showUnitInfo(id){
     <div class="label">${buy.ok ? `Закупка: ${money(buy.price)} за ед., доставка ${buy.days} дн.` : `Закупка: ${buy.why}`}${prod.ok ? " · можно производить у себя" : prod.why ? ` · своё производство: ${prod.why}` : ""}</div>`; }
   else if (a){ stats = `<div class="ui-stats"><span><small>Цена партии</small><b class="num">${money(a.price*a.batch)}</b></span><span><small>Партия</small><b class="num">${a.batch.toLocaleString("ru-RU")} ${a.unit}</b></span><span><small>На складе</small><b class="num">${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${a.unit}</b></span></div>`; }
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(m ? m.name : a.name)}"><div class="sheet uinfo">
-    <figure class="ui-photo"><img src="${photo(id)}" alt="${esc(m ? m.name : a.name)}"><figcaption>${esc(credit(x))}</figcaption></figure>
+    <figure class="ui-photo"><img src="${photo(id)}" alt="${esc(m ? m.name : a.name)}"><figcaption>${esc(credit(x))}</figcaption>${m && SPR.idx[id] != null ? `<canvas class="ui-3d" width="192" height="192" aria-label="3D-модель: потяните, чтобы повернуть"></canvas><span class="ui-3d-l">3D</span>` : ""}</figure>
     <div class="ui-body"><div class="row"><h2>${m ? `${flag(m.origin)} ${esc(m.name)}` : esc(a.name)}</h2>${m ? `<span class="gen g${m.gen}">${m.gen} пок.</span>` : ""}</div>
       <p>${x.d}</p>${stats}
       <div class="btns"><button class="btn" data-close>Закрыть</button><button class="btn link" data-credits>Источники фото</button></div></div>
   </div></div>`;
+  if (m) sprTurntable(id);
 }
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
@@ -5864,7 +6213,7 @@ function viewMap(){
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
   const legend = [["m-player","Вы и присоединённые земли"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
-      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}
+      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}${WORLD ? `<canvas id="battle-cv" aria-hidden="true"></canvas>` : ""}
         ${S && S.countries ? mapSideHTML() : ""}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
@@ -5987,6 +6336,7 @@ function attachLabels(){
   g.appendChild(lg);
   ui.occShown = {}; drawOcc(false);
   updateLabels();
+  if (S && S.wars && S.wars.length) battleKick();
 }
 /* floating income numbers */
 const floatRoot = document.createElement("div"); floatRoot.id = "float-root"; document.body.appendChild(floatRoot);
@@ -6793,6 +7143,7 @@ document.addEventListener("click", e => {
   if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
   if (t.dataset.hqmore){ ui.hqMore = !ui.hqMore; render(); return; }
+  if (t.dataset.whomore){ ui.whoMore = !ui.whoMore; render(); return; }
   if (t.dataset.wcard !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) resolveWcard(w, +t.dataset.wcard); save(); render(); return; }
   if (t.dataset.warplan){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.plan = t.dataset.warplan; applyPlan(w); } save(); render(); return; }
   if (t.dataset.storm !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) stormLine(w, +t.dataset.storm); save(); render(); return; }
