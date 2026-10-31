@@ -401,6 +401,19 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 #bf-root .bf-title small{color:#C9D3C0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #bf-root .bf-title .front-bar{margin-top:4px;max-width:320px}
 #bf-root .bf-load{position:absolute;inset:0;display:grid;place-items:center;color:#C9D3C0;font-size:14px}
+#bf-root .bf-strikes{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));display:flex;gap:8px;z-index:2}
+#bf-root .bf-sk{display:flex;align-items:center;gap:8px;min-width:132px;padding:7px 12px 7px 9px;border-radius:12px;border:1px solid rgb(255 255 255 / .2);background:rgb(14 20 30 / .88);color:#fff;text-align:left;backdrop-filter:blur(6px)}
+#bf-root .bf-sk i{font-style:normal;font-size:20px;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:rgb(242 169 59 / .18);color:#F2A93B}
+#bf-root .bf-sk b{display:block;font-size:13px}
+#bf-root .bf-sk small{display:block;font-size:10.5px;color:#C9D3C0;white-space:nowrap}
+#bf-root .bf-sk.off{opacity:.55}
+#bf-root .bf-sk.off i{background:rgb(255 255 255 / .08);color:#C9D3C0;filter:grayscale(1)}
+#bf-root .bf-sk i svg{width:22px;height:22px}
+#bf-root .bf-sk:not(.off):active{transform:scale(.96)}
+#bf-root .bf-msg{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(10px,env(safe-area-inset-bottom)) + 62px);max-width:min(560px,92vw);padding:8px 14px;border-radius:10px;background:rgb(14 20 30 / .92);border:1px solid rgb(255 255 255 / .18);color:#fff;font-size:13px;text-align:center;z-index:2;transition:opacity .4s}
+#bf-root .bf-msg.good{border-color:rgb(57 208 195 / .6)} #bf-root .bf-msg.bad{border-color:rgb(255 93 93 / .6)}
+#bf-root .bf-msg.hide{opacity:0}
+@media (max-width:520px){#bf-root .bf-sk{min-width:0;padding:6px 8px}#bf-root .bf-sk small{display:none}}
 .front-row .bf-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .dep-sheet{max-height:86vh;overflow:auto}
 .dep-sum{color:var(--muted,#9aa6b8);font-size:12px}
@@ -1796,8 +1809,6 @@ const WAR_MODES = {
 };
 const STRIKES = {
   missile:{name:"Ракетный удар", desc:"10 ракет по военным объектам: бьёт по их ПВО и технике", cd:7, ammo:{missile:10}},
-  air:{name:"Авиаудар", desc:"бомбы по позициям; без господства в воздухе — большие потери самолётов", cd:5, ammo:{bomb:200}, need:"airG"},
-  drones:{name:"Удар дронами-камикадзе", desc:"50 дронов по танкам и артиллерии; их глушит РЭБ", cd:3, loiter:50},
   infra:{name:"Удар по инфраструктуре", desc:"20 ракет по электростанциям и заводам: их экономика падает, мир осуждает", cd:14, ammo:{missile:20}},
   airborne:{name:"Воздушный десант", desc:"высадка в тылу врага с транспортных самолётов: нужно 2+ транспортника и господство в воздухе от 50%", cd:25},
   landing:{name:"Морской десант", desc:"высадка с моря: нужен флот сильнее вражеского", cd:30, need:"navy"},
@@ -2346,6 +2357,7 @@ function warDay(w){
   }
   bDay(w, W3, We3, before3);
   Object.keys(w.cd).forEach(k => { if (w.cd[k] > 0) w.cd[k]--; });
+  (w.fronts||[]).forEach(f => { if (f.cd) Object.keys(f.cd).forEach(k => { if (f.cd[k] > 0) f.cd[k]--; }); });
   if (w.peaceCd > 0) w.peaceCd--;
   if (w.offerCd > 0) w.offerCd--;
 }
@@ -2370,6 +2382,63 @@ function warMonth(w){
   w.mLossMy = {}; w.mLossTh = {};
   Object.entries(S.ammo).forEach(([k,v]) => { const need = ammoNeedFor(S.units)[k]; if (need > 0 && v < need*0.5) advise("gen", `Заканчиваются ${AMMO[k].short}: осталось меньше чем на 2 недели боёв. Срочно закупите или запустите производство.`, {tab:"army", mood:"alert", key:"ammo-"+k, cd:2}); });
 }
+/* ---------- strikes from the battlefield: aviation, helicopters and drones hit one direction ----------
+   Ordered only from the field screen. Each direction has its own cooldowns (f.cd). Our losses come off this direction's
+   machines; the enemy loses machines in proportion to its forces on this direction (the direction's share). */
+const FIELD_STRIKES = {
+  air:{name:"Авиаудар", ic:"jet", cd:5, ammo:{bomb:100}, kinds:["attack","bomber","fighter"], min:2, need:"нужны самолёты на направлении"},
+  heli:{name:"Вертолёты", ic:"heli", cd:3, ammo:{atgm:60}, kinds:["heli"], min:2, need:"нужны вертолёты на направлении"},
+  drones:{name:"Дроны", ic:"drone", cd:3, use:30, kinds:["loiter"], min:30, need:"нужно 30 дронов-камикадзе на направлении"}
+};
+function fsHave(w, i, type){ depInit(w); const d = w.dep[i] || {}, K = FIELD_STRIKES[type].kinds; return Object.entries(d).filter(([id, n]) => MODELS[id] && K.includes(MODELS[id].kind) && n > 0); }
+// why a strike cannot be ordered now (null when it can)
+function fsBlock(w, i, type){
+  const st = FIELD_STRIKES[type], f = w.fronts[i]; if (!f) return "нет направления";
+  const cd = (f.cd||{})[type] || 0; if (cd > 0) return `через ${cd} дн.`;
+  const n = fsHave(w, i, type).reduce((a, [, k]) => a + k, 0); if (n < st.min) return st.need;
+  if (st.ammo) for (const k in st.ammo) if ((S.ammo[k]||0) < st.ammo[k]) return `мало: ${AMMO[k].short}`;
+  return null;
+}
+function fsKill(w, id, n, kills){ n = Math.min(Math.floor(n), w.eu[id]||0); if (n <= 0) return 0; w.eu[id] -= n; w.lossTh[id] = (w.lossTh[id]||0) + n; kills[id] = (kills[id]||0) + n; return n; }
+function fieldStrike(w, i, type){
+  const st = FIELD_STRIKES[type], f = w.fronts[i], why = fsBlock(w, i, type); if (why) return {ok:false, text:why};
+  initWar(w); const e = C()[w.enemy], fs = f.share || 1/(w.fronts.length || 1), have = fsHave(w, i, type), tot = have.reduce((a, [, k]) => a + k, 0);
+  const th = forceStats(w.eu, w.ea, 1, e), kills = {}, lost = {}, tm = bTab(w, false), te = bTab(w, true);
+  const ourLoss = rate => have.forEach(([id, n]) => { const l = depTake(w, id, Math.floor(n*rate + (Math.random() < n*rate % 1 ? 1 : 0)), i); if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; lost[id] = l; } });
+  if (st.ammo) for (const k in st.ammo) S.ammo[k] -= st.ammo[k];
+  let text = "", good = true, push = 0, extra = {};
+  if (type === "air"){
+    // air superiority decides both the damage and the price
+    const eff = w.air, scale = Math.min(1, tot/12);
+    Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)) fsKill(w, id, w.eu[id]*fs*0.045*eff*scale + (Math.random() < eff ? 1 : 0), kills); });
+    ourLoss(w.air < 0.4 ? 0.04 : 0.008);
+    push = (2 + 6*eff)*(0.5 + 0.5*scale); good = w.air >= 0.4;
+  } else if (type === "heli"){
+    // ATGMs against armour; short-range air defence on this direction is what helicopters fear
+    const sh = Object.entries(w.eu).reduce((a, [id, n]) => a + (MODELS[id] && MODELS[id].kind === "shorad" ? MODELS[id].aa*n*fs : 0), 0), risk = 0.01 + 0.08*sh/(sh + 150), scale = Math.min(1, tot/10);
+    Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const r = m.kind === "tank" ? 0.04 : m.kind === "ifv" || m.kind === "apc" ? 0.03 : 0; if (r) fsKill(w, id, w.eu[id]*fs*r*scale + (Math.random() < 0.5 ? 1 : 0), kills); });
+    ourLoss(risk); push = 1 + 1.5*scale; good = risk < 0.05; extra.risk = risk;
+  } else {
+    // the drones are spent; enemy electronic warfare jams a share of them
+    let left = st.use; have.forEach(([id]) => { if (left > 0){ const l = depTake(w, id, Math.min(left, (w.dep[i][id]||0)), i); left -= l; extra.spent = extra.spent || {}; extra.spent[id] = l; } });
+    // spent drones are not losses: undo the per-direction loss record depTake made
+    Object.entries(extra.spent).forEach(([id, l]) => { w.lossF[i][id] = Math.max(0, (w.lossF[i][id]||0) - l); });
+    const jam = clamp(th.ew/(th.ew + 30), 0, 0.7), hits = Math.round(st.use*(1 - jam)*rnd(0.5, 0.8)); extra.jam = jam;
+    let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3) killed += fsKill(w, id, Math.min(w.eu[id]*fs + 1, Math.ceil(hits*0.08)), kills); }));
+    push = 0.8; good = jam < 0.4;
+    bSplit(te, fightWeights(w.eu, w.ea, 1, e, 1 - w.air, 0, 1).ew, "i", Math.round(st.use*jam));
+    text = `${f.name} направление, удар дронами: ${hits} из ${st.use} долетели${jam > 0.2 ? ` (РЭБ заглушила ${Math.round(jam*100)}%)` : ""}`;
+  }
+  const nk = Object.values(kills).reduce((a, b) => a + b, 0), nl = Object.values(lost).reduce((a, b) => a + b, 0);
+  bSplit(tm, Object.fromEntries(have), "k", nk);
+  f.p = clamp(f.p + push, -100, 100); warSync(w);
+  (f.cd = f.cd || {})[type] = st.cd;
+  if (type === "air") text = `${f.name} направление, авиаудар${w.air < 0.4 ? ` без господства в воздухе (${Math.round(w.air*100)}%)` : ""}`;
+  if (type === "heli") text = `${f.name} направление, удар вертолётов`;
+  text += `: уничтожено ${nk} ед. техники${nl ? `, потеряно ${nl} ${type === "air" ? "самолётов" : "вертолётов"}` : ""}.`;
+  warEvent(w, text, good ? "good" : "bad"); sfx("boom"); buzz(40);
+  return {ok:true, text, kills, lost, spent:extra.spent || {}, jam:extra.jam || 0, good};
+}
 function doStrike(w, type){
   initWar(w); const e = C()[w.enemy], st = STRIKES[type];
   if ((w.cd[type]||0) > 0) return toast(`Перезарядка: ещё ${w.cd[type]} дн.`);
@@ -2387,25 +2456,6 @@ function doStrike(w, type){
     if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); warPush(w, hits*0.25); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
     else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; warPush(w, hits*0.12); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
     good = hits >= down;
-  } else if (type === "air"){
-    if (my.airG < 20) return toast("Нет ударной авиации: нужны штурмовики, бомбардировщики, вертолёты или дроны.");
-    S.ammo.bomb -= st.ammo.bomb;
-    const eff = w.air, lossR = w.air < 0.4 ? 0.03 : 0.006;
-    { const WU = warUnits(w); Object.keys(WU).forEach(id => { const m = MODELS[id]; if (m && STRIKE_K.has(m.kind) && m.kind !== "loiter"){ const lost = depTake(w, id, Math.floor(WU[id]*lossR + (Math.random() < lossR*20 ? 1 : 0))); if (lost) w.lossMy[id] = (w.lossMy[id]||0) + lost; } }); }
-    Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const lost = Math.floor(w.eu[id]*0.015*eff + (Math.random() < eff ? 1 : 0)); if (lost){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } } });
-    warPush(w, 2 + 6*eff); good = w.air >= 0.4;
-
-    text = w.air >= 0.4 ? `Авиаудар: господство в воздухе ${Math.round(w.air*100)}%, позиции противника разбиты.` : `Авиаудар без господства в воздухе (${Math.round(w.air*100)}%): тяжёлые потери самолётов.`;
-  } else if (type === "drones"){
-    const WUd = warUnits(w), have = Object.entries(WUd).filter(([id]) => MODELS[id] && MODELS[id].kind === "loiter").reduce((a,[,n]) => a+n, 0);
-    if (have < 50) return toast("Нужно хотя бы 50 дронов-камикадзе.");
-    let left = 50; Object.keys(WUd).forEach(id => { if (left > 0 && MODELS[id] && MODELS[id].kind === "loiter"){ left -= depTake(w, id, Math.min(left, WUd[id])); } });
-    const jam = clamp(th.ew/(th.ew + 30), 0, 0.7), hits = Math.round(50*(1 - jam)*rnd(0.5, 0.8));
-    let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3 && w.eu[id] > 0){ const l = Math.min(w.eu[id], Math.ceil(hits*0.08)); w.eu[id] -= l; killed += l; w.lossTh[id] = (w.lossTh[id]||0) + l; } }));
-    warPush(w, 1.2); good = jam < 0.4;
-    bSplit(te3, We3.ew, "i", Math.round(50*jam));
-
-    text = `Удар дронами: ${hits} из 50 долетели${jam > 0.2 ? ` (РЭБ противника заглушила ${Math.round(jam*100)}%)` : ""}, уничтожено единиц техники: ${killed}.`;
   } else if (type === "airborne"){
     if (airliftCap() < 2) return toast("Нужно хотя бы 2 транспортных самолёта.");
     if (w.air < 0.5) return toast("Без господства в воздухе десант собьют на подлёте.");
@@ -3158,17 +3208,18 @@ function openBattle(enemy, i){
   sprLoad(); bfLoadProps();
   closeBattle(true);
   const root = document.createElement("div"); root.id = "bf-root"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Поле боя");
-  root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div>`;
+  root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div><div class="bf-msg hide" role="status"></div><div class="bf-strikes" role="group" aria-label="Удары по направлению"></div>`;
   document.body.appendChild(root);
   const st = BF.open = {enemy, i, cam:{x:BF_W/2, y:BF_H/2 - 4, z:-0.85}, root, dirty:true, gen:null, t0:performance.now()};
-  root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) closeBattle(); });
+  root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) return closeBattle(); const b = e.target.closest("[data-fstrike]"); if (b) bfStrike(st, b.dataset.fstrike); });
+  bfStrikeBar(st); st.tickBar = setInterval(() => bfStrikeBar(st), 1000);
   bfTitle(st);
   if (bf3dOk()){ bf3dOpen(st, w, i); sfx("tap"); return; }
   setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); root.querySelector(".bf-load")?.remove(); bfFit(st); st.dirty = true; }, 30);
   bfInput(st); requestAnimationFrame(bfLoop);
   sfx("tap");
 }
-function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); st.root.remove(); BF.open = null; if (!silent) sfx("tap"); }
+function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null; if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
 const BF3D_MODELS = ["su25","ka52","tb2","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
@@ -3224,6 +3275,29 @@ function bf3dOpen(st, w, i){
       const ground = (u, mult) => Object.fromEntries(Object.entries(u||{}).filter(([id, n]) => MODELS[id] && BF3D_ROLE[MODELS[id].kind] && n > 0).map(([id, n]) => [id, n*mult*fs]));
       api.sync(0, ground(depInit(ww)[st.i], 1/fs)); api.sync(1, ground(ww.eu, 1)); }, 1500);
   }).catch(e => { console.error(e); ui.bf2d = true; box.remove(); st.root.querySelector("#bf-cv").style.display = ""; setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); st.root.querySelector(".bf-load")?.remove(); bfFit(st); }, 30); bfInput(st); requestAnimationFrame(bfLoop); });
+}
+/* ---- strikes ordered from the field: buttons at the bottom, the result shown on the field ---- */
+function bfStrikeBar(st){
+  const w = S.wars.find(x => x.enemy === st.enemy), el = st.root.querySelector(".bf-strikes"); if (!w || !el) return;
+  const html = Object.entries(FIELD_STRIKES).map(([id, fs]) => { const why = fsBlock(w, st.i, id), cost = fs.ammo ? Object.entries(fs.ammo).map(([k, n]) => `${n} ${AMMO[k].short}`).join(", ") : `${fs.use} дронов`;
+    return `<button class="bf-sk${why ? " off" : ""}" data-fstrike="${id}" aria-disabled="${!!why}"><i aria-hidden="true">${ic(fs.ic)}</i><span><b>${fs.name}</b><small>${why ? esc(why) : `${cost} · перезарядка ${fs.cd} дн.`}</small></span></button>`; }).join("");
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+function bfMsg(st, text, kind){
+  const el = st.root.querySelector(".bf-msg"); if (!el) return;
+  el.textContent = text; el.className = "bf-msg " + (kind || ""); clearTimeout(st.msgT); st.msgT = setTimeout(() => el.classList.add("hide"), 6000);
+}
+function bfStrike(st, type){
+  const w = S.wars.find(x => x.enemy === st.enemy); if (!w) return;
+  const why = fsBlock(w, st.i, type); if (why){ bfMsg(st, `${FIELD_STRIKES[type].name}: ${why}.`, "bad"); sfx("tap"); return; }
+  const r = fieldStrike(w, st.i, type); if (!r.ok){ bfMsg(st, r.text, "bad"); return; }
+  bfMsg(st, r.text, r.good ? "good" : "bad"); save(); bfStrikeBar(st); bfTitle(st);
+  if (!st.api) return;
+  // the field shows the strike: the aircraft fly in and bring this direction's enemy losses with them;
+  // our losses reach the field through the usual loss tick and are shot down during the raid
+  st.api.raid(type, {n:Object.values(r.spent).reduce((a, b) => a + b, 0), jam:r.jam});
+  for (const [id, n] of Object.entries(r.kills)){ st.api.hit(1, id, n, "air"); st.lost0[1][id] = (st.lost0[1][id] || 0) + n; }
+  for (const [id, n] of Object.entries(r.spent)) st.api.consume(0, id, n);
 }
 function bfTitle(st){
   const w = S.wars.find(x => x.enemy === st.enemy); if (!w) return closeBattle(true);

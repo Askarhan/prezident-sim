@@ -409,7 +409,7 @@ export async function start(el, ctx){
     hg.setTransform(dpr, 0, 0, dpr, 0, 0); hg.clearRect(0, 0, W, H);
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
-    for (const u of [...units, ...air]){ if (!u.alive || !u.obj || (u.air && u.state === "fall")) continue; const q = screenOf(u, u.air ? 3.2 : 4.2); if (!q.vis) continue;
+    for (const u of [...units, ...air]){ if (!u.alive || !u.obj || u.temp || (u.air && u.state === "fall")) continue; const q = screenOf(u, u.air ? 3.2 : 4.2); if (!q.vis) continue;
       const w = 26, k = clamp(u.hp/u.hpMax, 0, 1);
       hg.fillStyle = "rgba(0,0,0,.55)"; hg.fillRect(q.x - w/2 - 1, q.y - 1, w + 2, 5);
       hg.fillStyle = u.side ? "#ff5a4f" : "#4f8cff"; hg.fillRect(q.x - w/2, q.y, w*k, 3);
@@ -445,10 +445,11 @@ export async function start(el, ctx){
   const groundY = (x, z) => G.height(clamp(x, -FIELD*1.2, FIELD*1.2), clamp(z, -FIELD*1.2, FIELD*1.2));
   function pickGround(a, front){
     let es = units.filter(v => v.alive && v.obj && v.side !== a.side); if (front){ const f = es.filter(v => v.role === "front"); if (f.length) es = f; }
-    if (!es.length) return null; const p = es.filter(v => v.pend >= 1); const L = p.length ? p : es; return L[Math.floor(Math.random()*L.length)];
+    if (!es.length) return null; const p = es.filter(v => v.pendAir >= 1), q = p.length ? p : es.filter(v => v.pend >= 1), L = q.length ? q : es; return L[Math.floor(Math.random()*L.length)];
   }
   // the war's losses this strike brings with it (same bookkeeping as artillery: pend -> inbound -> damage)
-  function payload(t){ const d = t && t.pend >= 1 ? Math.floor(t.pend) : 0; if (d){ t.pend -= d; t.inbound = (t.inbound || 0) + d; } return d; }
+  // losses an ordered strike caused (pendAir) are kept for the aircraft; the rest of the war's losses (pend) too
+  function payload(t){ if (!t) return 0; let d = 0; if (t.pendAir >= 1){ d = Math.floor(t.pendAir); t.pendAir -= d; } else if (t.pend >= 1){ d = Math.floor(t.pend); t.pend -= d; } if (d) t.inbound = (t.inbound || 0) + d; return d; }
   function land(t, d){ if (d && t){ t.inbound -= d; damage(t, d); } }
   function spawn(a){
     const lo = level === "low" && HAS_LO.has(a.model), src = models[lo ? a.model + "_lo" : a.model] || models[a.model] || models[a.model + "_lo"];
@@ -461,16 +462,22 @@ export async function start(el, ctx){
     const s = own(a), sp = a.spec, R = Math.random;
     a.alt = sp.alt[0] + R()*(sp.alt[1] - sp.alt[0]); a.v = sp.v; a.pitch = 0; a.roll = 0; a.h = a.side ? -Math.PI/2 : Math.PI/2;
     if (a.cls === "plane"){ a.target = pickGround(a, false); const tx = a.target ? a.target.x : (R() - 0.5)*140;
-      a.x = clamp(tx + (R() - 0.5)*80, -FIELD/2, FIELD/2); a.z = s*(FIELD/2 + 70); a.state = "in"; a.kind = R() < 0.5 ? "rockets" : "bombs"; }
+      a.x = clamp(tx + (R() - 0.5)*80, -FIELD/2, FIELD/2); a.z = s*(FIELD/2 + 70); a.state = "in"; a.kind = a.raid > 0 || a.temp ? "bombs" : R() < 0.5 ? "rockets" : "bombs"; }
     else if (a.cls === "heli"){ const mine = air.filter(b => b !== a && b.side === a.side && b.cls === "heli" && b.hx != null).map(b => b.hx);
       let hx = 0, best = -1; for (let i = 0; i < 8; i++){ const x = (R() - 0.5)*FIELD*0.7, d = Math.min(99, ...mine.map(m => Math.abs(m - x))); if (d > best){ best = d; hx = x; } }
-      a.hx = hx; a.hz = s*(tz + 30 + R()*14); a.x = hx + (R() - 0.5)*30; a.z = s*(FIELD/2 + 30); a.state = "in"; }
+      a.hx = hx; a.hz = s*(tz + 30 + R()*14); a.x = hx + (R() - 0.5)*30; a.z = s*(FIELD/2 + 30); a.state = a.shots > 0 ? "strike" : "in"; if (a.sx == null) a.sx = hx; }
     else if (a.loiter){ a.target = pickGround(a, false); a.x = (R() - 0.5)*FIELD*0.6; a.z = s*(FIELD/2 + 30); a.state = "in"; }
     else { a.cx = (R() - 0.5)*FIELD*0.5; a.cz = -s*(40 + R()*25); a.r = 38 + R()*14; a.dir = R() < 0.5 ? 1 : -1; a.ang = 0;
       a.x = a.cx + (R() - 0.5)*40; a.z = s*(FIELD/2 + 40); a.state = "in"; a.reload = 6 + R()*6; }
     a.y = groundY(a.x, a.z) + a.alt; place(a); return true;
   }
   function despawn(a){ if (a.obj){ scene.remove(a.obj); a.obj = null; } a.state = "wait"; a.chased = false; }
+  // a sortie is over: an ordered raid sends the aircraft again soon; a temporary one (a strike with no squad on the field) is gone
+  function rest(a, wait){ despawn(a); if (a.raid > 0){ a.raid--; a.t = 1.5 + Math.random()*2; return; } if (a.temp){ a.alive = false; return; } a.t = wait; }
+  function tempAir(side, cls, model, loiter, wait){
+    const a = {id:"_strike", model, side, cls, loiter, air:true, temp:true, hp:1, hpMax:1, pend:0, alive:true, obj:null, state:"wait", t:wait, x:0, y:0, z:0, h:0, pitch:0, roll:0, reload:0, next:0, pendT:0};
+    a.spec = loiter ? SPEC.loiter : SPEC[cls]; air.push(a); getModel(model, level === "low"); return a;
+  }
   function place(a){ a.obj.position.set(a.x, a.y, a.z); a.obj.rotation.set(a.roll, a.h, a.pitch); }
   // steer towards a point: limited turn rate, banking into the turn, climbing or diving towards wy
   function fly(a, wx, wy, wz, dt, v){
@@ -530,7 +537,7 @@ export async function start(el, ctx){
   }
   function shootDown(a, dmg){
     a.hp -= dmg; floats.push({u:a, text:"−" + Math.round(dmg), t:0});
-    if (a.loiter){ despawn(a); a.t = 5 + Math.random()*8; if (a.hp <= 0.5) a.alive = false; return; }
+    if (a.loiter){ despawn(a); a.t = 5 + Math.random()*8; if (a.hp <= 0.5 || a.temp) a.alive = false; return; }
     a.state = "fall"; a.vy = a.cls === "plane" ? 2 : 0; a.spin = (Math.random() < 0.5 ? -1 : 1)*(a.cls === "heli" ? 3 : 1.6);
   }
   // our machines that the war lost while no air defence of the enemy is on this field: a MANPADS from the front line
@@ -553,7 +560,7 @@ export async function start(el, ctx){
       const v = a.cls === "plane" ? a.v : a.cls === "heli" ? 3 : a.v*0.7; a.x += Math.cos(a.h)*v*dt; a.z -= Math.sin(a.h)*v*dt;
       if (R() < dt*40) fxFire.emit({x:a.x, y:a.y, z:a.z, vx:(R() - 0.5)*2, vy:1, vz:(R() - 0.5)*2, life:0.4, s0:3, s1:1, c:[1, 0.75, 0.3], c1:[0.9, 0.2, 0.04], a:0.9, drag:1});
       if (R() < dt*30) fxSmoke.emit({x:a.x, y:a.y, z:a.z, vx:0, vy:0.5, vz:0, life:5 + R()*3, s0:2.5, s1:10, c:[0.1, 0.09, 0.08], c1:[0.35, 0.34, 0.33], a:0.7, drag:0.3, fadeIn:0.05});
-      if (a.y <= gy + 0.5){ explosion(a.x, a.z, true, false, a.cls === "drone" ? 0.9 : 1.5); despawn(a); if (a.hp <= 0.5) a.alive = false; else a.t = 18 + R()*14; }
+      if (a.y <= gy + 0.5){ explosion(a.x, a.z, !a.loiter, false, a.loiter ? 0.35 : a.cls === "drone" ? 0.9 : 1.5); despawn(a); if (a.hp <= 0.5 || a.temp) a.alive = false; else a.t = 18 + R()*14; }
       else place(a);
       return;
     }
@@ -569,10 +576,19 @@ export async function start(el, ctx){
         if ((dd < 60 && ahead > 15) || ahead < 0){ if (a.kind === "rockets") rockets(a, t); else bombs(a, t, 4, 1.7); a.state = "out"; a.wp = [clamp(a.x + (R() - 0.5)*120, -FIELD/2, FIELD/2), s*(FIELD/2 + 140)]; }
       } else {
         fly(a, a.wp[0], gy + a.alt + 8, a.wp[1], dt, a.v*1.1);
-        if (a.z*s > FIELD/2 + 110){ despawn(a); a.t = 7 + R()*12; }
+        if (a.z*s > FIELD/2 + 110) rest(a, 7 + R()*12);
       }
     } else if (a.cls === "heli"){
-      if (a.state === "in"){ const d = fly(a, a.hx, groundY(a.hx, a.hz) + a.alt, a.hz, dt, a.v); if (d < 6) a.state = "hover"; }
+      if (a.state === "strike"){
+        if (!a.target || !a.target.alive) a.target = pickGround(a, true);
+        const t = a.target, d = Math.hypot(a.sx - a.x, a.sz - a.z);
+        if (d > 6) fly(a, a.sx, groundY(a.sx, a.sz) + a.alt*0.8, a.sz, dt, a.v*1.5);
+        else { const want = t ? Math.atan2(-(t.z - a.z), t.x - a.x) : (a.side ? -Math.PI/2 : Math.PI/2), df = angDiff(a.h, want);
+          a.h += clamp(df, -0.9*dt, 0.9*dt); a.roll = lerp(a.roll, 0, dt*3); a.pitch = lerp(a.pitch, -0.08, dt*3);
+          if (t && Math.abs(df) < 0.2 && a.reload < 0 && a.shots > 0){ atgm(a, t); a.shots--; a.reload = 0.8; a.leaveT = 1.5; }
+          if (a.shots <= 0 && (a.leaveT -= dt) < 0) a.state = a.temp ? "leave" : "in"; }
+      } else if (a.state === "leave"){ fly(a, a.x, gy + a.alt, s*(FIELD/2 + 80), dt, a.v*1.4); if (a.z*s > FIELD/2 + 50) rest(a, 0); }
+      else if (a.state === "in"){ const d = fly(a, a.hx, groundY(a.hx, a.hz) + a.alt, a.hz, dt, a.v); if (d < 6) a.state = "hover"; }
       else {
         if (!a.target || !a.target.alive || R() < dt*0.08) a.target = pickGround(a, true);
         const t = a.target, want = t ? Math.atan2(-(t.z - a.z), t.x - a.x) : (a.side ? Math.PI/2 : -Math.PI/2)*-1, d = angDiff(a.h, want);
@@ -584,11 +600,12 @@ export async function start(el, ctx){
     } else if (a.loiter){
       if (a.target && !a.target.alive) a.target = pickGround(a, false);
       const t = a.target, tx = t ? t.x : a.x, tzz = t ? t.z : -s*40, ty = G.height(tx, tzz) + 1;
+      if (a.jam && a.state === "in" && a.z*s < -5){ a.state = "fall"; a.vy = 1; a.spin = (R() < 0.5 ? -1 : 1)*5; if (a.obj) place(a); return; }
       if (a.state === "in"){ const d = fly(a, tx, groundY(tx, tzz) + a.alt, tzz, dt, a.v); if (d < a.alt*0.9) { a.state = "dive"; a.dmg = payload(t); } }
       else { const dx = tx - a.x, dy = ty - a.y, dz = tzz - a.z, d = Math.hypot(dx, dy, dz), v = 48;
         a.h = Math.atan2(-dz, dx); a.pitch = Math.atan2(dy, Math.hypot(dx, dz)); a.roll = 0;
         a.x += dx/d*v*dt; a.y += dy/d*v*dt; a.z += dz/d*v*dt;
-        if (d < 2.5 || a.y < ty){ explosion(tx, tzz, false, false, 0.9); land(t, a.dmg); a.dmg = 0; despawn(a); a.t = 4 + R()*9; return; } }
+        if (d < 2.5 || a.y < ty){ explosion(tx, tzz, false, false, 0.9); land(t, a.dmg); a.dmg = 0; rest(a, 4 + R()*9); return; } }
     } else {
       if (a.state === "in"){ const d = fly(a, a.cx + a.r, groundY(a.cx, a.cz) + a.alt, a.cz, dt, a.v); if (d < a.r*0.6){ a.state = "orbit"; a.ang = 0; } }
       else { a.ang += a.dir*a.v/a.r*dt; const px = a.cx + Math.cos(a.ang + a.dir*0.5)*a.r, pz = a.cz + Math.sin(a.ang + a.dir*0.5)*a.r;
@@ -599,16 +616,31 @@ export async function start(el, ctx){
   }
   function airStep(dt){
     for (let i = air.length - 1; i >= 0; i--) if (!air[i].alive && !air[i].obj) air.splice(i, 1);
+    for (const u of units) if (u.pendAir > 0){ u.pendAirT = (u.pendAirT || 0) + dt; if (u.pendAirT > 25){ u.pend += u.pendAir; u.pendAir = 0; u.pendAirT = 0; } }
     for (const a of air){ airThink(a, dt);
       if (a.obj && a.rotors) a.rotors.forEach((r, i) => { const ax = a.axes[i] || "y"; r.rotation[ax] += dt*(ax === "x" ? 42 : 21)*(i % 2 ? -1 : 1); }); }
     homersStep(dt);
   }
   // what the war has in the air over this direction: new squads come from the rear, existing ones take the rest as their strength
+  // a strike ordered from the game: our planes make a bombing raid, helicopters move up for an ATGM salvo, a drone swarm flies in
+  function raid(type, o = {}){
+    const R = Math.random, mine = cls => air.filter(a => a.alive && !a.temp && a.side === 0 && a.cls === cls && a.state !== "fall");
+    if (type === "air"){
+      let ps = mine("plane"); if (!ps.length) ps = [0, 1].map(k => tempAir(0, "plane", "su25", false, 0.4 + k*1.1));
+      ps.forEach((a, k) => { a.raid = 1; if (a.state === "wait") a.t = Math.min(a.t, 0.3 + k*0.9); });
+    } else if (type === "heli"){
+      let hs = mine("heli"); if (!hs.length) hs = [0, 1].map(k => tempAir(0, "heli", "ka52", false, 0.2 + k*0.7));
+      hs.forEach(a => { a.shots = 3; a.sx = clamp(a.hx != null ? a.hx : (R() - 0.5)*120, -FIELD*0.4, FIELD*0.4); a.sz = tz + 2; if (a.state === "hover" || a.state === "in") a.state = "strike"; });
+    } else if (type === "drones"){
+      const k = clamp(Math.round((o.n || 30)/3), 6, 12), nj = Math.round(k*(o.jam || 0)), sq = air.find(a => a.side === 0 && a.loiter && !a.temp);
+      for (let i = 0; i < k; i++){ const a = tempAir(0, "drone", sq ? sq.model : "tb2", true, 0.2 + i*0.3); a.jam = i < nj; }
+    }
+  }
   function airSync(side, have){
     const cap = airCap();
     for (const [id, n] of Object.entries(have)){
       const role = roleOf(id), mine = air.filter(a => a.alive && a.side === side && a.id === id), held = mine.reduce((s, a) => s + a.hp - a.pend, 0), diff = n - held;
-      const slots = air.filter(a => a.alive && a.side === side && a.cls === role).length < cap[role];
+      const slots = air.filter(a => a.alive && !a.temp && a.side === side && a.cls === role).length < cap[role];
       if (diff >= 1 && slots && (!mine.length || diff > held/mine.length*0.5)) airAdd(side, id, diff, 2 + Math.random()*6);
       else if (diff > 0.5 && mine.length) mine.forEach(a => { a.hp += diff/mine.length; a.hpMax = Math.max(a.hpMax, a.hp); });
       else if (diff < -0.5 && mine.length) mine[0].pend += -diff;
@@ -726,13 +758,17 @@ export async function start(el, ctx){
   requestAnimationFrame(frame);
   return {
     // the war destroyed n machines of model id on this front
-    hit(side, id, n){ if (isAir(id)){ const ap = air.filter(a => a.alive && a.side === side && a.id === id); if (ap.length) ap.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a).pend += n; return; }
+    hit(side, id, n, via){ if (isAir(id)){ const ap = air.filter(a => a.alive && a.side === side && a.id === id); if (ap.length) ap.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a).pend += n; return; }
       let pool = units.filter(u => u.alive && u.obj && u.side === side && u.id === id); if (!pool.length) pool = units.filter(u => u.alive && u.obj && u.side === side); if (!pool.length) return;
-      const u = pool.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a); u.pend += n; },
+      const left = v => v.hp - v.pend - (v.pendAir || 0), u = pool.reduce((a, b) => left(b) > left(a) ? b : a);
+      if (via === "air"){ u.pendAir = (u.pendAir || 0) + n; u.pendAirT = 0; } else u.pend += n; },
+    raid(type, o){ raid(type, o); },
+    // machines spent (drones that flew their strike): the squads get smaller without anything being shot down
+    consume(side, id, n){ let left = n; air.filter(a => a.alive && !a.temp && a.side === side && a.id === id).forEach(a => { const q = Math.min(left, Math.max(0, a.hp - 0.5)); a.hp -= q; left -= q; }); },
     // what the army really has on this front: reinforce from the map edge when there is more than the squads hold
     sync(side, have){ const airHave = {}; for (const id in have) if (isAir(id)){ airHave[id] = have[id]; delete have[id]; } airSync(side, airHave);
       const CAP = {front:Q.cap, arty:2, ad:2}, roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front", slots = id => units.filter(u => u.alive && u.side === side && (u.role || "front") === roleOf(id)).length < CAP[roleOf(id)];
-      for (const [id, n] of Object.entries(have)){ const mine = units.filter(u => u.alive && u.side === side && u.id === id), held = mine.reduce((a, u) => a + u.hp - u.pend - (u.inbound || 0), 0), diff = n - held;
+      for (const [id, n] of Object.entries(have)){ const mine = units.filter(u => u.alive && u.side === side && u.id === id), held = mine.reduce((a, u) => a + u.hp - u.pend - (u.pendAir || 0) - (u.inbound || 0), 0), diff = n - held;
         const per = mine.length ? held/mine.length : n;
         if (diff > Math.max(1, per*0.5) && slots(id)){ reinforce(side, id, diff); }
         else if (diff > 0.5 && mine.length){ mine.forEach(u => { u.hp += diff/mine.length; u.hpMax = Math.max(u.hpMax, u.hp); }); }

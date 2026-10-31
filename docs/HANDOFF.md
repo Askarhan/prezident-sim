@@ -38,8 +38,31 @@ Read this first in a new session.
 - Strikes from the air carry the ground squads' pending losses like artillery does (`pend` → `inbound` → `damage`).
 - Test hooks: `api.air()` lists aircraft states, `api.airFocus(i, dist)` points the camera at one.
 
+## Strikes from the battlefield (stage 2 done 01.11.2026)
+- Agreed with the user: strikes hit only the direction whose field is open, and they are ordered only from the field. «Авиаудар» and «Удар дронами» were removed from the HQ list.
+- The bar at the bottom of the field has three buttons. Each direction keeps its own cooldowns in `f.cd`, which count down daily in `warDay`.
+
+  | Button | Cost | Cooldown | Needs on the direction |
+  |---|---|---|---|
+  | Авиаудар | 100 bombs | 5 days | 2+ planes |
+  | Вертолёты | 60 ATGMs | 3 days | 2+ helicopters |
+  | Дроны | 30 loitering munitions | 3 days | 30+ of them |
+
+- A blocked button says why: cooldown, no machines, or not enough ammunition.
+- `FIELD_STRIKES`, `fsBlock`, `fieldStrike(w, i, type)` in `src/game.html`:
+  - Enemy losses are taken from its forces in this direction's share and move only this front.
+  - Our losses come off this direction's machines.
+  - Air strike: damage and price depend on air superiority.
+  - Helicopters: strong against armour; the risk grows with the enemy's short-range air defence.
+  - Drones: spent, not lost; enemy electronic warfare jams a share of them.
+- Field (`bf3d.js`):
+  - `api.raid(type, {n, jam})` makes the strike visible: our planes make an extra bombing pass, helicopters move up to the front line for 3 ATGMs and return, and a swarm of 6–12 small drones flies in (jammed ones tumble down).
+  - If there is no squad of that kind on the field, temporary aircraft fly the strike.
+  - `api.hit(side, id, n, "air")` keeps the strike's kills for the aircraft (`pendAir`). If no aircraft brings them within 25 s, they go to the ground fire.
+  - `api.consume(side, id, n)` shrinks squads by spent drones without showing shoot-downs.
+- The close button and Android Back now leave the 3D field (the handler used to be bound only on the 2D path).
+
 ## Next
-- Stage 2 (agreed): command buttons for the air — bombing run, helicopters, drones.
 - Next model batches (≤3 at a time): e.g. A-10 / Su-34 / Mi-24, then fighters, then Apache / Reaper / Shahed.
 - The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
 - Before each big new feature, discuss the plan with the user first.
