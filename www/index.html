@@ -386,6 +386,18 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 @keyframes fxDash{to{stroke-dashoffset:-22}}
 #worldmap #map-fx .fx-arrow{fill:#FF5D5D;stroke:#2A0A0F;stroke-width:1.2}
 #worldmap #map-fx .fx-arrow.us{fill:#FFB020}
+#map-fx .fx-battle .fx-hit{fill:transparent;stroke:none}
+#worldmap #map-fx .fx-front.us{fill:rgb(245 165 36 / .28);stroke:#F5A524}
+#bf-root{position:fixed;inset:0;z-index:60;background:#12160F;touch-action:none;overscroll-behavior:none}
+#bf-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#bf-root .bf-top{position:absolute;left:0;right:0;top:0;display:flex;gap:10px;align-items:flex-start;padding:max(8px,env(safe-area-inset-top)) 12px 18px;background:linear-gradient(rgb(6 9 6 / .85),rgb(6 9 6 / 0));pointer-events:none}
+#bf-root .bf-back{pointer-events:auto;width:40px;height:40px;flex:0 0 40px;border-radius:10px;border:1px solid rgb(255 255 255 / .18);background:rgb(14 20 30 / .85);color:#fff;display:grid;place-items:center}
+#bf-root .bf-title{display:flex;flex-direction:column;gap:2px;color:#fff;min-width:0;max-width:560px;flex:1}
+#bf-root .bf-title b{font-size:15px}
+#bf-root .bf-title small{color:#C9D3C0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bf-root .bf-title .front-bar{margin-top:4px;max-width:320px}
+#bf-root .bf-load{position:absolute;inset:0;display:grid;place-items:center;color:#C9D3C0;font-size:14px}
+.front-row .bf-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 #battle-cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
 .ui-photo{position:relative}
 .ui-photo .ui-3d{position:absolute;right:6px;bottom:22px;width:96px;height:96px;border-radius:10px;background:radial-gradient(circle at 50% 60%,rgb(20 34 56 / .92),rgb(8 14 26 / .88));border:1px solid rgb(255 255 255 / .14);touch-action:none;cursor:grab}
@@ -2091,7 +2103,7 @@ function frontsPanel(w){
     return `<div class="front-row">
       <div class="row"><b>${f.name} направление${f.capital ? " · к столице" : ""}</b><small class="muted">${TERRAIN[f.p >= 0 ? f.t : f.myT].n} · войск ${Math.round(f.share*100)}% · ${WAR_MODES[f.mode || w.mode].name.toLowerCase()} · <span class="${(f.sup ?? 100) < 50 ? "down" : (f.sup ?? 100) < 70 ? "warn" : ""}">снабжение ${Math.round(f.sup ?? 100)}%</span></small></div>
       <div class="front-bar thin"><i class="mine" style="width:${clamp(50 + f.p/2, 0, 100)}%"></i>${ticks}<b style="left:${clamp(50 + f.p/2, 0, 100)}%"></b></div>
-      <div class="row"><small class="${pl.mine ? "down" : "up"}">${pl.mine ? `Бои на нашей земле: ${pl.name}` : f.p > 0.5 ? `Бои: ${pl.name}` : `Граница · впереди ${f.places[0]}`}${f.storm > 0 ? " · штурм" : ""}</small>${canStorm ? `<button class="btn sm primary" data-storm="${i}">Штурм рубежа</button>` : ""}</div>
+      <div class="row"><small class="${pl.mine ? "down" : "up"}">${pl.mine ? `Бои на нашей земле: ${pl.name}` : f.p > 0.5 ? `Бои: ${pl.name}` : `Граница · впереди ${f.places[0]}`}${f.storm > 0 ? " · штурм" : ""}</small><span class="bf-btns">${canStorm ? `<button class="btn sm primary" data-storm="${i}">Штурм рубежа</button>` : ""}<button class="btn sm" data-bfopen="${w.enemy}:${i}">Поле боя</button></span></div>
     </div>`; }).join("");
   return `<div class="panel fronts" style="margin-top:12px"><h3>Направления</h3>
     <div class="filters">${plans.map(([id, l]) => `<button class="chip" data-warplan="${id}" aria-pressed="${(w.plan||"even") === id}">${l}</button>`).join("")}</div>
@@ -2254,7 +2266,7 @@ function doStrike(w, type){
     Object.keys(S.units).forEach(id => { const m = MODELS[id]; if (m && STRIKE_K.has(m.kind) && m.kind !== "loiter"){ const lost = Math.floor(S.units[id]*warShare(w)*lossR + (Math.random() < lossR*20 ? 1 : 0)); if (lost){ S.units[id] -= lost; w.lossMy[id] = (w.lossMy[id]||0) + lost; } } });
     Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const lost = Math.floor(w.eu[id]*0.015*eff + (Math.random() < eff ? 1 : 0)); if (lost){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } } });
     warPush(w, 2 + 6*eff); good = w.air >= 0.4;
-    battleEvent({kind:"air", from:S.player, to:e.id, n:6, down:w.air < 0.4 ? 2 : 0, id:topModel(S.units, ["bomber","attack"]) || topModel(S.units, ["fighter"]), ad:topModel(w.eu, ["shorad","mrsam"])});
+
     text = w.air >= 0.4 ? `Авиаудар: господство в воздухе ${Math.round(w.air*100)}%, позиции противника разбиты.` : `Авиаудар без господства в воздухе (${Math.round(w.air*100)}%): тяжёлые потери самолётов.`;
   } else if (type === "drones"){
     const have = Object.entries(S.units).filter(([id]) => MODELS[id] && MODELS[id].kind === "loiter").reduce((a,[,n]) => a+n, 0);
@@ -2264,7 +2276,7 @@ function doStrike(w, type){
     let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3 && w.eu[id] > 0){ const l = Math.min(w.eu[id], Math.ceil(hits*0.08)); w.eu[id] -= l; killed += l; w.lossTh[id] = (w.lossTh[id]||0) + l; } }));
     warPush(w, 1.2); good = jam < 0.4;
     bSplit(te3, We3.ew, "i", Math.round(50*jam));
-    battleEvent({kind:"drones", from:S.player, to:e.id, n:50, down:0, jam:Math.round(50*jam), id:topModel(S.units, ["loiter"]) || "lancet"});
+
     text = `Удар дронами: ${hits} из 50 долетели${jam > 0.2 ? ` (РЭБ противника заглушила ${Math.round(jam*100)}%)` : ""}, уничтожено единиц техники: ${killed}.`;
   } else if (type === "airborne"){
     if (airliftCap() < 2) return toast("Нужно хотя бы 2 транспортных самолёта.");
@@ -2285,7 +2297,7 @@ function doStrike(w, type){
   }
   w.cd[type] = st.cd;
   { const k4 = lossSum(w.lossTh), gk = k4.g - k3.g + k4.a - k3.a, ws = type === "missile" || type === "infra" ? W3.rk : type === "air" ? W3.str : type === "drones" ? W3.loi : null; if (ws) bSplit(tm3, ws, "k", gk); }
-  if (["missile","infra","air","drones"].includes(type)) text += " Удар виден на карте.";
+  if (["missile","infra"].includes(type)) text += " Удар виден на карте.";
   warEvent(w, text, good ? "good" : "bad");
   flashMap(type === "mobilize" ? S.player : e.id, good ? "bad" : "info");
   sfx(type === "mobilize" ? "alert" : "boom"); buzz(40);
@@ -2504,7 +2516,7 @@ function warFxMarks(w){
     if (f.p >= 100) return;
     const inThem = f.p >= 0, F = inThem ? FT : FM, fp = frontPoint(F, i, Math.max(1.5, Math.abs(f.p))), pt = fp, rp = fp;
     const mv = f.p - (old[i] ?? f.p);
-    out += mark(pt.x, pt.y, `<circle r="10" class="fx-front"/><path d="M-4.5,-4.5L4.5,4.5M4.5,-4.5L-4.5,4.5" class="fx-swords"/>`, "fx-battle");
+    out += mark(pt.x, pt.y, `<g class="fx-btn" data-battle="${w.enemy}:${i}"><circle r="15" class="fx-hit"/><circle r="11" class="fx-front ${mv > 0.4 ? "us" : mv < -0.4 ? "them" : ""}"/><path d="M-5,-5L5,5M5,-5L-5,5" class="fx-swords"/></g>`, "fx-battle");
     if (Math.abs(mv) > 0.4){
       // the arrow points where the front is moving: deeper along the route, or back towards the border
       const deeper = inThem ? mv > 0 : mv < 0, ang = rp.ang*180/Math.PI + (deeper ? 0 : 180);
@@ -2684,13 +2696,12 @@ function battleLoop(now){
   if (cv.width !== Math.round(r.width*dpr) || cv.height !== Math.round(r.height*dpr)){ cv.width = Math.round(r.width*dpr); cv.height = Math.round(r.height*dpr); }
   const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
   // the scene is rebuilt once a game day
-  const dayKey = (S.turn||0)*100 + (S.day||0) + "|" + S.wars.length;
-  if (BT.day !== dayKey || !BT.scene){ BT.day = dayKey; BT.scene = battleScene(); }
+  BT.scene = BT.scene || [];
   const k = ui.map.k, sz = clamp(11*Math.pow(k, 0.62), 14, 46);
   BT.sz = sz;
   // fronts that sit close on screen are drawn as one battle
   const shown = [];
-  BT.scene.forEach(sc => { const P = map(sc.x, sc.y); if (P.x < -sz*4 || P.y < -sz*4 || P.x > r.width + sz*4 || P.y > r.height + sz*4) return; if (shown.some(q => Math.hypot(q.x - P.x, q.y - P.y) < sz*4.2)) return; shown.push(P); battleFront(g, map, sc, sz, now, dt); });
+  if (false) BT.scene.forEach(sc => { const P = map(sc.x, sc.y); if (P.x < -sz*4 || P.y < -sz*4 || P.x > r.width + sz*4 || P.y > r.height + sz*4) return; if (shown.some(q => Math.hypot(q.x - P.x, q.y - P.y) < sz*4.2)) return; shown.push(P); battleFront(g, map, sc, sz, now, dt); });
   battleEvents(map, sz, now);
   battleFx(g, map, sz, now);
   BT.raf = requestAnimationFrame(battleLoop);
@@ -2822,6 +2833,274 @@ function battleFx(g, map, sz, now){
     else if (f.k === "spr"){ const p = map(f.m.x, f.m.y), al = e < 0.1 ? e*10 : e > 0.85 ? (1 - e)/0.15 : 1; drawSpr(g, f.id, -Math.PI/4, f.side, f.camo, p.x, p.y, sz, al); }
   }
   BT.fx = keep.length > 400 ? keep.slice(-400) : keep;
+}
+
+/* ---------- the battlefield: a square field of every front, seen from above at an angle ---------- */
+// 1 world unit = 1 metre; x to the right, y towards our side; the ground is drawn foreshortened like the models (40° camera)
+const BF_FY = Math.sin(40*Math.PI/180), BF_W = 420, BF_H = 420, BF_PPM = 12, BF_US = 1.4;   // troops are drawn 1.4× larger to read well
+// footprint of every prop in metres: width, depth, height (for the baked shadows and spacing)
+const BF_DIM = {pine:[4.4,4.2,10], pine2:[4.4,4.5,13], oak:[6.3,6.3,8], oak2:[6.2,6.8,9], bush:[2.6,3,2.2], palm:[6.7,7.7,9.5], dead:[2,3,7], rock:[3.9,3.7,1.8], rock2:[5.9,5.5,2.8], hay:[3.1,3.2,3],
+  house:[8.8,7,5.7], house2:[10.8,8,6.3], barn:[12.6,7.8,6.2], block:[30.3,13.5,16.7], block9:[36.3,14.5,28.7], ruin:[25.3,14.6,12], mud:[9.4,7.2,3.5], garage:[6.3,4.8,3.1], bags:[3.9,0.7,0.7], teeth:[8.6,2.3,1.1], hedgehog:[1.7,1.7,1.3], bunker:[5.6,5,1.8]};
+const BF_LEN = {tank:9.5, ifv:7, apc:7.5, sph:11, mlrs:9, srbm:12, shorad:7.5, mrsam:9, lrsam:12, ew:10, fighter:19, attack:16, bomber:30, heli:17, drone:10, loiter:3.5, transport:40};
+function bfDim(id){ const r = id.endsWith("_r"), d = BF_DIM[id.replace(/_r$/, "")] || [4, 4, 4]; return r ? [d[1], d[0], d[2]] : d; }
+const BF = {open:null, props:null, propImg:null, req:false};
+function bfLoadProps(){
+  if (BF.req) return; BF.req = true;
+  fetch("field/props.json").then(r => r.json()).then(j => { BF.props = j.p; const im = new Image(); im.onload = () => { BF.propImg = im; if (BF.open) BF.open.dirty = true; }; im.src = "field/props.webp"; }).catch(() => { BF.req = false; });
+}
+function bfRng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0)/4294967296; }; }
+function bfHash(s){ let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+function bfNoise(seed){
+  const R = bfRng(seed), P = new Float32Array(65536); for (let i = 0; i < 65536; i++) P[i] = R();
+  const at = (x, y) => P[((y & 255) << 8) | (x & 255)];
+  const n = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, sx = fx*fx*(3 - 2*fx), sy = fy*fy*(3 - 2*fy);
+    const a = at(xi, yi), b = at(xi + 1, yi), c = at(xi, yi + 1), d = at(xi + 1, yi + 1); return a + (b - a)*sx + (c - a)*sy + (a - b - c + d)*sx*sy; };
+  n.fbm = (x, y, o) => { let s = 0, w = 0.5, f = 1, t = 0; for (let i = 0; i < (o||4); i++){ s += n(x*f, y*f)*w; t += w; w *= 0.5; f *= 2.03; } return s/t; };
+  return n;
+}
+const BF_PAL = {
+  p:{a:[84,102,50], b:[122,126,64], fields:[[164,146,80],[92,118,50],[98,78,54],[132,128,80],[110,124,58]], road:[128,112,86], roadE:[96,84,64]},
+  f:{a:[46,66,34], b:[70,86,44], fields:[[78,92,48],[90,98,56]], road:[110,96,72], roadE:[80,70,52]},
+  m:{a:[104,98,86], b:[140,132,118], fields:[[92,100,62]], road:[122,116,104], roadE:[90,86,78]},
+  u:{a:[98,98,94], b:[116,114,108], fields:[[78,96,52],[86,102,58]], road:[60,62,64], roadE:[132,130,124]},
+  d:{a:[184,158,110], b:[206,182,132], fields:[[170,146,100]], road:[150,128,92], roadE:[124,104,74]}
+};
+// which terrain this front fights on
+function bfTerrain(f){ return (f.p >= 0 ? f.t : f.myT) || "p"; }
+/* ---- generation: ground image, props, units ---- */
+function bfGenerate(w, i){
+  const t0g = performance.now();
+  const f = w.fronts[i], ter = bfTerrain(f), pal = BF_PAL[ter] || BF_PAL.p, seed = bfHash(w.enemy + ":" + i + ":" + ter + ":" + (w.bfSeed || 0));
+  const R = bfRng(seed), N = bfNoise(seed), N2 = bfNoise(seed ^ 0x9e37), GP = 3;   // ground pixels per metre
+  const gw = BF_W*GP, gh = Math.round(BF_H*BF_FY*GP), pos = w.phase === "pos";
+  const cv = document.createElement("canvas"); cv.width = gw; cv.height = gh; const g = cv.getContext("2d");
+  // height and base colour, with hill shading
+  const H = (x, y) => ter === "m" ? N.fbm(x/90, y/90, 5)*1.4 : ter === "d" ? Math.abs(N.fbm(x/60, y/140, 3) - 0.5)*1.2 : N.fbm(x/140, y/140, 4)*0.5;
+  // the base layer is computed at half resolution and scaled up; grain is added at full resolution
+  const LG = 1.5, lw = Math.round(BF_W*LG), lh = Math.round(BF_H*BF_FY*LG), hg = new Float32Array((lw + 1)*(lh + 1));
+  for (let py = 0; py <= lh; py++){ const y = py/LG/BF_FY; for (let qx = 0; qx <= lw; qx++) hg[py*(lw + 1) + qx] = H(qx/LG, y); }
+  const lc = document.createElement("canvas"); lc.width = lw; lc.height = lh; const lg = lc.getContext("2d"), im = lg.createImageData(lw, lh), px = im.data;
+  const kx = 2*LG, ky = 2*LG*BF_FY, amp = ter === "m" ? 9 : ter === "d" ? 7 : 4;
+  for (let py = 0; py < lh; py++){
+    const y = py/LG/BF_FY;
+    for (let qx = 0; qx < lw; qx++){
+      const x = qx/LG, k = (py*lw + qx)*4, o = py*(lw + 1) + qx, h = hg[o];
+      const shade = clamp(1 + (-(hg[o + 1] - h)*kx - (hg[o + lw + 1] - h)*ky*0.6)*amp, 0.55, 1.45);
+      const t = N2.fbm(x/26, y/26, 2); let c0 = pal.a, c1 = pal.b;
+      if (ter === "m" && h < 0.5){ c0 = [86,96,58]; c1 = [104,110,70]; }
+      px[k] = (c0[0] + (c1[0] - c0[0])*t)*shade; px[k+1] = (c0[1] + (c1[1] - c0[1])*t)*shade; px[k+2] = (c0[2] + (c1[2] - c0[2])*t)*shade; px[k+3] = 255;
+    }
+  }
+  lg.putImageData(im, 0, 0);
+  g.imageSmoothingQuality = "high"; g.drawImage(lc, 0, 0, gw, gh);
+  { const gc = document.createElement("canvas"); gc.width = gc.height = 128; const gx = gc.getContext("2d"), gi = gx.createImageData(128, 128);
+    for (let k = 0; k < gi.data.length; k += 4){ const v = R()*255; gi.data[k] = gi.data[k+1] = gi.data[k+2] = v; gi.data[k+3] = 255; }
+    gx.putImageData(gi, 0, 0); g.save(); g.globalAlpha = 0.07; g.globalCompositeOperation = "overlay"; g.fillStyle = g.createPattern(gc, "repeat"); g.fillRect(0, 0, gw, gh); g.restore(); }
+  const P = (x, y) => [x*GP, y*BF_FY*GP];
+  const rgb = (c, a) => `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a ?? 1})`;
+  const cy = BF_H/2;
+  // fields (plains), parks (city), clearings
+  if (ter === "p" || ter === "f"){
+    const n = ter === "p" ? 26 : 8;
+    for (let k = 0; k < n; k++){
+      const x = R()*BF_W, y = R()*BF_H, fw = 30 + R()*70, fh = 25 + R()*60, a = (R() - 0.5)*0.5, c = pal.fields[Math.floor(R()*pal.fields.length)];
+      g.save(); g.translate(...P(x, y)); g.scale(1, BF_FY); g.rotate(a); g.fillStyle = rgb(c, 0.55); g.fillRect(-fw/2*GP, -fh/2*GP, fw*GP, fh*GP);
+      if (c === pal.fields[2]){ g.strokeStyle = "rgba(60,46,30,.35)"; g.lineWidth = 1; for (let s = -fh/2; s < fh/2; s += 2.2){ g.beginPath(); g.moveTo(-fw/2*GP, s*GP); g.lineTo(fw/2*GP, s*GP); g.stroke(); } }
+      g.restore();
+    }
+  }
+  // roads: one along the front's axis, one across
+  const roads = [];
+  const road = (pts, wdt, c, ce) => {
+    roads.push({pts, w:wdt});
+    const path = () => { g.beginPath(); pts.forEach(([x, y], k) => { const [a, b] = P(x, y); k ? g.lineTo(a, b) : g.moveTo(a, b); }); };
+    g.lineCap = g.lineJoin = "round";
+    path(); g.strokeStyle = rgb(ce); g.lineWidth = (wdt + 2)*GP; g.stroke();
+    path(); g.strokeStyle = rgb(c); g.lineWidth = wdt*GP; g.stroke();
+    if (ter === "u" || ter === "m"){ path(); g.setLineDash([3*GP, 4*GP]); g.strokeStyle = "rgba(230,220,180,.5)"; g.lineWidth = 0.35*GP; g.stroke(); g.setLineDash([]); }
+  };
+  const wig = (x0, y0, x1, y1, amp, n) => { const out = []; for (let k = 0; k <= n; k++){ const t = k/n, dx = Math.sin(t*Math.PI*2 + R()*0.6)*amp*(k && k < n ? 1 : 0); out.push([x0 + (x1 - x0)*t + (y1 !== y0 ? dx : 0), y0 + (y1 - y0)*t + (x1 !== x0 ? dx*0.5 : 0)]); } return out; };
+  const rx = BF_W*(0.3 + R()*0.4), ry = BF_H*(0.25 + R()*0.15) + (R() < 0.5 ? BF_H*0.45 : 0);
+  if (ter === "u"){
+    for (let x = 40 + R()*20; x < BF_W; x += 70 + R()*20) road([[x, -5], [x, BF_H + 5]], 9, pal.road, pal.roadE);
+    for (let y = 30 + R()*20; y < BF_H; y += 75 + R()*20) road([[-5, y], [BF_W + 5, y]], 9, pal.road, pal.roadE);
+  } else {
+    road(wig(rx, -10, rx + (R() - 0.5)*80, BF_H + 10, ter === "m" ? 30 : 14, 14), ter === "m" ? 7 : 6, pal.road, pal.roadE);
+    road(wig(-10, ry, BF_W + 10, ry + (R() - 0.5)*40, 8, 10), 5, pal.road, pal.roadE);
+  }
+  // no man's land: scorched ground and craters, many more in the positional phase
+  const nml = pos ? 55 : 36;
+  for (let k = 0; k < 40; k++){ const x = R()*BF_W, y = cy + (R() - 0.5)*nml*2, r = 6 + R()*16; const [a, b] = P(x, y), gr = g.createRadialGradient(a, b, 0, a, b, r*GP); gr.addColorStop(0, "rgba(40,32,24,.35)"); gr.addColorStop(1, "rgba(40,32,24,0)"); g.fillStyle = gr; g.save(); g.translate(a, b); g.scale(1, BF_FY); g.translate(-a, -b); g.beginPath(); g.arc(a, b, r*GP, 0, 7); g.fill(); g.restore(); }
+  const craters = [];
+  const nc = pos ? 160 : 70;
+  for (let k = 0; k < nc; k++){ const y = cy + (R() + R() - 1)*nml*1.6, x = R()*BF_W, r = 1 + R()*R()*4.5; craters.push([x, y, r]); }
+  craters.forEach(([x, y, r]) => bfCrater(g, x*GP, y*BF_FY*GP, r*GP));
+  // trenches of both sides
+  const trenches = [];
+  [1, -1].forEach(s => {
+    const ty = cy + s*(pos ? 26 : 34); let pts = [], x = -5, y = ty;
+    while (x < BF_W + 5){ pts.push([x, y]); x += 6 + R()*8; y = ty + (pts.length % 2 ? 3 : -3) + (R() - 0.5)*3; }
+    trenches.push({s, pts});
+    if (!pos && R() < 0.4) return;   // in manoeuvre war the trenches are patchy
+    const path = () => { g.beginPath(); pts.forEach(([a, b], k) => { const [qa, qb] = P(a, b); k ? g.lineTo(qa, qb) : g.moveTo(qa, qb); }); };
+    g.lineJoin = "miter"; path(); g.strokeStyle = "rgba(150,128,96,.55)"; g.lineWidth = 3.6*GP; g.stroke();
+    path(); g.strokeStyle = "rgba(34,26,18,.95)"; g.lineWidth = 1.7*GP; g.stroke();
+  });
+  // props
+  const props = [], occ = new Map(), cell = 6;
+  const key = (x, y) => Math.floor(x/cell) + "," + Math.floor(y/cell);
+  const free = (x, y, r) => { for (let a = -Math.ceil(r/cell); a <= Math.ceil(r/cell); a++) for (let b = -Math.ceil(r/cell); b <= Math.ceil(r/cell); b++){ const v = occ.get((Math.floor(x/cell) + a) + "," + (Math.floor(y/cell) + b)); if (v && Math.hypot(v[0] - x, v[1] - y) < r + v[2]) return false; } return true; };
+  const take = (x, y, r) => occ.set(key(x, y), [x, y, r]);
+  const onRoad = (x, y, m) => roads.some(rd => rd.pts.some(([a, b], k) => { const q = rd.pts[k + 1]; if (!q) return false; const dx = q[0] - a, dy = q[1] - b, L2 = dx*dx + dy*dy || 1, t = clamp(((x - a)*dx + (y - b)*dy)/L2, 0, 1); return Math.hypot(x - a - dx*t, y - b - dy*t) < rd.w/2 + m; }));
+  const nearFront = y => Math.abs(y - cy) < nml;
+  const add = (id, x, y, force) => { const d = bfDim(id), r = Math.max(d[0], d[1])*0.5; if (x < 2 || x > BF_W - 2 || y < 2 || y > BF_H - 2) return false; if (!force && (!free(x, y, r) || onRoad(x, y, r))) return false; take(x, y, r); props.push({id, x, y, d}); return true; };
+  // keep room for the troops: unit positions are reserved first
+  const units = bfUnits(w, i, R, cy, pos);
+  units.forEach(u => take(u.x, u.y, u.len*0.7));
+  const cluster = (ids, cx0, cy0, n, rad) => { for (let k = 0; k < n; k++){ const a = R()*Math.PI*2, d = Math.sqrt(R())*rad; add(ids[Math.floor(R()*ids.length)], cx0 + Math.cos(a)*d, cy0 + Math.sin(a)*d); } };
+  const scatter = (ids, n, avoidFront) => { for (let k = 0; k < n; k++){ const x = R()*BF_W, y = R()*BF_H; if (avoidFront && nearFront(y)) continue; add(ids[Math.floor(R()*ids.length)], x, y); } };
+  const along = (ids, pts, step, off) => { for (let k = 0; k < pts.length - 1; k++){ const [a, b] = pts[k], [c, d] = pts[k + 1], L = Math.hypot(c - a, d - b); for (let s = 0; s < L; s += step){ const t = s/L, nx = -(d - b)/L, ny = (c - a)/L, side = R() < 0.5 ? 1 : -1; add(ids[Math.floor(R()*ids.length)], a + (c - a)*t + nx*off*side, b + (d - b)*t + ny*off*side); } } };
+  const village = (ids, cx0, cy0, n) => { const rd = roads[0]; for (let k = 0; k < n; k++){ const x = cx0 + (R() - 0.5)*80, y = cy0 + (R() - 0.5)*70, id = ids[Math.floor(R()*ids.length)]; add(nearFront(y) ? (ter === "u" ? "ruin" : "dead") : id, x, y); } void rd; };
+  if (ter === "p"){
+    village(["house","house2","house_r","barn","hay","garage","house2_r"], rx + 40, cy + 120 + R()*40, 14); village(["house","house2","barn","hay","house_r"], rx - 60, cy - 130 - R()*40, 12);
+    roads.forEach(rd => along(["oak","oak2","bush"], rd.pts, 9, rd.w/2 + 4));
+    for (let k = 0; k < 6; k++){ const y = R()*BF_H, x0 = R()*BF_W; along(["oak","oak2","bush","bush"], [[x0 - 60, y], [x0 + 60, y + (R() - 0.5)*20]], 7, 0); }
+    scatter(["bush","hay","oak"], 60, true); scatter(["dead","bush"], 20);
+  } else if (ter === "f"){
+    for (let k = 0; k < 2600; k++){ const x = R()*BF_W, y = R()*BF_H, nf = nearFront(y), clear = N.fbm(x/70, y/70, 2); if (clear < 0.42) continue; add(nf ? (R() < 0.55 ? "dead" : "pine") : ["pine","pine2","pine","oak","oak2"][Math.floor(R()*5)], x, y); }
+    village(["house","barn","house_r"], rx + 30, cy + 140, 6);
+  } else if (ter === "m"){
+    scatter(["rock","rock2","rock","bush"], 220); scatter(["pine","pine2"], 160, true);
+    village(["house","house2","barn"], rx + 30, cy + 140, 7); village(["house","house_r"], rx - 40, cy - 150, 5);
+  } else if (ter === "u"){
+    const blocks = ["block","block9","block_r","block9_r","house2","garage","house","block"];
+    for (let k = 0; k < 900; k++){ const x = R()*BF_W, y = R()*BF_H; add(nearFront(y) ? (R() < 0.7 ? "ruin" : "ruin_r") : blocks[Math.floor(R()*blocks.length)], x, y); }
+    scatter(["oak","bush"], 120);
+  } else if (ter === "d"){
+    scatter(["rock","rock2","rock"], 140); cluster(["palm","palm","bush"], rx + 50, cy + 130, 18, 30);
+    village(["mud","mud_r","mud","garage"], rx + 60, cy + 140, 12); village(["mud","mud_r"], rx - 50, cy - 140, 9);
+  }
+  // fortifications along the trenches, tank obstacles in no man's land
+  trenches.forEach(tr => { for (let k = 2; k < tr.pts.length; k += 5 + Math.floor(R()*4)){ const [x, y] = tr.pts[k]; add(R() < 0.25 ? "bunker" : "bags", x, y + tr.s*2.5); } });
+  for (let k = 0; k < (pos ? 14 : 6); k++) add(R() < 0.5 ? "teeth" : "hedgehog", R()*BF_W, cy + (R() - 0.5)*30);
+  // baked shadows of the static props (light from the upper left)
+  const shc = document.createElement("canvas"); shc.width = gw; shc.height = gh; const sg = shc.getContext("2d");
+  { const g = sg;
+  props.forEach(p => { const [w0, d0, h0] = p.d; const [a, b] = P(p.x, p.y), L = h0*0.55*GP, isB = /block|house|barn|ruin|mud|garage|bunker/.test(p.id);
+    g.fillStyle = "rgb(10,12,8)";
+    if (isB){ g.beginPath(); const x0 = a - w0/2*GP, x1 = a + w0/2*GP, y0 = b - d0/2*BF_FY*GP, y1 = b + d0/2*BF_FY*GP; g.moveTo(x0, y1); g.lineTo(x1, y1); g.lineTo(x1 + L, y1 + L*0.35); g.lineTo(x1 + L, y0 + L*0.35); g.lineTo(x1, y0); g.lineTo(x1, y1); g.closePath(); g.fill(); g.fillRect(x0, y1 - 2, w0*GP, Math.min(L*0.35, 6)); }
+    else { g.beginPath(); g.ellipse(a + L*0.45, b + L*0.12, Math.max(w0*0.42*GP, 2), Math.max(d0*0.3*GP, 1.5), 0, 0, 7); g.fill(); } }); }
+  g.save(); g.filter = "blur(2px)"; g.globalAlpha = 0.38; g.drawImage(shc, 0, 0); g.restore();
+  props.sort((a, b) => a.y - b.y);
+  BF.genMs = performance.now() - t0g;
+  return {w, i, f, ter, seed, ground:cv, GP, props, units, craters, trenches, fx:[], smoke:bfSmokeSpots(R, cy, nml)};
+}
+function bfCrater(g, a, b, r){
+  g.save(); g.translate(a, b); g.scale(1, BF_FY);
+  const gr = g.createRadialGradient(0, 0, 0, 0, 0, r*1.6); gr.addColorStop(0, "rgba(28,22,16,.9)"); gr.addColorStop(0.55, "rgba(52,42,30,.75)"); gr.addColorStop(0.75, "rgba(140,120,90,.35)"); gr.addColorStop(1, "rgba(140,120,90,0)");
+  g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r*1.6, 0, 7); g.fill(); g.restore();
+}
+function bfSmokeSpots(R, cy, nml){ const out = []; for (let k = 0; k < 5; k++) out.push({x:R()*BF_W, y:cy + (R() - 0.5)*nml*1.6, ph:R()*10, s:0.6 + R()*0.8}); return out; }
+// the troops of both sides on this front, in proportion to the real armies
+function bfUnits(w, i, R, cy, pos){
+  const share = warShare(w), nF = w.fronts.filter(f => f.p < 100).length || 1, f = w.fronts[i], fs = f.share || 1/nF;
+  const side = (units, s, mult) => {
+    const groups = {front:[], arty:[], ad:[]}, out = [];
+    for (const [id, n0] of Object.entries(units||{})){ const m = MODELS[id]; if (!m || n0 <= 0 || SPR.idx[id] == null) continue;
+      const n = n0*mult*fs, r = ["tank","ifv","apc"].includes(m.kind) ? "front" : ["sph","mlrs","srbm"].includes(m.kind) ? "arty" : ["shorad","mrsam","ew"].includes(m.kind) ? "ad" : null; if (r) groups[r].push([id, n]); }
+    const total = Object.values(groups).flat().reduce((a, [, n]) => a + n, 0);
+    const N = clamp(Math.round(Math.sqrt(total)*1.1), total > 0 ? 4 : 0, 34);
+    const quota = {front:Math.round(N*0.62), arty:Math.round(N*0.25), ad:Math.max(groups.ad.length ? 1 : 0, Math.round(N*0.13))};
+    Object.entries(groups).forEach(([role, list]) => {
+      const tot = list.reduce((a, [, n]) => a + n, 0) || 1; let q = Math.min(quota[role], list.length ? quota[role] : 0);
+      const cnt = list.map(([id, n]) => [id, n/tot*q]).sort((a, b) => b[1] - a[1]).map(([id, v]) => [id, Math.floor(v), v - Math.floor(v)]);
+      let left = q - cnt.reduce((a, c) => a + c[1], 0); cnt.sort((a, b) => b[2] - a[2]).forEach(c => { if (left > 0){ c[1]++; left--; } });
+      const ids = cnt.flatMap(([id, k]) => Array(k).fill(id));
+      const depth = role === "front" ? [7, 22] : role === "arty" ? [70, 100] : [105, 130];
+      ids.forEach((id, k) => { const x = BF_W*(0.08 + 0.84*(k + 0.5)/ids.length) + (R() - 0.5)*14, y = cy + s*((pos ? 26 : 34) + depth[0] + R()*(depth[1] - depth[0]));
+        out.push({id, side:s > 0 ? 0 : 1, x, y, ang:s > 0 ? -Math.PI/2 : Math.PI/2, len:BF_LEN[MODELS[id].kind] || 8, role}); });
+    });
+    return out;
+  };
+  return [...side(S.units, 1, share), ...side(w.eu, -1, 1)];
+}
+/* ---- the screen ---- */
+function openBattle(enemy, i){
+  const w = S.wars.find(x => x.enemy === enemy); if (!w || !w.fronts || !w.fronts[i]) return;
+  sprLoad(); bfLoadProps();
+  closeBattle(true);
+  const root = document.createElement("div"); root.id = "bf-root"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Поле боя");
+  root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div>`;
+  document.body.appendChild(root);
+  const st = BF.open = {enemy, i, cam:{x:BF_W/2, y:BF_H/2 - 4, z:-0.85}, root, dirty:true, gen:null, t0:performance.now()};
+  bfTitle(st);
+  setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); root.querySelector(".bf-load")?.remove(); bfFit(st); st.dirty = true; }, 30);
+  bfInput(st); requestAnimationFrame(bfLoop);
+  sfx("tap");
+}
+function closeBattle(silent){ if (!BF.open) return; BF.open.root.remove(); BF.open = null; if (!silent) sfx("tap"); }
+function bfTitle(st){
+  const w = S.wars.find(x => x.enemy === st.enemy); if (!w) return closeBattle(true);
+  const f = w.fronts[st.i], pl = frontPlace(f), e = C()[w.enemy], ph = PHASES[w.phase] || PHASES.man;
+  const el = st.root.querySelector(".bf-title"); if (!el) return;
+  el.innerHTML = `<b>${f.name} направление</b><small>${flag(S.player)} против ${flag(e.id)} ${esc(e.name)} · ${TERRAIN[bfTerrain(f)].n} · ${ph.n.toLowerCase()} · ${pl.mine ? `бои на нашей земле: ${esc(pl.name)}` : f.p > 0.5 ? `бои: ${esc(pl.name)}` : "у границы"}</small>
+    <div class="front-bar thin"><i class="mine" style="width:${clamp(50 + f.p/2, 0, 100)}%"></i><b style="left:${clamp(50 + f.p/2, 0, 100)}%"></b></div>`;
+}
+function bfView(st){ const cv = st.root.querySelector("#bf-cv"); const r = cv.getBoundingClientRect(); return {cv, W:r.width, H:r.height}; }
+function bfZoom(st){ const {W} = bfView(st); return BF_PPM*Math.pow(2, st.cam.z)*Math.max(0.28, W/1400); }
+function bfFit(st){ st.cam.z = -0.85; bfClamp(st); }
+function bfClamp(st){ const {W, H} = bfView(st), k = bfZoom(st), hw = W/2/k, hh = H/2/k/BF_FY;
+  st.cam.z = clamp(st.cam.z, -1.4, 1.3);
+  st.cam.x = BF_W/2 <= hw ? BF_W/2 : clamp(st.cam.x, hw, BF_W - hw); st.cam.y = BF_H/2 <= hh ? BF_H/2 : clamp(st.cam.y, hh, BF_H - hh); }
+function bfInput(st){
+  const cv = st.root.querySelector("#bf-cv"), pts = new Map(); let pinch = null;
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 2){ const [a, b] = [...pts.values()]; pinch = {d:Math.hypot(a[0] - b[0], a[1] - b[1]), z:st.cam.z}; } });
+  cv.addEventListener("pointermove", e => { const p = pts.get(e.pointerId); if (!p) return; const k = bfZoom(st);
+    if (pts.size === 1){ st.cam.x -= (e.clientX - p[0])/k; st.cam.y -= (e.clientY - p[1])/k/BF_FY; }
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2 && pinch){ const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); st.cam.z = pinch.z + Math.log2(d/pinch.d); }
+    bfClamp(st); st.dirty = true; });
+  const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  cv.addEventListener("wheel", e => { e.preventDefault(); st.cam.z -= e.deltaY*0.0015; bfClamp(st); st.dirty = true; }, {passive:false});
+  st.root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) closeBattle(); });
+}
+function bfLoop(now){
+  const st = BF.open; if (!st || !st.root.isConnected) return;
+  requestAnimationFrame(bfLoop);
+  if (now - (st.last || 0) < 32) return; st.last = now;
+  const {cv, W, H} = bfView(st); if (!W) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); bfClamp(st); }
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#1A1F16"; g.fillRect(0, 0, W, H);
+  const G = st.gen; if (!G) return;
+  if (now - (st.titleT || 0) > 1000){ st.titleT = now; bfTitle(st); if (!BF.open) return; }
+  const k = bfZoom(st), ox = W/2 - st.cam.x*k, oy = H/2 - st.cam.y*k*BF_FY;
+  const S2 = (x, y) => [ox + x*k, oy + y*k*BF_FY];
+  // ground
+  g.imageSmoothingQuality = "high";
+  g.drawImage(G.ground, ox, oy, BF_W*k, BF_H*BF_FY*k);
+  // sprites sorted by depth: props and troops together
+  const list = [];
+  for (const p of G.props){ const [a, b] = S2(p.x, p.y), m = Math.max(p.d[0], p.d[2])*k; if (a < -m || a > W + m || b < -m*0.4 || b > H + m*1.6) continue; list.push({y:p.y, a, b, p}); }
+  for (const u of G.units){ const [a, b] = S2(u.x, u.y); if (a < -80 || a > W + 80 || b < -80 || b > H + 80) continue; list.push({y:u.y, a, b, u}); }
+  list.sort((p, q) => p.y - q.y);
+  const sc = k/BF_PPM;
+  for (const it of list){
+    if (it.p){ const r = BF.props && BF.props[it.p.id]; if (!r || !BF.propImg) continue; const [x, y, w0, h0, ax, ay] = r; g.drawImage(BF.propImg, x, y, w0, h0, it.a - ax*sc, it.b - ay*sc, w0*sc, h0*sc); }
+    else { const u = it.u, f = sprFrame(u.id, sprDir(u.ang), u.side, u.side ? sprCamo(G.w.enemy) : sprCamo(S.player)); if (!f) continue;
+      const s = u.len*1.13*k*BF_US; g.fillStyle = "rgba(8,10,6,.35)"; g.beginPath(); g.ellipse(it.a + s*0.08, it.b + s*0.05, s*0.36, s*0.36*BF_FY*0.55, 0, 0, 7); g.fill();
+      g.drawImage(f, it.a - s/2, it.b - s/2, s, s); }
+  }
+  // smoke over the burning spots of no man's land
+  for (const sm of G.smoke){ const [a, b] = S2(sm.x, sm.y);
+    const fl = 0.7 + 0.3*Math.sin(now/70 + sm.ph) + 0.15*Math.sin(now/23 + sm.ph*3), gr = g.createRadialGradient(a, b, 0, a, b, 3.2*k*sm.s);
+    gr.addColorStop(0, `rgba(255,220,120,${0.9*fl})`); gr.addColorStop(0.35, `rgba(255,120,30,${0.6*fl})`); gr.addColorStop(1, "rgba(200,50,10,0)"); g.fillStyle = gr; g.beginPath(); g.arc(a, b, 3.2*k*sm.s, 0, 7); g.fill();
+    for (let q = 0; q < 9; q++){ const t = ((now/1000*0.12*sm.s + sm.ph + q/9) % 1), r = (1.6 + t*9)*k*sm.s, al = 0.5*(1 - t)*Math.min(1, t*6);
+      g.fillStyle = `rgba(${46 + t*40|0},${44 + t*40|0},${42 + t*40|0},${al})`; g.beginPath(); g.arc(a + t*t*26*k + Math.sin(t*5 + q)*1.5*k, b - t*34*k, r, 0, 7); g.fill(); } }
+  // edge vignette
+  const vg = g.createRadialGradient(W/2, H/2, Math.min(W, H)*0.45, W/2, H/2, Math.max(W, H)*0.75); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.35)"); g.fillStyle = vg; g.fillRect(0, 0, W, H);
 }
 
 function viewHQ(){
@@ -6610,6 +6889,7 @@ function attachMap(){
   const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
     if (!moved && e.type==="pointerup"){ const el = document.elementFromPoint(e.clientX, e.clientY);
       const btn = el && el.closest(".fx-btn");
+      if (btn && btn.dataset.battle){ ghostUntil = performance.now() + 450; const [be, bi] = btn.dataset.battle.split(":"); openBattle(be, +bi); return; }
       if (btn){ ghostUntil = performance.now() + 450; const [tab, cat] = btn.dataset.go.split(":"); if (cat) S.buildCat = cat; ui.tab = tab; sfx("tap"); render(); return; }
       const p = el && el.closest("path[data-iso]");
       if (!p && ui.mapSel){ ui.mapSel = null; render(); return; }
@@ -7143,6 +7423,7 @@ document.addEventListener("click", e => {
   if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
   if (t.dataset.hqmore){ ui.hqMore = !ui.hqMore; render(); return; }
+  if (t.dataset.bfopen){ const [be, bi] = t.dataset.bfopen.split(":"); openBattle(be, +bi); return; }
   if (t.dataset.whomore){ ui.whoMore = !ui.whoMore; render(); return; }
   if (t.dataset.wcard !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) resolveWcard(w, +t.dataset.wcard); save(); render(); return; }
   if (t.dataset.warplan){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.plan = t.dataset.warplan; applyPlan(w); } save(); render(); return; }
