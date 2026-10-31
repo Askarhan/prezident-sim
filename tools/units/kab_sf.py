@@ -18,6 +18,9 @@ def sf_world_copy(objs, name):
         bm.from_mesh(me); bpy.data.meshes.remove(me)
     bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001)   # imported meshes come split per face: weld them so islands and decimation work
     bm.to_mesh(out); bm.free()
+    # vertex-coloured imports: the joined mesh must keep a render colour layer or "Color Attribute" nodes read black
+    if out.color_attributes:
+        out.color_attributes.active_color_index = 0; out.color_attributes.render_color_index = 0
     for m in mats: out.materials.append(m)
     ob = bpy.data.objects.new(name, out); bpy.context.scene.collection.objects.link(ob); return ob
 def sf_rotate_front(objs, front):
@@ -307,12 +310,26 @@ def sf_box(p):
     pts = [p.matrix_world @ v.co for v in p.data.vertices]
     mn = [min(q[i] for q in pts) for i in range(3)]; mx = [max(q[i] for q in pts) for i in range(3)]
     return mn, mx, [(mn[i] + mx[i])/2 for i in range(3)]
-def sf_make_air(root_name, mid, front, rotors=(), accent=None, targets=(6000, 700), length=None, lo_targets=(1800, 160)):
+def sf_scrub_red(img, r=6):
+    """paint national markings out of a baked texture: red (and the white rim next to it) gets the surrounding colour"""
+    import numpy as np
+    def box(a, k):
+        c = np.cumsum(np.cumsum(np.pad(a, ((k + 1, k), (k + 1, k)) + ((0, 0),)*(a.ndim - 2), mode="edge"), 0), 1)
+        return c[2*k + 1:, 2*k + 1:] - c[:-2*k - 1, 2*k + 1:] - c[2*k + 1:, :-2*k - 1] + c[:-2*k - 1, :-2*k - 1]
+    w, h = img.size; px = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, img.channels); rgb = px[..., :3]
+    red = (rgb[..., 0] > 0.2) & (rgb[..., 0] > rgb[..., 1]*1.7) & (rgb[..., 0] > rgb[..., 2]*1.6)
+    near = box(red.astype(np.float32), r) > 0; mx = rgb.max(-1); mn = rgb.min(-1); white = (mn > 0.5) & (mx - mn < 0.2)
+    mf = (box((red | (near & white)).astype(np.float32), 2) > 0).astype(np.float32); keep = 1 - mf
+    fill = box(rgb*keep[..., None], r*3)/np.maximum(box(keep, r*3)[..., None], 1e-3)
+    px[..., :3] = np.where(mf[..., None] > 0, fill, rgb); img.pixels[:] = px.ravel(); img.update(); img.save()
+    return int(mf.sum())
+def sf_make_air(root_name, mid, front, rotors=(), accent=None, targets=(6000, 700), length=None, lo_targets=(1800, 160), scrub=False):
     """an aircraft for the battlefield: g_<mid>_hull (airframe, origin at the centre of its box, nose along +X)
     and g_<mid>_rotor, g_<mid>_rotor2 ... (parts that spin about their own centre).
-    rotors: [(pred(mn, mx, centre), axis[, hub])] in import world space, axis "y" (main rotor) or "x" (propeller);
+    rotors: [(pred(mn, mx, centre), axis[, hub])] in import world space, axis "y" (main rotor), "x" (propeller) or "z" (tail rotor);
     hub: a point on the spin axis (import world), else the centre of the rotor's box.
-    accent(x, y, z, mn, mx): faces of the finished airframe (nose +X, Z up, centred) that carry the side colour."""
+    accent(x, y, z, mn, mx): faces of the finished airframe (nose +X, Z up, centred) that carry the side colour.
+    scrub: paint red national markings out of the baked airframe texture."""
     for o in [o for o in bpy.data.objects if o.name.split('.')[0].startswith("g_" + mid + "_")]: bpy.data.objects.remove(o, do_unlink=True)
     root = bpy.data.objects[root_name]; root.location = (0, 0, 0); bpy.context.view_layer.update()
     meshes = [o for o in sf_meshes(root) if len(o.data.polygons)]
@@ -345,7 +362,8 @@ def sf_make_air(root_name, mid, front, rotors=(), accent=None, targets=(6000, 70
         if hasattr(bpy.ops.object, "shade_smooth_by_angle"): bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40))
     for R, hub in zip(Rs, hubs):
         rmn, rmx = sf_bounds([R]); p = (rmn + rmx)/2
-        if hub is not None: p = Vector((hub.x, hub.y, p.z)) if ax_of(R) == "y" else Vector((p.x, hub.y, hub.z))
+        # the pivot sits on the spin axis: glTF y is Blender Z (main rotor), x is the nose axis (propeller), z is sideways (tail rotor)
+        if hub is not None: p = {"y": Vector((hub.x, hub.y, p.z)), "x": Vector((p.x, hub.y, hub.z)), "z": Vector((hub.x, p.y, hub.z))}[ax_of(R)]
         set_origin(R, p)
     bpy.context.view_layer.update()
     for R in Rs: mw = R.matrix_world.copy(); R.parent = H; R.matrix_world = mw
@@ -353,6 +371,7 @@ def sf_make_air(root_name, mid, front, rotors=(), accent=None, targets=(6000, 70
     res = []
     for o, size in zip(objs, [1024] + [256]*len(Rs)):
         img, ai = sf_bake_part(o, size); res.append((o, img, ai))
+    if scrub: print("scrubbed px", sf_scrub_red(res[0][1]))
     for o, img, ai in res: finalize_part(o, img, ai, metal=0.25, rough=0.62)
     bpy.context.scene.render.engine = "BLENDER_EEVEE"
     path = os.path.join(OUT, mid + ".glb"); export_glb(objs, path)
