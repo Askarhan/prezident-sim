@@ -3163,13 +3163,16 @@ function openBattle(enemy, i){
 }
 function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); st.root.remove(); BF.open = null; if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
-const BF3D_MODELS = ["t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
+const BF3D_MODELS = ["su25","ka52","tb2","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
-function bf3dModel(id){ if (BF3D_MODELS.includes(id)) return id; const m = MODELS[id]; if (!m) return "t72"; if (m.origin === "us") return "abrams"; if (m.origin === "de") return "leo"; if (m.origin === "cn") return m.gen >= 2 ? "leo" : "t72"; return m.gen >= 2 ? "t90" : "t72"; }
-// up to 10 machines a side, in proportion to the real armies on this front
+// aircraft use the nearest model that is ready: attack planes, fighters and bombers fly as the Su-25, helicopters as the Ka-52, drones as the TB2
+const BF3D_AIR_MODEL = {fighter:"su25", attack:"su25", bomber:"su25", heli:"ka52", drone:"tb2", loiter:"tb2"};
+function bf3dModel(id){ if (BF3D_MODELS.includes(id)) return id; const m = MODELS[id]; if (!m) return "t72"; if (BF3D_AIR_MODEL[m.kind]) return BF3D_AIR_MODEL[m.kind]; if (m.origin === "us") return "abrams"; if (m.origin === "de") return "leo"; if (m.origin === "cn") return m.gen >= 2 ? "leo" : "t72"; return m.gen >= 2 ? "t90" : "t72"; }
+// up to 10 ground squads and 11 aircraft a side, in proportion to the real armies on this front
 // roles on the 3D field: armour in front, artillery behind, air defence in the depth
-const BF3D_ROLE = {tank:"front", ifv:"front", apc:"front", sph:"arty", mlrs:"arty", srbm:"arty", shorad:"ad", mrsam:"ad", lrsam:"ad", ew:"ad"};
-const BF3D_SLOTS = {front:6, arty:2, ad:2};
+// aviation over the field: planes make passes, helicopters hover behind the line, drones and loitering munitions share the drone slots
+const BF3D_ROLE = {tank:"front", ifv:"front", apc:"front", sph:"arty", mlrs:"arty", srbm:"arty", shorad:"ad", mrsam:"ad", lrsam:"ad", ew:"ad", fighter:"plane", attack:"plane", bomber:"plane", heli:"heli", drone:"drone", loiter:"drone"};
+const BF3D_SLOTS = {front:6, arty:2, ad:2, plane:4, heli:3, drone:4};
 // up to 10 squads a side, in proportion to what really fights on this direction; every squad's HP is the number of machines it stands for
 function bf3dUnits(w, i){
   const f = w.fronts[i], fs = f.share || 1/(w.fronts.length || 1), out = [], counts = [0, 0];
@@ -6549,7 +6552,10 @@ const CREDITS3D = [
   ["s300", "«S-400 Triumf missile launcher truck» — Chenzoss (та же пусковая установка)", "https://sketchfab.com/3d-models/c2631f0da36b49cda7d7f849b373283f"],
   ["thaad", "«Terminal High Altitude Area Defense (THAAD)» — Chenzoss", "https://sketchfab.com/3d-models/4ab96bf250e64f3c92c74feb835dd4a9"],
   ["buk", "«BUK Missile System» — azlan", "https://sketchfab.com/3d-models/7663f9fca2ce485da8c0fafcf2d40d10"],
-  ["nasams", "«NASAMS AMRAAM Launcher (Textured)» — xFORTUNAx", "https://sketchfab.com/3d-models/cfebef3005a743f0885fdc6f7b8bd9e9"]
+  ["nasams", "«NASAMS AMRAAM Launcher (Textured)» — xFORTUNAx", "https://sketchfab.com/3d-models/cfebef3005a743f0885fdc6f7b8bd9e9"],
+  ["su25", "«Su-25» — tnikita", "https://sketchfab.com/3d-models/88b71eb848cf4418a95dff497c07cefc"],
+  ["ka52", "«Russian Ka-52 Alligator» — 42manako (опознавательные знаки удалены, лопасти несущих винтов перерисованы)", "https://sketchfab.com/3d-models/9b31733ceed24be49b2f621487b35ea9"],
+  ["tb2", "«Ukrainian Bayraktar TB2» — 42manako (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/9738e42238894e5bbc51646c79eadec7"]
 ];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];

@@ -7,8 +7,10 @@ const FIELD = 240;                 // metres, square
 const MODEL_CACHE = new Map();     // glb name -> Promise<gltf scene>
 const loader = new GLTFLoader();
 // models that also ship a light copy <name>_lo.glb (~2.5-4k triangles, half-size textures)
-const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams"]);
+const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams", "su25", "ka52", "tb2"]);
 // graphics levels: pixel ratio cap, shadow map (0 = off), distance beyond which the light copy is drawn, effects share, squads per side at the front
+// aircraft on the field: roles the game sends for them
+const AIR_ROLES = new Set(["plane", "heli", "drone"]);
 const QL = {high:{pr:1.6, sh:2048, soft:true, lod:150, fx:1, cap:6}, mid:{pr:1, sh:1024, soft:false, lod:90, fx:0.65, cap:6}, low:{pr:0.8, sh:0, soft:false, lod:0, fx:0.4, cap:4}};
 function loadModel(name){
   // the app ships .glb files; the web page gets the same files as base64 text (hosts that don't serve .glb)
@@ -247,7 +249,8 @@ export async function start(el, ctx){
   async function getModel(m, lo){ const k = lo && HAS_LO.has(m) ? m + "_lo" : m;
     if (!(k in models)){ try { models[k] = await loadModel(k); } catch(e){ models[k] = k !== m ? await getModel(m, false) : null; } }
     return models[k]; }
-  await Promise.all([...new Set(units.map(u => u.model))].map(m => getModel(m, level === "low")));
+  const airInit = ctx.units.filter(u => AIR_ROLES.has(u.role));
+  await Promise.all([...new Set([...units, ...airInit].map(u => u.model))].map(m => getModel(m, level === "low")));
   if (level !== "low") [...new Set(units.map(u => u.model))].forEach(m => getModel(m, true));
   const accent = [new THREE.MeshStandardMaterial({color:ctx.accentUs || 0x2f6bff, emissive:ctx.accentUs || 0x2f6bff, emissiveIntensity:0.35, roughness:0.5}),
                   new THREE.MeshStandardMaterial({color:ctx.accentThem || 0xe03030, emissive:ctx.accentThem || 0xe03030, emissiveIntensity:0.35, roughness:0.5})];
@@ -396,17 +399,17 @@ export async function start(el, ctx){
   let selected = null, selT = 0, downAt = null;
   cv.addEventListener("pointerdown", e => { downAt = {x:e.clientX, y:e.clientY, t:performance.now()}; });
   cv.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
-    const r = cv.getBoundingClientRect(); let best = null, bd = 44; for (const u of units){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5); const d = Math.hypot(q.x - (e.clientX - r.left), q.y - (e.clientY - r.top)); if (d < bd){ bd = d; best = u; } }
+    const r = cv.getBoundingClientRect(); let best = null, bd = 44; for (const u of [...units, ...air]){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5); const d = Math.hypot(q.x - (e.clientX - r.left), q.y - (e.clientY - r.top)); if (d < bd){ bd = d; best = u; } }
     selected = best; selT = 4; });
   const v3 = new THREE.Vector3();
-  function screenOf(u, up){ v3.set(u.x, G.height(u.x, u.z) + up, u.z).project(camera); return {x:(v3.x + 1)/2*el.clientWidth, y:(1 - v3.y)/2*el.clientHeight, vis:v3.z < 1}; }
+  function screenOf(u, up){ v3.set(u.x, (u.air ? u.y : G.height(u.x, u.z)) + up, u.z).project(camera); return {x:(v3.x + 1)/2*el.clientWidth, y:(1 - v3.y)/2*el.clientHeight, vis:v3.z < 1}; }
   function drawHud(dt){
     const dpr = Math.min(2, window.devicePixelRatio || 1), W = el.clientWidth, H = el.clientHeight;
     if (hud.width !== Math.round(W*dpr)){ hud.width = Math.round(W*dpr); hud.height = Math.round(H*dpr); }
     hg.setTransform(dpr, 0, 0, dpr, 0, 0); hg.clearRect(0, 0, W, H);
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
-    for (const u of units){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 4.2); if (!q.vis) continue;
+    for (const u of [...units, ...air]){ if (!u.alive || !u.obj || (u.air && u.state === "fall")) continue; const q = screenOf(u, u.air ? 3.2 : 4.2); if (!q.vis) continue;
       const w = 26, k = clamp(u.hp/u.hpMax, 0, 1);
       hg.fillStyle = "rgba(0,0,0,.55)"; hg.fillRect(q.x - w/2 - 1, q.y - 1, w + 2, 5);
       hg.fillStyle = u.side ? "#ff5a4f" : "#4f8cff"; hg.fillRect(q.x - w/2, q.y, w*k, 3);
@@ -418,6 +421,200 @@ export async function start(el, ctx){
   const ro = new ResizeObserver(resize); ro.observe(el); resize(); placeCamera();
   /* ---- the battle itself ---- */
   let last = performance.now(), running = true, artT = 3;
+  /* ---- aviation: planes make passes over the field, helicopters hover behind their lines and fire ATGMs,
+     drones circle over the enemy and drop bombs, loitering munitions dive on a target.
+     Nothing on the field decides a kill: the war's real losses arrive as pend, and the air defence (or a MANPADS
+     from the front line) brings that aircraft down. ---- */
+  const air = [];
+  const roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front";
+  const isAir = id => AIR_ROLES.has(roleOf(id));
+  const airCap = () => level === "low" ? {plane:2, heli:2, drone:2} : {plane:4, heli:3, drone:4};
+  // heights stay under the default camera (~105 m up) so passes read as low and fast
+  const SPEC = {plane:{v:34, alt:[30, 40], turn:0.95}, heli:{v:13, alt:[12, 18], turn:0.8}, drone:{v:17, alt:[44, 54], turn:0.6}, loiter:{v:30, alt:[28, 36], turn:1.5}};
+  const bombGeo = new THREE.CapsuleGeometry(0.22, 0.9, 2, 6), bombMat = new THREE.MeshStandardMaterial({color:0x3a3d38, roughness:0.6, metalness:0.3});
+  bombGeo.rotateZ(Math.PI/2);
+  function airAdd(side, id, hp, wait){
+    const role = roleOf(id), loiter = ctx.kindOf[id] === "loiter";
+    const a = {id, model:(ctx.modelOf && ctx.modelOf[id]) || "su25", side, cls:role, loiter, air:true, hp, hpMax:hp, pend:0, alive:true, obj:null,
+      state:"wait", t:wait != null ? wait : 2 + Math.random()*4, x:0, y:0, z:0, h:0, pitch:0, roll:0, reload:3 + Math.random()*4, next:0, pendT:0};
+    a.spec = loiter ? SPEC.loiter : SPEC[role];
+    air.push(a); getModel(a.model, level === "low"); return a;
+  }
+  airInit.forEach((u, k) => airAdd(u.side, u.id, u.hp || 1, u.role === "plane" ? 2 + Math.random()*9 : u.role === "heli" ? 0.5 + k*0.7 : 1 + Math.random()*5));
+  const own = a => a.side ? -1 : 1;                                   // the sign of z on our half of the field
+  const groundY = (x, z) => G.height(clamp(x, -FIELD*1.2, FIELD*1.2), clamp(z, -FIELD*1.2, FIELD*1.2));
+  function pickGround(a, front){
+    let es = units.filter(v => v.alive && v.obj && v.side !== a.side); if (front){ const f = es.filter(v => v.role === "front"); if (f.length) es = f; }
+    if (!es.length) return null; const p = es.filter(v => v.pend >= 1); const L = p.length ? p : es; return L[Math.floor(Math.random()*L.length)];
+  }
+  // the war's losses this strike brings with it (same bookkeeping as artillery: pend -> inbound -> damage)
+  function payload(t){ const d = t && t.pend >= 1 ? Math.floor(t.pend) : 0; if (d){ t.pend -= d; t.inbound = (t.inbound || 0) + d; } return d; }
+  function land(t, d){ if (d && t){ t.inbound -= d; damage(t, d); } }
+  function spawn(a){
+    const lo = level === "low" && HAS_LO.has(a.model), src = models[lo ? a.model + "_lo" : a.model] || models[a.model] || models[a.model + "_lo"];
+    if (!src){ getModel(a.model, lo); return false; }
+    const set = makeSet(a, src), root = new THREE.Group(); root.add(set.obj); root.rotation.order = "YZX";
+    a.rotors = []; a.hull = null; set.obj.traverse(o => { if (/_rotor\d*$/.test(o.name)) a.rotors.push(o); if (/_hull$/.test(o.name)) a.hull = o; });
+    a.axes = String((a.hull && a.hull.userData && a.hull.userData.rotors) || "").split(",");
+    if (a.loiter) root.scale.setScalar(0.26);
+    a.obj = root; scene.add(root); a.chased = false; a.pendT = 0;
+    const s = own(a), sp = a.spec, R = Math.random;
+    a.alt = sp.alt[0] + R()*(sp.alt[1] - sp.alt[0]); a.v = sp.v; a.pitch = 0; a.roll = 0; a.h = a.side ? -Math.PI/2 : Math.PI/2;
+    if (a.cls === "plane"){ a.target = pickGround(a, false); const tx = a.target ? a.target.x : (R() - 0.5)*140;
+      a.x = clamp(tx + (R() - 0.5)*80, -FIELD/2, FIELD/2); a.z = s*(FIELD/2 + 70); a.state = "in"; a.kind = R() < 0.5 ? "rockets" : "bombs"; }
+    else if (a.cls === "heli"){ const mine = air.filter(b => b !== a && b.side === a.side && b.cls === "heli" && b.hx != null).map(b => b.hx);
+      let hx = 0, best = -1; for (let i = 0; i < 8; i++){ const x = (R() - 0.5)*FIELD*0.7, d = Math.min(99, ...mine.map(m => Math.abs(m - x))); if (d > best){ best = d; hx = x; } }
+      a.hx = hx; a.hz = s*(tz + 30 + R()*14); a.x = hx + (R() - 0.5)*30; a.z = s*(FIELD/2 + 30); a.state = "in"; }
+    else if (a.loiter){ a.target = pickGround(a, false); a.x = (R() - 0.5)*FIELD*0.6; a.z = s*(FIELD/2 + 30); a.state = "in"; }
+    else { a.cx = (R() - 0.5)*FIELD*0.5; a.cz = -s*(40 + R()*25); a.r = 38 + R()*14; a.dir = R() < 0.5 ? 1 : -1; a.ang = 0;
+      a.x = a.cx + (R() - 0.5)*40; a.z = s*(FIELD/2 + 40); a.state = "in"; a.reload = 6 + R()*6; }
+    a.y = groundY(a.x, a.z) + a.alt; place(a); return true;
+  }
+  function despawn(a){ if (a.obj){ scene.remove(a.obj); a.obj = null; } a.state = "wait"; a.chased = false; }
+  function place(a){ a.obj.position.set(a.x, a.y, a.z); a.obj.rotation.set(a.roll, a.h, a.pitch); }
+  // steer towards a point: limited turn rate, banking into the turn, climbing or diving towards wy
+  function fly(a, wx, wy, wz, dt, v){
+    const want = Math.atan2(-(wz - a.z), wx - a.x), d = angDiff(a.h, want), rate = clamp(d*2, -a.spec.turn, a.spec.turn);
+    a.h += rate*dt; a.roll = lerp(a.roll, -rate*(a.cls === "heli" ? 0.25 : 0.85), Math.min(1, dt*3));
+    const vy = clamp((wy - a.y)*0.9, -v*0.45, v*0.35); a.y += vy*dt;
+    a.pitch = lerp(a.pitch, a.cls === "heli" ? -0.12*v/a.spec.v : Math.atan2(vy, v), Math.min(1, dt*3));
+    a.x += Math.cos(a.h)*v*dt; a.z -= Math.sin(a.h)*v*dt;
+    return Math.hypot(wx - a.x, wz - a.z);
+  }
+  function onField(a, m = 30){ return a.obj && Math.abs(a.x) < FIELD/2 + m && Math.abs(a.z) < FIELD/2 + m; }
+  // weapons
+  function rockets(a, t){
+    const d = payload(t), tx = t ? t.x : a.x + Math.cos(a.h)*60, tz = t ? t.z : a.z - Math.sin(a.h)*60;
+    for (let i = 0; i < 8; i++){ const last = i === 7, ex = tx + (last && d ? 0 : (Math.random() - 0.5)*16), ez = tz + (last && d ? 0 : (Math.random() - 0.5)*16);
+      const p = new THREE.Vector3(0.4, -1.2, (i % 2 ? 1 : -1)*2.5); a.obj.localToWorld(p);
+      shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.3, z1:ez, t:-i*0.09, dur:Math.hypot(ex - p.x, ez - p.z, p.y)/170 + 0.1, side:a.side, kind:"arocket", trail:true, c:[1, 0.85, 0.55],
+        onHit:() => { explosion(ex, ez, false, false, 0.7); if (last) land(t, d); }}); }
+  }
+  function bombs(a, t, n, fallT){
+    const d = payload(t), tx = t ? t.x : a.x + Math.cos(a.h)*40, tz = t ? t.z : a.z - Math.sin(a.h)*40;
+    for (let i = 0; i < n; i++){ const last = i === n - 1, along = (i - (n - 1)/2)*7, ex = tx + Math.cos(a.h)*along + (last && d ? 0 : (Math.random() - 0.5)*5), ez = tz - Math.sin(a.h)*along + (last && d ? 0 : (Math.random() - 0.5)*5);
+      const p = new THREE.Vector3(0, -1.4, (i % 2 ? 1 : -1)*1.6); a.obj.localToWorld(p); const m = new THREE.Mesh(bombGeo, bombMat); m.rotation.y = a.h;
+      shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.3, z1:ez, t:-i*0.12, dur:fallT, fall:-p.y*0.25, side:a.side, kind:"bomb", mesh:m, c:[0, 0, 0],
+        onHit:() => { explosion(ex, ez, true, false, 1.1); if (last) land(t, d); }}); }
+  }
+  function atgm(a, t){
+    const d = payload(t), p = new THREE.Vector3(1.5, -0.9, (Math.random() < 0.5 ? 1 : -1)*2.6); a.obj.localToWorld(p);
+    const ex = t.x + (d ? 0 : (Math.random() - 0.5)*10), ez = t.z + (d ? 0 : (Math.random() - 0.5)*10), ey = G.height(ex, ez) + (d ? 1.4 : 0.3);
+    launchSmoke(p, 6, 0.7);
+    shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:Math.hypot(ex - p.x, ez - p.z, ey - p.y)/140 + 0.2, arc:2, side:a.side, kind:"atgm", trail:true, c:[1, 0.8, 0.5],
+      onHit:() => { explosion(ex, ez, d > 0, false, 0.9); land(t, d); }});
+  }
+  // the air defence: a homing missile; a miss ends in a burst near the aircraft, which throws flares
+  const homers = [];
+  function airTarget(u){
+    const cand = air.filter(a => a.alive && a.side !== u.side && a.state !== "fall" && a.state !== "wait" && onField(a, 10) && !a.chased);
+    const real = cand.filter(a => a.pend >= 1); if (real.length) return real[Math.floor(Math.random()*real.length)];
+    return cand.length && Math.random() < 0.05 ? cand[Math.floor(Math.random()*cand.length)] : null;
+  }
+  function launchSAM(p, a, miss){ a.chased = true; homers.push({x:p.x, y:p.y, z:p.z, vx:0, vy:25, vz:0, a, miss, t:0}); launchSmoke(p, 10, 1); flash.position.copy(p); flash.intensity = 80; flashT = 0.08; }
+  function flares(a){ for (let i = 0; i < 10; i++) fxFire.emit({x:a.x, y:a.y - 1, z:a.z, vx:(Math.random() - 0.5)*14, vy:-2 - Math.random()*4, vz:(Math.random() - 0.5)*14, g:-6, life:1.2 + Math.random()*0.8, s0:2.2, s1:0.8, c:[1, 0.95, 0.75], c1:[1, 0.5, 0.15], a:1, drag:1.2}); }
+  function homersStep(dt){
+    for (let i = homers.length - 1; i >= 0; i--){ const m = homers[i], a = m.a; m.t += dt;
+      const gone = !a.alive || !a.obj || a.state === "fall" || a.state === "wait";
+      if (gone || m.t > 7 || m.y < groundY(m.x, m.z)){ explosion(m.x, m.z, false, true, 0.5, m.y); homers.splice(i, 1); if (a.chased && !gone) a.chased = false; continue; }
+      const dx = a.x - m.x, dy = a.y - m.y, dz = a.z - m.z, d = Math.hypot(dx, dy, dz), sp = Math.min(115, 25 + m.t*140), k = Math.min(1, dt*(m.miss ? 2.5 : 6));
+      m.vx = lerp(m.vx, dx/d*sp, k); m.vy = lerp(m.vy, dy/d*sp, k); m.vz = lerp(m.vz, dz/d*sp, k);
+      m.x += m.vx*dt; m.y += m.vy*dt; m.z += m.vz*dt;
+      if (Math.random() < dt*60) fxSmoke.emit({x:m.x, y:m.y, z:m.z, vx:0, vy:0.3, vz:0, life:2.2, s0:1, s1:4, c:[0.86, 0.85, 0.83], a:0.55, drag:1});
+      fxFire.emit({x:m.x, y:m.y, z:m.z, vx:0, vy:0, vz:0, life:0.06, s0:1.6, s1:0.6, c:[1, 0.85, 0.5], a:1});
+      if (m.miss && d < 14 && !m.fl){ m.fl = true; flares(a); }
+      if (d < (m.miss ? 7 : 2.5)){ homers.splice(i, 1); a.chased = false;
+        if (m.miss){ explosion(m.x, m.z, false, true, 0.6, m.y); }
+        else { const dmg = Math.max(1, Math.floor(a.pend)); a.pend = Math.max(0, a.pend - dmg); explosion(a.x, a.z, false, true, a.loiter ? 0.5 : 1, a.y); shootDown(a, dmg); } }
+    }
+  }
+  function shootDown(a, dmg){
+    a.hp -= dmg; floats.push({u:a, text:"−" + Math.round(dmg), t:0});
+    if (a.loiter){ despawn(a); a.t = 5 + Math.random()*8; if (a.hp <= 0.5) a.alive = false; return; }
+    a.state = "fall"; a.vy = a.cls === "plane" ? 2 : 0; a.spin = (Math.random() < 0.5 ? -1 : 1)*(a.cls === "heli" ? 3 : 1.6);
+  }
+  // our machines that the war lost while no air defence of the enemy is on this field: a MANPADS from the front line
+  function manpads(a, dt){
+    if (!(a.pend >= 1) || a.chased || !onField(a, 0) || a.state === "fall") { a.pendT = 0; return; }
+    a.pendT += dt; if (a.pendT < 3) return;
+    const ad = units.some(u => u.alive && u.obj && u.side !== a.side && u.role === "ad" && ctx.kindOf[u.id] !== "ew");
+    if (ad && a.pendT < 9) return;
+    const sh = units.filter(u => u.alive && u.obj && u.side !== a.side), from = sh.length ? sh[Math.floor(Math.random()*sh.length)] : null;
+    const p = from ? new THREE.Vector3(from.x + (Math.random() - 0.5)*6, G.height(from.x, from.z) + 2, from.z + (Math.random() - 0.5)*6) : new THREE.Vector3(a.x + (Math.random() - 0.5)*60, 0, -own(a)*(tz + 10));
+    if (!from) p.y = G.height(p.x, p.z) + 1;
+    launchSAM(p, a, false); a.pendT = 0;
+  }
+  function airThink(a, dt){
+    const R = Math.random, s = own(a), gy = groundY(a.x, a.z);
+    a.reload -= dt; a.next -= dt;
+    if (a.state === "fall"){
+      a.vy -= 9.8*dt; a.y += a.vy*dt; a.h += a.spin*dt*(a.cls === "heli" ? 1 : 0.3); a.roll += a.spin*dt*(a.cls === "heli" ? 0.2 : 1.2);
+      a.pitch = a.cls === "plane" ? Math.max(-0.9, a.pitch - dt*0.5) : lerp(a.pitch, -0.3, dt);
+      const v = a.cls === "plane" ? a.v : a.cls === "heli" ? 3 : a.v*0.7; a.x += Math.cos(a.h)*v*dt; a.z -= Math.sin(a.h)*v*dt;
+      if (R() < dt*40) fxFire.emit({x:a.x, y:a.y, z:a.z, vx:(R() - 0.5)*2, vy:1, vz:(R() - 0.5)*2, life:0.4, s0:3, s1:1, c:[1, 0.75, 0.3], c1:[0.9, 0.2, 0.04], a:0.9, drag:1});
+      if (R() < dt*30) fxSmoke.emit({x:a.x, y:a.y, z:a.z, vx:0, vy:0.5, vz:0, life:5 + R()*3, s0:2.5, s1:10, c:[0.1, 0.09, 0.08], c1:[0.35, 0.34, 0.33], a:0.7, drag:0.3, fadeIn:0.05});
+      if (a.y <= gy + 0.5){ explosion(a.x, a.z, true, false, a.cls === "drone" ? 0.9 : 1.5); despawn(a); if (a.hp <= 0.5) a.alive = false; else a.t = 18 + R()*14; }
+      else place(a);
+      return;
+    }
+    if (a.state === "wait"){ a.t -= dt; if (a.t <= 0 && !spawn(a)) a.t = 1; return; }
+    manpads(a, dt);
+    const sp = a.spec;
+    if (a.cls === "plane"){
+      if (a.state === "in"){
+        if (a.target && !a.target.alive) a.target = pickGround(a, false);
+        const t = a.target, tx = t ? t.x : a.x, tzz = t ? t.z : -s*40, dd = Math.hypot(tx - a.x, tzz - a.z);
+        fly(a, tx, groundY(tx, tzz) + (dd < 150 ? lerp(17, a.alt, dd/150) : a.alt), tzz, dt, a.v);
+        const ahead = Math.cos(a.h)*(tx - a.x) - Math.sin(a.h)*(tzz - a.z);
+        if ((dd < 60 && ahead > 15) || ahead < 0){ if (a.kind === "rockets") rockets(a, t); else bombs(a, t, 4, 1.7); a.state = "out"; a.wp = [clamp(a.x + (R() - 0.5)*120, -FIELD/2, FIELD/2), s*(FIELD/2 + 140)]; }
+      } else {
+        fly(a, a.wp[0], gy + a.alt + 8, a.wp[1], dt, a.v*1.1);
+        if (a.z*s > FIELD/2 + 110){ despawn(a); a.t = 7 + R()*12; }
+      }
+    } else if (a.cls === "heli"){
+      if (a.state === "in"){ const d = fly(a, a.hx, groundY(a.hx, a.hz) + a.alt, a.hz, dt, a.v); if (d < 6) a.state = "hover"; }
+      else {
+        if (!a.target || !a.target.alive || R() < dt*0.08) a.target = pickGround(a, true);
+        const t = a.target, want = t ? Math.atan2(-(t.z - a.z), t.x - a.x) : (a.side ? Math.PI/2 : -Math.PI/2)*-1, d = angDiff(a.h, want);
+        a.h += clamp(d, -0.6*dt, 0.6*dt); a.x = lerp(a.x, a.hx, dt*0.5); a.z = lerp(a.z, a.hz, dt*0.5);
+        a.bob = (a.bob || R()*6) + dt; a.y = lerp(a.y, groundY(a.hx, a.hz) + a.alt + Math.sin(a.bob*0.9)*0.7, dt); a.roll = lerp(a.roll, Math.sin(a.bob*0.6)*0.04, dt*2); a.pitch = lerp(a.pitch, -0.05, dt*2);
+        if (t && Math.abs(d) < 0.15 && a.reload < 0){ atgm(a, t); a.reload = (a.side ? ctx.rofThem : ctx.rofUs)*1.5*(0.7 + R()*0.6); }
+        if (a.next < 0){ a.next = 12 + R()*14; a.hx = clamp(a.hx + (R() - 0.5)*30, -FIELD*0.4, FIELD*0.4); a.hz = s*(tz + 30 + R()*14); }
+      }
+    } else if (a.loiter){
+      if (a.target && !a.target.alive) a.target = pickGround(a, false);
+      const t = a.target, tx = t ? t.x : a.x, tzz = t ? t.z : -s*40, ty = G.height(tx, tzz) + 1;
+      if (a.state === "in"){ const d = fly(a, tx, groundY(tx, tzz) + a.alt, tzz, dt, a.v); if (d < a.alt*0.9) { a.state = "dive"; a.dmg = payload(t); } }
+      else { const dx = tx - a.x, dy = ty - a.y, dz = tzz - a.z, d = Math.hypot(dx, dy, dz), v = 48;
+        a.h = Math.atan2(-dz, dx); a.pitch = Math.atan2(dy, Math.hypot(dx, dz)); a.roll = 0;
+        a.x += dx/d*v*dt; a.y += dy/d*v*dt; a.z += dz/d*v*dt;
+        if (d < 2.5 || a.y < ty){ explosion(tx, tzz, false, false, 0.9); land(t, a.dmg); a.dmg = 0; despawn(a); a.t = 4 + R()*9; return; } }
+    } else {
+      if (a.state === "in"){ const d = fly(a, a.cx + a.r, groundY(a.cx, a.cz) + a.alt, a.cz, dt, a.v); if (d < a.r*0.6){ a.state = "orbit"; a.ang = 0; } }
+      else { a.ang += a.dir*a.v/a.r*dt; const px = a.cx + Math.cos(a.ang + a.dir*0.5)*a.r, pz = a.cz + Math.sin(a.ang + a.dir*0.5)*a.r;
+        fly(a, px, groundY(a.cx, a.cz) + a.alt, pz, dt, a.v);
+        if (a.reload < 0){ const t = pickGround(a, false); if (t && Math.hypot(t.x - a.x, t.z - a.z) < 120){ bombs(a, t, 1, 2.6); } a.reload = (a.side ? ctx.rofThem : ctx.rofUs)*2.6*(0.8 + R()*0.5); } }
+    }
+    if (a.obj) place(a);
+  }
+  function airStep(dt){
+    for (let i = air.length - 1; i >= 0; i--) if (!air[i].alive && !air[i].obj) air.splice(i, 1);
+    for (const a of air){ airThink(a, dt);
+      if (a.obj && a.rotors) a.rotors.forEach((r, i) => { const ax = a.axes[i] || "y"; r.rotation[ax] += dt*(ax === "x" ? 42 : 21)*(i % 2 ? -1 : 1); }); }
+    homersStep(dt);
+  }
+  // what the war has in the air over this direction: new squads come from the rear, existing ones take the rest as their strength
+  function airSync(side, have){
+    const cap = airCap();
+    for (const [id, n] of Object.entries(have)){
+      const role = roleOf(id), mine = air.filter(a => a.alive && a.side === side && a.id === id), held = mine.reduce((s, a) => s + a.hp - a.pend, 0), diff = n - held;
+      const slots = air.filter(a => a.alive && a.side === side && a.cls === role).length < cap[role];
+      if (diff >= 1 && slots && (!mine.length || diff > held/mine.length*0.5)) airAdd(side, id, diff, 2 + Math.random()*6);
+      else if (diff > 0.5 && mine.length) mine.forEach(a => { a.hp += diff/mine.length; a.hpMax = Math.max(a.hpMax, a.hp); });
+      else if (diff < -0.5 && mine.length) mine[0].pend += -diff;
+    }
+  }
+
   const enemiesOf = u => units.filter(v => v.alive && v.side !== u.side && v.obj);
   function think(u, dt){
     if (!u.alive || !u.obj) return;
@@ -452,6 +649,7 @@ export async function start(el, ctx){
     const t = u.target, want = t ? Math.atan2(-(t.z - u.z), t.x - u.x) - u.h : 0;
     if (u.role === "ad"){
       if (u.turret) u.turret.rotation.y += dt*(k === "ew" ? 0.4 : 0.6);
+      if (u.reload < 0 && k !== "ew"){ const a = airTarget(u); if (a){ launchSAM(launchPoint(u), a, !(a.pend >= 1)); u.reload = 3 + Math.random()*3; return; } }
       if (u.reload < 0){ const inc = shells.find(sh => !sh.dead && !sh.chased && sh.side !== u.side && (sh.kind === "rocket" || sh.kind === "missile") && sh.t/sh.dur > 0.25 && sh.t/sh.dur < 0.7 && !sh.dmg);
         if (inc && Math.random() < 0.6){ inc.chased = true; const lead = Math.min(0.95, inc.t/inc.dur + 0.18), at = q => [lerp(inc.x0, inc.x1, q), lerp(inc.y0, inc.y1, q) + Math.sin(Math.PI*q)*inc.arc, lerp(inc.z0, inc.z1, q)], [ix, iy, iz] = at(lead), p = launchPoint(u);
           launchSmoke(p, 8, 0.9);
@@ -472,6 +670,7 @@ export async function start(el, ctx){
   }
   function step(dt){
     for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
+    airStep(dt);
     for (const u of units){
       think(u, dt);
       if (!u.obj) continue;
@@ -488,8 +687,9 @@ export async function start(el, ctx){
       const s = Math.random() < ctx.artyUs/(ctx.artyUs + ctx.artyThem + 1e-6) ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.85, z = s*(20 + Math.random()*55); explosion(x, z, Math.random() < 0.3); }
     // shells in flight
     let i = 0; const live = [];
-    for (const sh of shells){ sh.t += dt; if (sh.dead) continue; const k = sh.t/sh.dur; if (k >= 1){ sh.onHit(); continue; } live.push(sh); if (k < 0) continue;
-      const at = q => [lerp(sh.x0, sh.x1, q), lerp(sh.y0, sh.y1, q) + (sh.arc ? Math.sin(Math.PI*q)*sh.arc : 0), lerp(sh.z0, sh.z1, q)];
+    for (const sh of shells){ sh.t += dt; if (sh.dead){ if (sh.mesh) scene.remove(sh.mesh); continue; } const k = sh.t/sh.dur; if (k >= 1){ if (sh.mesh) scene.remove(sh.mesh); sh.onHit(); continue; } live.push(sh); if (k < 0) continue;
+      const at = q => [lerp(sh.x0, sh.x1, q), lerp(sh.y0, sh.y1, q) + (sh.arc ? Math.sin(Math.PI*q)*sh.arc : 0) - (sh.fall ? sh.fall*q*(1 - q) : 0), lerp(sh.z0, sh.z1, q)];
+      if (sh.mesh){ const [x, y, z] = at(k); sh.mesh.position.set(x, y, z); if (!sh.mesh.parent) scene.add(sh.mesh); continue; }
       if (sh.trail && Math.random() < dt*40){ const [x, y, z] = at(k); fxSmoke.emit({x, y, z, vx:0, vy:0.3, vz:0, life:sh.kind === "missile" ? 4 : 1.6, s0:sh.kind === "missile" ? 2.5 : 1, s1:sh.kind === "missile" ? 7 : 3, c:[0.8, 0.79, 0.77], a:0.55, drag:1}); fxFire.emit({x, y, z, vx:0, vy:0, vz:0, life:0.08, s0:sh.kind === "missile" ? 3 : 1.4, s1:0.6, c:[1, 0.8, 0.45], a:1}); }
       if (i < TR_MAX){ const k0 = Math.max(0, k - (sh.arc ? 0.04 : 0.25));
         trPos.set([...at(k0), ...at(k)], i*6); trCol.set([sh.c[0]*0.2, sh.c[1]*0.2, sh.c[2]*0.2, ...sh.c], i*6); i++; } }
@@ -526,10 +726,12 @@ export async function start(el, ctx){
   requestAnimationFrame(frame);
   return {
     // the war destroyed n machines of model id on this front
-    hit(side, id, n){ let pool = units.filter(u => u.alive && u.obj && u.side === side && u.id === id); if (!pool.length) pool = units.filter(u => u.alive && u.obj && u.side === side); if (!pool.length) return;
+    hit(side, id, n){ if (isAir(id)){ const ap = air.filter(a => a.alive && a.side === side && a.id === id); if (ap.length) ap.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a).pend += n; return; }
+      let pool = units.filter(u => u.alive && u.obj && u.side === side && u.id === id); if (!pool.length) pool = units.filter(u => u.alive && u.obj && u.side === side); if (!pool.length) return;
       const u = pool.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a); u.pend += n; },
     // what the army really has on this front: reinforce from the map edge when there is more than the squads hold
-    sync(side, have){ const CAP = {front:Q.cap, arty:2, ad:2}, roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front", slots = id => units.filter(u => u.alive && u.side === side && (u.role || "front") === roleOf(id)).length < CAP[roleOf(id)];
+    sync(side, have){ const airHave = {}; for (const id in have) if (isAir(id)){ airHave[id] = have[id]; delete have[id]; } airSync(side, airHave);
+      const CAP = {front:Q.cap, arty:2, ad:2}, roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front", slots = id => units.filter(u => u.alive && u.side === side && (u.role || "front") === roleOf(id)).length < CAP[roleOf(id)];
       for (const [id, n] of Object.entries(have)){ const mine = units.filter(u => u.alive && u.side === side && u.id === id), held = mine.reduce((a, u) => a + u.hp - u.pend - (u.inbound || 0), 0), diff = n - held;
         const per = mine.length ? held/mine.length : n;
         if (diff > Math.max(1, per*0.5) && slots(id)){ reinforce(side, id, diff); }
@@ -542,7 +744,10 @@ export async function start(el, ctx){
     list(){ return units.filter(v => v.obj).map(v => v.side + ':' + v.model); },
     quality(lv){ if (lv && QL[lv]){ while (level !== lv && lower()); } return {level, fps:perf.last || null}; },
     lods(){ return units.filter(u => u.obj).map(u => u.model + ":" + u.lod); },
-    info(){ return {alive:[0, 1].map(s => units.filter(u => u.side === s && u.alive).length), particles:fxSmoke.items.length + fxFire.items.length, calls:renderer.info.render.calls, tris:renderer.info.render.triangles}; },
+    air(){ return air.filter(a => a.alive).map(a => ({side:a.side, id:a.id, cls:a.cls, state:a.state, hp:+a.hp.toFixed(1), pend:+a.pend.toFixed(1), y:a.obj ? +a.y.toFixed(1) : null})); },
+    airFocus(i, dist){ const a = air.filter(a => a.obj)[i]; if (!a) return false; const k = (a.y - G.height(a.x, a.z))/Math.tan(cam.pitch);
+      cam.x = a.x - Math.sin(cam.yaw)*k; cam.z = a.z - Math.cos(cam.yaw)*k; cam.dist = dist || 60; placeCamera(); return true; },
+    info(){ return {air:[0, 1].map(s => air.filter(a => a.side === s && a.alive).length), alive:[0, 1].map(s => units.filter(u => u.side === s && u.alive).length), particles:fxSmoke.items.length + fxFire.items.length, calls:renderer.info.render.calls, tris:renderer.info.render.triangles}; },
     dispose(){ running = false; ro.disconnect(); renderer.dispose(); scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); renderer.domElement.remove(); }
   };
 }

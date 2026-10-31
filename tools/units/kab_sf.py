@@ -192,9 +192,9 @@ def sf_make(root_name, mid, front, **kw):
     objs[0].location = (len(mid)*20, 820, 0)
     return {"file": os.path.getsize(path), "faces": [len(o.data.polygons) for o in objs], "lo": sf_lod(mid)}
 
-def sf_lod(mid, targets=(1700, 900, 120), tex_div=2):
+def sf_lod(mid, targets=(1700, 900, 120), tex_div=2, parts=("_hull", "_turret", "_gun")):
     """the far / weak-phone copy: <mid>_lo.glb with the same node names, fewer triangles, smaller textures"""
-    src = [bpy.data.objects.get("g_" + mid + s) for s in ("_hull", "_turret", "_gun")]
+    src = [bpy.data.objects.get("g_" + mid + s) for s in parts]
     src = [o for o in src if o]
     copies = {}
     for o in src:
@@ -285,3 +285,77 @@ def sf_parts(root_name="Sketchfab_model", top=25):
             parts.append((len(pf), o.name, [round(min(v.co[i] for v in vs), 2) for i in range(3)], [round(max(v.co[i] for v in vs), 2) for i in range(3)]))
         bm.free()
     parts.sort(key=lambda p: -p[0]); return "\n".join(f"{n} {nm} {a} {b}" for n, nm, a, b in parts[:top])
+
+
+# ---------- aircraft: airframe + spinning rotors / propellers ----------
+def sf_loose(root_name, drop=None):
+    """weld and split every mesh of an import into loose parts; drop(mn, mx, centre) removes parts (landing gear, stands). Returns parts kept"""
+    root = bpy.data.objects[root_name]; root.location = (0, 0, 0); bpy.context.view_layer.update()
+    for o in [x for x in root.children_recursive if x.type == "MESH" and len(x.data.polygons)]:
+        k = o.matrix_world.to_scale()[0] or 1
+        bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.001/k); bm.to_mesh(o.data); bm.free()
+        o.hide_set(False); bpy.ops.object.select_all(action="DESELECT"); o.select_set(True); bpy.context.view_layer.objects.active = o
+        bpy.ops.object.mode_set(mode="EDIT"); bpy.ops.mesh.select_all(action="SELECT"); bpy.ops.mesh.separate(type="LOOSE"); bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update(); kept = 0
+    for p in [x for x in root.children_recursive if x.type == "MESH"]:
+        if not len(p.data.vertices): bpy.data.objects.remove(p, do_unlink=True); continue
+        mn, mx, c = sf_box(p)
+        if drop and drop(mn, mx, c): bpy.data.objects.remove(p, do_unlink=True)
+        else: kept += 1
+    return kept
+def sf_box(p):
+    pts = [p.matrix_world @ v.co for v in p.data.vertices]
+    mn = [min(q[i] for q in pts) for i in range(3)]; mx = [max(q[i] for q in pts) for i in range(3)]
+    return mn, mx, [(mn[i] + mx[i])/2 for i in range(3)]
+def sf_make_air(root_name, mid, front, rotors=(), accent=None, targets=(6000, 700), length=None, lo_targets=(1800, 160)):
+    """an aircraft for the battlefield: g_<mid>_hull (airframe, origin at the centre of its box, nose along +X)
+    and g_<mid>_rotor, g_<mid>_rotor2 ... (parts that spin about their own centre).
+    rotors: [(pred(mn, mx, centre), axis[, hub])] in import world space, axis "y" (main rotor) or "x" (propeller);
+    hub: a point on the spin axis (import world), else the centre of the rotor's box.
+    accent(x, y, z, mn, mx): faces of the finished airframe (nose +X, Z up, centred) that carry the side colour."""
+    for o in [o for o in bpy.data.objects if o.name.split('.')[0].startswith("g_" + mid + "_")]: bpy.data.objects.remove(o, do_unlink=True)
+    root = bpy.data.objects[root_name]; root.location = (0, 0, 0); bpy.context.view_layer.update()
+    meshes = [o for o in sf_meshes(root) if len(o.data.polygons)]
+    groups = [[] for _ in rotors]; hull_objs = []
+    for o in meshes:
+        mn, mx, c = sf_box(o); k = next((i for i, rt in enumerate(rotors) if rt[0](mn, mx, c)), None)
+        (groups[k] if k is not None else hull_objs).append(o)
+    H = sf_world_copy(hull_objs, "g_" + mid + "_hull")
+    Rs = [sf_world_copy(g, "g_" + mid + "_rotor" + (str(i + 1) if i else "")) for i, g in enumerate(groups) if g]
+    objs = [H] + Rs
+    axes = [rt[1] for rt, g in zip(rotors, groups) if g]; ax_of = lambda R: axes[Rs.index(R)]
+    sf_rotate_front(objs, front)
+    mn, mx = sf_bounds([H]); k = (length/(mx.x - mn.x)) if length else 1.0
+    c = (mn + mx)/2; M = Matrix.Scale(k, 4) @ Matrix.Translation(-c)
+    for o in objs: o.data.transform(M)
+    Rf = Matrix.Rotation({"+X": 0, "-Y": math.pi/2, "-X": math.pi, "+Y": -math.pi/2}[front], 4, "Z")
+    hubs = [M @ (Rf @ Vector(rt[2])) if len(rt) > 2 else None for rt, g in zip(rotors, groups) if g]
+    for o in list(root.children_recursive) + [root]: bpy.data.objects.remove(o, do_unlink=True)
+    sf_decimate(H, targets[0])
+    for R in Rs: sf_decimate(R, targets[1])
+    if accent:
+        acc = bpy.data.materials.get("u_accent"); H.data.materials.append(acc); ai = len(H.data.materials) - 1
+        hmn, hmx = sf_bounds([H]); n = 0
+        for p in H.data.polygons:
+            q = p.center
+            if accent(q.x, q.y, q.z, hmn, hmx): p.material_index = ai; n += 1
+        print("accent faces", n)
+    for o in objs:
+        bpy.context.view_layer.objects.active = o; bpy.ops.object.select_all(action="DESELECT"); o.select_set(True)
+        if hasattr(bpy.ops.object, "shade_smooth_by_angle"): bpy.ops.object.shade_smooth_by_angle(angle=math.radians(40))
+    for R, hub in zip(Rs, hubs):
+        rmn, rmx = sf_bounds([R]); p = (rmn + rmx)/2
+        if hub is not None: p = Vector((hub.x, hub.y, p.z)) if ax_of(R) == "y" else Vector((p.x, hub.y, hub.z))
+        set_origin(R, p)
+    bpy.context.view_layer.update()
+    for R in Rs: mw = R.matrix_world.copy(); R.parent = H; R.matrix_world = mw
+    H["rotors"] = ",".join(rt[1] for rt, g in zip(rotors, groups) if g)
+    res = []
+    for o, size in zip(objs, [1024] + [256]*len(Rs)):
+        img, ai = sf_bake_part(o, size); res.append((o, img, ai))
+    for o, img, ai in res: finalize_part(o, img, ai, metal=0.25, rough=0.62)
+    bpy.context.scene.render.engine = "BLENDER_EEVEE"
+    path = os.path.join(OUT, mid + ".glb"); export_glb(objs, path)
+    lo = sf_lod(mid, targets=(lo_targets[0],) + (lo_targets[1],)*len(Rs), parts=["_hull"] + [o.name[len("g_" + mid):] for o in Rs])
+    H.location = (len(mid)*20, 900, 0)
+    return {"file": os.path.getsize(path), "faces": [len(o.data.polygons) for o in objs], "lo": lo, "parts": [o.name for o in objs]}

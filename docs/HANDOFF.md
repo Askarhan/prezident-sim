@@ -22,15 +22,24 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (30): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS.
+- Models converted so far (33): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2.
 - Still procedural: bmp3, zsl92, m270, phl03, tochka, iskander, tor, pantsir, hq17, hq16, hq9, s500, irist_sls, krasukha.
 
-## Next stage: aviation over the field (agreed with the user)
-- Aircraft fly on their own by battle logic. Command buttons (bombing, helicopters, drones) come as the stage after.
-- Limits: up to 4 planes, 3 helicopters and 4 drones per side.
-  - Planes pass over the field for 10–20 s.
-  - Helicopters hover behind their own lines and fire ATGMs.
-  - Drones loiter or dive.
-- Air defence on the field shoots at them. Kills come off the real air fleet.
-- Work in batches of at most 3 models at a time. First batch: Su-25 (attack), Ka-52 (heli), Bayraktar TB2 (drone). Other aircraft use the nearest of these until their turn.
+## Aviation over the field (stage 1 done 01.11.2026)
+- Models: `su25`, `ka52`, `tb2` (Sketchfab, CC BY, credits in `credits3d.json`), each with `_lo`. Nodes: `g_<id>_hull` (origin at the centre of the airframe, nose +X) and `g_<id>_rotor`, `g_<id>_rotor2` that spin; the hull's glTF extras `rotors` give each rotor's axis (`"y,y"` for the Ka-52, `"x"` for the TB2 propeller).
+- Blender: `sf_make_air(root, id, front, rotors=[(pred, axis, hub)], accent=fn, targets=..., length=...)` in `kab_sf.py`; `sf_loose(root, drop)` splits an import into loose parts and drops landing gear. The Ka-52 import had only blur discs for rotors: its blades are simple boxes added in Blender.
+- Game bridge (`src/game.html`): `BF3D_ROLE` maps fighter/attack/bomber → `plane`, heli → `heli`, drone/loiter → `drone`; `BF3D_SLOTS` allows 4 / 3 / 4 squads a side (2 / 2 / 2 on the low graphics level). `BF3D_AIR_MODEL`: every plane flies as the Su-25, every helicopter as the Ka-52, every drone and loitering munition as the TB2 (loitering munitions at quarter size) until their own models arrive.
+- Field (`bf3d.js`, block «aviation»):
+  - Planes come in from their own edge at 30–40 m, dive on a target, fire 8 rockets or drop 4 bombs, turn back and leave; a pass takes ~15 s, then a pause of 7–19 s.
+  - Helicopters fly to a hover point behind their own front line at 12–18 m and fire ATGMs.
+  - TB2-type drones circle over the enemy side at 44–54 m and drop a guided bomb now and then.
+  - Loitering munitions fly in at ~30 m and dive into a target.
+- Kills follow the war, not the other way round: real losses of an aircraft type arrive through `api.hit` as `pend`. The enemy air defence on the field then launches a homing missile at that aircraft, or a MANPADS from the front line does so if there is no air defence. The aircraft burns, falls and crashes; while its squad still has machines, a replacement flies in 18–32 s later. Air defence also fires the odd missile that misses (the aircraft drops flares).
+- Strikes from the air carry the ground squads' pending losses like artillery does (`pend` → `inbound` → `damage`).
+- Test hooks: `api.air()` lists aircraft states, `api.airFocus(i, dist)` points the camera at one.
+
+## Next
+- Stage 2 (agreed): command buttons for the air — bombing run, helicopters, drones.
+- Next model batches (≤3 at a time): e.g. A-10 / Su-34 / Mi-24, then fighters, then Apache / Reaper / Shahed.
+- The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
 - Before each big new feature, discuss the plan with the user first.
