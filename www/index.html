@@ -6517,6 +6517,14 @@ function showUnitInfo(id){
   </div></div>`;
   if (m) sprTurntable(id);
 }
+/* 3D models from Sketchfab (CC BY 4.0): simplified, re-textured and split into hull/turret/gun for the battlefield */
+const CREDITS3D = [
+  ["M2A4 Bradley", "«M2 Bradley IFV» — 42manako", "https://sketchfab.com/3d-models/ab022158ab5f4fbfa55d4142db7595ab"],
+  ["БМП-2", "«BMP-2» — 42manako", "https://sketchfab.com/3d-models/a843e922897c499ca53e718235b3875a"],
+  ["БМ-21 «Град»", "«БМ-21 \"Град\" (BM-21 Grad)» — Hsu.Pei.Ge", "https://sketchfab.com/3d-models/c90559a30e6a414d993a0d3bdf6c5ff8"],
+  ["Т-72", "«Ukrainian T-72B1» — 42manako (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/31baebd56b5f4e34aaf1261a1e60ae91"],
+  ["M1 Abrams", "«General Dynamics M1A2 Abrams Main Battle Tank» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/10a16c96ca8b4ebc855915f5d5202046"],
+];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
   const lics = [...new Set(rows.map(([,x]) => x.lic).filter(Boolean))];
@@ -6524,6 +6532,9 @@ function showCredits(){
     <h2>Источники фото</h2>
     <p class="muted">Фотографии техники используются по свободным лицензиям. Все изображения обрезаны и сжаты для игры. Часть изображений создана нейросетью; если за основу взято чужое фото, автор указан. Знаки различия на фото не означают одобрения игры кем-либо.</p>
     <div class="cr-list">${rows.map(([n,x]) => `<div class="cr-row"><b>${esc(n)}</b><small>${esc(x.lic ? `${x.by} — ${x.lic}` : x.by)}</small></div>`).join("")}</div>
+    <h3>3D-модели</h3>
+    <p class="muted small">Модели с Sketchfab по лицензии CC BY 4.0 (${LIC["CC BY 4.0"]}). Для игры упрощены, разделены на корпус, башню и орудие и получили полосу цвета стороны. Остальная техника смоделирована для игры.</p>
+    <div class="cr-list">${CREDITS3D.map(([n,by,u]) => `<div class="cr-row"><b>${esc(n)}</b><small>${esc(by)} — CC BY 4.0 · ${esc(u)}</small></div>`).join("")}<div class="cr-row"><b>three.js</b><small>3D-движок поля боя — лицензия MIT · threejs.org</small></div></div>
     <h3>Лицензии</h3>
     <div class="cr-list">${lics.map(l => `<div class="cr-row"><b>${l}</b><small>${LIC[l] ? esc(LIC[l]) : "без ограничений"}</small></div>`).join("")}</div>
     <p class="muted small">Фото с лицензией GNU FDL 1.2: разрешается копировать, распространять и/или изменять этот документ на условиях GNU Free Documentation License версии 1.2 или более поздней, опубликованной Free Software Foundation, без неизменяемых разделов и без текстов на обложке. Полный текст лицензии: ${LIC["GFDL 1.2"]}</p>
