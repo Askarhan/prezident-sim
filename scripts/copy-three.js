@@ -8,5 +8,6 @@ for (const [src, out] of files){
   const p = path.join(root, src); if (!fs.existsSync(p)) continue;
   let s = fs.readFileSync(p, 'utf8');
   if (out === 'GLTFLoader.js') s = s.replace("'../utils/BufferGeometryUtils.js'", "'./BufferGeometryUtils.js'");
+  if (out !== 'three.module.min.js' && out !== 'three.core.min.js') s = s.replace(/from 'three'/g, "from './three.module.min.js'");
   fs.writeFileSync(path.join(dst, out), s); console.log('three:', out, (s.length/1024).toFixed(0) + ' KB');
 }

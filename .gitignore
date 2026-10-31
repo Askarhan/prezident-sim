@@ -3,3 +3,4 @@ android/
 *.log
 .DS_Store
 www/flags/
+www/lib/
