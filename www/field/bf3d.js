@@ -229,11 +229,12 @@ export async function start(el, ctx){
 
   // units: positions first so props keep away from them
   const units = [];
-  const sideCount = [0, 0];
-  ctx.units.forEach(u => sideCount[u.side]++);
-  const idx = [0, 0];
-  ctx.units.forEach(u => { const s = u.side ? -1 : 1, k = idx[u.side]++, n = sideCount[u.side], x = (k + 0.5 - n/2)*(FIELD*0.75/Math.max(n, 1)) + (R() - 0.5)*8, z = s*((ctx.phase === "pos" ? 15 : 19) + 5 + R()*14);
-    units.push({...u, x, z, h: u.side ? -Math.PI/2 : Math.PI/2, home:[x, z], hp:u.hp || 1, hpMax:u.hp || 1, pend:0, alive:true, reload:2 + R()*4, state:"hold", next:R()*8}); });
+  const tz = ctx.phase === "pos" ? 15 : 19, DEPTH = {front:[tz + 5, tz + 19], arty:[tz + 34, tz + 50], ad:[tz + 56, tz + 70]};
+  [0, 1].forEach(side => ["front", "arty", "ad"].forEach(role => {
+    const list = ctx.units.filter(u => u.side === side && (u.role || "front") === role), n = list.length, s = side ? -1 : 1, span = role === "front" ? FIELD*0.75 : FIELD*0.5;
+    list.forEach((u, k) => { const x = (k + 0.5 - n/2)*(span/Math.max(n, 1)) + (R() - 0.5)*8, d = DEPTH[role], z = s*(d[0] + R()*(d[1] - d[0]));
+      units.push({...u, role, x, z, h: u.side ? -Math.PI/2 : Math.PI/2, home:[x, z], hp:u.hp || 1, hpMax:u.hp || 1, pend:0, alive:true, reload:2 + R()*6, state:"hold", next:R()*8}); });
+  }));
   scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]));
   // load models and place them
   const models = {}; await Promise.all([...new Set(units.map(u => u.model))].map(async m => { try { models[m] = await loadModel(m); } catch(e){ models[m] = null; } }));
@@ -272,17 +273,38 @@ export async function start(el, ctx){
     u.recoil = 1;
     return {p, d};
   }
-  function explosion(x, z, big, airburst){
-    const y = G.height(x, z) + (airburst ? 4 : 0.3);
-    const n = big ? 34 : 14;
+  function explosion(x, z, big, airburst, sc = 1, ay){
+    const y = ay != null ? ay : G.height(x, z) + (airburst ? 4 : 0.3);
+    const n = Math.round((big ? 34 : 14)*sc);
     for (let i = 0; i < n; i++){ const a = Math.random()*6.28, v = (big ? 6 : 4)*Math.random(); fxFire.emit({x, y:y + Math.random()*(big ? 2 : 1), z, vx:Math.cos(a)*v, vy:(big ? 5 : 3) + Math.random()*4, vz:Math.sin(a)*v, life:0.35 + Math.random()*(big ? 0.6 : 0.3), s0:big ? 6 : 3.5, s1:big ? 3 : 1.5, c:[1, 0.85, 0.45], c1:[0.9, 0.25, 0.05], a:1, drag:2.5}); }
     // dirt thrown up, then smoke
-    for (let i = 0; i < (big ? 26 : 16); i++){ const a = Math.random()*6.28, v = Math.random()*(big ? 7 : 5); fxSmoke.emit({x, y, z, vx:Math.cos(a)*v, vy:(big ? 9 : 7) + Math.random()*6, vz:Math.sin(a)*v, g:-14, life:0.9 + Math.random()*0.8, s0:1.2, s1:2.4, c:[0.27, 0.21, 0.15], a:0.9, drag:0.4}); }
-    for (let i = 0; i < (big ? 30 : 14); i++){ const a = Math.random()*6.28, v = Math.random()*(big ? 3 : 2); fxSmoke.emit({x:x + Math.cos(a)*1.5, y:y + Math.random()*2, z:z + Math.sin(a)*1.5, vx:Math.cos(a)*v + 0.6, vy:1 + Math.random()*2, vz:Math.sin(a)*v, life:3 + Math.random()*4, s0:3, s1:big ? 14 : 9, c:[0.22, 0.2, 0.18], c1:[0.5, 0.48, 0.45], a:0.6, drag:0.5, fadeIn:0.06}); }
-    if (!airburst) scorch(x, z, big ? 3.5 : 2);
-    flash.position.set(x, y + 2, z); flash.intensity = big ? 220 : 90; flashT = 0.12;
+    if (!airburst) for (let i = 0; i < Math.round((big ? 26 : 16)*sc); i++){ const a = Math.random()*6.28, v = Math.random()*(big ? 7 : 5)*sc; fxSmoke.emit({x, y, z, vx:Math.cos(a)*v, vy:((big ? 9 : 7) + Math.random()*6)*Math.sqrt(sc), vz:Math.sin(a)*v, g:-14, life:0.9 + Math.random()*0.8, s0:1.2, s1:2.4, c:[0.27, 0.21, 0.15], a:0.9, drag:0.4}); }
+    for (let i = 0; i < Math.round((big ? 30 : 14)*sc); i++){ const a = Math.random()*6.28, v = Math.random()*(big ? 3 : 2); fxSmoke.emit({x:x + Math.cos(a)*1.5, y:y + Math.random()*2, z:z + Math.sin(a)*1.5, vx:Math.cos(a)*v + 0.6, vy:1 + Math.random()*2, vz:Math.sin(a)*v, life:3 + Math.random()*4, s0:3, s1:big ? 14 : 9, c:[0.22, 0.2, 0.18], c1:[0.5, 0.48, 0.45], a:0.6, drag:0.5, fadeIn:0.06}); }
+    if (!airburst && sc > 0.6) scorch(x, z, (big ? 3.5 : 2)*sc);
+    flash.position.set(x, y + 2, z); flash.intensity = (big ? 220 : 90)*sc; flashT = 0.12;
   }
-  function fireAt(u, t){
+  // where a shot leaves the vehicle: the muzzle, or the top of a launcher
+  function launchPoint(u){ if (u.gun){ const p = new THREE.Vector3(u.muzzle + 0.2, 0, 0); u.gun.localToWorld(p); return p; } const p = new THREE.Vector3(0, 1.4, 0); (u.turret || u.obj).localToWorld(p); return p; }
+  function launchSmoke(p, n, sz){ for (let i = 0; i < n; i++) fxSmoke.emit({x:p.x, y:p.y, z:p.z, vx:(Math.random() - 0.5)*4, vy:Math.random()*2, vz:(Math.random() - 0.5)*4, life:2.5 + Math.random()*2.5, s0:sz, s1:sz*4, c:[0.7, 0.68, 0.64], c1:[0.8, 0.79, 0.76], a:0.6, drag:1, fadeIn:0.04});
+    for (let i = 0; i < Math.ceil(n/3); i++) fxFire.emit({x:p.x, y:p.y, z:p.z, vx:(Math.random() - 0.5)*3, vy:Math.random()*2, vz:(Math.random() - 0.5)*3, life:0.15 + Math.random()*0.15, s0:sz*1.6, s1:sz*0.6, c:[1, 0.85, 0.5], c1:[1, 0.4, 0.1], a:1, drag:3}); }
+  // indirect fire: an arcing shell or a rocket; it lands among the target's position and brings the war's real losses with it
+  function lob(u, t, kind){
+    const p = launchPoint(u), spread = kind === "rocket" ? 14 : kind === "missile" ? 3 : 9, dmg = t && t.pend >= 1 ? Math.floor(t.pend) : 0; if (dmg) t.pend -= dmg;
+    const tx = t ? t.x : u.x, tz = t ? t.z : u.z + (u.side ? 1 : -1)*100, ex = tx + (dmg ? 0 : (Math.random() - 0.5)*spread*2), ez = tz + (dmg ? 0 : (Math.random() - 0.5)*spread*2), ey = G.height(ex, ez) + 0.3;
+    const dist = Math.hypot(ex - p.x, ez - p.z), sh = {x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:kind === "missile" ? 3.2 : kind === "rocket" ? 1.6 + dist/260 : 2.2 + dist/200, arc:kind === "missile" ? 140 : dist*(kind === "rocket" ? 0.18 : 0.32), side:u.side, kind, trail:kind !== "shell",
+      c:kind === "shell" ? [1, 0.75, 0.4] : [1, 0.9, 0.6], onHit:() => { if (sh.dead) return; explosion(ex, ez, kind !== "rocket", false, kind === "missile" ? 1.6 : kind === "rocket" ? 0.8 : 1); if (dmg && t){ t.inbound = (t.inbound || 0) - dmg; damage(t, dmg); } }};
+    sh.dmg = dmg; if (dmg && t) t.inbound = (t.inbound || 0) + dmg;
+    shells.push(sh); return sh;
+  }
+  function fireAt(u, t, small){
+    if (small){ // autocannon and machine guns: a burst of thin tracers, small hits
+      const p = launchPoint(u), dmg = t.pend >= 1 ? Math.floor(t.pend) : 0; if (dmg){ t.pend -= dmg; t.inbound = (t.inbound || 0) + dmg; }
+      for (let i = 0; i < small; i++){ const last = i === small - 1, ex = t.x + (Math.random() - 0.5)*(dmg && last ? 1 : 10), ez = t.z + (Math.random() - 0.5)*(dmg && last ? 1 : 10);
+        const sh = {x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.8, z1:ez, t:-i*0.09, dur:Math.hypot(ex - p.x, ez - p.z)/700 + 0.05, side:u.side, kind:"bullet", c:u.side ? [1, 0.5, 0.35] : [1, 0.9, 0.55],
+          onHit:() => { explosion(ex, ez, false, false, 0.25); if (last && dmg){ t.inbound -= dmg; damage(t, dmg); } }}; shells.push(sh); }
+      for (let i = 0; i < 3; i++) fxFire.emit({x:p.x, y:p.y, z:p.z, vx:0, vy:0, vz:0, life:0.08, s0:1.1, s1:0.5, c:[1, 0.85, 0.5], a:1});
+      return;
+    }
     const {p, d} = muzzle(u);
     const tx = t.obj.position.x, tz = t.obj.position.z, dmg = t.pend >= 1 ? Math.floor(t.pend) : 0, hit = dmg > 0; t.pend -= dmg; if (hit) t.inbound = (t.inbound || 0) + dmg;
     const ex = hit ? tx + (Math.random() - 0.5)*1.5 : tx + (Math.random() - 0.5)*16, ez = hit ? tz + (Math.random() - 0.5)*1.5 : tz + (Math.random() - 0.5)*16;
@@ -305,8 +327,10 @@ export async function start(el, ctx){
   // a new squad drives in from our (or their) edge of the map to the front
   async function reinforce(side, id, hp){
     const model = (ctx.modelOf && ctx.modelOf[id]) || "t72"; if (!models[model]){ try { models[model] = await loadModel(model); } catch(e){ return; } }
-    const s = side ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.7, z = s*(FIELD/2 - 6), hz = s*((ctx.phase === "pos" ? 15 : 19) + 5 + Math.random()*14);
-    const u = {id, model, side, x, z, h:side ? -Math.PI/2 : Math.PI/2, home:[x, hz], hp, hpMax:hp, pend:0, alive:true, reload:4, state:"move", wp:[x, hz], next:20};
+    const role = (ctx.roleOf && ctx.roleOf[id]) || "front", d = DEPTH[role] || DEPTH.front;
+    const s = side ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.7, z = s*(FIELD/2 - 6), hz = s*(d[0] + Math.random()*(d[1] - d[0]));
+    const u = {id, model, side, role, x, z, h:side ? -Math.PI/2 : Math.PI/2, home:[x, hz], hp, hpMax:hp, pend:0, alive:true, reload:4, state:"move", wp:[x, hz], next:20};
+    if (role !== "front"){ u.x = x; u.z = hz - s*40; }
     units.push(u); dress(u); floats.push({u, text:"подкрепление", t:0});
   }
   /* ---- camera: pan with one finger, pinch to zoom, twist to rotate ---- */
@@ -362,6 +386,7 @@ export async function start(el, ctx){
   function think(u, dt){
     if (!u.alive || !u.obj) return;
     u.next -= dt; u.reload -= dt;
+    if (u.role === "arty" || u.role === "ad") return supportThink(u, dt);
     if (u.state === "move"){
       const dx = u.wp[0] - u.x, dz = u.wp[1] - u.z, d = Math.hypot(dx, dz), want = Math.atan2(-dz, dx);
       const turn = angDiff(u.h, want); u.h += clamp(turn, -0.7*dt, 0.7*dt);
@@ -378,11 +403,36 @@ export async function start(el, ctx){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
       if (u.gun){ const el2 = u.target ? clamp(Math.hypot(u.target.x - u.x, u.target.z - u.z)/2200, 0.005, 0.06) : 0; u.gun.rotation.z = lerp(u.gun.rotation.z, el2, dt*2); }
-      if (u.target && Math.abs(diff) < 0.035 && u.reload < 0){ fireAt(u, u.target); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(0.7 + Math.random()*0.6); }
+      if (u.target && Math.abs(diff) < 0.035 && u.reload < 0){ const k = ctx.kindOf[u.id]; fireAt(u, u.target, k === "ifv" ? 4 : k === "apc" ? 7 : 0); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(k === "apc" ? 0.5 : k === "ifv" ? 0.6 : 1)*(0.7 + Math.random()*0.6); }
     }
     if (u.recoil){ u.recoil = Math.max(0, u.recoil - dt*4); if (u.gun) u.gun.position.x = u.gun0 - Math.sin(u.recoil*Math.PI)*0.45; }
     // losses no gun is aiming at arrive by artillery or a drone
     if (u.pend >= 1){ u.pendT = (u.pendT || 0) + dt; if (u.pendT > 4){ const d = Math.floor(u.pend); u.pend -= d; u.pendT = 0; explosion(u.x + (Math.random() - 0.5)*2, u.z + (Math.random() - 0.5)*2, false); damage(u, d); } } else u.pendT = 0;
+  }
+  // artillery fires from the rear, rockets in salvoes, ballistic missiles rise before launch; air defence turns its radar and shoots down rockets
+  function supportThink(u, dt){
+    const k = ctx.kindOf[u.id];
+    if (!u.target || !u.target.alive || Math.random() < dt*0.08){ const es = enemiesOf(u).filter(v => v.role === "front"), pool = es.length ? es : enemiesOf(u); const pend = pool.filter(v => v.pend >= 1); const L = pend.length ? pend : pool; u.target = L.length ? L[Math.floor(Math.random()*L.length)] : null; }
+    const t = u.target, want = t ? Math.atan2(-(t.z - u.z), t.x - u.x) - u.h : 0;
+    if (u.role === "ad"){
+      if (u.turret) u.turret.rotation.y += dt*(k === "ew" ? 0.4 : 0.6);
+      if (u.reload < 0){ const inc = shells.find(sh => !sh.dead && !sh.chased && sh.side !== u.side && (sh.kind === "rocket" || sh.kind === "missile") && sh.t/sh.dur > 0.25 && sh.t/sh.dur < 0.7 && !sh.dmg);
+        if (inc && Math.random() < 0.6){ inc.chased = true; const lead = Math.min(0.95, inc.t/inc.dur + 0.18), at = q => [lerp(inc.x0, inc.x1, q), lerp(inc.y0, inc.y1, q) + Math.sin(Math.PI*q)*inc.arc, lerp(inc.z0, inc.z1, q)], [ix, iy, iz] = at(lead), p = launchPoint(u);
+          launchSmoke(p, 8, 0.9);
+          shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ix, y1:iy, z1:iz, t:0, dur:Math.max(0.3, (lead - inc.t/inc.dur)*inc.dur), arc:6, side:u.side, kind:"sam", trail:true, c:[0.85, 0.95, 1], onHit:() => { inc.dead = true; explosion(ix, iz, false, true, 0.8, iy); }});
+          u.reload = 3 + Math.random()*3; } else u.reload = 0.5; }
+      return;
+    }
+    if (u.turret){ const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.5*dt, 0.5*dt); u.aimed = Math.abs(diff) < 0.05; } else u.aimed = true;
+    if (k === "sph"){ if (u.gun) u.gun.rotation.z = lerp(u.gun.rotation.z, 0.7, dt*1.5);
+      if (t && u.aimed && u.reload < 0){ const p = launchPoint(u); launchSmoke(p, 14, 1.2); flash.position.copy(p); flash.intensity = 120; flashT = 0.1; u.recoil = 1; lob(u, t, "shell"); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*1.6*(0.8 + Math.random()*0.4); } }
+    else if (k === "mlrs"){ if (u.turret) u.turret.rotation.z = lerp(u.turret.rotation.z, 0.5, dt*1.2);
+      if (u.salvo > 0){ u.salvoT -= dt; if (u.salvoT <= 0){ u.salvoT = 0.13; u.salvo--; const p = launchPoint(u); launchSmoke(p, 5, 0.8); lob(u, u.salvoTarget && u.salvoTarget.alive ? u.salvoTarget : t, "rocket"); } }
+      else if (t && u.aimed && u.reload < 0){ u.salvo = 8 + Math.floor(Math.random()*5); u.salvoT = 0; u.salvoTarget = t; u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*4*(0.8 + Math.random()*0.4); } }
+    else if (k === "srbm"){ u.erect = clamp((u.erect || 0) + (u.reload < 6 ? dt/3 : -dt/3), 0, 1); if (u.gun){ u.gun.rotation.z = u.erect*1.2; u.gun.visible = u.reload < 40; }
+      if (u.erect >= 1 && u.reload < 0){ const p = launchPoint(u); launchSmoke(p, 40, 2); flash.position.copy(p); flash.intensity = 200; flashT = 0.15; lob(u, t, "missile"); u.reload = 50 + Math.random()*20; } }
+    if (u.recoil){ u.recoil = Math.max(0, u.recoil - dt*3); if (u.gun) u.gun.position.x = u.gun0 - Math.sin(u.recoil*Math.PI)*0.6; }
+    if (u.pend >= 1){ u.pendT = (u.pendT || 0) + dt; if (u.pendT > 6){ const d = Math.floor(u.pend); u.pend -= d; u.pendT = 0; explosion(u.x + (Math.random() - 0.5)*2, u.z + (Math.random() - 0.5)*2, false); damage(u, d); } } else u.pendT = 0;
   }
   function step(dt){
     for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
@@ -398,12 +448,14 @@ export async function start(el, ctx){
     }
 
     // artillery falls on both lines; more in the positional phase
-    artT -= dt; if (artT < 0){ artT = (ctx.phase === "pos" ? 1.6 : 3.2)*(0.5 + Math.random());
+    artT -= dt; if (artT < 0){ artT = (ctx.phase === "pos" ? 1.6 : 3.2)*(0.5 + Math.random())*(units.some(u => u.alive && u.role === "arty") ? 3 : 1);
       const s = Math.random() < ctx.artyUs/(ctx.artyUs + ctx.artyThem + 1e-6) ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.85, z = s*(20 + Math.random()*55); explosion(x, z, Math.random() < 0.3); }
     // shells in flight
     let i = 0; const live = [];
-    for (const sh of shells){ sh.t += dt; const k = sh.t/sh.dur; if (k >= 1){ sh.onHit(); continue; } live.push(sh);
-      if (i < TR_MAX){ const k0 = Math.max(0, k - 0.25), at = q => [lerp(sh.x0, sh.x1, q), lerp(sh.y0, sh.y1, q), lerp(sh.z0, sh.z1, q)];
+    for (const sh of shells){ sh.t += dt; if (sh.dead) continue; const k = sh.t/sh.dur; if (k >= 1){ sh.onHit(); continue; } live.push(sh); if (k < 0) continue;
+      const at = q => [lerp(sh.x0, sh.x1, q), lerp(sh.y0, sh.y1, q) + (sh.arc ? Math.sin(Math.PI*q)*sh.arc : 0), lerp(sh.z0, sh.z1, q)];
+      if (sh.trail && Math.random() < dt*40){ const [x, y, z] = at(k); fxSmoke.emit({x, y, z, vx:0, vy:0.3, vz:0, life:sh.kind === "missile" ? 4 : 1.6, s0:sh.kind === "missile" ? 2.5 : 1, s1:sh.kind === "missile" ? 7 : 3, c:[0.8, 0.79, 0.77], a:0.55, drag:1}); fxFire.emit({x, y, z, vx:0, vy:0, vz:0, life:0.08, s0:sh.kind === "missile" ? 3 : 1.4, s1:0.6, c:[1, 0.8, 0.45], a:1}); }
+      if (i < TR_MAX){ const k0 = Math.max(0, k - (sh.arc ? 0.04 : 0.25));
         trPos.set([...at(k0), ...at(k)], i*6); trCol.set([sh.c[0]*0.2, sh.c[1]*0.2, sh.c[2]*0.2, ...sh.c], i*6); i++; } }
     shells = live; trGeo.setDrawRange(0, i*2); trGeo.attributes.position.needsUpdate = trGeo.attributes.color.needsUpdate = true;
     if (flashT > 0){ flashT -= dt; if (flashT <= 0) flash.intensity = 0; }
@@ -422,10 +474,10 @@ export async function start(el, ctx){
     hit(side, id, n){ let pool = units.filter(u => u.alive && u.obj && u.side === side && u.id === id); if (!pool.length) pool = units.filter(u => u.alive && u.obj && u.side === side); if (!pool.length) return;
       const u = pool.reduce((a, b) => (b.hp - b.pend) > (a.hp - a.pend) ? b : a); u.pend += n; },
     // what the army really has on this front: reinforce from the map edge when there is more than the squads hold
-    sync(side, have){ const slots = () => units.filter(u => u.alive && u.side === side).length;
+    sync(side, have){ const CAP = {front:6, arty:2, ad:2}, roleOf = id => (ctx.roleOf && ctx.roleOf[id]) || "front", slots = id => units.filter(u => u.alive && u.side === side && (u.role || "front") === roleOf(id)).length < CAP[roleOf(id)];
       for (const [id, n] of Object.entries(have)){ const mine = units.filter(u => u.alive && u.side === side && u.id === id), held = mine.reduce((a, u) => a + u.hp - u.pend - (u.inbound || 0), 0), diff = n - held;
         const per = mine.length ? held/mine.length : n;
-        if (diff > Math.max(1, per*0.5) && slots() < 10){ reinforce(side, id, diff); }
+        if (diff > Math.max(1, per*0.5) && slots(id)){ reinforce(side, id, diff); }
         else if (diff > 0.5 && mine.length){ mine.forEach(u => { u.hp += diff/mine.length; u.hpMax = Math.max(u.hpMax, u.hp); }); }
         else if (diff < -0.5 && mine.length) mine[0].pend += -diff; } },
     names(map){ Object.assign(ctx.names, map); },

@@ -176,3 +176,85 @@ def export_glb(objs, path):
     bpy.context.view_layer.objects.active = objs[0]
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_image_format="JPEG", export_image_quality=86,
                               export_apply=True, export_animations=False, export_yup=True, export_extras=True, use_active_scene=True)
+
+def make_tank(mid, spec, camo="green"):
+    for suf in ("_hull", "_turret", "_gun"):
+        o = bpy.data.objects.get("g_" + mid + suf)
+        if o: bpy.data.objects.remove(o, do_unlink=True)
+    H, T, Gn = tank_glb("g_" + mid, **spec)
+    res = {}
+    for o, size in ((H, 1024), (T, 512), (Gn, 256)):
+        res[o.name] = (o,) + bake_part(o, size, camo, 16)
+    for n, (o, img, acc) in res.items():
+        finalize_part(o, img, acc, metal=0.6 if n.endswith("gun") else 0.15, rough=0.5 if n.endswith("gun") else 0.72)
+    bpy.context.scene.render.engine = "BLENDER_EEVEE"
+    H.location = (0, 0, 0)
+    path = os.path.join(OUT, mid + ("" if camo == "green" else "_" + camo) + ".glb")
+    export_glb([H, T, Gn], path)
+    H.location = (len(mid)*20, 700, 0)
+    return os.path.getsize(path)
+
+# ---- every other ground vehicle: the existing builders, split by part names into hull / turret / gun ----
+GROUPS = {
+  "ifv":  ({"tur","smoke","sight","sglass","atgm","tow","acc"}, {"cannon","gun100"}),
+  "apc":  ({"tur","rws","rwscam"}, {"hmg","rwsgun"}),
+  "sph":  ({"tur","cupola","hmg","hatch","acc","antenna"}, {"gun","evac","brake"}),
+  "mlrs": ({"tube","mouth","pod","cell"}, set()),
+  "srbm": (set(), {"mis","misnose"}),
+  "samt": ({"turret","tube","rad","dish"}, {"aa"}),
+  "samc": (set(), set()),
+  "samb": ({"launcher","lid"}, set()),
+  "ew":   ({"dish","feed"}, set()),
+}
+def build_split(builder, spec, name, kind):
+    """run a builder, catch its parts before they are joined, and join them as hull, turret and gun"""
+    parts = {}
+    def catch(p, nm, loc): parts["p"] = p; return None
+    NS["finish"] = catch
+    try: builder((0, 0, 0), name, **spec)
+    finally: NS["finish"] = finish_orig
+    tur_n, gun_n = GROUPS[kind]
+    base = lambda o: o.name.split(".")[0]
+    ph = [o for o in parts["p"] if base(o) not in tur_n and base(o) not in gun_n]
+    pt = [o for o in parts["p"] if base(o) in tur_n]; pg = [o for o in parts["p"] if base(o) in gun_n]
+    def bounds(objs):
+        bpy.context.view_layer.update(); pts = [o.matrix_world @ Vector(c) for o in objs for c in o.bound_box]
+        return Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts))), Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
+    tb = bounds(pt) if pt else None; gb = bounds(pg) if pg else None
+    H = group_join(ph, name + "_hull"); T = group_join(pt, name + "_turret") if pt else None; G = group_join(pg, name + "_gun") if pg else None
+    zmin = min((H.matrix_world @ Vector(c)).z for c in H.bound_box)
+    set_origin(H, (0, 0, zmin))
+    if T: set_origin(T, ((tb[0].x + tb[1].x)/2, (tb[0].y + tb[1].y)/2, tb[0].z))
+    if G: set_origin(G, (gb[0].x, (gb[0].y + gb[1].y)/2, gb[0].z if kind == "srbm" else (gb[0].z + gb[1].z)/2))
+    bpy.context.view_layer.update()
+    if T: mw = T.matrix_world.copy(); T.parent = H; T.matrix_world = mw
+    if G: par = T if (T and kind != "srbm") else H; mw = G.matrix_world.copy(); G.parent = par; G.matrix_world = mw
+    if G: H["muzzle"] = gb[1].x - gb[0].x
+    return [o for o in (H, T, G) if o]
+finish_orig = NS["finish"]
+def make_vehicle(mid, builder, spec, kind, camo="green"):
+    for suf in ("_hull", "_turret", "_gun"):
+        o = bpy.data.objects.get("g_" + mid + suf)
+        if o: bpy.data.objects.remove(o, do_unlink=True)
+    objs = build_split(builder, spec, "g_" + mid, kind)
+    res = []
+    for o, size in zip(objs, (1024, 512, 256)):
+        img, acc = bake_part(o, size, camo, 12); res.append((o, img, acc))
+    for o, img, acc in res: finalize_part(o, img, acc, metal=0.5 if o.name.endswith("gun") else 0.12, rough=0.55 if o.name.endswith("gun") else 0.74)
+    bpy.context.scene.render.engine = "BLENDER_EEVEE"
+    objs[0].location = (0, 0, 0)
+    path = os.path.join(OUT, mid + ("" if camo == "green" else "_" + camo) + ".glb")
+    export_glb(objs, path)
+    objs[0].location = (len(mid)*20, 760, 0)
+    return os.path.getsize(path)
+def ground_jobs():
+    J = []
+    for k, v in IFV_SPECS.items(): J.append((k, m_ifv_v, v, "ifv"))
+    for k, v in APC_SPECS.items(): J.append((k, m_apc_v, v, "apc"))
+    for k, v in SPH_SPECS.items(): J.append((k, m_sph_v, v, "sph"))
+    for k, v in MLRS_SPECS.items(): J.append((k, m_mlrs_v, v, "mlrs"))
+    for k, v in SRBM_SPECS.items(): J.append((k, m_srbm_v, v, "srbm"))
+    for k, v in AD_SPECS.items(): J.append((k, m_sam_v, v, "samt" if v.get("turret") else "samb" if v.get("box_launch") else "samc"))
+    J.append(("krasukha", lambda loc, name: m_ew_v(loc, name), {}, "ew"))
+    for k in ("armata", "m1a1", "type96", "ztz99"): J.append((k, None, TANK_SPECS[k], "tank"))
+    return J
