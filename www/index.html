@@ -436,10 +436,10 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-cmd-edge{font-weight:700;color:#FFD27A} #bf-root .bf-cmd-edge.good{color:#8FE08F} #bf-root .bf-cmd-edge.bad{color:#FF8A8A}
 #bf-root .bf-cmd-btns{display:flex;gap:8px;margin-top:4px} #bf-root .bf-cmd-btns button{flex:1;min-height:44px;border-radius:10px;border:1px solid rgb(255 255 255 / .2);background:rgb(255 255 255 / .08);color:#fff;font-weight:700}
 #bf-root .bf-cmd-btns .bf-cmd-go{background:#C8402F;border-color:#E26A5A} #bf-root .bf-cmd-btns button:disabled{opacity:.4}
-#bf-root .bf-cmdhud{position:absolute;left:50%;transform:translateX(-50%);top:max(10px,env(safe-area-inset-top));width:min(360px,44vw);z-index:2;color:#fff;text-align:center;font-size:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;text-shadow:0 1px 3px #000}
+#bf-root .bf-cmdhud{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(380px,calc(100vw - 24px));z-index:2;color:#fff;text-align:center;font-size:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;text-shadow:0 1px 3px #000}
 #bf-root .bf-cmdhud b{flex:1 0 100%;font-size:12.5px} #bf-root .bf-cmdhud .bar{flex:1 0 100%;height:8px;border-radius:5px;background:rgb(0 0 0 / .55);overflow:hidden;border:1px solid rgb(255 255 255 / .2);margin:2px 0}
 #bf-root .bf-cmdhud .bar i{display:block;height:100%;background:linear-gradient(90deg,#C8402F,#FF8A5A);transition:width .6s}
-#bf-root .bf-cmdhud button{pointer-events:auto;flex:1 0 100%;margin-top:4px;min-height:32px;border-radius:8px;border:1px solid rgb(255 255 255 / .2);background:rgb(0 0 0 / .5);color:#fff;font-size:12px}
+#bf-root .bf-cmdhud button{pointer-events:auto;flex:0 0 auto;margin-top:4px;padding:0 14px;min-height:32px;border-radius:8px;border:1px solid rgb(255 255 255 / .2);background:rgb(0 0 0 / .5);color:#fff;font-size:12px}
 #bf-root .bf-banner.good b{color:#FFD27A} #bf-root .bf-banner.bad b{color:#FF8A8A}
 #bf-root .bf-banner small{display:block;margin-top:6px;font-size:14px;color:#E6ECF5}
 @keyframes bfBan{from{opacity:0;transform:scale(1.08)}to{opacity:1;transform:none}}
@@ -3481,7 +3481,9 @@ function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.c
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- a commanded field battle: once per CB_CD game days per war the player commits a strike group and the field decides one direction ---- */
 // stage 1: the outcome is planned from the forces when the battle starts and applied as it runs; the real squad battle in bf3d.js replaces the plan later
-const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4;
+const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4, CB_LIMIT = 300, CB_HOLD = 180, CB_DEFK = 1.25;
+// how many machines can fight at once on a direction (front width by terrain); the rest of a strike group waits in reserve
+const CB_WIDTH = {p:120, d:140, f:80, u:60, m:50};
 function cbReady(w){ return (w.bfCd || 0) <= (w.days || 0); }
 function cbType(f){ return (f.lastD || 0) >= 0 ? "atk" : "def"; }
 // the strike group (pct of the direction's ground machines) and the enemy's answer, scaled to ours up to CB_EMAX
@@ -3502,12 +3504,24 @@ function cbPlan(w, i, pct){
   return {i, type:G.type, g:G.g, e:G.e, L:loss(G.g, win ? keep : lose), LE:loss(G.e, win ? lose : keep), win, dur:Math.round(60*(1 + 4*(1 - m))), t:0, a:{}, ae:{}, pct};
 }
 // losses up to share `k` of the plan: ours through depTake (they are this direction's machines), the enemy's from its war stock
+function cbLoss(w, side, id, n){
+  const cb = w.cb; if (!cb || !(n > 0)) return;
+  if (!side){ const l = depTake(w, id, n, cb.i); cb.a[id] = (cb.a[id] || 0) + n; if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; } }
+  else { const l = Math.min(n, Math.floor(w.eu[id] || 0)); cb.ae[id] = (cb.ae[id] || 0) + n; if (l > 0){ w.eu[id] -= l; w.lossTh[id] = (w.lossTh[id]||0) + l; w.mLossTh[id] = (w.mLossTh[id]||0) + l; } }
+}
 function cbApply(w, k){
   const cb = w.cb; if (!cb) return;
-  for (const id in cb.L){ const want = Math.floor(cb.L[id]*k) - (cb.a[id] || 0); if (want <= 0) continue; const l = depTake(w, id, want, cb.i); cb.a[id] = (cb.a[id] || 0) + want;
-    if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; } }
-  for (const id in cb.LE){ const want = Math.floor(cb.LE[id]*k) - (cb.ae[id] || 0); if (want <= 0) continue; const l = Math.min(want, Math.floor(w.eu[id] || 0)); cb.ae[id] = (cb.ae[id] || 0) + want;
-    if (l > 0){ w.eu[id] -= l; w.lossTh[id] = (w.lossTh[id]||0) + l; w.mLossTh[id] = (w.mLossTh[id]||0) + l; } }
+  for (const id in cb.L) cbLoss(w, 0, id, Math.floor(cb.L[id]*k) - (cb.a[id] || 0));
+  for (const id in cb.LE) cbLoss(w, 1, id, Math.floor(cb.LE[id]*k) - (cb.ae[id] || 0));
+}
+// a real battle left early (or the game closed during it): the rest is resolved from what is still alive on both sides
+function cbRest(w){
+  const cb = w.cb, f = w.fronts[cb.i] || {}, rem = (u, a) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, Math.max(0, n - (a[id] || 0))]));
+  const g = rem(cb.g, cb.a), e = rem(cb.e, cb.ae), myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cb.type === "def" ? DEF_K : 1), enP = depPower(e)*(cb.type === "atk" ? DEF_K : 1);
+  const r = cbEdge(myP*rnd(0.9, 1.1), enP*rnd(0.9, 1.1)), m = Math.abs(2*r - 1), win = r > 0.5;
+  if (cb.type === "def" && cb.t >= CB_HOLD - 20 && cbCount(g) > 0) cb.win = true; else cb.win = win;
+  const lose = 0.5 + 0.4*m, keep = clamp(0.4*(1 - m) + 0.05, 0.05, 0.45), part = (u, a, k) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, (a[id] || 0) + Math.round(n*k)]));
+  cb.L = part(g, cb.a, cb.win ? keep : lose); cb.LE = part(e, cb.ae, cb.win ? lose : keep); cb.dur = cb.t + 60*(1 + 2*(1 - m));
 }
 // the field's verdict on the line: an assault won takes the position, a defence lost gives ours up
 function cbOutcome(w){
@@ -3521,7 +3535,7 @@ function cbOutcome(w){
   warEvent(w, `${f.p >= 0 ? f.name : f.myName} направление: ${cb.type === "atk" ? (cb.win ? "наш штурм под личным командованием взял позицию" : "наш штурм отбит") : (cb.win ? "атака врага отбита" : "противник прорвал позицию")}. Потери: ${cbCount(cb.a)} наших машин, ${cbCount(cb.ae)} вражеских.`, cb.win ? "good" : "bad");
 }
 // the game was closed during a battle: it counts as left early, the rest is auto-resolved, no days pass
-function cbOrphans(){ (S.wars || []).forEach(w => { if (!w.cb) return; try { cbApply(w, 1); cbOutcome(w); } catch(e){ console.error(e); } delete w.cb; }); }
+function cbOrphans(){ (S.wars || []).forEach(w => { if (!w.cb) return; try { if (w.cb.real) cbRest(w); cbApply(w, 1); cbOutcome(w); } catch(e){ console.error(e); } delete w.cb; }); }
 function cbOffer(st, w, i){
   const f = w.fronts[i]; if (!f || f.p >= 100) return;
   if (!cbReady(w)){ const d = w.bfCd - w.days; return setTimeout(() => { if (BF.open === st) bfMsg(st, `Командовать боем можно раз в ${CB_CD} дней войны: следующий бой через ${d} ${plural(d, "день", "дня", "дней")}. Сейчас — только наблюдение.`); }, 600); }
@@ -3547,7 +3561,8 @@ function cbOffer(st, w, i){
   box.addEventListener("click", e => { e.stopPropagation();
     if (e.target.closest("[data-cbwatch]")){ box.remove(); sfx("tap"); }
     if (e.target.closest("[data-cbgo]")){ const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww || !cbReady(ww)) return box.remove();
-      ww.cb = cbPlan(ww, i, +R.value/100); ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd"); cbHud(st); sfx("tap"); buzz(30); save(); } });
+      ww.cb = cbPlan(ww, i, +R.value/100); ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd");
+      if (bf3dOk() && !ui.bf2d){ ww.cb.real = true; bf3dRestart(st, ww, i); } cbHud(st); sfx("tap"); buzz(30); save(); } });
 }
 function cbHud(st){
   const cb = st.cb; if (!cb) return; let el = st.root.querySelector(".bf-cmdhud");
@@ -3555,21 +3570,27 @@ function cbHud(st){
     el.addEventListener("click", e => { if (e.target.closest("[data-cbend]")){ e.stopPropagation(); if (st.cb && !st.cb.end) cbEnd(st, true, true); } }); }
   if (cb.end) return el.remove();
   const mm = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2, "0")}`, left = (u, a) => cbCount(u) - cbCount(a);
-  const html = `<b>${cb.type === "atk" ? "Штурм позиции" : "Оборона позиции"} · ${mm(cb.t)} / ${mm(cb.dur)}</b><div class="bar"><i style="width:${Math.round(clamp(cb.t/cb.dur, 0, 1)*100)}%"></i></div>
+  const bt = cb.real && st.api && st.api.battle ? st.api.battle() : null, t = bt ? bt.t : cb.t, lim = cb.real ? (cb.type === "atk" ? CB_LIMIT : CB_HOLD) : cb.dur;
+  const head = cb.real ? (cb.type === "atk" ? `Штурм · ${mm(t)} из ${mm(lim)}` : `Оборона: держаться ${mm(Math.max(0, lim - t))}`) : `${cb.type === "atk" ? "Штурм позиции" : "Оборона позиции"} · ${mm(t)} / ${mm(lim)}`;
+  const html = `<b>${head}</b><div class="bar"><i style="width:${Math.round(clamp(t/lim, 0, 1)*100)}%"></i></div>
     <span class="us">Мы ×${cbCount(cb.g)} → ×${left(cb.g, cb.a)}</span><span class="them">Враг ×${cbCount(cb.e)} → ×${left(cb.e, cb.ae)}</span><button data-cbend>Досчитать бой</button>`;
   if (el.innerHTML !== html) el.innerHTML = html;
 }
 function cbTick(st){
   const cb = st.cb; if (!cb || cb.end || document.hidden) return; const w = S.wars.find(x => x.enemy === st.enemy); if (!w || w.cb !== cb) return;
-  cb.t++; cbApply(w, Math.min(0.97, cb.t/cb.dur)); if (cb.t >= cb.dur) return cbEnd(st, false); cbHud(st);
+  cb.t++;
+  if (cb.real){ if (cb.t > CB_LIMIT + 120) return cbEnd(st, true, true); return cbHud(st); }   // the field decides; a stuck field is resolved after the limit
+  cbApply(w, Math.min(0.97, cb.t/cb.dur)); if (cb.t >= cb.dur) return cbEnd(st, false); cbHud(st);
 }
 // the battle ends (on time, or left early: the rest is auto-resolved the same way); the map then catches up the days it lasted
 function cbEnd(st, early, stay){
   const w = S.wars.find(x => x.enemy === st.enemy), cb = st.cb; if (!cb || cb.end) return; cb.end = true;
   if (!w || w.cb !== cb){ st.cb = null; return; }
-  cbApply(w, 1); cbOutcome(w); delete w.cb;
+  if (cb.real && early) cbRest(w);
+  if (!cb.real || early) cbApply(w, 1);
+  cbOutcome(w); delete w.cb;
   const f = w.fronts[cb.i] || {}; st.posDay = (f.posEv || {}).day; st.done = true;
-  const days = clamp(Math.round(cb.dur/60), 1, 5); w.bfLock = cb.i;
+  const days = clamp(Math.round((cb.real && !early ? cb.t : cb.dur)/60), 1, 5); w.bfLock = cb.i;
   try { for (let k = 0; k < days; k++){ if (S.over || S.pendingEvent || S.pendingVictory) break; S.day = (S.day||1) + 1; dayTick(); if (S.day > daysIn(S.month, S.year)){ nextMonth(); break; } } } catch(e){ console.error(e); }
   delete w.bfLock; dirty = true; save();
   const title = cb.win ? (cb.type === "atk" ? "Мы уничтожили позицию врага! Победа!" : "Атака врага отбита! Победа!") : (cb.type === "atk" ? "Враг уничтожил нашу армию" : "Враг прорвал нашу позицию");
@@ -3614,8 +3635,42 @@ function bf3dUnits(w, i){
   return {units:out, counts};
 }
 function bf3dTanksLost(t){ let n = 0; for (const id in t||{}) if (MODELS[id] && ["tank","ifv","apc"].includes(MODELS[id].kind)) n += t[id]; return n; }
+// a commanded battle on the 3D field: only the two strike groups, split into squads; the front width keeps the rest in reserve
+function bf3dBattle(st, w, i){
+  const cb = st.cb, f = w.fronts[i], slots = {high:8, mid:6, low:4}[gfxLevel()] || 6, W = CB_WIDTH[bfTerrain(f)] || 100;
+  const units = [], reserve = [], counts = [0, 0], total = [0, 0], stats = {};
+  [[cb.g, 0], [cb.e, 1]].forEach(([grp, side]) => ["front", "arty"].forEach(role => {
+    const list = Object.keys(grp).filter(id => MODELS[id] && BF3D_ROLE[MODELS[id].kind] === role && grp[id] > 0).sort((a, b) => grp[b] - grp[a]);
+    list.forEach(id => { const m = MODELS[id]; stats[id] = {ga:m.ga, df:m.df, kind:m.kind}; });
+    const tot = list.reduce((a, id) => a + grp[id], 0); total[side] += tot; if (role === "front") counts[side] = tot; if (!tot) return;
+    const waves = role === "front" && cb.type === "def" && side === 1, cap = role === "front" ? (waves ? Math.min(W, Math.ceil(tot/3)) : W) : tot;
+    const E = Math.min(tot, cap), N = clamp(Math.round(E/3), 1, role === "front" ? slots : 2), avg = Math.max(3, Math.ceil(E/N));
+    // squads per model: every model gets one while there are slots, the rest by size
+    const k = list.map(id => [id, grp[id]/tot*N]).map(([id, v]) => [id, Math.floor(v), v - Math.floor(v)]);
+    k.forEach((c, j) => { if (c[1] === 0 && j < N){ c[1] = 1; c[2] = 0; } });
+    let left = N - k.reduce((a, c) => a + c[1], 0); [...k].sort((a, b) => b[2] - a[2]).forEach(c => { if (left > 0){ c[1]++; left--; } });
+    while (left < 0){ const c = k.filter(c => c[1] > 1).sort((a, b) => b[1] - a[1])[0] || k.filter(c => c[1] > 0).pop(); if (!c) break; c[1]--; left++; }
+    const chunks = [];
+    k.forEach(([id, q]) => { let used = 0; if (q > 0){ const e = Math.max(q, Math.round(grp[id]*E/tot)); for (let j = 0; j < q; j++){ const n = Math.max(1, Math.round(e/q)); if (used + n > grp[id]) break; units.push({id, model:bf3dModel(id), side, role, hp:n}); used += n; } }
+      for (let r = grp[id] - used; r > 0; r -= avg) chunks.push({side, id, n:Math.min(r, avg)}); });
+    // the attacker in a defence battle comes in waves: a minute apart
+    let acc = 0; chunks.forEach(c => { if (waves){ c.at = acc < cap ? 60 : acc < 2*cap ? 120 : null; acc += c.n; } reserve.push(c); });
+  }));
+  const defSide = cb.type === "atk" ? 1 : 0;
+  const battle = {type:cb.type, stats, reserve, total, defSide, atkSide:1 - defSide, defK:CB_DEFK, limit:CB_LIMIT, hold:CB_HOLD,
+    onLoss:(side, id, n) => { const ww = S.wars.find(x => x.enemy === st.enemy); if (ww && ww.cb === cb) cbLoss(ww, side, id, n); },
+    onEnd:res => { if (BF.open !== st || st.cb !== cb || cb.end) return; cb.win = res.win; cb.t = Math.round(res.t); cbEnd(st, false); }};
+  return {units, counts, battle};
+}
+function bf3dRestart(st, w, i){
+  clearInterval(st.tick3d); st.tick3d = null; if (st.api){ try { st.api.dispose(); } catch(e){} st.api = null; }
+  st.root.querySelectorAll(".bf3d").forEach(b => b.remove());
+  if (!st.root.querySelector(".bf-load")){ const l = document.createElement("div"); l.className = "bf-load"; l.textContent = "Ударные группы выходят на позиции…"; st.root.appendChild(l); }
+  bf3dOpen(st, w, i);
+}
 function bf3dOpen(st, w, i){
-  const f = w.fronts[i], {units, counts} = bf3dUnits(w, i);
+  const g3 = st.g3 = (st.g3 || 0) + 1, cbB = st.cb && st.cb.real ? bf3dBattle(st, w, i) : null;
+  const f = w.fronts[i], {units, counts} = cbB || bf3dUnits(w, i);
   const ms = forceStats(S.units, S.ammo, warShare(w)), ts = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const atk = ms.g + ms.airG + 1, def = ts.g + ts.airG + 1, edge = atk/(atk + def);
   const arty = (u, m) => Object.entries(u||{}).reduce((a, [id, n]) => a + (MODELS[id] && ["sph","mlrs"].includes(MODELS[id].kind) ? n*m*MODELS[id].ga : 0), 0);
@@ -3624,15 +3679,16 @@ function bf3dOpen(st, w, i){
   const ctx = {sound:!!settings.sound, audio:settings.sound ? AC : null, terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:gfxLevel(), auto:(settings.gfx || "auto") === "auto", onQuality:lv => { settings.gfxAuto = lv; settingsSave(); },
     hitUs:0.22 + 0.4*edge, hitThem:0.22 + 0.4*(1 - edge), rofUs:7 - 2.5*edge, rofThem:4.5 + 2.5*edge, artyUs:arty(w.dep[i], 1), artyThem:arty(w.eu, 1),
     accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)])), kindOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.kind])), roleOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, BF3D_ROLE[m.kind] || "front"]))};
+  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; }
   st.root.querySelector("#bf-cv").style.display = "none";
   const box = document.createElement("div"); box.className = "bf3d"; st.root.insertBefore(box, st.root.firstChild);
   st.lost0 = [Object.assign({}, (w.lossF || [])[i] || {}), Object.assign({}, w.lossTh)]; st.arrDay = ((w.arrD || [])[i] || {}).day ?? -1;
   import("./field/bf3d.js").then(m => m.start(box, ctx)).then(api => {
-    if (BF.open !== st){ api.dispose(); return; }
+    if (BF.open !== st || st.g3 !== g3){ api.dispose(); return; }
     st.api = api; st.root.querySelector(".bf-load")?.remove();
     // the war reaches the field: this front's share of every destroyed machine becomes a hit on its squad,
     // and what the army still has on this front comes as reinforcements
-    st.tick3d = setInterval(() => { const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww) return closeBattle(true); bfTitle(st);
+    if (!cbB) st.tick3d = setInterval(() => { const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww) return closeBattle(true); bfTitle(st);
       const fr = ww.fronts[st.i] || {}, fs = fr.share || 1/(ww.fronts.length || 1), ARM = Object.keys(BF3D_ROLE);
       { const ar = (ww.arrD || [])[st.i]; if (ar && ar.day !== st.arrDay){ st.arrDay = ar.day; bfArrive(st, ar.n); } }
       // a position fell and the banner has not shown yet: its losses explode there, not as ordinary fire
@@ -3643,7 +3699,7 @@ function bf3dOpen(st, w, i){
       [[(ww.lossF || [])[st.i] || {}, 0, 1], [ww.lossTh, 1, fs]].forEach(([loss, s, k]) => { for (const id in loss||{}){ if (!MODELS[id] || !ARM.includes(MODELS[id].kind)) continue; const d = loss[id] - (st.lost0[s][id] || 0); if (d > 0) api.hit(s, id, d*k); st.lost0[s][id] = loss[id]; } });
       const ground = (u, mult) => Object.fromEntries(Object.entries(u||{}).filter(([id, n]) => MODELS[id] && BF3D_ROLE[MODELS[id].kind] && n > 0).map(([id, n]) => [id, n*mult*fs]));
       api.sync(0, ground(depInit(ww)[st.i], 1/fs)); api.sync(1, ground(eAll, 1)); }, 1500);
-  }).catch(e => { console.error(e); ui.bf2d = true; box.remove(); st.root.querySelector("#bf-cv").style.display = ""; setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); st.root.querySelector(".bf-load")?.remove(); bfFit(st); }, 30); bfInput(st); requestAnimationFrame(bfLoop); });
+  }).catch(e => { console.error(e); ui.bf2d = true; if (st.cb) st.cb.real = false; box.remove(); st.root.querySelector("#bf-cv").style.display = ""; setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); st.root.querySelector(".bf-load")?.remove(); bfFit(st); }, 30); bfInput(st); requestAnimationFrame(bfLoop); });
 }
 /* ---- strikes ordered from the field: buttons at the bottom, the result shown on the field ---- */
 function bfStrikeBar(st){

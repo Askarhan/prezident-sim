@@ -312,6 +312,15 @@ export async function start(el, ctx){
     list.forEach((u, k) => { const x = (k + 0.5 - n/2)*(span/Math.max(n, 1)) + (R() - 0.5)*8, d = DEPTH[role], z = s*(d[0] + R()*(d[1] - d[0]));
       units.push({...u, role, x, z, h: u.side ? -Math.PI/2 : Math.PI/2, home:[x, z], hp:u.hp || 1, hpMax:u.hp || 1, pend:0, alive:true, reload:2 + R()*6, state:"hold", next:R()*8}); });
   }));
+  /* ---- a commanded battle (ctx.battle): the field decides. Each unit is a squad of real machines: hp = machines × machine armour,
+     a shot hits with the strength of all its live machines; every machine lost goes to the game through onLoss ---- */
+  const B = ctx.battle ? Object.assign({t:0, lost:[0, 0], coming:[0, 0], feed:[], ended:false, chk:0, shake:0}, ctx.battle) : null;
+  // attacker kind → target kind: tank vs tank full, autocannon vs tank weak, artillery in between
+  const CLS = {tank:{tank:1, ifv:1.2, apc:1.3, arty:1.3}, ifv:{tank:0.45, ifv:1, apc:1.2, arty:1.1}, apc:{tank:0.15, ifv:0.5, apc:1, arty:0.9},
+    sph:{tank:0.5, ifv:0.8, apc:1, arty:0.9}, mlrs:{tank:0.4, ifv:0.9, apc:1.2, arty:1}, srbm:{tank:1.5, ifv:1.5, apc:1.5, arty:1.5}};
+  const bCls = k => k === "tank" || k === "ifv" || k === "apc" ? k : "arty";
+  function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; }
+  if (B) units.forEach(bInit);
   scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]), level === "low" ? 0.55 : 1);
   // load models and place them
   // weak phones load only the light copies; the others load the full models now and the light ones in the background
@@ -383,6 +392,7 @@ export async function start(el, ctx){
     return {p, d};
   }
   function explosion(x, z, big, airburst, sc = 1, ay){
+    if (B && big && Math.hypot(x - cam.x, z - cam.z) < cam.dist*0.5) B.shake = Math.min(0.7, B.shake + 0.3);
     const y = ay != null ? ay : G.height(x, z) + (airburst ? 4 : 0.3);
     snd.play("boom", x, y, z, {vol:(big ? 1 : 0.55)*Math.min(1.3, sc), rate:big ? 0.85 : airburst ? 1.25 : 1.1});
     const n = Math.round((big ? 34 : 14)*sc);
@@ -425,7 +435,43 @@ export async function start(el, ctx){
   }
   // floating numbers over the squads: «−3» when the war destroys three of its machines
   const floats = [];
-  function damage(t, dmg){ if (!t.alive) return; t.hp -= dmg; floats.push({u:t, text:"−" + Math.round(dmg), t:0}); if (t.hp <= 0.5) destroy(t); }
+  function damage(t, dmg){ if (!t.alive) return; if (B) return bDamage(t, dmg); t.hp -= dmg; floats.push({u:t, text:"−" + Math.round(dmg), t:0}); if (t.hp <= 0.5) destroy(t); }
+  const bName = u => (ctx.names[u.id] || u.id);
+  function bDamage(t, dmg){
+    t.hp -= dmg; const c = Math.max(0, Math.ceil(t.hp/t.hpPer - 1e-6));
+    if (c < t.cnt){ const l = t.cnt - c; t.cnt = c; B.lost[t.side] += l; floats.push({u:t, text:"−" + l, t:0}); try { B.onLoss(t.side, t.id, l); } catch(e){} }
+    if (t.cnt <= 0){ const by = t.lastBy; B.feed.unshift({text:by ? `${bName(by)} уничтожил ${bName(t)}` : `${bName(t)} уничтожен`, side:by ? by.side : 1 - t.side, t:0}); B.feed.length = Math.min(B.feed.length, 5);
+      destroy(t); if (!B.ended) bReserve(t.side); }
+  }
+  // a shot decided by the battle: miss, ricochet or a hit carried by the shell as pend (the visuals already turn pend into a hit)
+  function bShot(u, t, frac = 1){
+    if (!t || !t.alive || B.ended) return; const a = B.stats[u.id], d = B.stats[t.id]; if (!a || !d) return;
+    const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc", dist = Math.hypot(t.x - u.x, t.z - u.z);
+    const acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (Math.random() > acc) return;
+    if (direct && (d.kind === "tank" || d.kind === "ifv")){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
+      if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
+    const pen = 2*a.ga/(a.ga + d.df);
+    t.pend += u.cnt*a.ga*0.25*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
+  }
+  async function bSpawn(side, id, n){ B.coming[side]++; try { await reinforce(side, id, n); } finally { B.coming[side]--; } }
+  function bReserve(side){ const j = B.reserve.findIndex(r => r.side === side && r.at == null); if (j < 0) return; const r = B.reserve.splice(j, 1)[0]; bSpawn(side, r.id, r.n); }
+  function bEnd(win){
+    if (B.ended) return; B.ended = true; B.win = win; const lose = win ? 1 : 0, own = lose ? -1 : 1;
+    for (const u of units){ if (!u.alive || !u.obj || u.air) continue; if (u.side === lose){ u.state = "move"; u.next = 999; u.wp = [u.x + (Math.random() - 0.5)*10, own*(FIELD/2 + 40)]; } else { u.state = "hold"; u.next = 999; } }
+    try { B.onEnd({win, t:B.t}); } catch(e){}
+  }
+  function bStep(dt){
+    if (B.ended) return; B.t += dt; B.chk -= dt;
+    // waves of the attacker in a defence battle
+    for (let j = B.reserve.length - 1; j >= 0; j--){ const r = B.reserve[j]; if (r.at != null && B.t >= r.at){ B.reserve.splice(j, 1); bSpawn(r.side, r.id, r.n); } }
+    // mines: the attacker's moving squads in the first minute and a half
+    if (B.t < 90) for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*0.012){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
+    if (B.chk > 0) return; B.chk = 0.5;
+    const alive = s => units.some(u => u.alive && u.side === s && !u.air) || B.coming[s] > 0 || B.reserve.some(r => r.side === s);
+    if (!alive(1)) return bEnd(true); if (!alive(0)) return bEnd(false);
+    if (B.type === "atk" && B.t >= B.limit){ const sh = s => B.lost[s]/Math.max(1, B.total[s]); return bEnd(sh(0) < sh(1)); }   // time is up: the side with more losses pulls back
+    if (B.type === "def" && B.t >= B.hold) return bEnd(true);
+  }
   const wrecks = [];
   function destroy(u){
     if (!u.alive) return; u.alive = false; u.pend = 0; wrecks.push(u);
@@ -443,7 +489,7 @@ export async function start(el, ctx){
     const s = side ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.7, z = s*(FIELD/2 - 6), hz = s*(d[0] + Math.random()*(d[1] - d[0]));
     const u = {id, model, side, role, x, z, h:side ? -Math.PI/2 : Math.PI/2, home:[x, hz], hp, hpMax:hp, pend:0, alive:true, reload:4, state:"move", wp:[x, hz], next:20};
     if (role !== "front"){ u.x = x; u.z = hz - s*40; }
-    units.push(u); dress(u); floats.push({u, text:"подкрепление", t:0});
+    if (B) bInit(u); units.push(u); dress(u); floats.push({u, text:"подкрепление", t:0});
   }
   /* ---- camera: pan with one finger, pinch to zoom, twist to rotate ---- */
   const cam = {x:0, z:4, dist:135, yaw:0, pitch:0.92};
@@ -491,6 +537,11 @@ export async function start(el, ctx){
       // short by default; the details show once the diagnostics are switched on by a tap
       const line = diag ? `${fps.v} FPS · кадр ${P.frame} мс: бой ${P.step} · звук ${P.sound} · отрисовка ${P.render} · подписи ${P.hud} · выкл.: ${DIAG[diag]}` : `${fps.v} FPS · ${level} · кадр ${P.frame} мс · поле ${own}`; hg.strokeText(line, W - 10, 16); hg.fillText(line, W - 10, 16); }
     if (diag === 2 || diag === 5) return;
+    // the kill feed, top right under the FPS line
+    if (B){ hg.textAlign = "right"; hg.font = "600 12px system-ui, sans-serif"; let y = 40;
+      for (let j = 0; j < B.feed.length; j++){ const f = B.feed[j]; f.t += dt; if (f.t > 7){ B.feed.length = j; break; } hg.globalAlpha = clamp((7 - f.t)/1.5, 0, 1);
+        hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.75)"; hg.strokeText(f.text, W - 10, y); hg.fillStyle = f.side ? "#ff9a8f" : "#9cc0ff"; hg.fillText(f.text, W - 10, y); y += 17; }
+      hg.globalAlpha = 1; }
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
     for (const u of [...units, ...air]){ if (!u.alive || !u.obj || u.temp || (u.air && u.state === "fall")) continue; const q = screenOf(u, u.air ? 3.2 : 4.2); if (!q.vis) continue;
@@ -498,7 +549,7 @@ export async function start(el, ctx){
       hg.fillStyle = "rgba(0,0,0,.55)"; hg.fillRect(q.x - w/2 - 1, q.y - 1, w + 2, 5);
       hg.fillStyle = u.side ? "#ff5a4f" : "#4f8cff"; hg.fillRect(q.x - w/2, q.y, w*k, 3);
       if (u.nofuel){ const t = "нет топлива"; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#ffb347"; hg.fillText(t, q.x, q.y - 4); }
-      else if (close || u === selected){ const t = `${ctx.names[u.id] || u.id} ×${Math.max(1, Math.round(u.hp))}`; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#fff"; hg.fillText(t, q.x, q.y - 4); } }
+      else if (close || u === selected || B){ const t = B ? (u.cnt < u.n0 ? `${bName(u)} ×${u.n0} → ×${u.cnt}` : `${bName(u)} ×${u.cnt}`) : `${ctx.names[u.id] || u.id} ×${Math.max(1, Math.round(u.hp))}`; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#fff"; hg.fillText(t, q.x, q.y - 4); } }
     for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.t += dt; if (f.t > 1.6 || !f.u.obj){ floats.splice(i, 1); continue; }
       const q = screenOf(f.u, 5 + f.t*3); hg.globalAlpha = 1 - f.t/1.6; hg.font = "700 14px system-ui, sans-serif"; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.75)"; hg.strokeText(f.text, q.x, q.y - 10); hg.fillStyle = f.u.side ? "#ffd2c8" : "#ffd27a"; hg.fillText(f.text, q.x, q.y - 10); hg.globalAlpha = 1; }
   }
@@ -738,6 +789,7 @@ export async function start(el, ctx){
   const enemiesOf = u => units.filter(v => v.alive && v.side !== u.side && v.obj);
   function think(u, dt){
     if (!u.alive || !u.obj) return;
+    if (B && B.ended && u.state !== "move") return;
     if (u.nofuel) return;   // no fuel: the machine stands where it is and does not fight
     u.next -= dt; u.reload -= dt;
     if (u.role === "arty" || u.role === "ad") return supportThink(u, dt);
@@ -757,7 +809,7 @@ export async function start(el, ctx){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
       if (u.gun){ const el2 = u.target ? clamp(Math.hypot(u.target.x - u.x, u.target.z - u.z)/2200, 0.005, 0.06) : 0; u.gun.rotation.z = lerp(u.gun.rotation.z, el2, dt*2); }
-      if (u.target && Math.abs(diff) < 0.035 && u.reload < 0){ const k = ctx.kindOf[u.id]; fireAt(u, u.target, k === "ifv" ? 4 : k === "apc" ? 7 : 0); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(k === "apc" ? 0.5 : k === "ifv" ? 0.6 : 1)*(0.7 + Math.random()*0.6); }
+      if (u.target && Math.abs(diff) < 0.035 && u.reload < 0){ const k = ctx.kindOf[u.id]; if (B) bShot(u, u.target); fireAt(u, u.target, k === "ifv" ? 4 : k === "apc" ? 7 : 0); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(k === "apc" ? 0.5 : k === "ifv" ? 0.6 : 1)*(0.7 + Math.random()*0.6); }
     }
     if (u.recoil){ u.recoil = Math.max(0, u.recoil - dt*4); if (u.gun) u.gun.position.x = u.gun0 - Math.sin(u.recoil*Math.PI)*0.45; }
     // losses no gun is aiming at arrive by artillery or a drone
@@ -780,18 +832,19 @@ export async function start(el, ctx){
     }
     if (u.turret){ const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.5*dt, 0.5*dt); u.aimed = Math.abs(diff) < 0.05; } else u.aimed = true;
     if (k === "sph"){ if (u.gun) u.gun.rotation.z = lerp(u.gun.rotation.z, 0.7, dt*1.5);
-      if (t && u.aimed && u.reload < 0){ const p = launchPoint(u); launchSmoke(p, 14, 1.2); flash.position.copy(p); flash.intensity = 120; flashT = 0.1; u.recoil = 1; lob(u, t, "shell"); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*1.6*(0.8 + Math.random()*0.4); } }
+      if (t && u.aimed && u.reload < 0){ const p = launchPoint(u); launchSmoke(p, 14, 1.2); flash.position.copy(p); flash.intensity = 120; flashT = 0.1; u.recoil = 1; if (B) bShot(u, t); lob(u, t, "shell"); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*1.6*(0.8 + Math.random()*0.4); } }
     else if (k === "mlrs"){ if (u.turret) u.turret.rotation.z = lerp(u.turret.rotation.z, 0.5, dt*1.2);
-      if (u.salvo > 0){ u.salvoT -= dt; if (u.salvoT <= 0){ u.salvoT = 0.13; u.salvo--; const p = launchPoint(u); launchSmoke(p, 5, 0.8); lob(u, u.salvoTarget && u.salvoTarget.alive ? u.salvoTarget : t, "rocket"); } }
+      if (u.salvo > 0){ u.salvoT -= dt; if (u.salvoT <= 0){ u.salvoT = 0.13; u.salvo--; const p = launchPoint(u); launchSmoke(p, 5, 0.8); { const st = u.salvoTarget && u.salvoTarget.alive ? u.salvoTarget : t; if (B) bShot(u, st, 0.1); lob(u, st, "rocket"); }; } }
       else if (t && u.aimed && u.reload < 0){ u.salvo = 8 + Math.floor(Math.random()*5); u.salvoT = 0; u.salvoTarget = t; u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*4*(0.8 + Math.random()*0.4); } }
     else if (k === "srbm"){ u.erect = clamp((u.erect || 0) + (u.reload < 6 ? dt/3 : -dt/3), 0, 1); if (u.gun){ u.gun.rotation.z = u.erect*1.2; u.gun.visible = u.reload < 40; }
-      if (u.erect >= 1 && u.reload < 0){ const p = launchPoint(u); launchSmoke(p, 40, 2); flash.position.copy(p); flash.intensity = 200; flashT = 0.15; lob(u, t, "missile"); u.reload = 50 + Math.random()*20; } }
+      if (u.erect >= 1 && u.reload < 0){ const p = launchPoint(u); launchSmoke(p, 40, 2); flash.position.copy(p); flash.intensity = 200; flashT = 0.15; if (B) bShot(u, t); lob(u, t, "missile"); u.reload = 50 + Math.random()*20; } }
     if (u.recoil){ u.recoil = Math.max(0, u.recoil - dt*3); if (u.gun) u.gun.position.x = u.gun0 - Math.sin(u.recoil*Math.PI)*0.6; }
     if (u.pend >= 1){ u.pendT = (u.pendT || 0) + dt; if (u.pendT > 6){ const d = Math.floor(u.pend); u.pend -= d; u.pendT = 0; explosion(u.x + (Math.random() - 0.5)*2, u.z + (Math.random() - 0.5)*2, false); damage(u, d); } } else u.pendT = 0;
   }
   function step(dt){
     for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
     if (diag !== 3 && diag !== 5) airStep(dt);
+    if (B) bStep(dt);
     for (const u of units){
       if (u.boomT != null){ u.boomT -= dt; if (u.boomT <= 0){ u.boomT = null; if (u.alive && u.obj) destroy(u); } }
       think(u, dt);
@@ -865,7 +918,8 @@ export async function start(el, ctx){
     let t0 = performance.now(); snd.wake(true); soundStep(Math.min(0.1, (now - last)/1000)); const t1 = performance.now(); fps.acc.sound += t1 - t0;
     const raw = now - last, dt = clamp(raw/1000, 0, 0.1); last = now; measure(now, raw); fpsTick(raw);
     if (dt > 0.05){ step(dt/2); step(dt/2); } else step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
-    const t2 = performance.now(); fps.acc.step += t2 - t1; renderer.render(scene, camera); const t3 = performance.now(); fps.acc.render += t3 - t2; drawHud(dt); fps.acc.hud += performance.now() - t3;
+    const t2 = performance.now(); fps.acc.step += t2 - t1; let sx = 0, sy = 0; if (B && B.shake > 0.02){ sx = (Math.random() - 0.5)*B.shake*1.6; sy = (Math.random() - 0.5)*B.shake*1.2; camera.position.x += sx; camera.position.y += sy; B.shake = Math.max(0, B.shake - dt*1.8); }
+    renderer.render(scene, camera); camera.position.x -= sx; camera.position.y -= sy; const t3 = performance.now(); fps.acc.render += t3 - t2; drawHud(dt); fps.acc.hud += performance.now() - t3;
   }
   requestAnimationFrame(frame);
   return {
@@ -875,6 +929,7 @@ export async function start(el, ctx){
       const left = v => v.hp - v.pend - (v.pendAir || 0), u = pool.reduce((a, b) => left(b) > left(a) ? b : a);
       if (via === "air"){ u.pendAir = (u.pendAir || 0) + n; u.pendAirT = 0; } else u.pend += n; },
     raid(type, o){ raid(type, o); },
+    battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win} : null; },
     // share of a side's ground squads that has fuel; the rest stands still with a «нет топлива» label
     fuel(side, k){ const g = units.filter(u => u.alive && u.obj && u.side === side && !u.air), dry = Math.round(g.length*(1 - clamp(k, 0, 1)));
       g.forEach((u, j) => { u.nofuel = j >= g.length - dry; }); },
