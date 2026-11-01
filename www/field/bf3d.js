@@ -7,7 +7,7 @@ const FIELD = 240;                 // metres, square
 const MODEL_CACHE = new Map();     // glb name -> Promise<gltf scene>
 const loader = new GLTFLoader();
 // models that also ship a light copy <name>_lo.glb (~2.5-4k triangles, half-size textures)
-const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams", "su25", "ka52", "tb2", "a10", "su34", "mi24", "mig29", "su35", "f16"]);
+const HAS_LO = new Set(["t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams", "su25", "ka52", "tb2", "a10", "su34", "mi24", "mig29", "su35", "f16", "apache", "reaper", "shahed"]);
 // graphics levels: pixel ratio cap, shadow map (0 = off), distance beyond which the light copy is drawn, effects share, squads per side at the front
 // aircraft on the field: roles the game sends for them
 const AIR_ROLES = new Set(["plane", "heli", "drone"]);
@@ -543,7 +543,7 @@ export async function start(el, ctx){
     const set = makeSet(a, src), root = new THREE.Group(); root.add(set.obj); root.rotation.order = "YZX";
     a.rotors = []; a.hull = null; set.obj.traverse(o => { if (/_rotor\d*$/.test(o.name)) a.rotors.push(o); if (/_hull$/.test(o.name)) a.hull = o; });
     a.axes = String((a.hull && a.hull.userData && a.hull.userData.rotors) || "").split(",");
-    if (a.loiter) root.scale.setScalar(0.26);
+    if (a.loiter) root.scale.setScalar(a.model === "shahed" ? (a.id === "shahed" ? 1 : 0.6) : 0.26);   // Shahed model is life-size; smaller loitering munitions borrow it at 0.6
     a.obj = root; scene.add(root); a.chased = false; a.pendT = 0;
     const s = own(a), sp = a.spec, R = Math.random;
     a.alt = sp.alt[0] + R()*(sp.alt[1] - sp.alt[0]); a.v = sp.v; a.pitch = 0; a.roll = 0; a.h = a.side ? -Math.PI/2 : Math.PI/2;

@@ -22,14 +22,14 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (36): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24.
+- Models converted so far (42): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136.
 - Still procedural: bmp3, zsl92, m270, phl03, tochka, iskander, tor, pantsir, hq17, hq16, hq9, s500, irist_sls, krasukha.
 
 ## Aviation over the field (stage 1 done 01.11.2026)
 - Models: `su25`, `ka52`, `tb2` (Sketchfab, CC BY, credits in `credits3d.json`), each with `_lo`. Nodes: `g_<id>_hull` (origin at the centre of the airframe, nose +X) and `g_<id>_rotor`, `g_<id>_rotor2` that spin; the hull's glTF extras `rotors` give each rotor's axis (`"y,y"` for the Ka-52, `"x"` for the TB2 propeller).
 - Batch 2 (01.11): `a10`, `su34`, `mi24`. The Mi-24 has a main rotor (`y`) and a tail rotor (`z`, sideways axis).
 - Blender: `sf_make_air(root, id, front, rotors=[(pred, axis, hub)], accent=fn, targets=..., length=..., scrub=False)` in `kab_sf.py`. Axes: `y` main rotor, `x` propeller, `z` tail rotor. `scrub=True` paints red markings out of the baked texture. Joined meshes keep their vertex colours (the Su-34 import is coloured that way); `sf_loose(root, drop)` splits an import into loose parts and drops landing gear. The Ka-52 import had only blur discs for rotors: its blades are simple boxes added in Blender.
-- Game bridge (`src/game.html`): `BF3D_ROLE` maps fighter/attack/bomber → `plane`, heli → `heli`, drone/loiter → `drone`; `BF3D_SLOTS` allows 4 / 3 / 4 squads a side (2 / 2 / 2 on the low graphics level). Models of their own: su25, a10, su34, ka52, mi24, tb2. `BF3D_AIR_MODEL` gives the rest the nearest one: fighters → Su-25, bombers → Su-34, other helicopters → Ka-52, drones and loitering munitions → TB2 (loitering munitions at quarter size).
+- Game bridge (`src/game.html`): `BF3D_ROLE` maps fighter/attack/bomber → `plane`, heli → `heli`, drone/loiter → `drone`; `BF3D_SLOTS` allows 4 / 3 / 4 squads a side (2 / 2 / 2 on the low graphics level). Models of their own: su25, a10, su34, ka52, mi24, tb2, mig29, su35, f16, apache, reaper, shahed. `bf3dModel()` picks by machine id (not by country): first `BF3D_LIKE` (nearest silhouette, user's choice): su57, f15ex, j20 → su35; f35, j10 → f16; ah1z, z10 → apache; wingloong → reaper. Then `BF3D_AIR_MODEL` by kind: fighter → f16, attack → su25, bomber → su34, heli → ka52, drone → tb2, loiter → shahed. Loitering munitions: the Shahed model is life-size (scale 1), Lancet/Switchblade borrow it at 0.6 (`spawn` in bf3d.js); a TB2 stand-in would still be 0.26.
 - Field (`bf3d.js`, block «aviation»):
   - Planes come in from their own edge at 30–40 m, dive on a target, fire 8 rockets or drop 4 bombs, turn back and leave; a pass takes ~15 s, then a pause of 7–19 s.
   - Helicopters fly to a hover point behind their own front line at 12–18 m and fire ATGMs.
@@ -130,9 +130,22 @@ Read this first in a new session.
 - **Balance** (headless sim, 1000 days, several runs, old vs new): KZ—KG 218–244 vs 227–237 days; KR—JP varies widely in both (59–76% after 1000 days, or a loss); CN—IN ~85% unfinished in both; US—RU 219 vs 378 days.
 - Pitfalls: the game script is one IIFE, nothing is global. For headless tests copy `www/index.html` to a temp file, inject `window.__T={newGame,startWar,dayTick,...}` before the last `})();`, serve `www` with `python3 -m http.server`; never commit the copy. Game modals can replace the deploy window during a test: reopen it with `showDeploy` before clicking. The 3D banner was not checked in a browser (no `www/lib/three` in this session).
 
+## Aircraft models, batches 3–4 (stage done 01.11.2026)
+- MiG-29 (Carlos.Maciel), Su-35 and F-16 (andertan), Apache (MirzaArrafiERV_45), MQ-9 (IProZenoN), Shahed-136 (faintastic); all CC BY, in `credits3d.json`, each with `_lo`. Apache rotors `y,z` (main + tail), Reaper and Shahed pusher propellers `x`.
+- Checked headless (three from the `apk` branch): all six .glb load on the field, no page errors. The arrival banner (lives 2.6 s) and the canvas «нет топлива» labels are still not seen by eye: ask the user about the APK.
+- The Reaper keeps small US markings (white star roundels): no red to scrub.
+- Blender pitfalls (fresh Blender 5.2):
+  - The glTF importer and Cycles may be off: `addon_utils.enable("io_scene_gltf2")` / `("cycles")` before import / bake (bake fails with «CYCLES not found»).
+  - `kab_models.py` needs the text block `kab_lib`: `bpy.data.texts.new("kab_lib").from_string(open(...kab_lib.py).read())` before `exec(kab_glb.py)`.
+  - Keep the namespace across calls: `import builtins; builtins.KG = G`.
+  - Imports can come rotated (the MQ-9 lay on its side, then upside down): the Sketchfab root is in QUATERNION mode, so rotate `rotation_quaternion`, not `rotation_euler`, and check with `sf_parts` (gear and fins show which way is up).
+  - A gear filter in `sf_loose` can drop a whole wing when the wing is welded to the gear legs (Su-35): test the part's width too, e.g. `mn z < -0.9 and width < 3`.
+  - Hubs for `rotors=[(pred, axis, hub)]` are given in import coordinates; `sf_make_air` turns them with the model.
+- Getting the .glb into the repo: the user grants `D:\Projects\kabinet_units\glb` (device folder access), then `device_stage_files` → `/mnt/user-data/uploads/glb/`.
+
 ## Next
-- Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
-- The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
+- Possible next model batches (≤3 at a time, ask the user first): Su-57 / F-35 / J-20 (now stand-ins), Lancet, Wing Loong, Z-10; or the procedural ground list above. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
+- The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
 - Not yet seen in 3D (no `www/lib/three` in the last session): the «Подкрепление прибыло» banner and the enemy's idle machines with the «нет топлива» label. Ask the user how they look in the APK, or check headless with three from the `apk` branch.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.

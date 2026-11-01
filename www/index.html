@@ -3460,13 +3460,13 @@ function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.a
   document.body.classList.remove("bf-open"); if (st.speed0 != null && ui.speed > 0) ui.speed = st.speed0;
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
-const BF3D_MODELS = ["su25","ka52","tb2","a10","su34","mi24","mig29","su35","f16","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
+const BF3D_MODELS = ["su25","ka52","tb2","a10","su34","mi24","mig29","su35","f16","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
 // aircraft without a model of their own use the nearest one: attack planes and fighters fly as the Su-25, bombers as the Su-34,
 // helicopters as the Ka-52, drones as the TB2
-const BF3D_FIGHTER = {su57:"su35", f15ex:"su35", j20:"su35", f35:"f16", j10:"f16"};   // fighters without a model of their own: the nearest silhouette (heavy twin-engine → Su-35, light → F-16)
-const BF3D_AIR_MODEL = {fighter:"f16", attack:"su25", bomber:"su34", heli:"ka52", drone:"tb2", loiter:"tb2"};
-function bf3dModel(id){ if (BF3D_MODELS.includes(id)) return id; const m = MODELS[id]; if (!m) return "t72"; if (BF3D_FIGHTER[id]) return BF3D_FIGHTER[id]; if (BF3D_AIR_MODEL[m.kind]) return BF3D_AIR_MODEL[m.kind]; if (m.origin === "us") return "abrams"; if (m.origin === "de") return "leo"; if (m.origin === "cn") return m.gen >= 2 ? "leo" : "t72"; return m.gen >= 2 ? "t90" : "t72"; }
+const BF3D_LIKE = {su57:"su35", f15ex:"su35", j20:"su35", f35:"f16", j10:"f16", ah1z:"apache", z10:"apache", wingloong:"reaper"};   // aircraft without a model of their own: the nearest silhouette (heavy twin-engine fighters → Su-35, light → F-16, tandem attack helicopters → Apache, MALE drones → Reaper)
+const BF3D_AIR_MODEL = {fighter:"f16", attack:"su25", bomber:"su34", heli:"ka52", drone:"tb2", loiter:"shahed"};
+function bf3dModel(id){ if (BF3D_MODELS.includes(id)) return id; const m = MODELS[id]; if (!m) return "t72"; if (BF3D_LIKE[id]) return BF3D_LIKE[id]; if (BF3D_AIR_MODEL[m.kind]) return BF3D_AIR_MODEL[m.kind]; if (m.origin === "us") return "abrams"; if (m.origin === "de") return "leo"; if (m.origin === "cn") return m.gen >= 2 ? "leo" : "t72"; return m.gen >= 2 ? "t90" : "t72"; }
 // up to 10 ground squads and 11 aircraft a side, in proportion to the real armies on this front
 // roles on the 3D field: armour in front, artillery behind, air defence in the depth
 // aviation over the field: planes make passes, helicopters hover behind the line, drones and loitering munitions share the drone slots
@@ -6920,7 +6920,10 @@ const CREDITS3D = [
   ["mi24", "«Mi-24 Hind» — duanesmind (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/004d68143e1a4df88e136dbc0a05f181"],
   ["mig29", "«MiG-29 Fulcrum Fighter Jet» — Carlos.Maciel (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/ec6c1fcfe35f4cc8a638bd85463a34f2"],
   ["su35", "«Sukhoi Su-35 Flanker-E (Сухой Су-35)» — andertan (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/c98cf9b3b3e04017a04732798a31888a"],
-  ["f16", "«Lockheed Martin F-16e/f \"Fighting Falcon\"» — andertan (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/d54c72e055a647ad9173e01548e50db3"]
+  ["f16", "«Lockheed Martin F-16e/f \"Fighting Falcon\"» — andertan (опознавательные знаки удалены)", "https://sketchfab.com/3d-models/d54c72e055a647ad9173e01548e50db3"],
+  ["apache", "«Boeing AH-64D Apache Combat Helicopter» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/c3b58008c46b45048fdd7dd283a3c8c8"],
+  ["reaper", "«MQ-9» — IProZenoN", "https://sketchfab.com/3d-models/fabe963feb354c5584b51f9c470c3f7e"],
+  ["shahed", "«Shahed 136» — faintastic", "https://sketchfab.com/3d-models/bc8754128c9d48c48baadeff1db8f0c7"]
 ];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
