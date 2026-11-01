@@ -3458,7 +3458,7 @@ const BF3D_MODELS = ["su25","ka52","tb2","a10","su34","mi24","mig29","su35","f16
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
 // aircraft without a model of their own use the nearest one: attack planes and fighters fly as the Su-25, bombers as the Su-34,
 // helicopters as the Ka-52, drones as the TB2
-const BF3D_LIKE = {bmp3:"bmp2", phl03:"tornado", su57:"su35", f15ex:"su35", j20:"su35", f35:"f16", j10:"f16", ah1z:"apache", z10:"apache", wingloong:"reaper"};   // aircraft without a model of their own: the nearest silhouette (heavy twin-engine fighters → Su-35, light → F-16, tandem attack helicopters → Apache, MALE drones → Reaper)
+const BF3D_LIKE = {bmp3:"bmp2", phl03:"tornado", s500:"s400", su57:"su35", f15ex:"su35", j20:"su35", f35:"f16", j10:"f16", ah1z:"apache", z10:"apache", wingloong:"reaper"};   // aircraft without a model of their own: the nearest silhouette (heavy twin-engine fighters → Su-35, light → F-16, tandem attack helicopters → Apache, MALE drones → Reaper)
 const BF3D_AIR_MODEL = {fighter:"f16", attack:"su25", bomber:"su34", heli:"ka52", drone:"tb2", loiter:"shahed"};
 function bf3dModel(id){ if (BF3D_MODELS.includes(id)) return id; const m = MODELS[id]; if (!m) return "t72"; if (BF3D_LIKE[id]) return BF3D_LIKE[id]; if (BF3D_AIR_MODEL[m.kind]) return BF3D_AIR_MODEL[m.kind]; if (m.origin === "us") return "abrams"; if (m.origin === "de") return "leo"; if (m.origin === "cn") return m.gen >= 2 ? "leo" : "t72"; return m.gen >= 2 ? "t90" : "t72"; }
 // up to 10 ground squads and 11 aircraft a side, in proportion to the real armies on this front
@@ -6923,7 +6923,10 @@ const CREDITS3D = [
   ["pantsir", "«Pantsir S1_lowpoly_LOD_UE5_ready» — maddex88 (перекрашен)", "https://sketchfab.com/3d-models/62c1772d5f4c4b7291613b432a29bccc"],
   ["tochka", "«Ukrainian OTR-21 Tochka-U» — 42manako", "https://sketchfab.com/3d-models/dac8aa4191f945dca44f089083a67c5c"],
   ["m270", "«US M270 MLRS (War Thunder April AF!)» — KojfDiscord", "https://sketchfab.com/3d-models/65d0f764f3084a6eb17b054d91043f46"],
-  ["zsl92", "«WZ-551 120mm» — MirzaArrafiERV_45 (та же платформа WZ551)", "https://sketchfab.com/3d-models/7de59f6635544362ae77e638f338c27a"]
+  ["zsl92", "«WZ-551 120mm» — MirzaArrafiERV_45 (та же платформа WZ551)", "https://sketchfab.com/3d-models/7de59f6635544362ae77e638f338c27a"],
+  ["hq9", "«Chinese HQ-9» — 42manako", "https://sketchfab.com/3d-models/246c635701c0421ca02e67202a6494e9"],
+  ["krasukha", "«P-18 Terek Radar (Spoon Rest D) on Ural-4320» — xFORTUNAx (радар П-18 вместо «Красухи-4»)", "https://sketchfab.com/3d-models/5958ea3b6776430e9df24e5cb1b2d5bc"],
+  ["hq17", "«Chinese HQ-17» — 42manako", "https://sketchfab.com/3d-models/50e0f40db03444178598e336ae675fad"]
 ];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
