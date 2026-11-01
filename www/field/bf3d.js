@@ -497,7 +497,8 @@ export async function start(el, ctx){
       const w = 26, k = clamp(u.hp/u.hpMax, 0, 1);
       hg.fillStyle = "rgba(0,0,0,.55)"; hg.fillRect(q.x - w/2 - 1, q.y - 1, w + 2, 5);
       hg.fillStyle = u.side ? "#ff5a4f" : "#4f8cff"; hg.fillRect(q.x - w/2, q.y, w*k, 3);
-      if (close || u === selected){ const t = `${ctx.names[u.id] || u.id} ×${Math.max(1, Math.round(u.hp))}`; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#fff"; hg.fillText(t, q.x, q.y - 4); } }
+      if (u.nofuel){ const t = "нет топлива"; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#ffb347"; hg.fillText(t, q.x, q.y - 4); }
+      else if (close || u === selected){ const t = `${ctx.names[u.id] || u.id} ×${Math.max(1, Math.round(u.hp))}`; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#fff"; hg.fillText(t, q.x, q.y - 4); } }
     for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.t += dt; if (f.t > 1.6 || !f.u.obj){ floats.splice(i, 1); continue; }
       const q = screenOf(f.u, 5 + f.t*3); hg.globalAlpha = 1 - f.t/1.6; hg.font = "700 14px system-ui, sans-serif"; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.75)"; hg.strokeText(f.text, q.x, q.y - 10); hg.fillStyle = f.u.side ? "#ffd2c8" : "#ffd27a"; hg.fillText(f.text, q.x, q.y - 10); hg.globalAlpha = 1; }
   }
@@ -735,6 +736,7 @@ export async function start(el, ctx){
   const enemiesOf = u => units.filter(v => v.alive && v.side !== u.side && v.obj);
   function think(u, dt){
     if (!u.alive || !u.obj) return;
+    if (u.nofuel) return;   // no fuel: the machine stands where it is and does not fight
     u.next -= dt; u.reload -= dt;
     if (u.role === "arty" || u.role === "ad") return supportThink(u, dt);
     if (u.state === "move"){
@@ -870,9 +872,15 @@ export async function start(el, ctx){
       const left = v => v.hp - v.pend - (v.pendAir || 0), u = pool.reduce((a, b) => left(b) > left(a) ? b : a);
       if (via === "air"){ u.pendAir = (u.pendAir || 0) + n; u.pendAirT = 0; } else u.pend += n; },
     raid(type, o){ raid(type, o); },
+    // share of a side's ground squads that has fuel; the rest stands still with a «нет топлива» label
+    fuel(side, k){ const g = units.filter(u => u.alive && u.obj && u.side === side && !u.air), dry = Math.round(g.length*(1 - clamp(k, 0, 1)));
+      g.forEach((u, j) => { u.nofuel = j >= g.length - dry; }); },
     // a position changed hands: the winners' front squads roll forward across the line, the losers' pull back to their rear
-    posTaken(dir){ for (const u of units){ if (!u.alive || !u.obj || u.role !== "front") continue;
-        const own = u.side ? -1 : 1, win = (u.side === 0) === (dir > 0);
+    // boom: machines the losers lose in the breakthrough; they explode on their front squads
+    posTaken(dir, boom){ const lose = dir > 0 ? 1 : 0; let left = boom || 0;
+      units.filter(u => u.alive && u.obj && u.side === lose && u.role === "front").sort((a, b) => a.hp - b.hp).forEach(u => { if (left <= 0) return; const d = Math.min(left, u.hp); left -= d; u.pend = 0; damage(u, d); });
+      for (const u of units){ if (!u.alive || !u.obj || u.role !== "front") continue;
+        const own = u.side ? -1 : 1, win = (u.side === 0) === (dir > 0); u.nofuel = false;
         u.state = "move"; u.next = 999; u.wp = win ? [u.x + (Math.random() - 0.5)*8, u.z - own*(30 + Math.random()*12)] : [u.x + (Math.random() - 0.5)*10, own*(FIELD/2 + 40)]; } },
     // machines spent (drones that flew their strike): the squads get smaller without anything being shot down
     consume(side, id, n){ let left = n; air.filter(a => a.alive && !a.temp && a.side === side && a.id === id).forEach(a => { const q = Math.min(left, Math.max(0, a.hp - 0.5)); a.hp -= q; left -= q; }); },

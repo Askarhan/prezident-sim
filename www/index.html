@@ -2071,8 +2071,8 @@ function frontsDay(w, base){
     f.lastD = d; const before = f.p; f.p = clamp(f.p + d, -100, 100);
     // a new position taken (also by strikes since yesterday): the winner regroups; the field learns about it through f.posEv
     { const was = f.posN ?? Math.floor(before/POS_STEP), now = Math.floor(f.p/POS_STEP), line = LINES.some(t => (before < t && f.p >= t) || (before > -t && f.p <= -t));
-      if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days}; }
-      else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days}; }
+      if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days, boom:posBreak(w, i, 1)}; }
+      else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days, boom:posBreak(w, i, -1)}; }
       f.posN = now; }
     LINES.forEach((t, k) => {
       if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); wearyAdd(-3); }
@@ -2246,7 +2246,7 @@ function depTake(w, id, n, i){
 }
 // losses of the deployed machines (the same rates as before, now only for what is really at war)
 function takeLossesW(w, rate, airRate){
-  const U = warUnits(w), before = Object.assign({}, U);
+  const U = warFight(w), before = Object.assign({}, U);
   takeLosses(U, w.accMy, w.lossMy, w.mLossMy, rate, airRate, 1, foeQ(w.eu));
   for (const id in before){ const d = Math.round(before[id] - U[id]); if (d > 0) depTake(w, id, d); }
 }
@@ -2278,6 +2278,11 @@ function depPanel(w){
     <small class="${rs ? "" : "muted"}">${rs ? `Не воюет: ${rs}` : "Вся техника на фронтах."}</small>
     <div class="label">Техника в резерве не воюет и не гибнет. Новая техника приходит в резерв — отправляйте её на направления кнопкой «Войска».</div></div>`;
 }
+function depFuelLine(w, i){
+  const here = fuelOf(w.dep[i], w.mode), o = fuelOutlook(), bbl = v => fmtQ(v*1000);
+  const last = o.days === Infinity ? "своей добычи хватает" : `запаса хватит на ${Math.floor(o.days).toLocaleString("ru-RU")} ${plural(Math.floor(o.days), "день", "дня", "дней")}`;
+  return `<div class="label" style="margin:0 0 8px">Здесь: расход ${bbl(here.oil)} тыс. баррелей/день, содержание ${money(here.cost)}/день. Все фронты: ${bbl(o.need)} тыс. барр./день, ${last}.</div>`;
+}
 function showDeploy(enemy, i){
   const w = S.wars.find(x => x.enemy === enemy); if (!w) return; depInit(w); const f = w.fronts[i], d = w.dep[i];
   ui.depOpen = {enemy, i};
@@ -2293,6 +2298,7 @@ function showDeploy(enemy, i){
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Войска на направлении"><div class="sheet dep-sheet">
     <div class="row"><h2>${esc(f.name)} направление</h2><button class="btn sm" data-close>Готово</button></div>
     <p class="muted" style="margin:0 0 8px">Сколько техники воюет здесь. Остальное — в резерве: оно не гибнет, но и не помогает. Другие направления и войны держат свою технику.</p>
+    ${depFuelLine(w, i)}
     ${cats || `<p class="muted">Нет техники. Купите или произведите её во вкладке «Армия».</p>`}
   </div></div>`;
   modalRoot.querySelectorAll("input[data-depid]").forEach(inp => {
@@ -2307,6 +2313,56 @@ function depCatAction(enemy, i, cat, act){
 }
 function depAll(w){ depInit(w); const act = w.fronts.map((f, i) => i).filter(i => w.fronts[i].p < 100); Object.keys(S.units).forEach(id => { if (depOk(id)){ const r = depReserve(id); if (r > 0) depSplit(w, id, r, act); } }); applyPlan(w); save(); }
 
+/* ---------- war logistics: fuel and money per machine at the front ----------
+   Barrels a day per deployed machine; the reserve at home burns almost nothing. The war mode scales it. Every machine at
+   the front also costs money a day (repairs, transport). What cannot be fuelled stands still: only the fuelled share fights. */
+const FUEL_BBL = {tank:4, ifv:2, apc:1, sph:1.5, mlrs:1.5, srbm:1.5, fighter:25, attack:20, bomber:60, heli:6, drone:0.3, loiter:0.3, shorad:1, mrsam:1, lrsam:1, ew:1};
+const FUEL_MODE = {defend:0.5, hold:0.75, attack:1, all:1.5};
+const FRONT_COST = 0.0008;   // share of a machine's price a day at the front
+// {oil: million barrels a day, cost: billions $ a day} of the machines units at war mode mode
+function fuelOf(units, mode){ const k = FUEL_MODE[mode] ?? 1; let oil = 0, cost = 0;
+  for (const id in units||{}){ const m = MODELS[id], n = units[id]; if (!m || !(n > 0)) continue; oil += (FUEL_BBL[m.kind]||0)*n; cost += m.price*FRONT_COST*n; }
+  return {oil:oil*k/1e6, cost:cost*k}; }
+function fuelNeed(w){ depInit(w); const U = {}; w.dep.forEach(d => { for (const id in d) U[id] = (U[id]||0) + d[id]; }); return fuelOf(U, w.mode); }
+// all wars together: how long the oil in stock lasts after our own production
+function fuelOutlook(){ const need = S.wars.reduce((a, w) => a + fuelNeed(w).oil, 0), prod = prodOf("oil")/30, net = need - prod;
+  return {need, prod, days: net > 0 ? (S.stock.oil||0)/net : Infinity}; }
+function fuelDay(w){
+  const n = fuelNeed(w); S.treasury -= n.cost; w.frontCost = (w.frontCost||0) + n.cost; w.fuelNeed = n.oil;
+  const have = S.stock.oil||0, was = w.fuel ?? 1;
+  if (have >= n.oil){ S.stock.oil = have - n.oil; w.fuel = 1; }
+  else { S.stock.oil = 0; let got = have;
+    // the shortfall is bought on the market while there are no sanctions and there is money
+    if (!Object.values(C()).some(x => x.sanctionsUs)){ const price = importPrice("oil"), buy = Math.min(n.oil - have, Math.max(0, S.treasury)/price); if (buy > 0){ S.treasury -= buy*price; w.fuelBought = (w.fuelBought||0) + buy*price; got += buy; } }
+    w.fuel = n.oil > 0 ? clamp(got/n.oil, 0, 1) : 1; }
+  if (w.fuel < 0.98 && was >= 0.98) warEvent(w, `Не хватает топлива: воюет только ${Math.round(w.fuel*100)}% техники на фронте, остальная стоит.`, "bad");
+  else if (w.fuel >= 0.98 && was < 0.98) warEvent(w, "Топливо снова есть: вся техника на фронте воюет.", "good");
+}
+// what really fights today: deployed machines times the fuelled share, plus the fleet's share
+function warFight(w){ const U = warUnits(w), k = w.fuel ?? 1; if (k < 1) for (const id in U) if (depOk(id)) U[id] *= k; return U; }
+// the enemy under the same rules: its oil is its production plus what its economy can buy; the rest waits in reserve (w.er)
+function enemyFuelDay(w){
+  const e = C()[w.enemy]; w.er = w.er || {};
+  const all = {}; [w.eu, w.er].forEach(t => { for (const id in t) all[id] = (all[id]||0) + t[id]; });
+  const need = fuelOf(all, w.aiMode === "attack" ? "attack" : "hold").oil; if (need <= 0) return;
+  const imp = e.gdp*0.01/365/(COMMOD_WORLD.oil*1.3)*(w.blockade === 1 ? 0.3 : 1)*(e.sanction ? 0.6 : 1);
+  const k = clamp((4*e.prof.oil/30 + imp)/need, 0, 1), was = w.efuel ?? 1; w.efuel = was + (k - was)*0.3;
+  for (const id in all){ if (!MODELS[id] || !FUEL_BBL[MODELS[id].kind]) continue; const fight = Math.round(all[id]*Math.min(1, w.efuel)); w.eu[id] = fight; w.er[id] = all[id] - fight; if (!w.er[id]) delete w.er[id]; }
+  if (w.efuel < 0.9 && was >= 0.9) warEvent(w, `У ${e.name} не хватает топлива: часть техники стоит в тылу без дела.`, "good");
+}
+// a position falls: the loser loses 2% of the direction's ground machines (aircraft and air defence get away), half destroyed, half captured
+function posBreak(w, i, dir){
+  const f = w.fronts[i], fs = f.share || 1/(w.fronts.length || 1); let boom = 0, took = 0;
+  if (dir > 0){ depInit(w); Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const n = Math.floor(w.eu[id]*fs*0.02 + Math.random()), d = Math.min(w.eu[id], n), cap = Math.floor(d/2);
+      if (!d) return; w.eu[id] -= d; w.lossTh[id] = (w.lossTh[id]||0) + d - cap; w.mLossTh[id] = (w.mLossTh[id]||0) + d - cap; boom += d - cap;
+      if (cap){ S.units[id] = (S.units[id]||0) + cap; w.dep[i][id] = (w.dep[i][id]||0) + cap; w.trophies = (w.trophies||0) + cap; took += cap; } });
+    if (boom + took) warEvent(w, `${f.name} направление: при прорыве уничтожено ${boom} машин врага, захвачено ${took}.`, "good"); }
+  else { const d0 = Object.assign({}, w.dep[i] || {});
+    Object.keys(d0).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const d = Math.floor(d0[id]*0.02 + Math.random()), cap = Math.floor(d/2), l = depTake(w, id, d, i); if (!l) return;
+      w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; boom += l - Math.min(cap, l); if (cap){ const c = Math.min(cap, l); w.eu[id] = (w.eu[id]||0) + c; took += c; } });
+    if (boom + took) warEvent(w, `${f.name} направление: при отходе потеряно ${boom + took} машин, из них ${took} достались врагу.`, "bad"); }
+  return boom;
+}
 function warShare(w){ const sum = S.wars.reduce((a,x)=>a + (x.prio||2), 0) || 1; return (w.prio||2)/sum; }
 function warEvent(w, text, kind){ w.events = [{d:dateStr(), text, kind:kind||""}, ...(w.events||[])].slice(0, 8); }
 function takeLosses(units, acc, tally, mtally, rate, airRate, share, foe){
@@ -2327,7 +2383,8 @@ function spendAmmo(ammo, units, mult){
 function warDay(w){
   initWar(w); initFronts(w); depFix(); applyPlan(w); w.days++;
   const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
-  const WU = warUnits(w), my = forceStats(WU, S.ammo, 1), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
+  fuelDay(w); enemyFuelDay(w);
+  const WU = warFight(w), my = forceStats(WU, S.ammo, 1), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   const myTroops = freeArmy()*share*(1 + 0.1*tlv("am_small")), thTroops = e.army;
   const allies = Object.values(C()).filter(x => (x.ally || (w.joined||[]).includes(x.id)) && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*((w.joined||[]).includes(x.id) ? 1.6 : 0.6), 0);
   // 1. the sky: a distant war needs carriers to bring the air force in range
@@ -2355,13 +2412,6 @@ function warDay(w){
     }
   }
   if (w.blockade !== w.lastBlock){ if (w.blockade === 1) warEvent(w, `Наш флот блокировал побережье: экспорт и импорт ${e.name} остановлены.`, "good"); else if (w.blockade === -1) warEvent(w, "Флот противника блокирует наши порты: торговля страдает.", "bad"); w.lastBlock = w.blockade; }
-  // fuel: the army burns oil every day; shortfall is bought on the market, without fuel the army fights worse
-  { const need = armyUpkeepMonthly()/30*0.08*share/COMMOD_WORLD.oil, have = S.stock.oil||0;
-    if (have >= need){ S.stock.oil = have - need; w.fuel = 1; }
-    else { const lack = need - have, cost = lack*importPrice("oil"); S.stock.oil = 0;
-      if (!Object.values(C()).some(x => x.sanctionsUs) && S.treasury > cost){ S.treasury -= cost; w.fuel = 1; w.fuelBought = (w.fuelBought||0) + cost; }
-      else { if (w.fuel !== 0) warEvent(w, "Кончилось топливо: техника встаёт, армия воюет вполсилы.", "bad"); w.fuel = 0; } } }
-  if (w.fuel === 0) warPush(w, -0.3);
   // 4. losses
   const W3 = fightWeights(WU, S.ammo, 1, null, w.air, ewT, reach), We3 = fightWeights(w.eu, w.ea, 1, e, 1 - w.air, ewM, 1);
   const before3 = {th:lossSum(w.lossTh), my:lossSum(w.lossMy)};
@@ -2410,7 +2460,7 @@ function warMonth(w){
   initWar(w); const e = C()[w.enemy];
   w.months++;
   // the enemy reinforces and restocks
-  Object.keys(w.eu0).forEach(id => { const gap = w.eu0[id] - (w.eu[id]||0); if (gap > 0) w.eu[id] = (w.eu[id]||0) + Math.ceil(gap*0.04); });
+  Object.keys(w.eu0).forEach(id => { const gap = w.eu0[id] - (w.eu[id]||0) - ((w.er||{})[id]||0); if (gap > 0) w.eu[id] = (w.eu[id]||0) + Math.ceil(gap*0.04); });
   const re = defaultAmmo(w.eu0); Object.keys(re).forEach(k => w.ea[k] = (w.ea[k]||0) + re[k]*0.12);
   const my = forceStats(warUnits(w), S.ammo, 1), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   w.aiMode = th.g + th.airG > (my.g + my.airG)*0.8 || w.progress < -20 ? "attack" : "hold";
@@ -2442,7 +2492,7 @@ function fsHave(w, i, type){ depInit(w); const d = w.dep[i] || {}, K = FIELD_STR
 function fsBlock(w, i, type){
   const st = FIELD_STRIKES[type], f = w.fronts[i]; if (!f) return "нет направления";
   const cd = (f.cd||{})[type] || 0; if (cd > 0) return `через ${cd} дн.`;
-  const n = fsHave(w, i, type).reduce((a, [, k]) => a + k, 0); if (n < st.min) return st.need;
+  const n = fsHave(w, i, type).reduce((a, [, k]) => a + k, 0); if (n < st.min) return st.need; if (n*(w.fuel ?? 1) < st.min) return "нет топлива";
   if (st.ammo) for (const k in st.ammo) if ((S.ammo[k]||0) < st.ammo[k]) return `мало: ${AMMO[k].short}`;
   return null;
 }
@@ -3327,6 +3377,9 @@ function bf3dOpen(st, w, i){
     // and what the army still has on this front comes as reinforcements
     st.tick3d = setInterval(() => { const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww) return closeBattle(true); bfTitle(st);
       const fr = ww.fronts[st.i] || {}, fs = fr.share || 1/(ww.fronts.length || 1), ARM = Object.keys(BF3D_ROLE);
+      // a position fell and the banner has not shown yet: its losses explode there, not as ordinary fire
+      if (fr.posEv && fr.posEv.day !== st.posDay) return;
+      if (api.fuel) api.fuel(0, ww.fuel ?? 1);
       // our losses are known per direction exactly; the enemy's are its war losses in this direction's share
       [[(ww.lossF || [])[st.i] || {}, 0, 1], [ww.lossTh, 1, fs]].forEach(([loss, s, k]) => { for (const id in loss||{}){ if (!MODELS[id] || !ARM.includes(MODELS[id].kind)) continue; const d = loss[id] - (st.lost0[s][id] || 0); if (d > 0) api.hit(s, id, d*k); st.lost0[s][id] = loss[id]; } });
       const ground = (u, mult) => Object.fromEntries(Object.entries(u||{}).filter(([id, n]) => MODELS[id] && BF3D_ROLE[MODELS[id].kind] && n > 0).map(([id, n]) => [id, n*mult*fs]));
@@ -3379,7 +3432,8 @@ function bfPosDone(st, dir, f){
   const win = dir > 0, ban = document.createElement("div"); ban.className = "bf-banner " + (win ? "good" : "bad");
   ban.innerHTML = `<div><b>${win ? "Наша армия уничтожила позицию врага" : "Противник прорвал нашу позицию"}</b><small>${win ? `${esc(f.name)} направление: фронт продвинулся. Войска перегруппируются ${f.regroup} ${plural(f.regroup, "день", "дня", "дней")}.` : `${esc(f.myName || f.name)} направление: мы отходим на следующий рубеж.`}</small></div>`;
   st.root.appendChild(ban); sfx(win ? "success" : "alert"); buzz(60);
-  if (st.api) st.api.posTaken(dir);
+  if (st.api){ st.api.posTaken(dir, (f.posEv || {}).boom || 0);
+    const w = S.wars.find(x => x.enemy === st.enemy); if (w) st.lost0 = [Object.assign({}, (w.lossF || [])[st.i] || {}), Object.assign({}, w.lossTh)]; }
   setTimeout(() => { if (BF.open === st) closeBattle(true); }, 4200);
 }
 function bfTitle(st){
@@ -3462,7 +3516,7 @@ function viewHQ(){
     w.far ? (w.carriers ? `Далёкая война: авианосцы (${w.carriers}) дают авиации аэродромы рядом с фронтом` : `<span class="down">Далёкая война: авианосцев не осталось, авиация работает на 45%</span>`) : "",
     w.sea ? `Удары с моря крылатыми ракетами: <span class="up num">+${w.sea.toFixed(2).replace(".",",")}% в день</span>` : "",
     w.blockade ? (w.blockade > 0 ? `<span class="up">Морская блокада противника: его экономика сжимается</span>` : `<span class="down">Флот противника блокирует наши порты</span>`) : "",
-    `Топливо: ${w.fuel === 0 ? `<span class="down">нет — армия воюет вполсилы</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}`,
+    `Топливо: ${(w.fuel ?? 1) < 0.98 ? `<span class="down">не хватает — воюет ${Math.round((w.fuel ?? 1)*100)}% техники</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}${w.frontCost ? ` · содержание фронта ${money(w.frontCost)}` : ""}${(() => { const n = Object.values(w.er||{}).reduce((x, y) => x + y, 0); return n >= 1 ? ` · у противника без топлива стоит ${Math.round(n).toLocaleString("ru-RU")} машин` : ""; })()}`,
     w.droneLog ? `Последний удар дронов: ${w.droneLog.n} шт · РЭБ ${w.droneLog.jammed} · ПВО ${w.droneLog.down} · прорвалось ${w.droneLog.hits}` : "",
     airliftCap() ? `Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны` : ""
   ].filter(Boolean).map(x => `<div class="row"><small>${x}</small></div>`).join("");
@@ -3476,7 +3530,7 @@ function viewHQ(){
       ${stat("Небо", Math.round(w.air*100) + "%", w.air >= 0.5 ? "up" : "down")}
       ${stat("Тыл", supAvg + "%", supAvg < 50 ? "down" : supAvg < 70 ? "warn" : "")}
       ${stat("Запас", ammoMin > 365 ? "много" : Math.floor(ammoMin) + " дн.", ammoMin < 14 ? "down" : ammoMin < 45 ? "warn" : "")}
-      ${stat("Топливо", w.fuel === 0 ? "нет" : "есть", w.fuel === 0 ? "down" : "")}
+      ${stat("Топливо", (w.fuel ?? 1) < 0.98 ? `${Math.round((w.fuel ?? 1)*100)}%` : "есть", (w.fuel ?? 1) < 0.98 ? "down" : "")}
     </div>
     ${w.counter ? `<div class="row"><small class="down">Контрнаступление противника: ${w.fronts[w.counter.i].name.toLowerCase()} направление, ещё ${w.counter.days} дн.</small></div>` : ""}
     <div class="label">${ph.hint}. Усталость общества растёт от потерь, длительности, потерянных рубежей и мобилизации и бьёт по рейтингу и стабильности; взятые рубежи и победа её снижают; при 100 придётся мириться. Небо — господство в воздухе. Снаряды — на сколько дней боёв хватит самого дефицитного боеприпаса.</div>
@@ -3534,6 +3588,8 @@ function occupy(iso, share, w){
   S.occupied = S.occupied || {}; S.occupied[iso] = o;
   return o;
 }
+// the enemy's reserve that stood without fuel goes to the winner
+function trophyReserve(w, k){ let n = 0; Object.entries((w && w.er) || {}).forEach(([id, q]) => { const c = Math.round(q*k); if (c > 0 && MODELS[id]){ S.units[id] = (S.units[id]||0) + c; n += c; } }); if (n) addLog(`Трофеи из резерва врага, стоявшего без топлива: ${n.toLocaleString("ru-RU")} единиц техники.`); }
 function settleVictory(iso, choice){
   const e = C()[iso], w = S.pendingVictory && S.pendingVictory.w;
   const big = e.gdp/Math.max(1, me().gdp);
@@ -3542,6 +3598,7 @@ function settleVictory(iso, choice){
     e.owner = "player"; e.ally = false; e.trade = false; e.sanction = false; e.sanctionsUs = false; e.puppet = false;
     me().army += e.army*0.2;
     Object.entries((w && w.eu) || defaultUnits(e, e.tech)).forEach(([id,n]) => { S.units[id] = (S.units[id]||0) + Math.round(n*0.3); });
+    trophyReserve(w, 0.7);
     infamyAdd(18 + 25*Math.min(1, big)); S.rp += 30*e.tech; addLog(`Трофейные разработки: +${30*e.tech} очков исследований.`);
     Object.values(C()).forEach(x => { if (!x.owner && x.region === e.region) x.rel -= 15; });
     S.mods.push({stat:"approval", v:6, left:6});
@@ -3563,7 +3620,7 @@ function settleVictory(iso, choice){
     S.mods.push({stat:"stability", v:3, left:6});
     addLog(`Великодушный мир с ${e.name}: мир уважает ваше решение.`);
   }
-  if (choice !== "annex" && w && w.eu){ let n = 0; Object.entries(w.eu).forEach(([id, q]) => { const k = Math.round(q*0.15); if (k > 0 && MODELS[id]){ S.units[id] = (S.units[id]||0) + k; n += k; } }); if (w.ea) Object.entries(w.ea).forEach(([k, q]) => S.ammo[k] = (S.ammo[k]||0) + q*0.2); if (n) addLog(`Трофеи: ${n.toLocaleString("ru-RU")} единиц техники и часть боеприпасов противника.`); }
+  if (choice !== "annex" && w && w.eu){ trophyReserve(w, 0.35); let n = 0; Object.entries(w.eu).forEach(([id, q]) => { const k = Math.round(q*0.15); if (k > 0 && MODELS[id]){ S.units[id] = (S.units[id]||0) + k; n += k; } }); if (w.ea) Object.entries(w.ea).forEach(([k, q]) => S.ammo[k] = (S.ammo[k]||0) + q*0.2); if (n) addLog(`Трофеи: ${n.toLocaleString("ru-RU")} единиц техники и часть боеприпасов противника.`); }
   wearyAdd(-25);
   S.pendingVictory = null; closeModal(); save(); render(); resumeAfter("victory");
 }
@@ -4635,7 +4692,7 @@ function warTurn(){
   S.wars.forEach(warMonth);
   warOutcomes();
 }
-function enemyLoss(w){ const a = Object.values(w.eu0||{}).reduce((x, y) => x + y, 0), b = Object.values(w.eu||{}).reduce((x, y) => x + y, 0); return a ? 1 - b/a : 0; }
+function enemyLoss(w){ const a = Object.values(w.eu0||{}).reduce((x, y) => x + y, 0), b = Object.values(w.eu||{}).reduce((x, y) => x + y, 0) + Object.values(w.er||{}).reduce((x, y) => x + y, 0); return a ? 1 - b/a : 0; }
 function warOutcomes(){
   const meC = me();
   S.wars.slice().forEach(w => {

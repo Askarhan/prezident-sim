@@ -99,16 +99,19 @@ Read this first in a new session.
 - Field: the speed is ×1 while the field is open (restored on close). `bfPos`/`bfPosDone` in `src/game.html`, `api.posTaken(dir)` in `bf3d.js`.
 - Aircraft speeds in `bf3d.js` `SPEC`: jets 75 m/s, helicopters 18, drones 26, loitering munitions 50 (dive 75). The user found the old speeds "like a biplane".
 
-## Next stage (agreed 01.11.2026, not started): fuel, war logistics, captured reserves
-- Fuel per machine at the front, in barrels a day per deployed machine (`w.dep`): tank ~4, IFV ~2, APC ~1, SPH/MLRS ~1.5, fighter ~25, attack ~20, bomber ~60, helicopter ~6, drone ~0.3, AD ~1.
-  - The reserve at home burns almost nothing.
-  - War mode multiplies it: defend ×0.5, attack ×1, general offensive ×1.5.
-  - It replaces the current upkeep-based fuel in `warDay`, which buys the shortfall on the market or halves the whole army.
-- **Shortage:** if oil cannot be bought (sanctions or no money), only the fuelled share fights. On the field the unfuelled machines stand still with a "нет топлива" label.
-- **Money:** every machine at the front also costs money a day (repairs, transport). No hard cap on the number at the front: oil and money are the limit.
-- Deployment window shows "расход N тыс. баррелей/день, запаса хватит на X дней".
-- **Enemy, same rules:** its oil comes from its production and economy. What it cannot fuel stays in reserve (does not fight, does not lose). On capitulation we get 70% of the reserve left at the end of the war, plus 30% of the surviving combat equipment as now.
-- **Breakthrough:** when a position falls, the loser loses 2% of that direction's machines. Half are destroyed (they explode on the field at the victory banner), half become our trophies on that direction.
+## Fuel, war logistics, captured reserves (stage done 01.11.2026)
+- `src/game.html`, block «war logistics» before `warShare`:
+  - `FUEL_BBL` (barrels a day per deployed machine), `FUEL_MODE` (defend 0.5, hold 0.75, attack 1, all 1.5), `FRONT_COST` (0.08% of a machine's price a day, times the mode).
+  - `fuelOf(units, mode)` → `{oil` (million bbl/day), `cost` (bn $/day)`}`; `fuelNeed(w)` sums `w.dep`; `fuelOutlook()` gives all wars' need against own production and days of stock.
+  - `fuelDay(w)` runs at the start of `warDay`: pays the front's money, burns `S.stock.oil`, buys the shortfall on the market (not under sanctions, only as much as the treasury allows). `w.fuel` (0–1) is the fuelled share. The old upkeep-based fuel and its `warPush(-0.3)` are gone.
+  - `warFight(w)` = `warUnits(w)` with deployed machines × `w.fuel`; `warDay` and `takeLossesW` use it, so unfuelled machines neither fight nor die. `fsBlock` says «нет топлива» when the fuelled planes/helicopters/drones fall below the minimum.
+  - `enemyFuelDay(w)`: enemy oil = `4*prof.oil/30` + 1% of GDP a year spent on imports (×0.3 under our blockade, ×0.6 under our sanctions). The share it cannot fuel moves daily between `w.eu` and the reserve `w.er` (smoothed). `warMonth` restocking and `enemyLoss` count `w.er` as present.
+  - `posBreak(w, i, dir)` from `frontsDay` when a position changes hands: the loser loses 2% of the direction's **ground** machines (GROUND_K), half destroyed, half captured (ours go to `w.dep[i]`, `w.trophies`; theirs to `w.eu`). Stored as `f.posEv.boom`.
+  - `trophyReserve(w, k)` in `settleVictory`: 70% of `w.er` on annexation, 35% otherwise (on top of the old 30% / 15% of `w.eu`).
+  - UI: deployment window line `depFuelLine` (this direction's barrels and money a day, all fronts, days of stock); HQ «Топливо» shows the fuelled %, the front's money spent and the enemy's unfuelled reserve.
+- Field (`bf3d.js`): `api.fuel(side, k)` marks the share of ground squads without fuel (`u.nofuel`: `think` skips them, orange «нет топлива» label). The bridge calls it every 1.5 s. `api.posTaken(dir, boom)` blows up `boom` machines on the losers' front squads at the banner; the bridge skips its loss sync while a position event is pending and resets `st.lost0` after the banner, so they don't explode twice.
+- **Balance note:** the breakthrough rule makes long wars shorter (`warsim.js`): KZ—KG 11 → ~6 mo, KR—JP 3.1 → ~1.7 yr, CN—IN 3.2 → ~2.2 yr; short wars barely change. Applying it only to ground machines already softened it. The user has not decided yet whether to keep it (options: 1%, or only when a «рубеж» line falls).
+- Pitfalls: the sim/test server must send `.js` as `text/javascript` (module import); `www/lib/three` is not in git (CI copies it): in a session without npm, take it from the APK on the `apk` branch (`assets/public/lib/three`). Headless Chromium has WebGL with `--use-angle=swiftshader --enable-unsafe-swiftshader`.
 - The user's working rules for the assistant (save tokens: short tool output, few images, batches of ≤3 models, short reports, update this file and suggest a new chat at the end of a stage) were given in chat. Ask the user to paste them again in a new chat.
 
 ## Next
