@@ -791,6 +791,7 @@ export async function start(el, ctx){
     for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
     if (diag !== 3 && diag !== 5) airStep(dt);
     for (const u of units){
+      if (u.boomT != null){ u.boomT -= dt; if (u.boomT <= 0){ u.boomT = null; if (u.alive && u.obj) destroy(u); } }
       think(u, dt);
       if (!u.obj) continue;
       const y = G.height(u.x, u.z), hx = G.height(u.x + Math.cos(u.h)*3, u.z - Math.sin(u.h)*3) - G.height(u.x - Math.cos(u.h)*3, u.z + Math.sin(u.h)*3);
@@ -876,10 +877,10 @@ export async function start(el, ctx){
     fuel(side, k){ const g = units.filter(u => u.alive && u.obj && u.side === side && !u.air), dry = Math.round(g.length*(1 - clamp(k, 0, 1)));
       g.forEach((u, j) => { u.nofuel = j >= g.length - dry; }); },
     // a position changed hands: the winners' front squads roll forward across the line, the losers' pull back to their rear
-    // boom: machines the losers lose in the breakthrough; they explode on their front squads
-    posTaken(dir, boom){ const lose = dir > 0 ? 1 : 0; let left = boom || 0;
-      units.filter(u => u.alive && u.obj && u.side === lose && u.role === "front").sort((a, b) => a.hp - b.hp).forEach(u => { if (left <= 0) return; const d = Math.min(left, u.hp); left -= d; u.pend = 0; damage(u, d); });
-      for (const u of units){ if (!u.alive || !u.obj || u.role !== "front") continue;
+    // the losers' front squads blow up one after another over ~2.5 s; 3–4 of them (at most half) survive and pull back to the rear
+    posTaken(dir){ const lose = dir > 0 ? 1 : 0, front = units.filter(u => u.alive && u.obj && u.side === lose && u.role === "front").sort(() => Math.random() - 0.5), keep = Math.min(3 + (Math.random() < 0.5 ? 1 : 0), Math.floor(front.length/2));
+      front.slice(keep).forEach(u => { u.boomT = 0.3 + Math.random()*2.2; u.state = "hold"; u.next = 999; });
+      for (const u of units){ if (!u.alive || !u.obj || u.role !== "front" || u.boomT != null) continue;
         const own = u.side ? -1 : 1, win = (u.side === 0) === (dir > 0); u.nofuel = false;
         u.state = "move"; u.next = 999; u.wp = win ? [u.x + (Math.random() - 0.5)*8, u.z - own*(30 + Math.random()*12)] : [u.x + (Math.random() - 0.5)*10, own*(FIELD/2 + 40)]; } },
     // machines spent (drones that flew their strike): the squads get smaller without anything being shot down

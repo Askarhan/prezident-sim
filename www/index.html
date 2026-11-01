@@ -2071,8 +2071,8 @@ function frontsDay(w, base){
     f.lastD = d; const before = f.p; f.p = clamp(f.p + d, -100, 100);
     // a new position taken (also by strikes since yesterday): the winner regroups; the field learns about it through f.posEv
     { const was = f.posN ?? Math.floor(before/POS_STEP), now = Math.floor(f.p/POS_STEP), line = LINES.some(t => (before < t && f.p >= t) || (before > -t && f.p <= -t));
-      if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days, boom:posBreak(w, i, 1)}; }
-      else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days, boom:posBreak(w, i, -1)}; }
+      if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days, line, boom:line ? posBreak(w, i, 1) : 0}; }
+      else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days, line, boom:line ? posBreak(w, i, -1) : 0}; }
       f.posN = now; }
     LINES.forEach((t, k) => {
       if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); wearyAdd(-3); }
@@ -2350,7 +2350,7 @@ function enemyFuelDay(w){
   for (const id in all){ if (!MODELS[id] || !FUEL_BBL[MODELS[id].kind]) continue; const fight = Math.round(all[id]*Math.min(1, w.efuel)); w.eu[id] = fight; w.er[id] = all[id] - fight; if (!w.er[id]) delete w.er[id]; }
   if (w.efuel < 0.9 && was >= 0.9) warEvent(w, `У ${e.name} не хватает топлива: часть техники стоит в тылу без дела.`, "good");
 }
-// a position falls: the loser loses 2% of the direction's ground machines (aircraft and air defence get away), half destroyed, half captured
+// a line («рубеж») falls: the loser loses 2% of the direction's ground machines (aircraft and air defence get away), half destroyed, half captured
 function posBreak(w, i, dir){
   const f = w.fronts[i], fs = f.share || 1/(w.fronts.length || 1); let boom = 0, took = 0;
   if (dir > 0){ depInit(w); Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const n = Math.floor(w.eu[id]*fs*0.02 + Math.random()), d = Math.min(w.eu[id], n), cap = Math.floor(d/2);
@@ -3432,7 +3432,7 @@ function bfPosDone(st, dir, f){
   const win = dir > 0, ban = document.createElement("div"); ban.className = "bf-banner " + (win ? "good" : "bad");
   ban.innerHTML = `<div><b>${win ? "Наша армия уничтожила позицию врага" : "Противник прорвал нашу позицию"}</b><small>${win ? `${esc(f.name)} направление: фронт продвинулся. Войска перегруппируются ${f.regroup} ${plural(f.regroup, "день", "дня", "дней")}.` : `${esc(f.myName || f.name)} направление: мы отходим на следующий рубеж.`}</small></div>`;
   st.root.appendChild(ban); sfx(win ? "success" : "alert"); buzz(60);
-  if (st.api){ st.api.posTaken(dir, (f.posEv || {}).boom || 0);
+  if (st.api){ st.api.posTaken(dir);
     const w = S.wars.find(x => x.enemy === st.enemy); if (w) st.lost0 = [Object.assign({}, (w.lossF || [])[st.i] || {}), Object.assign({}, w.lossTh)]; }
   setTimeout(() => { if (BF.open === st) closeBattle(true); }, 4200);
 }
