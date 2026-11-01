@@ -22,8 +22,8 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (42): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136.
-- Still procedural: bmp3, zsl92, m270, phl03, tochka, iskander, tor, pantsir, hq17, hq16, hq9, s500, irist_sls, krasukha.
+- Models converted so far (45): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir.
+- Still procedural: bmp3, zsl92, m270, phl03, tochka, hq17, hq16, hq9, s500, irist_sls, krasukha.
 
 ## Aviation over the field (stage 1 done 01.11.2026)
 - Models: `su25`, `ka52`, `tb2` (Sketchfab, CC BY, credits in `credits3d.json`), each with `_lo`. Nodes: `g_<id>_hull` (origin at the centre of the airframe, nose +X) and `g_<id>_rotor`, `g_<id>_rotor2` that spin; the hull's glTF extras `rotors` give each rotor's axis (`"y,y"` for the Ka-52, `"x"` for the TB2 propeller).
@@ -143,9 +143,15 @@ Read this first in a new session.
   - Hubs for `rotors=[(pred, axis, hub)]` are given in import coordinates; `sf_make_air` turns them with the model.
 - Getting the .glb into the repo: the user grants `D:\Projects\kabinet_units\glb` (device folder access), then `device_stage_files` → `/mnt/user-data/uploads/glb/`.
 
+## Ground models, batch 1 (01.11.2026)
+- Iskander (42manako, Chinese camo; the raised missile was laid flat onto the launcher in Blender), Tor-M2 (Chenzoss), Pantsir-S1 (maddex88, its near-black texture recoloured olive). All CC BY, in `credits3d.json`, each with `_lo`.
+- Nodes match the old procedural models: iskander `hull+gun` (gun = missile, pivot at its rear, `srbm` code raises it), tor `hull+turret`, pantsir `hull+turret` (no gun node; bf3d.js treats gun as optional). `check_glb.py` fails on models without a turret (KeyError), that is the script, not the model.
+- Headless check: all six files load with GLTFLoader; on the RU—KZ field the Tor shows up; the arrival banner and «нет топлива» labels now seen working (screenshot).
+- `iskander_lo` stays heavy (8.1k tris, 630 KB): the import is ~1300 loose parts and `sf_lod` decimation barely reduces them. Fix later by joining/remeshing before the LOD if it matters.
+- Blender helpers used (not yet in kab_sf.py, written inline in the session): pre-decimate every loose part before `sf_make` for 500k+ imports (Pantsir), cut the turret off a single welded mesh with `bisect_plane` (Tor), remove wire edges after decimation (stray lines in the bake).
+
 ## Next
 - Possible next model batches (≤3 at a time, ask the user first): Su-57 / F-35 / J-20 (now stand-ins), Lancet, Wing Loong, Z-10; or the procedural ground list above. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
-- Not yet seen in 3D (no `www/lib/three` in the last session): the «Подкрепление прибыло» banner and the enemy's idle machines with the «нет топлива» label. Ask the user how they look in the APK, or check headless with three from the `apk` branch.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
