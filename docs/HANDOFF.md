@@ -22,8 +22,9 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (45): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir.
-- Still procedural: bmp3, zsl92, m270, phl03, tochka, hq17, hq16, hq9, s500, irist_sls, krasukha.
+- Models converted so far (48): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
+- Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted.
+- Still procedural: hq17, hq16, hq9, s500, irist_sls, krasukha.
 
 ## Aviation over the field (stage 1 done 01.11.2026)
 - Models: `su25`, `ka52`, `tb2` (Sketchfab, CC BY, credits in `credits3d.json`), each with `_lo`. Nodes: `g_<id>_hull` (origin at the centre of the airframe, nose +X) and `g_<id>_rotor`, `g_<id>_rotor2` that spin; the hull's glTF extras `rotors` give each rotor's axis (`"y,y"` for the Ka-52, `"x"` for the TB2 propeller).
@@ -149,6 +150,13 @@ Read this first in a new session.
 - Headless check: all six files load with GLTFLoader; on the RU—KZ field the Tor shows up; the arrival banner and «нет топлива» labels now seen working (screenshot).
 - `iskander_lo` stays heavy (8.1k tris, 630 KB): the import is ~1300 loose parts and `sf_lod` decimation barely reduces them. Fix later by joining/remeshing before the LOD if it matters.
 - Blender helpers used (not yet in kab_sf.py, written inline in the session): pre-decimate every loose part before `sf_make` for 500k+ imports (Pantsir), cut the turret off a single welded mesh with `bisect_plane` (Tor), remove wire edges after decimation (stray lines in the bake).
+
+## Ground models, batch 2 (01.11.2026)
+- Tochka-U (42manako, `hull+gun`, the missile and its cradle are the gun; the missile sits under the roof and rises through it), M270 (KojfDiscord, «War Thunder April AF» but a normal M270; pod = turret), ZSL-92 shown by the WZ-551 120mm (MirzaArrafiERV_45, same 6×6 hull, `hull+turret+gun`). All CC BY, each with `_lo`.
+- The big «Free M270» (DaHoon, 531k faces) was tried and dropped: decimation wrecked it. Prefer imports under ~50k faces.
+- Blender pitfall: `sf_group` on a deep glTF hierarchy (root → GLTF_SceneRootNode with scale) scaled the grouped parts ~4×. Safer: `sf_world_copy` the turret parts and the rest into two world-space meshes, put them under a new empty with a `turret_grp` child, then `sf_make` (helper `regroup` in the session; worth adding to kab_sf.py).
+- Strays far from the vehicle (cameras, loose bits) shift the centre: drop parts outside the hull's width before `sf_make`.
+- Headless 404s on `flags/*.svg` and the Google font are the sandbox, not the game.
 
 ## Next
 - Possible next model batches (≤3 at a time, ask the user first): Su-57 / F-35 / J-20 (now stand-ins), Lancet, Wing Loong, Z-10; or the procedural ground list above. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
