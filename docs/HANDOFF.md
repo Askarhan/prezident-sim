@@ -84,7 +84,10 @@ Read this first in a new session.
 ## Performance (01.11.2026)
 - The user reported slow motion on a phone, even on low graphics. Cause: the frame time was capped at 0.05 s, so below 20 FPS the battle itself slowed down. It now keeps real time, using up to two sub-steps per frame (dt up to 0.1 s).
 - The low level is lighter: relief has 110×110 segments instead of 160, and there are 55% of the trees (~117k triangles instead of ~185k).
-- The field shows `N FPS · level` in the bottom-left corner, so the user can report real numbers from the phone.
+- The user's phone is a Black Shark 4 (Snapdragon 870), so the slowness is not raw power.
+- The field shows a readout in the top-right corner: FPS, graphics level, and ms per frame for the frame, the battle, sound, render (CPU side) and labels.
+- Tapping the readout switches off, in turn: sound, labels, aircraft, smoke and fire, then all of these together. This finds on the phone what slows it down.
+- The labels' 2D canvas now draws at 1× pixel density (1.5× on high). A full-screen 2× canvas cleared every frame is costly on phones.
 
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.

@@ -474,13 +474,20 @@ export async function start(el, ctx){
   cv.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
     const r = cv.getBoundingClientRect(); let best = null, bd = 44; for (const u of [...units, ...air]){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5); const d = Math.hypot(q.x - (e.clientX - r.left), q.y - (e.clientY - r.top)); if (d < bd){ bd = d; best = u; } }
     selected = best; selT = 4; });
+  // a tap on the FPS line (top right) switches the next part of the field off, to see what slows a phone down
+  const DIAG = ["", "звук", "подписи", "авиация", "дым и огонь", "всё перечисленное"]; let diag = 0;
+  cv.addEventListener("pointerup", e => { const r = cv.getBoundingClientRect(); if (r.right - e.clientX > 320 || e.clientY - r.top > 30) return;
+    diag = (diag + 1) % DIAG.length; snd.set(!(diag === 1 || diag === 5)); const noAir = diag === 3 || diag === 5, noFx = diag === 4 || diag === 5;
+    air.forEach(a => { if (a.obj) a.obj.visible = !noAir; }); fxSmoke.points.visible = fxFire.points.visible = !noFx; selected = null; });
   const v3 = new THREE.Vector3();
   function screenOf(u, up){ v3.set(u.x, (u.air ? u.y : G.height(u.x, u.z)) + up, u.z).project(camera); return {x:(v3.x + 1)/2*el.clientWidth, y:(1 - v3.y)/2*el.clientHeight, vis:v3.z < 1}; }
   function drawHud(dt){
-    const dpr = Math.min(2, window.devicePixelRatio || 1), W = el.clientWidth, H = el.clientHeight;
+    const dpr = Math.min(level === "high" ? 1.5 : 1, window.devicePixelRatio || 1), W = el.clientWidth, H = el.clientHeight;
     if (hud.width !== Math.round(W*dpr)){ hud.width = Math.round(W*dpr); hud.height = Math.round(H*dpr); }
     hg.setTransform(dpr, 0, 0, dpr, 0, 0); hg.clearRect(0, 0, W, H);
-    if (fps.v){ hg.font = "600 10px system-ui, sans-serif"; hg.textAlign = "left"; hg.fillStyle = "rgba(255,255,255,.55)"; hg.fillText(`${fps.v} FPS · ${level}`, 8, H - 8); }
+    if (fps.v){ hg.font = "600 10px system-ui, sans-serif"; hg.textAlign = "right"; hg.fillStyle = "rgba(255,255,255,.85)"; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.lineWidth = 3; const P = fps.ms;
+      const line = `${fps.v} FPS · ${level} · кадр ${P.frame} мс: бой ${P.step} · звук ${P.sound} · отрисовка ${P.render} · подписи ${P.hud}${diag ? " · выкл.: " + DIAG[diag] : ""}`; hg.strokeText(line, W - 10, 16); hg.fillText(line, W - 10, 16); }
+    if (diag === 2 || diag === 5) return;
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
     for (const u of [...units, ...air]){ if (!u.alive || !u.obj || u.temp || (u.air && u.state === "fall")) continue; const q = screenOf(u, u.air ? 3.2 : 4.2); if (!q.vis) continue;
@@ -776,7 +783,7 @@ export async function start(el, ctx){
   }
   function step(dt){
     for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
-    airStep(dt);
+    if (diag !== 3 && diag !== 5) airStep(dt);
     for (const u of units){
       think(u, dt);
       if (!u.obj) continue;
@@ -801,7 +808,7 @@ export async function start(el, ctx){
         trPos.set([...at(k0), ...at(k)], i*6); trCol.set([sh.c[0]*0.2, sh.c[1]*0.2, sh.c[2]*0.2, ...sh.c], i*6); i++; } }
     shells = live; trGeo.setDrawRange(0, i*2); trGeo.attributes.position.needsUpdate = trGeo.attributes.color.needsUpdate = true;
     if (flashT > 0){ flashT -= dt; if (flashT <= 0) flash.intensity = 0; }
-    fxSmoke.update(dt); fxFire.update(dt);
+    if (diag !== 4 && diag !== 5){ fxSmoke.update(dt); fxFire.update(dt); }
   }
   // automatic graphics: measure the frame rate in 3-second windows and step down while it stays under ~27 fps
   const perf = {t0:performance.now() + 2500, frames:0, time:0};
@@ -823,7 +830,9 @@ export async function start(el, ctx){
     if (perf.time >= 3000){ const fps = perf.frames*1000/perf.time; perf.frames = 0; perf.time = 0; perf.last = Math.round(fps); if (fps < 27 && lower()) perf.t0 = now + 1500; }
   }
   // frames per second, shown small in the corner of the field
-  const fps = {n:0, t:0, v:0}; function fpsTick(raw){ if (raw > 1000) return; fps.n++; fps.t += raw; if (fps.t >= 1000){ fps.v = Math.round(fps.n*1000/fps.t); fps.n = 0; fps.t = 0; } }
+  const fps = {n:0, t:0, v:0, acc:{step:0, sound:0, render:0, hud:0}, ms:{}};
+  function fpsTick(raw){ if (raw > 1000) return; fps.n++; fps.t += raw;
+    if (fps.t >= 1000){ fps.v = Math.round(fps.n*1000/fps.t); fps.ms = {frame:Math.round(fps.t/fps.n)}; for (const k in fps.acc){ fps.ms[k] = (fps.acc[k]/fps.n).toFixed(1); fps.acc[k] = 0; } fps.n = 0; fps.t = 0; } }
   // continuous sounds: one per aircraft in the air (jets with a Doppler shift), and the engines of the vehicles near the camera
   const LOOP_CAP = {plane:0, heli:5, drone:0}; let engine = null, engT = 0;
   function soundStep(dt){
@@ -844,10 +853,10 @@ export async function start(el, ctx){
   function frame(now){
     if (!running) return; requestAnimationFrame(frame);
     if (document.hidden) { last = now; snd.sleep(); return; }
-    snd.wake(true); soundStep(Math.min(0.1, (now - last)/1000));
+    let t0 = performance.now(); snd.wake(true); soundStep(Math.min(0.1, (now - last)/1000)); const t1 = performance.now(); fps.acc.sound += t1 - t0;
     const raw = now - last, dt = clamp(raw/1000, 0, 0.1); last = now; measure(now, raw); fpsTick(raw);
     if (dt > 0.05){ step(dt/2); step(dt/2); } else step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
-    renderer.render(scene, camera); drawHud(dt);
+    const t2 = performance.now(); fps.acc.step += t2 - t1; renderer.render(scene, camera); const t3 = performance.now(); fps.acc.render += t3 - t2; drawHud(dt); fps.acc.hud += performance.now() - t3;
   }
   requestAnimationFrame(frame);
   return {
