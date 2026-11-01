@@ -7,7 +7,7 @@ const FIELD = 240;                 // metres, square
 const MODEL_CACHE = new Map();     // glb name -> Promise<gltf scene>
 const loader = new GLTFLoader();
 // models that also ship a light copy <name>_lo.glb (~2.5-4k triangles, half-size textures)
-const HAS_LO = new Set(["j10", "f15ex", "ah1z", "j20", "z10", "wingloong", "su57", "f35", "irist_sls", "hq9", "krasukha", "hq17", "tochka", "m270", "zsl92", "iskander", "tor", "pantsir", "t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams", "su25", "ka52", "tb2", "a10", "su34", "mi24", "mig29", "su35", "f16", "apache", "reaper", "shahed"]);
+const HAS_LO = new Set(["lancet", "tu22", "b1b", "j10", "f15ex", "ah1z", "j20", "z10", "wingloong", "su57", "f35", "irist_sls", "hq9", "krasukha", "hq17", "tochka", "m270", "zsl92", "iskander", "tor", "pantsir", "t72", "abrams", "bmp2", "bradley", "grad", "armata", "t90", "m1a1", "leo", "ztz99", "type96", "marder", "stryker", "btr82", "patria", "zbd04", "msta", "akacia", "paladin", "pzh", "himars", "tornado", "plz05", "gepard", "patriot", "s400", "s300", "thaad", "buk", "nasams", "su25", "ka52", "tb2", "a10", "su34", "mi24", "mig29", "su35", "f16", "apache", "reaper", "shahed"]);
 // graphics levels: pixel ratio cap, shadow map (0 = off), distance beyond which the light copy is drawn, effects share, squads per side at the front
 // aircraft on the field: roles the game sends for them
 const AIR_ROLES = new Set(["plane", "heli", "drone"]);

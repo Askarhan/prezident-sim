@@ -22,7 +22,7 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (60, with HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T, J-20, Z-10, Wing Loong, J-10, F-15EX, AH-1Z): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
+- Models converted so far (63, with Lancet, Tu-22M3, B-1B, HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T, J-20, Z-10, Wing Loong, J-10, F-15EX, AH-1Z): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
 - Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted.
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
@@ -189,8 +189,15 @@ Read this first in a new session.
 - AH-1Z: nose −Y, main rotor `Cube.007`, hub (0, 0.4, 3.7); tail rotor `pCube98.001` (left of the fin), hub (0.6, 9.25, 2.9); import scale kept (17.8 m with rotors).
 - `f15ex_lo` is heavy (3.7k tris, 476 KB). Check: all six parse in the Node GLTFLoader check.
 
+## Batch 7: Lancet, Tu-22M3, B-1B (01.11.2026)
+- «Ланцет-3» (flightclubua, 38k, real 1.65 m like the game's real-scale Shahed), Tu-22M3 shown by «TU26» (manilov.ap, 38k; Tu-26 = Tu-22M), B-1B («B1», manilov.ap, 10k, wings spread). All CC BY, each with `_lo`. They were not in `BF3D_LIKE`: before, lancet flew as the Shahed (`BF3D_AIR_MODEL.loiter`) and both bombers as the Su-34.
+- Lancet: the pusher prop is welded to the body by `sf_loose`; cut it off in edit mode (faces with world `y < -0.695` → `separate SELECTED`), then rotor `x`, nose +Y. `sf_make_air` deletes the import root, so inspect/split before calling it (each retry = a new import).
+- Tu-22M3: the import is yawed 151° in the ground plane with gear down; gear groups have names (`stoika_lef/rig/nos`, `stvorka*`, `Line45`) and were deleted. Aligned by rotating about Z along the fin-top → cockpit line, copied unwelded to world space, pre-decimated /3 with `sym="Y"`.
+- Device calls can time out after 60 s while Blender keeps working (a Sketchfab import did): check the scene for `Sketchfab_model` instead of importing again.
+- Still on fallbacks (no CC BY model found or not tried): Switchblade 600 (→ Shahed; nothing on Sketchfab), HQ-16 (procedural), Compass Call (ew), transports Il-76/C-130/Y-20 (not drawn on the field?), stand-ins bmp3/phl03/s500.
+
 ## Next
-- Possible next model batches (≤3 at a time, ask the user first): Lancet (not found on Sketchfab by «Lancet loitering munition drone»; try other words), HQ-16 (no model found yet). Stand-ins left: bmp3, phl03, s500. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
+- Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.

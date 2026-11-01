@@ -3454,7 +3454,7 @@ function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.a
   document.body.classList.remove("bf-open"); if (st.speed0 != null && ui.speed > 0) ui.speed = st.speed0;
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
-const BF3D_MODELS = ["su25","j10","f15ex","ah1z","j20","z10","wingloong","ka52","tb2","a10","su34","mi24","mig29","su35","su57","f16","f35","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
+const BF3D_MODELS = ["su25","lancet","tu22","b1b","j10","f15ex","ah1z","j20","z10","wingloong","ka52","tb2","a10","su34","mi24","mig29","su35","su57","f16","f35","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
 // aircraft without a model of their own use the nearest one: attack planes and fighters fly as the Su-25, bombers as the Su-34,
 // helicopters as the Ka-52, drones as the TB2
@@ -6935,7 +6935,10 @@ const CREDITS3D = [
   ["wingloong", "«Wing Loong I UAV (War Thunder)» — KojfDiscord", "https://sketchfab.com/3d-models/65ee1be90ae34b41a8e2464a4737131d"],
   ["j10", "«Chengdu J-10S» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/aa7c517fbded47439a526cafb78b4618"],
   ["f15ex", "«McDonnell Douglas F-15E Strike Eagle» — Spark_Customs (F-15E вместо F-15EX)", "https://sketchfab.com/3d-models/4b8a5abf87a34373af4b0c8adaf18b11"],
-  ["ah1z", "«AH-1Z Viper Attack Helicopter – Military Gunship» — DevPoly3D", "https://sketchfab.com/3d-models/5dcf02be61c44d6badfca44f71765958"]
+  ["ah1z", "«AH-1Z Viper Attack Helicopter – Military Gunship» — DevPoly3D", "https://sketchfab.com/3d-models/5dcf02be61c44d6badfca44f71765958"],
+  ["lancet", "«Lancet» — flightclubua", "https://sketchfab.com/3d-models/9820cfa9d1084d918c85c6dfb6287737"],
+  ["tu22", "«TU26» — manilov.ap (Ту-22М3)", "https://sketchfab.com/3d-models/52e40c8b03224f1bbba836965520a362"],
+  ["b1b", "«B1» — manilov.ap", "https://sketchfab.com/3d-models/59371234237e496da0f67cfcdc3acb20"]
 ];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];
