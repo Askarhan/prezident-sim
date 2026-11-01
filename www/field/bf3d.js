@@ -750,7 +750,7 @@ export async function start(el, ctx){
       const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move";
     }
     // target and turret
-    if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
+    if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
     if (u.turret){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
@@ -764,7 +764,7 @@ export async function start(el, ctx){
   // artillery fires from the rear, rockets in salvoes, ballistic missiles rise before launch; air defence turns its radar and shoots down rockets
   function supportThink(u, dt){
     const k = ctx.kindOf[u.id];
-    if (!u.target || !u.target.alive || Math.random() < dt*0.08){ const es = enemiesOf(u).filter(v => v.role === "front"), pool = es.length ? es : enemiesOf(u); const pend = pool.filter(v => v.pend >= 1); const L = pend.length ? pend : pool; u.target = L.length ? L[Math.floor(Math.random()*L.length)] : null; }
+    if (!u.target || !u.target.alive || Math.random() < dt*0.08){ const es = enemiesOf(u).filter(v => v.role === "front" && !v.nofuel), pool = es.length ? es : enemiesOf(u); const pend = pool.filter(v => v.pend >= 1); const L = pend.length ? pend : pool; u.target = L.length ? L[Math.floor(Math.random()*L.length)] : null; }
     const t = u.target, want = t ? Math.atan2(-(t.z - u.z), t.x - u.x) - u.h : 0;
     if (u.role === "ad"){
       if (u.turret) u.turret.rotation.y += dt*(k === "ew" ? 0.4 : 0.6);

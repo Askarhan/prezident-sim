@@ -2257,6 +2257,10 @@ function takeLossesW(w, rate, airRate){
   const U = warFight(w), before = Object.assign({}, U);
   takeLosses(U, w.accMy, w.lossMy, w.mLossMy, rate, airRate, 1, foeQ(w.eu));
   for (const id in before){ const d = Math.round(before[id] - U[id]); if (d > 0) depTake(w, id, d); }
+  // machines standing without fuel do not fight but are found by artillery, drones and aircraft: half the losses
+  const k = w.fuel ?? 1; if (k < 1){ const I = {}; w.dep.forEach(d => { for (const id in d) if (d[id] > 0) I[id] = (I[id]||0) + d[id]*(1 - k); }); const b0 = Object.assign({}, I);
+    takeLosses(I, w.accMyI = w.accMyI || {}, w.lossMy, w.mLossMy, rate*IDLE_LOSS, airRate*IDLE_LOSS, 1, foeQ(w.eu));
+    for (const id in b0){ const d = Math.round(b0[id] - I[id]); if (d > 0) depTake(w, id, d); } }
 }
 function hitFront(w, i, rate, tally){ depInit(w); const d = w.dep[i] || {}; Object.keys(d).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = depTake(w, id, Math.floor(d[id]*rate*armourK(m)), i); if (tally && l) tally[id] = (tally[id]||0) + l; } }); }
 // a direction's weight in the battle comes from the machines sent there; the personnel is split evenly
@@ -2470,16 +2474,25 @@ function enemyFuelDay(w){
   if (w.efuel < 0.9 && was >= 0.9) warEvent(w, `У ${e.name} не хватает топлива: часть техники стоит в тылу без дела.`, "good");
 }
 // a line («рубеж») falls: the loser loses 2% of the direction's ground machines (aircraft and air defence get away), half destroyed, half captured
+const IDLE_LOSS = 0.5, IDLE_CAPTURE = 0.10;   // machines without fuel: share of normal losses; share abandoned to the winner when a line falls
 function posBreak(w, i, dir){
   const f = w.fronts[i], fs = f.share || 1/(w.fronts.length || 1); let boom = 0, took = 0;
   if (dir > 0){ depInit(w); Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const n = Math.floor(w.eu[id]*fs*0.02 + Math.random()), d = Math.min(w.eu[id], n), cap = Math.floor(d/2);
       if (!d) return; w.eu[id] -= d; w.lossTh[id] = (w.lossTh[id]||0) + d - cap; w.mLossTh[id] = (w.mLossTh[id]||0) + d - cap; boom += d - cap;
       if (cap){ S.units[id] = (S.units[id]||0) + cap; w.dep[i][id] = (w.dep[i][id]||0) + cap; w.trophies = (w.trophies||0) + cap; took += cap; } });
-    if (boom + took) warEvent(w, `${f.name} направление: при прорыве уничтожено ${boom} машин врага, захвачено ${took}.`, "good"); }
+    // its machines standing without fuel are abandoned: the winner takes them
+    let left = 0; Object.keys(w.er || {}).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const q = Math.min(w.er[id], Math.floor(w.er[id]*fs*IDLE_CAPTURE + Math.random()*(w.er[id] > 0)));
+      if (q <= 0) return; w.er[id] -= q; w.lossTh[id] = (w.lossTh[id]||0) + q; S.units[id] = (S.units[id]||0) + q; w.dep[i][id] = (w.dep[i][id]||0) + q; w.trophies = (w.trophies||0) + q; left += q; });
+    took += left;
+    if (boom + took) warEvent(w, `${f.name} направление: при прорыве уничтожено ${boom} машин врага, захвачено ${took}${left ? ` (из них ${left} брошены без топлива)` : ""}.`, "good"); }
   else { const d0 = Object.assign({}, w.dep[i] || {});
     Object.keys(d0).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const d = Math.floor(d0[id]*0.02 + Math.random()), cap = Math.floor(d/2), l = depTake(w, id, d, i); if (!l) return;
       w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; boom += l - Math.min(cap, l); if (cap){ const c = Math.min(cap, l); w.eu[id] = (w.eu[id]||0) + c; took += c; } });
-    if (boom + took) warEvent(w, `${f.name} направление: при отходе потеряно ${boom + took} машин, из них ${took} достались врагу.`, "bad"); }
+    // our machines standing here without fuel are abandoned to the enemy
+    const k = w.fuel ?? 1; let left = 0; if (k < 1) Object.keys(w.dep[i] || {}).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const idle = (w.dep[i][id]||0)*(1 - k); if (idle <= 0) return;
+      const l = depTake(w, id, Math.floor(idle*IDLE_CAPTURE + Math.random()), i); if (!l) return; w.lossMy[id] = (w.lossMy[id]||0) + l; w.eu[id] = (w.eu[id]||0) + l; left += l; });
+    took += left;
+    if (boom + took) warEvent(w, `${f.name} направление: при отходе потеряно ${boom + took} машин, из них ${took} достались врагу${left ? ` (${left} брошены без топлива)` : ""}.`, "bad"); }
   return boom;
 }
 function warShare(w){ const sum = S.wars.reduce((a,x)=>a + (x.prio||2), 0) || 1; return (w.prio||2)/sum; }
@@ -2539,6 +2552,7 @@ function warDay(w){
   const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
   takeLossesW(w, rM, airRM);
   takeLosses(w.eu, w.accTh, w.lossTh, w.mLossTh, rT, airRT, 1, foeQ(WU));
+  if (w.er) takeLosses(w.er, w.accThI = w.accThI || {}, w.lossTh, w.mLossTh, rT*IDLE_LOSS, airRT*IDLE_LOSS, 1, foeQ(WU));
   if (w.mode !== "defend" && my.loiter > 0){ Object.keys(WU).forEach(id => { if (MODELS[id] && MODELS[id].kind === "loiter") depTake(w, id, Math.ceil(WU[id]*0.01)); }); }
   const tl = myTroops*rM*0.5; me().army = Math.max(1, me().army - tl); w.men = Math.max(0, (w.men||0) - tl); w.troopsLost += tl;
   wearyAdd(tl/Math.max(1, me().army)*260 + 0.03); e.army = Math.max(0.5, e.army - thTroops*rT*0.5);
@@ -3501,11 +3515,12 @@ function bf3dOpen(st, w, i){
       { const ar = (ww.arrD || [])[st.i]; if (ar && ar.day !== st.arrDay){ st.arrDay = ar.day; bfArrive(st, ar.n); } }
       // a position fell and the banner has not shown yet: its losses explode there, not as ordinary fire
       if (fr.posEv && fr.posEv.day !== st.posDay) return;
-      if (api.fuel) api.fuel(0, ww.fuel ?? 1);
+      const eAll = Object.assign({}, ww.eu); for (const id in ww.er||{}) if (MODELS[id] && GROUND_K.has(MODELS[id].kind)) eAll[id] = (eAll[id]||0) + ww.er[id];   // grounded aircraft stay off the field
+      if (api.fuel){ api.fuel(0, ww.fuel ?? 1); const gs = t => Object.entries(t||{}).reduce((a, [id, n]) => a + (MODELS[id] && BF3D_ROLE[MODELS[id].kind] ? n : 0), 0), ga = gs(eAll); api.fuel(1, ga > 0 ? gs(ww.eu)/ga : 1); }
       // our losses are known per direction exactly; the enemy's are its war losses in this direction's share
       [[(ww.lossF || [])[st.i] || {}, 0, 1], [ww.lossTh, 1, fs]].forEach(([loss, s, k]) => { for (const id in loss||{}){ if (!MODELS[id] || !ARM.includes(MODELS[id].kind)) continue; const d = loss[id] - (st.lost0[s][id] || 0); if (d > 0) api.hit(s, id, d*k); st.lost0[s][id] = loss[id]; } });
       const ground = (u, mult) => Object.fromEntries(Object.entries(u||{}).filter(([id, n]) => MODELS[id] && BF3D_ROLE[MODELS[id].kind] && n > 0).map(([id, n]) => [id, n*mult*fs]));
-      api.sync(0, ground(depInit(ww)[st.i], 1/fs)); api.sync(1, ground(ww.eu, 1)); }, 1500);
+      api.sync(0, ground(depInit(ww)[st.i], 1/fs)); api.sync(1, ground(eAll, 1)); }, 1500);
   }).catch(e => { console.error(e); ui.bf2d = true; box.remove(); st.root.querySelector("#bf-cv").style.display = ""; setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); st.root.querySelector(".bf-load")?.remove(); bfFit(st); }, 30); bfInput(st); requestAnimationFrame(bfLoop); });
 }
 /* ---- strikes ordered from the field: buttons at the bottom, the result shown on the field ---- */
