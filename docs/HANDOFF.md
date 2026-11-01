@@ -22,8 +22,8 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (54, with HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
-- Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted.
+- Models converted so far (57, with HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T, J-20, Z-10, Wing Loong): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
+- Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted. Still waiting for own models: f15ex → su35, j10 → f16, ah1z → apache.
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Aviation over the field (stage 1 done 01.11.2026)
@@ -173,8 +173,16 @@ Read this first in a new session.
 - `sf_box` returns lists, not Vectors: `drop(mn, mx, c)` predicates index `mn[2]`, not `mn.z` (the `accent` callback does get Vectors).
 - Checked: the six files load in headless GLTFLoader.
 
+## Batch 5: J-20, Z-10, Wing Loong (01.11.2026)
+- J-20 (Void.com, 15k faces), Z-10 (42manako, 9k), Wing Loong I (KojfDiscord, War Thunder, 93k). All CC BY, in `credits3d.json`, each with `_lo`; removed from `BF3D_LIKE`, added to `BF3D_MODELS` and `HAS_LO`. Lengths: J-20 20.4 m, Z-10 hull 14.1 m, Wing Loong kept at import scale (span 14 m).
+- The J-20 import sits in a banked, yawed display pose. Fixed by PCA on the main body (`J20_39`): longest axis = length, shortest = up; nose sign from the cockpit, up sign from the fins; then `root.matrix_world = R @ T(-c) @ root.matrix_world`. Dropped gear (`wheels`), open bay doors (`DB`) and missile racks (`MRack*`). Red star markings kept.
+- Z-10: three meshes (body, tail rotor `Object_6`, main rotor `Object_8`), nose −Y. Main rotor hub = mean of its vertices; rotors `y,z`.
+- Wing Loong: meshes merged by material, so `sf_loose` first (938 parts); pusher prop = parts with `mn.y > 3.99` (3 blades + spinner), axis `x`, nose −Y. The object under the nose is the sensor ball, kept.
+- Pitfall: `sf_make_air` parks every result at `x = len(id)*20`, so two 3-letter ids land on top of each other; and moving the parts by name also moves the rotor children (their local x gets overwritten). Move only the hull (no parent) when arranging a picture.
+- Check: Node + GLTFLoader with a DOM stub (`document.createElementNS` image whose `src` setter fires `load`), three taken from the APK on the `apk` branch (`assets/public/lib/three/*` → `www/lib/three`, gitignored). npm registry and raw.githubusercontent are blocked in the sandbox; headless Chrome printed nothing here. All six files parse: rotors `y,z` / `x` found.
+
 ## Next
-- Possible next model batches (≤3 at a time, ask the user first): J-20, J-10, F-15EX (stand-ins), Lancet, Wing Loong, Z-10; HQ-16 (no model found yet). The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
+- Possible next model batches (≤3 at a time, ask the user first): J-10, F-15EX, AH-1Z (stand-ins), Lancet; HQ-16 (no model found yet). The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
