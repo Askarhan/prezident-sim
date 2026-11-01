@@ -6,7 +6,8 @@ Read this first in a new session.
 - Game source is `src/game.html`; edit only that file. Build with `python3 scripts/build-www.py src/game.html`, which writes `www/index.html` (never edit `www/index.html` by hand: the build wraps the source in a page head).
 - After changing `tools/units/credits3d.json`, run `python3 tools/units/gencredits.py` before building.
 - Pushing to `main` builds the APK in GitHub Actions. The APK lands at https://github.com/Askarhan/prezident-sim/raw/apk/kabinet-prezidenta-debug.apk
-- Web preview is the artifact https://claude.ai/artifact/ND3zG4d9MyEn23a7am5Hpm. It loads models as base64 `field/models/<id>.glb.txt`, because the host does not serve `.glb`.
+- Web preview is the artifact https://claude.ai/artifact/35wSnfwnyDNc895xgEe7xG (build of 01.11.2026; the old ND3zG4d9… link is left on an older build). It loads models as base64 `field/models/<id>.glb.txt`, because the host does not serve `.glb`.
+- Republishing the preview: stage `www` in the scratchpad with every `.glb` as `base64 -w0` → `.glb.txt`, sfx with `contentType audio/ogg`; publish to the same artifact in parts (limits: 255 files and 64 MB per publish), e.g. page + bf3d.js + sfx + icons + photos + world.js + units + props; then sat + half the models; then the rest. `lib/three` is not in git: copy it server side with `{artifact, path}` from the existing artifact. Updating an artifact from another chat requires reading its whole 800 KB page first (too costly): either publish from the same chat or make a new artifact and change the link here.
 - Commits use the author `Askarhan <drakula199821@gmail.com>`.
 
 ## 3D field (`www/field/bf3d.js`, three.js r170 loaded on demand)
@@ -198,6 +199,5 @@ Read this first in a new session.
 
 ## Next
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
-- The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
