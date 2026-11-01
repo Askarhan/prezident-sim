@@ -22,9 +22,9 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (51, with HQ-9, Krasukha, HQ-17): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
+- Models converted so far (54, with HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
 - Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted.
-- Still procedural: hq16, irist_sls. S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
+- Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Aviation over the field (stage 1 done 01.11.2026)
 - Models: `su25`, `ka52`, `tb2` (Sketchfab, CC BY, credits in `credits3d.json`), each with `_lo`. Nodes: `g_<id>_hull` (origin at the centre of the airframe, nose +X) and `g_<id>_rotor`, `g_<id>_rotor2` that spin; the hull's glTF extras `rotors` give each rotor's axis (`"y,y"` for the Ka-52, `"x"` for the TB2 propeller).
@@ -166,8 +166,14 @@ Read this first in a new session.
 - Pitfall: the device folder request from the assistant was refused by the auto-mode classifier; the user added `D:\Projects\kabinet_units\glb` via «+» → «Add folder».
 - Check: the six files load in headless GLTFLoader (three from the `apk` branch); not looked at on the field.
 
+## Batch 4 (01.11.2026)
+- Su-57 (andertan, nose −X, no gear in the import) and F-35A (andertan, nose −Y; gear and hanging doors dropped with `sf_loose`, predicate on part size: `mn.z<1.25 and len<2 and width<1`, or thin `width<0.3` parts below the fuselage). Both in `BF3D_MODELS`, removed from `BF3D_LIKE`. Accent = top 30% of the rear 30% (fins). The Su-57 came out 18.5 m long instead of 20.1 (`length` is applied before trimming); fine on the field.
+- IRIS-T SLS is shown by the IRIS-T SLM **radar** truck (TRML-4D, KojfDiscord War Thunder, 293k): hull only, every part pre-decimated to 1/5. `irist_sls_lo` is heavy (5.6k tris, 550 KB).
+- `sf_box` returns lists, not Vectors: `drop(mn, mx, c)` predicates index `mn[2]`, not `mn.z` (the `accent` callback does get Vectors).
+- Checked: the six files load in headless GLTFLoader.
+
 ## Next
-- Possible next model batches (≤3 at a time, ask the user first): Su-57 / F-35 / J-20 (now stand-ins), Lancet, Wing Loong, Z-10; IRIS-T SLM (KojfDiscord, War Thunder, 293k, CC BY) for irist_sls; HQ-16 (no model found yet). The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
+- Possible next model batches (≤3 at a time, ask the user first): J-20, J-10, F-15EX (stand-ins), Lancet, Wing Loong, Z-10; HQ-16 (no model found yet). The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
