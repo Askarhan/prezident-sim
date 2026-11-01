@@ -227,4 +227,17 @@ Rules agreed with the user:
 
 Order: 1) rules in `game.html` (cooldown, strike group slider, pause, days on exit, applying results, auto-resolve on early exit); 2) battle in `bf3d.js` (HP, damage, cover AI, end conditions, HUD); 3) in-battle strikes + balance with `tools/sim/warsim.js` (a field battle should average about what the auto-calculation gives, plus a bonus for good strikes).
 
+## BALANCE STAGE (agreed 02.11.2026, do at the very end, after the battle stages)
+Problem (user): the US, Russia and China are unbeatable; a player can take the US and conquer the world. The commanded battle makes it worse (test: Russia 665 machines vs Kazakhstan 26). Don't weaken the battle itself (a superpower should beat a small neighbour); stop world conquest with the mechanisms below. What exists today: occupation and partisans (`occupy`, `occupationTurn`), sanctions, war weariness (`wearyAdd`); a coalition is only a warning text (around «соседи могут собрать коалицию»), nothing really forms.
+All approved by the user, in this order of effect:
+1. **Coalition and lend-lease.** Every conquest adds «aggression». Above a threshold, neighbours and other powers first send machines to the player's enemy (lend-lease into `w.eu`), then join the war themselves. A US world conquest meets China, Russia and Europe together. The main lever.
+2. **The empire slows itself.** Each occupied country needs a garrison (machines and men leave the front); partisans grow with the empire's size; overseas wars only through sea supply (ties into delivery `w.road`).
+3. **Nuclear deterrence.** Attacking a nuclear power is allowed, but with a risk of a nuclear answer: huge losses, collapse of approval, world sanctions. Superpowers cannot calmly swallow each other.
+4. **Home politics.** A long war of conquest drops approval faster → protests, lost elections, a coup.
+5. **Difficulty at country choice.** US/China/Russia «Легко», small countries «Сложно»; plus a «Мир сопротивляется» setting (coalitions form faster).
+In the commanded battle (build with battle step 2, part of the same mechanics):
+- **Front width:** at most N machines fight at once, N by terrain (plain more, mountains/city less); the rest of the strike group is a reserve that replaces the dead.
+- **Defence bonus:** the defender gets fortifications and mines; later infantry with ATGMs from `w.men`.
+Check balance with `tools/sim/warsim.js` (add multi-war/conquest runs for the big three).
+
 Fuel (deferred by the user to the very end, after the battle stages): the user conquered Mexico in a test with no fuel trouble. Fuel is implemented (`fuelDay`), but the amounts are realistic (a tank 4 bbl/day), so an army burns a tiny share of an oil country's output; it only bites without oil, under sanctions or with an empty treasury. Ask the user whether to make it harsher (losses in transport, front money) or to make delivery the bottleneck (strikes on columns).
