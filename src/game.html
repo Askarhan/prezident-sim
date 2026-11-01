@@ -3454,11 +3454,11 @@ function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.a
   document.body.classList.remove("bf-open"); if (st.speed0 != null && ui.speed > 0) ui.speed = st.speed0;
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
-const BF3D_MODELS = ["su25","j20","z10","wingloong","ka52","tb2","a10","su34","mi24","mig29","su35","su57","f16","f35","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
+const BF3D_MODELS = ["su25","j10","f15ex","ah1z","j20","z10","wingloong","ka52","tb2","a10","su34","mi24","mig29","su35","su57","f16","f35","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
 // aircraft without a model of their own use the nearest one: attack planes and fighters fly as the Su-25, bombers as the Su-34,
 // helicopters as the Ka-52, drones as the TB2
-const BF3D_LIKE = {bmp3:"bmp2", phl03:"tornado", s500:"s400", f15ex:"su35", j10:"f16", ah1z:"apache"};   // aircraft without a model of their own: the nearest silhouette (heavy twin-engine fighters → Su-35, light → F-16, tandem attack helicopters → Apache, MALE drones → Reaper)
+const BF3D_LIKE = {bmp3:"bmp2", phl03:"tornado", s500:"s400"};   // aircraft without a model of their own: the nearest silhouette (heavy twin-engine fighters → Su-35, light → F-16, tandem attack helicopters → Apache, MALE drones → Reaper)
 const BF3D_AIR_MODEL = {fighter:"f16", attack:"su25", bomber:"su34", heli:"ka52", drone:"tb2", loiter:"shahed"};
 function bf3dModel(id){ if (BF3D_MODELS.includes(id)) return id; const m = MODELS[id]; if (!m) return "t72"; if (BF3D_LIKE[id]) return BF3D_LIKE[id]; if (BF3D_AIR_MODEL[m.kind]) return BF3D_AIR_MODEL[m.kind]; if (m.origin === "us") return "abrams"; if (m.origin === "de") return "leo"; if (m.origin === "cn") return m.gen >= 2 ? "leo" : "t72"; return m.gen >= 2 ? "t90" : "t72"; }
 // up to 10 ground squads and 11 aircraft a side, in proportion to the real armies on this front
@@ -6932,7 +6932,10 @@ const CREDITS3D = [
   ["irist_sls", "«IRIS-T SLM/TADS (War Thunder) Leviathans» — KojfDiscord (машина РЛС комплекса)", "https://sketchfab.com/3d-models/b82295a01dad456cbf5fb9a179badcdb"],
   ["j20", "«J-20 Stealth Fighter Aircraft» — Void.com", "https://sketchfab.com/3d-models/74e1222399f94dc28416fd02edd98938"],
   ["z10", "«Changhe Z-10» — 42manako", "https://sketchfab.com/3d-models/519df675d6c9482f8caae4b9ed6fa90a"],
-  ["wingloong", "«Wing Loong I UAV (War Thunder)» — KojfDiscord", "https://sketchfab.com/3d-models/65ee1be90ae34b41a8e2464a4737131d"]
+  ["wingloong", "«Wing Loong I UAV (War Thunder)» — KojfDiscord", "https://sketchfab.com/3d-models/65ee1be90ae34b41a8e2464a4737131d"],
+  ["j10", "«Chengdu J-10S» — MirzaArrafiERV_45", "https://sketchfab.com/3d-models/aa7c517fbded47439a526cafb78b4618"],
+  ["f15ex", "«McDonnell Douglas F-15E Strike Eagle» — Spark_Customs (F-15E вместо F-15EX)", "https://sketchfab.com/3d-models/4b8a5abf87a34373af4b0c8adaf18b11"],
+  ["ah1z", "«AH-1Z Viper Attack Helicopter – Military Gunship» — DevPoly3D", "https://sketchfab.com/3d-models/5dcf02be61c44d6badfca44f71765958"]
 ];
 function showCredits(){
   const rows = [...Object.entries(UINFO).map(([id,x]) => [MODELS[id] ? MODELS[id].name : id, x]), ...Object.entries(AINFO).map(([id,x]) => [AMMO[id].name, x])];

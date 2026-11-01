@@ -22,8 +22,8 @@ Read this first in a new session.
   - `sf_make(root, id, front, turret_key=..., gun=..., gun_cross=..., targets=...)` splits, bakes and exports `<id>.glb`, plus `sf_lod(id)` → `<id>_lo.glb`.
 - Run it as: `G={}; exec(kab_glb.py, G); exec(kab_sf.py, G)`.
 - Credits are in `tools/units/credits3d.json`. A script regenerates `CREDITS3D` in the game from it, and the list is shown on the sources screen.
-- Models converted so far (57, with HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T, J-20, Z-10, Wing Loong): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
-- Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted. Still waiting for own models: f15ex → su35, j10 → f16, ah1z → apache.
+- Models converted so far (60, with HQ-9, Krasukha, HQ-17, Su-57, F-35, IRIS-T, J-20, Z-10, Wing Loong, J-10, F-15EX, AH-1Z): tanks, IFVs/APCs, artillery, Gepard, Buk, Patriot, S-400 (also used for S-300), THAAD, NASAMS; aircraft Su-25, Ka-52, TB2, A-10, Su-34, Mi-24, MiG-29, Su-35, F-16, Apache, Reaper, Shahed-136; Iskander, Tor, Pantsir; Tochka-U, M270, ZSL-92 (WZ-551).
+- Stand-ins (`BF3D_LIKE`, user's choice: no CC BY model exists): bmp3 → bmp2, phl03 → tornado (Smerch); their procedural .glb were deleted.
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Aviation over the field (stage 1 done 01.11.2026)
@@ -181,8 +181,16 @@ Read this first in a new session.
 - Pitfall: `sf_make_air` parks every result at `x = len(id)*20`, so two 3-letter ids land on top of each other; and moving the parts by name also moves the rotor children (their local x gets overwritten). Move only the hull (no parent) when arranging a picture.
 - Check: Node + GLTFLoader with a DOM stub (`document.createElementNS` image whose `src` setter fires `load`), three taken from the APK on the `apk` branch (`assets/public/lib/three/*` → `www/lib/three`, gitignored). npm registry and raw.githubusercontent are blocked in the sandbox; headless Chrome printed nothing here. All six files parse: rotors `y,z` / `x` found.
 
+## Batch 6: J-10, F-15EX, AH-1Z (01.11.2026)
+- J-10 shown by the J-10S two-seater (MirzaArrafiERV_45, 74k), F-15EX by the F-15E (Spark_Customs, 205k; same airframe), AH-1Z (DevPoly3D, 125k). All CC BY, each with `_lo`; `BF3D_LIKE` now holds only bmp3, phl03, s500.
+- J-10: nose +Y; `sf_loose`, then every part with `mx.z < -0.85` dropped (gear, ventral tank, pylons).
+- F-15E import is banked like the J-20: PCA alignment on all vertices; nose = the narrow end (lateral spread), up = the side the fins stick out in the tail third.
+- **Big pitfall (decimation stalls):** welding (`sf_loose`, and `sf_world_copy` inside `sf_make_air`) leaves edges with 3+ faces in dense imports; the Decimate modifier then barely reduces anything (78k → 36k instead of 6k) and forcing it (split those edges) wrecked the F-15. What works: copy each import mesh to world space **without welding** (`me = o.data.copy(); me.transform(o.matrix_world)`, new object under a fresh empty), pre-decimate each with `sf_decimate(ob, n//16, sym=<lateral axis>)` (unwelded meshes decimate fine), then `sf_make_air` on that empty. Used for F-15 (→12.7k → 6k) and AH-1Z (→15.9k, lateral axis X). Worth turning into a `sf_predecimate(root, div, sym)` helper in kab_sf.py.
+- AH-1Z: nose −Y, main rotor `Cube.007`, hub (0, 0.4, 3.7); tail rotor `pCube98.001` (left of the fin), hub (0.6, 9.25, 2.9); import scale kept (17.8 m with rotors).
+- `f15ex_lo` is heavy (3.7k tris, 476 KB). Check: all six parse in the Node GLTFLoader check.
+
 ## Next
-- Possible next model batches (≤3 at a time, ask the user first): J-10, F-15EX, AH-1Z (stand-ins), Lancet; HQ-16 (no model found yet). The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
+- Possible next model batches (≤3 at a time, ask the user first): Lancet (not found on Sketchfab by «Lancet loitering munition drone»; try other words), HQ-16 (no model found yet). Stand-ins left: bmp3, phl03, s500. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact is several builds behind (the user chose to skip it for now): republish `www/index.html`, `field/bf3d.js` and every new `field/models/*.glb.txt` (base64) when asked.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
