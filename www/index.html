@@ -439,6 +439,7 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-cmd-btns .bf-cmd-go{background:#C8402F;border-color:#E26A5A} #bf-root .bf-cmd-btns button:disabled{opacity:.4}
 #bf-root .bf-cmdhud{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(380px,calc(100vw - 24px));z-index:2;color:#fff;text-align:center;font-size:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;text-shadow:0 1px 3px #000}
 #bf-root .bf-cmdhud b{flex:1 0 100%;font-size:12.5px} #bf-root .bf-cmdhud .bar{flex:1 0 100%;height:8px;border-radius:5px;background:rgb(0 0 0 / .55);overflow:hidden;border:1px solid rgb(255 255 255 / .2);margin:2px 0}
+#bf-root .bf-cmd-wx{font-size:12px;color:#C9D3C0;margin:6px 0 2px;line-height:1.35}
 #bf-root .bf-cbsk{position:absolute;left:50%;transform:translateX(-50%);bottom:96px;width:min(500px,calc(100vw - 16px));display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:2}
 #bf-root .bf-cbsk .bf-sk{min-width:0;padding:5px 6px 5px 5px;gap:5px;border-radius:10px} #bf-root .bf-cbsk .bf-sk span{min-width:0;overflow:hidden}
 #bf-root .bf-cbsk .bf-sk i{width:24px;height:24px;font-size:15px;flex:0 0 24px;border-radius:7px} #bf-root .bf-cbsk .bf-sk b{font-size:11.5px} #bf-root .bf-cbsk .bf-sk small{font-size:10px;overflow:hidden;text-overflow:ellipsis}
@@ -3493,19 +3494,28 @@ const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4, CB_LIMIT = 300, CB_HOLD = 180, C
 const CB_WIDTH = {p:120, d:140, f:80, u:60, m:50};
 function cbReady(w){ return (w.bfCd || 0) <= (w.days || 0); }
 function cbType(f){ return (f.lastD || 0) >= 0 ? "atk" : "def"; }
+// battle types: assault, defence, breakthrough to a point in the enemy rear, ambush on an enemy column; picked when the battle is offered
+const CB_TYPES = {
+  atk:{name:"Штурм позиции врага", text:"Ударная группа идёт на штурм. Победа — позиция взята.", hud:"Штурм", win:"Мы уничтожили позицию врага! Победа!", lose:"Враг уничтожил нашу армию", lim:300},
+  def:{name:"Оборона нашей позиции", text:"Враг штурмует. Удержим — его группа разбита.", hud:"Оборона", win:"Атака врага отбита! Победа!", lose:"Враг прорвал нашу позицию", lim:180},
+  brk:{name:"Прорыв в тыл врага", text:"Довести часть группы до красной зоны в тылу врага за 3 минуты. Победа — позиция взята, враг в беспорядке.", hud:"Прорыв", win:"Прорыв удался! Позиция взята", lose:"Прорыв не удался", lim:180},
+  amb:{name:"Засада на колонну", text:"Колонна врага идёт по дороге. Наши ждут в укрытиях и открывают огонь, когда голова колонны дойдёт до середины (или по твоей команде). Не дай прорваться 40% колонны.", hud:"Засада", win:"Колонна врага разгромлена! Победа!", lose:"Колонна врага прорвалась", lim:240}
+};
+function cbPick(f){ const b = cbType(f), r = Math.random(); return b === "atk" ? (r < 0.2 ? "brk" : r < 0.4 ? "amb" : "atk") : (r < 0.25 ? "amb" : "def"); }
+const cbDefUs = t => t === "def" || t === "amb", cbDefThem = t => t === "atk" || t === "brk";
 // the strike group (pct of the direction's ground machines) and the enemy's answer, scaled to ours up to CB_EMAX
-function cbGroups(w, i, pct){
+function cbGroups(w, i, pct, tp){
   depInit(w); const f = w.fronts[i], nF = w.fronts.filter(x => x.p < 100).length || 1, fs = f.share || 1/nF, es = Math.min(CB_EMAX, pct*CB_EMAX/CB_MAX);
   const pick = (u, k) => { const o = {}; for (const id in u||{}){ const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind) || !(u[id] > 0)) continue; const n = Math.floor(u[id]*k); if (n > 0) o[id] = n; } return o; };
-  const g = pick(w.dep[i], pct), e = pick(w.eu, fs*es), type = cbType(f);
-  const myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(type === "def" ? DEF_K : 1), enP = depPower(e)*(type === "atk" ? DEF_K : 1);
+  const g = pick(w.dep[i], pct), e = pick(w.eu, fs*es), type = tp || cbType(f);
+  const myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(type) ? DEF_K : 1), enP = depPower(e)*(cbDefThem(type) ? DEF_K : 1);
   return {g, e, type, myP, enP};
 }
 const cbEdge = (a, b) => { const X = Math.pow(a, WAR_EXP), Y = Math.pow(b, WAR_EXP); return X + Y > 0 ? X/(X + Y) : 0.5; };
 const cbCount = u => Object.values(u||{}).reduce((a, n) => a + n, 0);
 const cbList = (u, max) => Object.entries(u||{}).sort((a, b) => b[1] - a[1]).slice(0, max || 4).map(([id, n]) => `${MODELS[id].name} ×${n}`).join(" · ") || "—";
-function cbPlan(w, i, pct){
-  const G = cbGroups(w, i, pct), r = cbEdge(G.myP*rnd(0.88, 1.12), G.enP*rnd(0.88, 1.12)), win = r > 0.5, m = Math.abs(2*r - 1);
+function cbPlan(w, i, pct, tp){
+  const G = cbGroups(w, i, pct, tp), r = cbEdge(G.myP*rnd(0.88, 1.12), G.enP*rnd(0.88, 1.12)), win = r > 0.5, m = Math.abs(2*r - 1);
   const lose = 0.5 + 0.4*m, keep = clamp(0.4*(1 - m) + 0.05, 0.05, 0.45);
   const loss = (u, k) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, Math.min(n, Math.round(n*k*rnd(0.8, 1.2)))]));
   return {i, type:G.type, g:G.g, e:G.e, L:loss(G.g, win ? keep : lose), LE:loss(G.e, win ? lose : keep), win, dur:Math.round(60*(1 + 4*(1 - m))), t:0, a:{}, ae:{}, pct};
@@ -3524,7 +3534,7 @@ function cbApply(w, k){
 // a real battle left early (or the game closed during it): the rest is resolved from what is still alive on both sides
 function cbRest(w){
   const cb = w.cb, f = w.fronts[cb.i] || {}, rem = (u, a) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, Math.max(0, n - (a[id] || 0))]));
-  const g = rem(cb.g, cb.a), e = rem(cb.e, cb.ae), myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cb.type === "def" ? DEF_K : 1), enP = depPower(e)*(cb.type === "atk" ? DEF_K : 1);
+  const g = rem(cb.g, cb.a), e = rem(cb.e, cb.ae), myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(cb.type) ? DEF_K : 1), enP = depPower(e)*(cbDefThem(cb.type) ? DEF_K : 1);
   const r = cbEdge(myP*rnd(0.9, 1.1), enP*rnd(0.9, 1.1)), m = Math.abs(2*r - 1), win = r > 0.5;
   if (cb.type === "def" && cb.t >= CB_HOLD - 20 && cbCount(g) > 0) cb.win = true; else cb.win = win;
   const lose = 0.5 + 0.4*m, keep = clamp(0.4*(1 - m) + 0.05, 0.05, 0.45), part = (u, a, k) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, (a[id] || 0) + Math.round(n*k)]));
@@ -3534,22 +3544,49 @@ function cbRest(w){
 function cbOutcome(w){
   const cb = w.cb, f = w.fronts[cb.i]; if (!f || f.p >= 100) return;
   const before = f.p, lo = Math.floor(f.p/POS_STEP)*POS_STEP;
-  if (cb.type === "atk" && cb.win) f.p = Math.min(100, lo + POS_STEP + 0.01);
+  if ((cb.type === "atk" || cb.type === "brk") && cb.win){ f.p = Math.min(100, lo + POS_STEP + 0.01); if (cb.type === "brk") f.regroupT = Math.max(f.regroupT || 0, REGROUP_LINE); }
+  else if (cb.type === "amb"){ if (cb.win){ f.regroupT = Math.max(f.regroupT || 0, REGROUP_LINE); f.p = Math.max(f.p, Math.min(lo + POS_STEP - 0.01, f.p + POS_STEP*0.4)); } else f.pause = Math.max(f.pause || 0, 1); }
+  else if (cb.type === "brk") f.pause = Math.max(f.pause || 0, 3);
   else if (cb.type === "def" && !cb.win) f.p = Math.max(-100, lo - 0.01);
   else if (cb.type === "atk") f.pause = Math.max(f.pause || 0, 3);
   else f.regroupT = Math.max(f.regroupT || 0, REGROUP_LINE);
   if (f.p !== before){ f.lastD = f.p - before; frontMoved(w, f, cb.i, before); }
-  warEvent(w, `${f.p >= 0 ? f.name : f.myName} направление: ${cb.type === "atk" ? (cb.win ? "наш штурм под личным командованием взял позицию" : "наш штурм отбит") : (cb.win ? "атака врага отбита" : "противник прорвал позицию")}. Потери: ${cbCount(cb.a)} наших машин, ${cbCount(cb.ae)} вражеских.`, cb.win ? "good" : "bad");
+  warEvent(w, `${f.p >= 0 ? f.name : f.myName} направление: ${({atk:["наш штурм под личным командованием взял позицию", "наш штурм отбит"], def:["атака врага отбита", "противник прорвал позицию"], brk:["прорыв в тыл врага удался, позиция взята", "прорыв в тыл врага не удался"], amb:["засада разгромила колонну врага", "колонна врага прорвалась через засаду"]}[cb.type] || ["", ""])[cb.win ? 0 : 1]}. Потери: ${cbCount(cb.a)} наших машин, ${cbCount(cb.ae)} вражеских.`, cb.win ? "good" : "bad");
 }
 // the game was closed during a battle: it counts as left early, the rest is auto-resolved, no days pass
 function cbOrphans(){ (S.wars || []).forEach(w => { if (!w.cb) return; try { if (w.cb.real) cbRest(w); cbApply(w, 1); cbOutcome(w); } catch(e){ console.error(e); } delete w.cb; }); }
+// weather of a commanded battle: by the season and the latitude of the land fought over, with chance; night in about a quarter of battles
+function cbWeather(w, f, type){
+  const lat = (CAPITALS[type === "atk" ? w.enemy : S.player] || ["", 45])[1], a = Math.abs(lat), m = S.month || 0, ter = bfTerrain(f);
+  const winter = (lat >= 0 ? [11, 0, 1] : [5, 6, 7]).includes(m), shoulder = (lat >= 0 ? [10, 2] : [4, 8]).includes(m);
+  const snow = ter === "d" ? 0 : a >= 40 && winter ? 0.6 : a >= 48 && shoulder ? 0.3 : 0, rain = ter === "d" ? 0.04 : winter ? 0.08 : 0.2, fog = ter === "d" ? 0.03 : 0.1, r = Math.random();
+  return {kind:r < snow ? "snow" : r < snow + rain ? "rain" : r < snow + rain + fog ? "fog" : "clear", night:Math.random() < 0.25};
+}
+const WX_NAME = {clear:"ясно", rain:"дождь", fog:"туман", snow:"снег"};
+function wxText(wx){
+  const k = wx.kind, h = [];
+  if (k === "fog" || wx.night) h.push(`огонь только вблизи (≈${wx.night && k === "fog" ? 45 : k === "fog" ? 55 : 75} м)`);
+  if (k === "fog" || k === "rain") h.push("авиация бьёт слабо"); else if (wx.night || k === "snow") h.push("авиация бьёт хуже");
+  if (k === "rain" || k === "snow") h.push("дроны сбиваются чаще");
+  if (wx.night) h.push("осветительные ракеты дают обзор");
+  return `Условия: ${wx.night ? "ночь" : "день"}, ${WX_NAME[k] || "ясно"}${h.length ? " — " + h.join(", ") : ""}.`;
+}
+// strikes under the weather: kills factor, cooldown factor, extra jam
+function wxStrike(wx, type){
+  const k = (wx || {}).kind, n = (wx || {}).night;
+  if (type === "air") return {f:(k === "fog" ? 0.5 : k === "rain" ? 0.65 : k === "snow" ? 0.8 : 1)*(n ? 0.8 : 1), cd:k === "fog" || k === "rain" ? 1.4 : 1, jam:0};
+  if (type === "heli") return {f:(k === "fog" ? 0.7 : 1)*(n ? 0.85 : 1), cd:1, jam:0};
+  if (type === "drones") return {f:k === "fog" ? 0.7 : 1, cd:1, jam:k === "rain" || k === "snow" ? 0.15 : 0};
+  return {f:(k === "fog" ? 0.85 : 1)*(n ? 0.85 : 1), cd:1, jam:0};
+}
 function cbOffer(st, w, i){
   const f = w.fronts[i]; if (!f || f.p >= 100) return;
   if (!cbReady(w)){ const d = w.bfCd - w.days; return setTimeout(() => { if (BF.open === st) bfMsg(st, `Командовать боем можно раз в ${CB_CD} дней войны: следующий бой через ${d} ${plural(d, "день", "дня", "дней")}. Сейчас — только наблюдение.`); }, 600); }
   const box = document.createElement("div"); box.className = "bf-cmd"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Командовать боем");
-  const type = cbType(f);
-  box.innerHTML = `<div class="bf-cmd-card"><b>${type === "atk" ? "Штурм позиции врага" : "Оборона нашей позиции"}</b>
-    <small>${type === "atk" ? "Ударная группа идёт на штурм. Победа — позиция взята." : "Враг штурмует. Удержим — его группа разбита."} Карта стоит, пока идёт бой; после боя пройдёт столько дней, сколько минут он длился. Отступления нет. Следующий такой бой — через ${CB_CD} дней войны.</small>
+  const type = st.cbt = cbPick(f), wx = st.wx = cbWeather(w, f, type), T = CB_TYPES[type];
+  box.innerHTML = `<div class="bf-cmd-card"><b>${T.name}</b>
+    <small>${T.text} Карта стоит, пока идёт бой; после боя пройдёт столько дней, сколько минут он длился. Отступления нет. Следующий такой бой — через ${CB_CD} дней войны.</small>
+    <div class="bf-cmd-wx">${esc(wxText(wx))}</div>
     <label>Ударная группа: <span class="num" data-cbpct></span> техники направления</label>
     <input type="range" min="1" max="${Math.round(CB_MAX*100)}" step="1" value="20" data-cbr aria-label="Доля техники направления в ударной группе">
     <div class="bf-cmd-side us"><i>Мы</i><span data-cbus></span></div><div class="bf-cmd-side them"><i>Враг</i><span data-cbthem></span></div>
@@ -3557,7 +3594,7 @@ function cbOffer(st, w, i){
     <div class="bf-cmd-btns"><button class="bf-cmd-go" data-cbgo>В бой</button><button data-cbwatch>Только смотреть</button></div></div>`;
   st.root.appendChild(box);
   const R = box.querySelector("[data-cbr]");
-  const upd = () => { const p = +R.value/100, G = cbGroups(w, i, p), r = cbEdge(G.myP, G.enP);
+  const upd = () => { const p = +R.value/100, G = cbGroups(w, i, p, type), r = cbEdge(G.myP, G.enP);
     box.querySelector("[data-cbpct]").textContent = R.value + "%";
     box.querySelector("[data-cbus]").textContent = `${cbCount(G.g)} маш.: ${cbList(G.g)}`;
     box.querySelector("[data-cbthem]").textContent = `${cbCount(G.e)} маш.: ${cbList(G.e)}`;
@@ -3568,7 +3605,7 @@ function cbOffer(st, w, i){
   box.addEventListener("click", e => { e.stopPropagation();
     if (e.target.closest("[data-cbwatch]")){ box.remove(); sfx("tap"); }
     if (e.target.closest("[data-cbgo]")){ const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww || !cbReady(ww)) return box.remove();
-      ww.cb = cbPlan(ww, i, +R.value/100); ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd");
+      ww.cb = cbPlan(ww, i, +R.value/100, st.cbt); ww.cb.wx = st.wx || {kind:"clear"}; ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd");
       if (bf3dOk() && !ui.bf2d){ ww.cb.real = true; bf3dRestart(st, ww, i); } cbHud(st); sfx("tap"); buzz(30); save(); } });
 }
 function cbHud(st){
@@ -3578,8 +3615,8 @@ function cbHud(st){
   if (cb.end){ cbSkBar(st); return el.remove(); }
   cbSkBar(st, el);
   const mm = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2, "0")}`, left = (u, a) => cbCount(u) - cbCount(a);
-  const bt = cb.real && st.api && st.api.battle ? st.api.battle() : null, t = bt ? bt.t : cb.t, lim = cb.real ? (cb.type === "atk" ? CB_LIMIT : CB_HOLD) : cb.dur;
-  const head = cb.real ? (cb.type === "atk" ? `Штурм · ${mm(t)} из ${mm(lim)}` : `Оборона: держаться ${mm(Math.max(0, lim - t))}`) : `${cb.type === "atk" ? "Штурм позиции" : "Оборона позиции"} · ${mm(t)} / ${mm(lim)}`;
+  const bt = cb.real && st.api && st.api.battle ? st.api.battle() : null, t = bt ? bt.t : cb.t, lim = cb.real ? CB_TYPES[cb.type].lim : cb.dur;
+  const head = cb.real ? (cb.type === "def" ? `Оборона: держаться ${mm(Math.max(0, lim - t))}` : cb.type === "brk" ? `Прорыв: ${bt && bt.inZone != null ? `в зоне ×${bt.inZone} из ×${bt.need}` : ""} · ${mm(Math.max(0, lim - t))}` : `${CB_TYPES[cb.type].hud} · ${mm(t)} из ${mm(lim)}`) : `${CB_TYPES[cb.type].name} · ${mm(t)} / ${mm(lim)}`;
   const html = `<b>${head}</b><div class="bar"><i style="width:${Math.round(clamp(t/lim, 0, 1)*100)}%"></i></div>
     <span class="us">Мы ×${cbCount(cb.g)} → ×${left(cb.g, cb.a)}</span><span class="them">Враг ×${cbCount(cb.e)} → ×${left(cb.e, cb.ae)}</span><button data-cbend>Досчитать бой</button>`;
   if (el.innerHTML !== html) el.innerHTML = html;
@@ -3618,11 +3655,12 @@ function cbFire(st, type, side, p){
   const s = CB_STRIKES[type], i = cb.i, [mine, k] = cbMine(w, side), [foe, fk] = cbMine(w, 1 - side), am = cbAmmo(w, side, type);
   const have = Object.entries(mine).filter(([id, n]) => MODELS[id] && s.kinds.includes(MODELS[id].kind) && n*k >= 1).sort((a, b) => b[1] - a[1]), n = have.reduce((a, [, c]) => a + c*k, 0);
   const sup = side ? 1 - (w.air ?? 0.5) : (w.air ?? 0.5), R = rnd(0.8, 1.2), shoot = p0 => (Math.random() < p0) + (Math.random() < p0);
-  let kills = 0, down = 0, jam = 0;
+  let kills = 0, down = 0, jam = 0; const WS = wxStrike(cb.wx, type);
   if (type === "air"){ const ad = cbSum(foe, ["shorad","mrsam","lrsam"], fk, m => m.aa || 1); down = shoot(clamp(ad/(ad + 250), 0, 0.45)*(sup < 0.4 ? 1.4 : 0.6)); kills = (1.5 + 3.5*sup)*Math.min(1, n/6)*R*(1 - 0.3*down); }
   else if (type === "heli"){ const sh = cbSum(foe, ["shorad"], fk, m => m.aa || 1); down = shoot(0.03 + 0.35*sh/(sh + 150)); kills = 3*Math.min(1, n/6)*R*(1 - 0.3*down); }
-  else if (type === "drones"){ const ew = cbSum(foe, ["ew"], fk); jam = clamp(ew/(ew + 6), 0, 0.7); kills = s.use*(1 - jam)*0.35*R; }
+  else if (type === "drones"){ const ew = cbSum(foe, ["ew"], fk); jam = clamp(ew/(ew + 6) + WS.jam, 0, 0.75); kills = s.use*(1 - jam)*0.35*R; }
   else kills = 2.5*Math.min(1, n/8)*R;
+  kills *= WS.f;
   const r = st.api.strike(side, type, {x:p && p.x, z:p && p.z, kills, down, jam, n:s.use || 0, model:have.length ? bf3dModel(have[0][0]) : null}); if (!r) return;
   // ammunition, shot-down aircraft (real losses), spent drones (not losses)
   for (const a in am){ if (side){ if (w.ea && w.ea[a] != null) w.ea[a] = Math.max(0, w.ea[a] - am[a]); } else S.ammo[a] = Math.max(0, (S.ammo[a] || 0) - am[a]); }
@@ -3631,14 +3669,14 @@ function cbFire(st, type, side, p){
     const l = depTake(w, id, c, i); if (spent){ if (w.lossF && w.lossF[i]) w.lossF[i][id] = Math.max(0, (w.lossF[i][id]||0) - l); } else if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; } return l; };
   for (let j = 0; j < down && have.length; j++) lose(have[0][0], 1);
   if (type === "drones"){ let left = s.use; have.forEach(([id]) => { if (left > 0) left -= lose(id, Math.min(left, Math.floor((mine[id] || 0)*k)), true); }); }
-  (side ? (cb.ske = cb.ske || {}) : (cb.sk = cb.sk || {}))[type] = st.api.battle().t + s.cd*(side ? 1.6 : 1);
+  (side ? (cb.ske = cb.ske || {}) : (cb.sk = cb.sk || {}))[type] = st.api.battle().t + s.cd*WS.cd*(side ? 1.6 : 1);
   const dn = down ? `, ПВО сбила ${down}` : jam > 0.2 ? `, РЭБ заглушила ${Math.round(jam*100)}%` : "";
   bfMsg(st, side ? `Враг: ${s.name.toLowerCase()} по нашим позициям${dn}.` : `${s.name}: ${r.names}${dn}.`, side || down ? "bad" : "good");
   cbSkBar(st);
 }
 // the enemy uses what it has on the direction: not before 20 s, at most one strike in 12 s
 function cbFoe(st, w){
-  const cb = w.cb, bt = st.api && st.api.strike && st.api.battle(); if (!bt || bt.ended || bt.t < (cb.skeT || 20) || Math.random() > 0.2) return;
+  const cb = w.cb, bt = st.api && st.api.strike && st.api.battle(); if (!bt || bt.ended || bt.t < (cb.skeT || 20) || (cb.type === "amb" && !bt.alert) || Math.random() > 0.2) return;
   const ty = Object.keys(CB_STRIKES).filter(k => !cbSkBlock(st, w, k, 1)); if (!ty.length) return;
   cb.skeT = bt.t + 12; cbFire(st, ty[Math.floor(Math.random()*ty.length)], 1, null);
 }
@@ -3672,7 +3710,7 @@ function cbEnd(st, early, stay){
   const days = clamp(Math.round((cb.real && !early ? cb.t : cb.dur)/60), 1, 5); w.bfLock = cb.i;
   try { for (let k = 0; k < days; k++){ if (S.over || S.pendingEvent || S.pendingVictory) break; S.day = (S.day||1) + 1; dayTick(); if (S.day > daysIn(S.month, S.year)){ nextMonth(); break; } } } catch(e){ console.error(e); }
   delete w.bfLock; dirty = true; save();
-  const title = cb.win ? (cb.type === "atk" ? "Мы уничтожили позицию врага! Победа!" : "Атака врага отбита! Победа!") : (cb.type === "atk" ? "Враг уничтожил нашу армию" : "Враг прорвал нашу позицию");
+  const title = CB_TYPES[cb.type][cb.win ? "win" : "lose"];
   const sub = `Потери: наши ${cbCount(cb.a)} из ${cbCount(cb.g)}, враг ${cbCount(cb.ae)} из ${cbCount(cb.e)}. Прошло ${days} ${plural(days, "день", "дня", "дней")}.`;
   cbHud(st); st.root.classList.remove("cmd");
   if (early && !stay) return toast(`${title} ${sub}`);
@@ -3719,7 +3757,9 @@ function bf3dBattle(st, w, i){
   const cb = st.cb, f = w.fronts[i], slots = {high:8, mid:6, low:4}[gfxLevel()] || 6, W = CB_WIDTH[bfTerrain(f)] || 100;
   const units = [], reserve = [], counts = [0, 0], total = [0, 0], stats = {};
   [[cb.g, 0], [cb.e, 1]].forEach(([grp, side]) => ["front", "arty"].forEach(role => {
-    const list = Object.keys(grp).filter(id => MODELS[id] && BF3D_ROLE[MODELS[id].kind] === role && grp[id] > 0).sort((a, b) => grp[b] - grp[a]);
+    // in an ambush the enemy's artillery drives in the column with the rest
+    const rl = id => cb.type === "amb" && side === 1 && BF3D_ROLE[MODELS[id].kind] === "arty" ? "front" : BF3D_ROLE[MODELS[id].kind];
+    const list = Object.keys(grp).filter(id => MODELS[id] && rl(id) === role && grp[id] > 0).sort((a, b) => grp[b] - grp[a]);
     list.forEach(id => { const m = MODELS[id]; stats[id] = {ga:m.ga, df:m.df, kind:m.kind}; });
     const tot = list.reduce((a, id) => a + grp[id], 0); total[side] += tot; if (role === "front") counts[side] = tot; if (!tot) return;
     const waves = role === "front" && cb.type === "def" && side === 1, cap = role === "front" ? (waves ? Math.min(W, Math.ceil(tot*0.6)) : W) : tot;
@@ -3735,8 +3775,8 @@ function bf3dBattle(st, w, i){
     // the attacker in a defence battle comes in two waves: 60% at once, the next 45 s later
     let acc = 0; chunks.forEach(c => { if (waves){ c.at = acc < cap ? 45 : null; acc += c.n; } reserve.push(c); });
   }));
-  const defSide = cb.type === "atk" ? 1 : 0;
-  const battle = {type:cb.type, stats, reserve, total, defSide, atkSide:1 - defSide, defK:CB_DEFK, limit:CB_LIMIT, hold:CB_HOLD,
+  const defSide = cbDefThem(cb.type) ? 1 : 0;
+  const battle = {type:cb.type, stats, reserve, total, defSide, atkSide:1 - defSide, defK:cb.type === "amb" ? 1 : CB_DEFK, limit:CB_TYPES[cb.type].lim, hold:CB_HOLD,
     onLoss:(side, id, n) => { const ww = S.wars.find(x => x.enemy === st.enemy); if (ww && ww.cb === cb) cbLoss(ww, side, id, n); },
     onEnd:res => { if (BF.open !== st || st.cb !== cb || cb.end) return; cb.win = res.win; cb.t = Math.round(res.t); cbEnd(st, false); }};
   return {units, counts, battle};
@@ -3758,7 +3798,7 @@ function bf3dOpen(st, w, i){
   const ctx = {sound:!!settings.sound, audio:settings.sound ? AC : null, terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:gfxLevel(), auto:(settings.gfx || "auto") === "auto", onQuality:lv => { settings.gfxAuto = lv; settingsSave(); },
     hitUs:0.22 + 0.4*edge, hitThem:0.22 + 0.4*(1 - edge), rofUs:7 - 2.5*edge, rofThem:4.5 + 2.5*edge, artyUs:arty(w.dep[i], 1), artyThem:arty(w.eu, 1),
     accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)])), kindOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.kind])), roleOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, BF3D_ROLE[m.kind] || "front"]))};
-  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; }
+  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; ctx.wx = st.cb.wx; }
   st.root.querySelector("#bf-cv").style.display = "none";
   const box = document.createElement("div"); box.className = "bf3d"; st.root.insertBefore(box, st.root.firstChild);
   st.lost0 = [Object.assign({}, (w.lossF || [])[i] || {}), Object.assign({}, w.lossTh)]; st.arrDay = ((w.arrD || [])[i] || {}).day ?? -1;

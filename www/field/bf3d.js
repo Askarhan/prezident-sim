@@ -84,6 +84,8 @@ function buildGround(ctx, R, N, quality, segs){
     while (x < FIELD/2 + 4){ pts.push([x, z0 + (pts.length % 2 ? 1.3 : -1.3) + (R() - 0.5)*1.6 + Math.sin(x/37 + s)*3]); x += 4 + R()*7; }
     trenches.push({s, pts}); const path = () => { g.beginPath(); pts.forEach(([a, b], i) => { const [qa, qb] = P(a, b); i ? g.lineTo(qa, qb) : g.moveTo(qa, qb); }); };
     g.lineJoin = "miter"; g.filter = `blur(${Math.max(1, k*0.6)}px)`; path(); g.strokeStyle = "rgba(128,106,76,.55)"; g.lineWidth = 3.4*k; g.stroke(); g.filter = "none"; path(); g.strokeStyle = "rgba(34,26,18,.95)"; g.lineWidth = 1.2*k; g.stroke(); });
+  // snow: the whole field under a white layer (the base noise still shows through)
+  if (ctx.wx && ctx.wx.kind === "snow"){ g.globalAlpha = 0.66; g.fillStyle = "#eef2f6"; g.fillRect(0, 0, S, S); g.globalAlpha = 1; }
   const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   // detail texture: fine grass / soil grain, tiled
   const D = 256, dc = document.createElement("canvas"); dc.width = dc.height = D; const dg = dc.getContext("2d"), di = dg.createImageData(D, D), N3 = noise2(ctx.seed ^ 77);
@@ -310,6 +312,16 @@ export async function start(el, ctx){
   sun.shadow.mapSize.set(Q.sh || 1024, Q.sh || 1024);
   Object.assign(sun.shadow.camera, {left:-90, right:90, top:90, bottom:-90, near:10, far:400}); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
+  // weather and time of day (ctx.wx from a commanded battle): sky, haze, light; fog/night/rain/snow haze follows the camera distance
+  const WX = ctx.wx || {}, night = !!WX.night, wk = WX.kind || "clear";
+  const FOG = wk === "fog" ? [-75, 70] : wk === "snow" ? [-35, 180] : wk === "rain" ? [-20, 200] : night ? [-40, 160] : null;
+  if (wk !== "clear" || night){
+    const sky = wk === "fog" ? (night ? 0x1a2028 : 0xa9b1b4) : wk === "rain" ? (night ? 0x10161e : 0x737d84) : wk === "snow" ? (night ? 0x1c2433 : 0xc3cbd3) : 0x0b1220;
+    scene.background.setHex(sky); scene.fog.color.setHex(sky);
+    if (night){ hemi.color.setHex(0x5a6c9a); hemi.groundColor.setHex(0x151820); hemi.intensity = 0.14; sun.color.setHex(0x8fa6ff); sun.intensity = 0.32; renderer.toneMappingExposure = 1.05; }
+    else if (wk === "snow"){ sun.intensity = 2.2; hemi.intensity = 0.8; hemi.groundColor.setHex(0x9098a0); }
+    else { sun.intensity = 1.5; hemi.intensity = 0.8; }
+  }
   const R = rng(ctx.seed), N = noise2(ctx.seed);
   const G = buildGround(ctx, R, N, quality, level === "low" ? 110 : 0); scene.add(G.mesh);
 
@@ -328,21 +340,33 @@ export async function start(el, ctx){
   const CLS = {tank:{tank:1, ifv:1.2, apc:1.3, arty:1.3}, ifv:{tank:0.45, ifv:1, apc:1.2, arty:1.1}, apc:{tank:0.15, ifv:0.5, apc:1, arty:0.9},
     sph:{tank:0.5, ifv:0.8, apc:1, arty:0.9}, mlrs:{tank:0.4, ifv:0.9, apc:1.2, arty:1}, srbm:{tank:1.5, ifv:1.5, apc:1.5, arty:1.5}};
   const bCls = k => k === "tank" || k === "ifv" || k === "apc" ? k : "arty";
+  if (B){ B.vis = night ? (wk === "fog" ? 45 : 75) : wk === "fog" ? 55 : wk === "rain" ? 130 : wk === "snow" ? 110 : 0; B.acc = (night ? 0.75 : 1)*({fog:0.8, rain:0.9, snow:0.9}[wk] || 1); B.lit = 0; }
   function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.next = Math.random()*3; u.lane = u.x; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; }
   if (B){ units.forEach(bInit);
     // the outermost squads of each side try to go round the flank
     [0, 1].forEach(sd => { const fr = units.filter(u => u.side === sd && u.role === "front").sort((a, b) => a.x - b.x); if (fr.length >= 4){ fr[0].flank = -1; fr[fr.length - 1].flank = 1; } });
+    // ambush: the enemy front is a column on a road across the field, coming in from the left; breakthrough: a red zone in the enemy rear
+    if (B.type === "amb"){ B.esc = 0; B.alert = false; B.road = -8;
+      units.filter(u => u.side === 1).forEach((u, k) => { u.x = -FIELD/2 - 8 - k*15; u.z = B.road + (k % 2 ? 2 : -2); u.h = 0; u.state = "move"; u.wp = [FIELD/2 + 30, u.z]; u.next = 500; u.lane = 0; u.home = [0, u.z]; u.flank = 0; });
+      const n = 90, pos = [], idx = []; for (let k = 0; k <= n; k++){ const x = -FIELD*0.8 + k*FIELD*1.6/n; [-3.5, 3.5].forEach(o => pos.push(x, G.height(x, B.road + o) + 0.1, B.road + o)); if (k < n){ const a = k*2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+      const rg = new THREE.BufferGeometry(); rg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); rg.setIndex(idx); rg.computeVertexNormals();
+      const pr = (PAL[ctx.terrain] || PAL.p).road, rm = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({color:new THREE.Color(`rgb(${pr})`), roughness:1, polygonOffset:true, polygonOffsetFactor:-2, side:THREE.DoubleSide, fog:true}));
+      rm.receiveShadow = true; scene.add(rm); }
+    if (B.type === "brk"){ B.zone = {x:(R() - 0.5)*FIELD*0.4, z:-(FIELD/2 - 30), r:15}; B.need = Math.max(3, Math.round(B.total[0]*0.3)); B.inZone = 0;
+      const zy = G.height(B.zone.x, B.zone.z), zm = new THREE.MeshBasicMaterial({color:0xff4030, transparent:true, opacity:0.18, depthWrite:false, side:THREE.DoubleSide});
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(B.zone.r, B.zone.r, 7, 36, 1, true), zm); cyl.position.set(B.zone.x, zy + 2.5, B.zone.z); scene.add(cyl);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(B.zone.r - 0.8, B.zone.r, 48), new THREE.MeshBasicMaterial({color:0xff4030, transparent:true, opacity:0.8, depthWrite:false})); ring.rotation.x = -Math.PI/2; ring.position.set(B.zone.x, zy + 1.2, B.zone.z); scene.add(ring); }
     const RC = rng(ctx.seed + 77), kinds = ctx.terrain === "u" ? ["ruin", "ruin", "wall", "berm"] : ctx.terrain === "m" ? ["rock", "rock", "berm", "ruin"] : ctx.terrain === "f" ? ["berm", "berm", "ruin", "wall"] : ["berm", "wall", "ruin", "berm"];
     const n = level === "low" ? 16 : 24, geos = []; B.covers = []; B.spots = [];
     for (let k = 0, tries = 0; k < n && tries < 400; tries++){
       const x = (RC() - 0.5)*FIELD*0.84, z = (RC() - 0.5)*100, kind = kinds[Math.floor(RC()*kinds.length)], len = kind === "ruin" ? 5 + RC()*3 : 6 + RC()*6;
-      if (B.covers.some(c => Math.hypot(c.x - x, c.z - z) < 15) || units.some(u => Math.hypot(u.x - x, u.z - z) < 7)) continue;
+      if (B.covers.some(c => Math.hypot(c.x - x, c.z - z) < 15) || units.some(u => Math.hypot(u.x - x, u.z - z) < 7) || (B.road != null && Math.abs(z - B.road) < 9)) continue;
       const ang = (RC() - 0.5)*0.5, g = coverGeo(RC, kind, len); g.rotateY(ang); g.translate(x, G.height(x, z) - 0.15, z); geos.push(g); k++;
       const ex = Math.cos(ang), ez = -Math.sin(ang), nx = Math.sin(ang), nz = Math.cos(ang), r = kind === "wall" ? 1 : kind === "ruin" ? 2.6 : 1.9;
       B.covers.push({x, z, kind, pts:[-len/3, 0, len/3].map(o => [x + ex*o, z + ez*o, Math.max(r, len/6)])});
       (len >= 8 ? [-len/4, len/4] : [0]).forEach(o => [0, 1].forEach(sd => { const k2 = sd ? -3.6 : 3.6; B.spots.push({x:x + ex*o + nx*k2, z:z + ez*o + nz*k2, side:sd, by:null}); })); }
     if (geos.length){ const cm = new THREE.Mesh(merge(geos), new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.95, metalness:0, flatShading:true})); cm.castShadow = cm.receiveShadow = true; scene.add(cm); } }
-  scatterProps(scene, ctx, G, R, [...units.map(u => [u.x, u.z, 9]), ...(B ? B.covers.map(c => [c.x, c.z, 8]) : [])], level === "low" ? 0.55 : 1);
+  scatterProps(scene, ctx, G, R, [...units.map(u => [u.x, u.z, 9]), ...(B ? B.covers.map(c => [c.x, c.z, 8]) : []), ...(B && B.road != null ? Array.from({length:27}, (_, k) => [-FIELD*0.65 + k*FIELD*1.3/26, B.road, 9]) : []), ...(B && B.zone ? [[B.zone.x, B.zone.z, B.zone.r + 4]] : [])], level === "low" ? 0.55 : 1);
   // load models and place them
   // weak phones load only the light copies; the others load the full models now and the light ones in the background
   const models = {};
@@ -468,7 +492,7 @@ export async function start(el, ctx){
   function bShot(u, t, frac = 1){
     if (!t || !t.alive || B.ended) return; const a = B.stats[u.id], d = B.stats[t.id]; if (!a || !d) return;
     const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc", dist = Math.hypot(t.x - u.x, t.z - u.z);
-    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
+    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
     if (direct && (d.kind === "tank" || d.kind === "ifv")){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
       if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
     const pen = 2*a.ga/(a.ga + d.df);
@@ -477,6 +501,7 @@ export async function start(el, ctx){
   // line of fire: 0 blocked (cover or a hill between), 1 clear, 2 clear but the target hugs cover (harder to hit)
   function bLos(a, t){
     const ax = a.x, az = a.z, dx = t.x - ax, dz = t.z - az, L2 = dx*dx + dz*dz || 1, L = Math.sqrt(L2); let cov = false;
+    if (B.vis && L > B.vis*(B.lit ? 1.5 : 1)) return 0;   // night / fog / rain: no target beyond sight (a flare widens it)
     for (const c of B.covers) for (const o of c.pts){ const q = clamp(((o[0] - ax)*dx + (o[1] - az)*dz)/L2, 0, 1), px = ax + dx*q - o[0], pz = az + dz*q - o[1]; if (px*px + pz*pz > o[2]*o[2]) continue;
       const ds = q*L, de = (1 - q)*L; if (ds < 6) continue; if (de < 7){ cov = true; continue; } return 0; }
     const ya = G.height(ax, az) + 2.2, yb = G.height(t.x, t.z) + 1.5; for (let k = 1; k < 6; k++){ const q = k/6; if (G.height(ax + dx*q, az + dz*q) > ya + (yb - ya)*q + 0.4) return 0; }
@@ -495,6 +520,12 @@ export async function start(el, ctx){
   // the next position: cover to cover toward the enemy (attacker), the best cover near its lane (defender), back to safer cover when badly hit
   function bPlan(u){
     if (u.spot && u.spot.by === u) u.spot.by = null; u.spot = null;
+    // breakthrough: bounds of 22-32 m straight for the red zone, then hold inside it
+    if (B.type === "brk" && u.side === 0 && u.role === "front"){ const Z = B.zone, d = Math.hypot(Z.x - u.x, Z.z - u.z);
+      if (d < Z.r - 3){ u.next = 3; return; }
+      if (d < 34) u.wp = [Z.x + (Math.random() - 0.5)*Z.r, Z.z + (Math.random() - 0.5)*Z.r];
+      else { const st = 22 + Math.random()*10; u.wp = [clamp(u.x + (Z.x - u.x)/d*st + (Math.random() - 0.5)*12, -FIELD/2 + 8, FIELD/2 - 8), u.z + (Z.z - u.z)/d*st]; }
+      u.state = "move"; return; }
     const s = u.side ? -1 : 1, foe = enemiesOf(u); if (!foe.length){ u.next = 3; return; }
     let nf = foe[0], nd = 1e9; for (const v of foe){ const d = Math.hypot(v.x - u.x, v.z - u.z); if (d < nd){ nd = d; nf = v; } }
     const hurt = !u.hurtDone && u.hp < u.hpMax*0.45; if (hurt){ u.hurtDone = true; floats.push({u, text:"отходит в укрытие", t:0}); }
@@ -511,6 +542,9 @@ export async function start(el, ctx){
   }
   async function bSpawn(side, id, n){ B.coming[side]++; B.cn[side] += n; try { await reinforce(side, id, n); } finally { B.coming[side]--; B.cn[side] -= n; } }
   function bReserve(side){ const j = B.reserve.findIndex(r => r.side === side && r.at == null); if (j < 0) return; const r = B.reserve.splice(j, 1)[0]; bSpawn(side, r.id, r.n); }
+  // the ambush opens: part of the column dashes for the far edge, the rest turns to fight
+  function bAlert(){ if (B.alert) return; B.alert = true; B.feed.unshift({text:"засада! огонь!", side:0, t:0}); B.feed.length = Math.min(B.feed.length, 5);
+    for (const u of units){ if (!u.alive || u.side !== 1 || u.air) continue; if (Math.random() < 0.5){ u.rush = true; u.wp = [FIELD/2 + 30, u.z]; u.state = "move"; u.next = 950; } else { u.state = "hold"; u.next = 0.3 + Math.random(); } } }
   function bEnd(win){
     if (B.ended) return; B.ended = true; B.win = win; const lose = win ? 1 : 0, own = lose ? -1 : 1;
     for (const u of units){ if (!u.alive || !u.obj || u.air) continue; if (u.side === lose){ u.state = "move"; u.next = 999; u.wp = [u.x + (Math.random() - 0.5)*10, own*(FIELD/2 + 40)]; } else { u.state = "hold"; u.next = 999; } }
@@ -521,15 +555,24 @@ export async function start(el, ctx){
     // waves of the attacker in a defence battle
     for (let j = B.reserve.length - 1; j >= 0; j--){ const r = B.reserve[j]; if (r.at != null && B.t >= r.at){ B.reserve.splice(j, 1); bSpawn(r.side, r.id, r.n); } }
     // mines: the attacker's moving squads in the first minute and a half
-    if (B.t < 90) for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*0.012){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
+    if (B.t < 90 && B.type !== "amb") for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*0.012){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
     if (B.mark && B.markT > 0){ B.markT -= dt; B.mark.material.opacity = clamp(B.markT, 0, 1); }
     if (B.chk > 0) return; B.chk = 0.5;
     const alive = s => units.some(u => u.alive && u.side === s && !u.air) || B.coming[s] > 0 || B.reserve.some(r => r.side === s);
+    if (B.type === "amb"){
+      if (!B.alert){ const col = units.filter(u => u.alive && u.side === 1 && !u.air), lead = col.reduce((a, u) => Math.max(a, u.x), -1e9);
+        if (lead > -10 || B.t > 90 || units.some(u => u.alive && u.side === 0 && u.forced) || col.some(v => units.some(u => u.alive && u.side === 0 && !u.air && Math.hypot(u.x - v.x, u.z - v.z) < 22))) bAlert(); }
+      for (const u of units) if (u.alive && u.side === 1 && !u.air && u.x > FIELD/2 + 4){ B.esc += u.cnt; u.alive = false; if (u.obj){ scene.remove(u.obj); u.obj = null; } B.feed.unshift({text:`${bName(u)} ×${u.cnt} прорвался`, side:1, t:0}); B.feed.length = Math.min(B.feed.length, 5); }
+      if (B.esc >= B.total[1]*0.4) return bEnd(false);
+    }
+    if (B.type === "brk"){ const Z = B.zone; B.inZone = units.reduce((a, u) => a + (u.alive && u.side === 0 && !u.air && Math.hypot(u.x - Z.x, u.z - Z.z) < Z.r ? u.cnt : 0), 0);
+      if (B.inZone >= B.need){ B.feed.unshift({text:"прорыв удался", side:0, t:0}); return bEnd(true); } }
     if (!alive(1)) return bEnd(true); if (!alive(0)) return bEnd(false);
     // a side down to about a third of what it brought breaks: the survivors pull back (the war keeps them)
-    const left = s => units.reduce((a, u) => a + (u.alive && u.side === s && !u.air ? u.cnt : 0), 0) + B.cn[s] + B.reserve.reduce((a, r) => a + (r.side === s ? r.n : 0), 0);
+    const left = s => units.reduce((a, u) => a + (u.alive && u.side === s && !u.air ? u.cnt : 0), 0) + B.cn[s] + B.reserve.reduce((a, r) => a + (r.side === s ? r.n : 0), 0) + (s && B.esc ? B.esc : 0);
     if (B.t > 30) for (const s of [1, 0]) if (left(s) < B.total[s]*0.35){ B.feed.unshift({text:s ? "враг отступает" : "наши отходят", side:1 - s, t:0}); return bEnd(s === 1); }
-    if (B.type === "atk" && B.t >= B.limit){ const sh = s => B.lost[s]/Math.max(1, B.total[s]); return bEnd(sh(0) < sh(1)); }   // time is up: the side with more losses pulls back
+    if (B.type === "brk" && B.t >= B.limit){ B.feed.unshift({text:"время вышло", side:1, t:0}); return bEnd(false); }
+    if ((B.type === "atk" || B.type === "amb") && B.t >= B.limit){ const sh = s => B.lost[s]/Math.max(1, B.total[s]); return bEnd(sh(0) < sh(1)); }   // time is up: the side with more losses pulls back
     if (B.type === "def" && B.t >= B.hold) return bEnd(true);
   }
   const wrecks = [];
@@ -552,11 +595,34 @@ export async function start(el, ctx){
     if (B) bInit(u); units.push(u); dress(u); floats.push({u, text:"подкрепление", t:0});
   }
   /* ---- camera: pan with one finger, pinch to zoom, twist to rotate ---- */
-  const cam = {x:0, z:4, dist:135, yaw:0, pitch:0.92};
+  const cam = {x:0, z:B && B.zone ? -28 : 4, dist:135, yaw:0, pitch:0.92};
+  // rain streaks or snowflakes in a box around the camera's target
+  const PREC = wk === "rain" || wk === "snow" ? (() => { const rain = wk === "rain", n = level === "low" ? 500 : level === "mid" ? 900 : 1400, pos = new Float32Array(n*(rain ? 6 : 3)), P = [];
+    for (let i = 0; i < n; i++) P.push([(Math.random() - 0.5)*160, Math.random()*70, (Math.random() - 0.5)*160]);
+    const geo = new THREE.BufferGeometry(), at = new THREE.BufferAttribute(pos, 3); geo.setAttribute("position", at);
+    const obj = rain ? new THREE.LineSegments(geo, new THREE.LineBasicMaterial({color:0xb4c4d4, transparent:true, opacity:0.4, depthWrite:false}))
+      : new THREE.Points(geo, new THREE.PointsMaterial({color:0xffffff, size:0.5, transparent:true, opacity:0.9, depthWrite:false}));
+    obj.frustumCulled = false; scene.add(obj);
+    return {step(dt){ const ty = G.height(cam.x, cam.z), v = rain ? 34 : 3;
+      for (let i = 0; i < n; i++){ const p = P[i]; p[1] -= v*dt; if (!rain) p[0] += Math.sin(p[1]*0.4 + i)*dt*0.9; if (p[1] < 0) p[1] += 70;
+        if (p[0] - cam.x > 80) p[0] -= 160; else if (p[0] - cam.x < -80) p[0] += 160; if (p[2] - cam.z > 80) p[2] -= 160; else if (p[2] - cam.z < -80) p[2] += 160;
+        if (rain){ const o = i*6; pos[o] = p[0]; pos[o+1] = ty + p[1]; pos[o+2] = p[2]; pos[o+3] = p[0] + 0.15; pos[o+4] = ty + p[1] + 1.6; pos[o+5] = p[2]; }
+        else { const o = i*3; pos[o] = p[0]; pos[o+1] = ty + p[1]; pos[o+2] = p[2]; } }
+      at.needsUpdate = true; }}; })() : null;
+  // night: parachute flares light the field for ~14 s every 10-20 s (two lights made up front: adding lights later recompiles every material)
+  const FL = night ? (() => { const L = [0, 1].map(() => { const l = new THREE.PointLight(0xfff0d0, 0, 230, 1); scene.add(l);
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), new THREE.MeshBasicMaterial({color:0xfff6e0, fog:false})); m.visible = false; scene.add(m); return {l, m, t:0, x:0, y:0, z:0}; });
+    let next = 2; return {step(dt){ next -= dt;
+      if (next < 0){ next = 10 + Math.random()*10; const f = L.find(q => q.t <= 0); if (f){ f.t = 14; f.x = (Math.random() - 0.5)*FIELD*0.6; f.z = (Math.random() - 0.5)*70; f.y = 65; f.m.visible = true; } }
+      let lit = 0; for (const f of L){ if (f.t <= 0) continue; f.t -= dt; f.y -= 2.8*dt; f.x += 1.2*dt;
+        const k = clamp(Math.min(f.t, 14 - f.t)*2, 0, 1)*(0.85 + Math.random()*0.15); f.l.intensity = 160*k; f.l.position.set(f.x, G.height(f.x, f.z) + f.y, f.z); f.m.position.copy(f.l.position);
+        if (f.t <= 0){ f.l.intensity = 0; f.m.visible = false; } else lit = 1; }
+      if (B) B.lit = lit; }}; })() : null;
   function placeCamera(){
     cam.dist = clamp(cam.dist, 35, 230); const m = clamp(FIELD/2 - cam.dist*0.45, 10, FIELD/2 - 10); cam.x = clamp(cam.x, -m, m); cam.z = clamp(cam.z, -m, m);
     const ty = G.height(cam.x, cam.z), h = Math.sin(cam.pitch)*cam.dist, r = Math.cos(cam.pitch)*cam.dist;
     camera.position.set(cam.x + Math.sin(cam.yaw)*r, ty + h, cam.z + Math.cos(cam.yaw)*r); camera.lookAt(cam.x, ty, cam.z);
+    if (FOG){ scene.fog.near = Math.max(5, cam.dist + FOG[0]); scene.fog.far = cam.dist + FOG[1]; }
     sun.position.set(cam.x - 70, ty + 140, cam.z + 40); sun.target.position.set(cam.x, ty, cam.z);
     const s = clamp(cam.dist*0.75, 50, 150); Object.assign(sun.shadow.camera, {left:-s, right:s, top:s, bottom:-s}); sun.shadow.camera.updateProjectionMatrix();
   }
@@ -860,7 +926,7 @@ export async function start(el, ctx){
   // a strike ordered inside the commanded battle (ours or the enemy's): `kills` machines go to the squads around the aimed point
   // (or the densest enemy group when no point is given); aircraft or a barrage bring them; `down` aircraft are marked for the air defence
   function cstrike(side, type, o = {}){
-    if (!B || B.ended) return null;
+    if (!B || B.ended) return null; if (B.type === "amb") bAlert();
     const foes = units.filter(u => u.alive && u.obj && !u.air && u.side !== side); if (!foes.length) return null;
     const arm = u => ["tank", "ifv", "apc"].includes((B.stats[u.id] || {}).kind), near = (u, x, z) => Math.hypot(u.x - x, u.z - z);
     let x = o.x, z = o.z;
@@ -911,13 +977,13 @@ export async function start(el, ctx){
       const turn = angDiff(u.h, want); u.h += clamp(turn, -0.7*dt, 0.7*dt);
       if (Math.abs(turn) < 0.5){ const v = Math.min(d, (u.next > 900 ? 9 : 5)*dt); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
         if (Math.random() < dt*8) fxSmoke.emit({x:u.x - Math.cos(u.h)*3.5 + (Math.random() - 0.5)*2, y:G.height(u.x, u.z) + 0.3, z:u.z + Math.sin(u.h)*3.5 + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5), vy:0.6, vz:(Math.random() - 0.5), life:2 + Math.random(), s0:1.4, s1:5, c:ctx.terrain === "d" ? [0.72, 0.6, 0.42] : [0.52, 0.45, 0.34], a:0.35, drag:0.8, fadeIn:0.1}); }
-      if (d < 1.5){ u.state = "hold"; u.next = B ? (u.order ? 25 : u.side === B.atkSide ? 5 + Math.random()*6 : 12 + Math.random()*10) : 10 + Math.random()*16; if (B) u.order = null; }
+      if (d < 1.5){ u.state = "hold"; u.next = B ? (u.order ? 25 : u.side === B.atkSide ? (B.type === "brk" && u.side === 0 ? 3 + Math.random()*2 : 5 + Math.random()*6) : 12 + Math.random()*10) : 10 + Math.random()*16; if (B) u.order = null; }
     } else if (u.next < 0){
       // a short bound to a new firing position
       if (B) bPlan(u); else { const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move"; }
     }
     // target and turret
-    if (B) bTarget(u, dt); else if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
+    if (B){ if (B.type === "amb" && !B.alert && !u.forced){ u.target = null; u.los = false; } else bTarget(u, dt); } else if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
     if (u.turret){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
@@ -930,6 +996,7 @@ export async function start(el, ctx){
   }
   // artillery fires from the rear, rockets in salvoes, ballistic missiles rise before launch; air defence turns its radar and shoots down rockets
   function supportThink(u, dt){
+    if (B && B.type === "amb" && !B.alert) return;   // the guns keep quiet until the ambush opens
     const k = ctx.kindOf[u.id];
     if (!u.target || !u.target.alive || Math.random() < dt*0.08){ const es = enemiesOf(u).filter(v => v.role === "front" && !v.nofuel), pool = es.length ? es : enemiesOf(u); const pend = pool.filter(v => v.pend >= 1); const L = pend.length ? pend : pool; u.target = L.length ? L[Math.floor(Math.random()*L.length)] : null; }
     const t = u.target, want = t ? Math.atan2(-(t.z - u.z), t.x - u.x) - u.h : 0;
@@ -955,6 +1022,7 @@ export async function start(el, ctx){
     if (u.pend >= 1){ u.pendT = (u.pendT || 0) + dt; if (u.pendT > 6){ const d = Math.floor(u.pend); u.pend -= d; u.pendT = 0; explosion(u.x + (Math.random() - 0.5)*2, u.z + (Math.random() - 0.5)*2, false); damage(u, d); } } else u.pendT = 0;
   }
   function step(dt){
+    if (PREC) PREC.step(dt); if (FL) FL.step(dt);
     for (let i = units.length - 1; i >= 0; i--) if (!units[i].alive && !units[i].obj) units.splice(i, 1);
     if (diag !== 3 && diag !== 5) airStep(dt);
     if (B) bStep(dt);
@@ -1045,7 +1113,7 @@ export async function start(el, ctx){
     strike(side, type, o){ return cstrike(side, type, o); },
     aim(fn){ if (B) B.aim = fn || null; },
     ff(sec){ for (let k = 0; k < sec*20 && running; k++) step(0.05); },   // test hook: run the field ahead without drawing
-    battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win} : null; },
+    battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win, inZone:B.zone ? B.inZone : null, need:B.need, esc:B.esc || 0, alert:B.alert} : null; },
     // share of a side's ground squads that has fuel; the rest stands still with a «нет топлива» label
     fuel(side, k){ const g = units.filter(u => u.alive && u.obj && u.side === side && !u.air), dry = Math.round(g.length*(1 - clamp(k, 0, 1)));
       g.forEach((u, j) => { u.nofuel = j >= g.length - dry; }); },

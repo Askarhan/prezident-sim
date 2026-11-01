@@ -28,7 +28,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- Next stage to discuss with the user: infantry from `w.men` (phone load), or the battle variety stage (breakthrough, ambush on a column, city battle, night/fog/rain…), then the BALANCE STAGE below.
+- Next stage to discuss with the user: infantry from `w.men` (phone load), or variety part 2 (city battle, enemy doctrine, mid-battle events, rewards), then the BALANCE STAGE below.
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
@@ -74,6 +74,17 @@ Rules agreed with the user:
 - Balance (headless, `tools/sim/fieldbattle.js`, see Testing): the field used to be much bloodier than the auto-calculation (loser always 100%) and defence far too easy (attacker in 3 waves). Now: a side down to 35% of what it brought (alive + arriving + reserve, `B.cn`) breaks and pulls back («враг отступает» / «наши отходят»); defence waves 60% at once + the rest at 45 s; direct fire factor 0.25 → 0.13 (battles ~80–120 s instead of ~40 s). Result for FR–DE, DE–PL, IT–FR assault/defence: same winner as `cbPlan` in 6 of 7 runs, loser loses ~0.65, winner ~0.3–0.6 (auto: ~0.6 / ~0.35). Strikes are the player's bonus on top.
 - Loitering scale fix: dedicated loiter models (Lancet) now fly at scale 1 (was 0.26, meant only for the TB2 stand-in).
 - Not done: the preview artifact was not republished (needs the whole www upload). Ideas: show strike cooldowns as a ring; enemy strike warning a few seconds ahead; strikes into `warsim.js`.
+
+### Variety stage, part 1 done (02.11.2026): weather, ambush, breakthrough
+- User chose all three; weather by season and latitude (assistant's choice, the user did not answer).
+- `cbWeather(w, f, type)` in `cbOffer` → `st.wx` → `cb.wx` → `ctx.wx` (commanded battles only; watch mode has no weather). Latitude of the land fought over (`CAPITALS[...][1]`: enemy on attack, ours on defence), `S.month` is 0-based, southern hemisphere flips. Snow only at |lat| ≥ 40 in winter (60%) or ≥ 48 in Nov/Mar (30%); rain 20% (winter 8%), fog 10%, desert terrain almost always clear; night 25%. The card shows `wxText(wx)`.
+- Field (`bf3d.js`, after the lights): sky/haze colours, `FOG` offsets follow the camera distance in `placeCamera` (clear keeps the old fixed 160/430). Night: dim blue light + 2 parachute flares (`FL`, lights made up front). Rain streaks / snowflakes (`PREC`, 500/900/1400 by graphics level). Snow whitens the ground texture in `buildGround`.
+- Battle effects: `B.vis` (night 75 m, fog 55, night+fog 45, rain 130, snow 110; a flare ×1.5) in `bLos`; `B.acc` (night 0.75, fog 0.8, rain/snow 0.9) in `bShot`. Strikes: `wxStrike` (air ×0.5 fog, ×0.65 rain, ×0.8 snow/night, cooldown ×1.4 in rain/fog; heli ×0.7 fog; drones +0.15 jam in rain/snow; arty ×0.85 fog/night).
+- Types: `CB_TYPES` (name, card text, HUD, banners, time limit) and `cbPick(f)`: on the attack 60% assault, 20% `brk`, 20% `amb`; on defence 75% defence, 25% `amb`. `cbGroups`/`cbPlan` take the type; `cbDefUs` (def, amb) / `cbDefThem` (atk, brk) decide `DEF_K` and `defSide`.
+- Ambush (`amb`, 240 s): the enemy front (its artillery too) is a column on a road (`B.road` z = −8, a drawn strip; no covers or props on it) coming from x < −FIELD/2 at 5 m/s; nobody fires until `bAlert` (lead past x −10, 90 s, a player order or strike, or contact < 22 m). Then half the column dashes for the far edge (escaped machines `B.esc`, ≥ 40% of the column = loss), the rest attacks. No mines, no `defK` (1). Win: enemy `regroupT` + a little push; loss: our `f.pause` 1 day. Enemy strikes only after the alert.
+- Breakthrough (`brk`, 180 s): red zone (`B.zone`, r 15, in the enemy rear at z −90, camera starts there); our front bounds 22–32 m straight for it (`bPlan` override, holds 3–5 s); win when ×`B.need` (30% of the group) machines stand inside; time out = loss. Win takes the position and puts the enemy in `regroupT`.
+- Test (`tools/sim/fieldtypes.js`, forces `st.cbt`/`st.wx` on the offer card): FR–DE ambush in rain won 35 vs 49 losses in 169 s; breakthrough at night lost 43 vs 28; assault in fog lost 43 vs 23 (the auto-calculation also loses FR–DE assaults). One run each: tune with more runs if the user finds a type too easy or hard.
+- Next variety ideas (not built): city battle, enemy doctrine by its force mix, mid-battle events, rewards (trophies, morale, veteran squads).
 
 ### Testing the field headless
 - three: `git fetch --depth 1 origin apk:refs/remotes/origin/apk`, `git show origin/apk:kabinet-prezidenta-debug.apk > k.apk`, unzip `assets/public/lib/three/*` into `www/lib/three` (ignored by git).
