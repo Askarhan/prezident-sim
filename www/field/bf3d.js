@@ -215,6 +215,79 @@ class Particles {
 }
 
 /* ---------- the scene ---------- */
+/* ---------- sound: recordings for guns, explosions, helicopters and engines; jets, drones and missile launches are synthesised.
+   Every sound sits on the field: quieter, duller and a little later with distance from the camera, panned to its side. ---------- */
+const SFX = {tank:["tank1", "tank2", "tank3", "tank4", "tank5"], autocannon:["autocannon"], arty:["arty"], boom:["boom"], heli:["heli_loop"], engine:["engine_loop"]};
+const SFX_GAP = {tank:0.05, autocannon:0.07, arty:0.08, boom:0.07, rocket:0.08, sam:0.12};   // the same sound no more often than this (s)
+function makeSound(on, shared){
+  let ac = null; try { if (on) ac = shared || new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ ac = null; }
+  const S = {lx:0, ly:100, lz:0, rx:1, rz:0};
+  if (!ac) return {ok:false, play(){}, loop(){ return null; }, listen(){}, wake(){}, sleep(){}, set(){}, info(){ return null; }, record(){ return Promise.resolve(null); }, dispose(){}};
+  const master = ac.createGain(), comp = ac.createDynamicsCompressor(); master.gain.value = 0.55;
+  comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.25;
+  master.connect(comp); comp.connect(ac.destination);
+  const buf = {}, last = {}, plays = {}; let voices = 0, hiddenSleep = false, enabled = true;
+  Object.entries(SFX).forEach(([k, names]) => { buf[k] = []; names.forEach(n => fetch(`field/sfx/${n}.ogg`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(n)).then(b => ac.decodeAudioData(b)).then(d => buf[k].push(d)).catch(() => {})); });
+  const noise = (sec, brown) => { const b = ac.createBuffer(1, Math.round(ac.sampleRate*sec), ac.sampleRate), d = b.getChannelData(0); let l = 0;
+    for (let i = 0; i < d.length; i++){ const w = Math.random()*2 - 1; if (brown){ l = (l + 0.02*w)/1.02; d[i] = l*3.5; } else d[i] = w; }
+    // loop seam: fade the ends into each other
+    const f = Math.round(ac.sampleRate*0.05); for (let i = 0; i < f; i++){ const k = i/f; d[i] = d[i]*k + d[d.length - f + i]*(1 - k); } return b; };
+  const white = noise(1.5, false), brown = noise(3, true);
+  function where(x, y, z){ const dx = x - S.lx, dy = y - S.ly, dz = z - S.lz, d = Math.hypot(dx, dy, dz);
+    return {d, g:1/(1 + Math.max(0, d - 45)/55), lp:clamp(16000 - (d - 60)*55, 1200, 16000), pan:clamp((dx*S.rx + dz*S.rz)/Math.max(30, d), -0.8, 0.8), delay:Math.min(0.35, d/900)}; }
+  function out(p, vol){ const f = ac.createBiquadFilter(), g = ac.createGain(), pn = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    f.type = "lowpass"; f.frequency.value = p.lp; g.gain.value = vol*p.g; f.connect(g);
+    if (pn){ pn.pan.value = p.pan; g.connect(pn); pn.connect(master); } else g.connect(master); return {f, g, pn}; }
+  // a one-shot at a point of the field
+  function play(kind, x, y, z, o = {}){
+    if (ac.state !== "running") return;
+    const t = ac.currentTime, vol = o.vol == null ? 1 : o.vol; if (t - (last[kind] || -9) < (SFX_GAP[kind] || 0.05) || voices > 18) return;
+    const p = where(x, y, z); if (vol*p.g < 0.02) return; last[kind] = t;
+    const nd = out(p, vol), at = t + p.delay; let src, len;
+    if (buf[kind]){ const L = buf[kind]; if (!L.length) return; src = ac.createBufferSource(); src.buffer = L[Math.floor(Math.random()*L.length)];
+      src.playbackRate.value = (o.rate || 1)*(0.92 + Math.random()*0.16); src.connect(nd.f); len = src.buffer.duration/src.playbackRate.value; }
+    else {   // rocket / sam: a rushing noise whose pitch rises, with a low thump at the launch
+      const sam = kind === "sam", dur = (sam ? 1.3 : 0.9)/(o.rate || 1), bp = ac.createBiquadFilter(), env = ac.createGain();
+      src = ac.createBufferSource(); src.buffer = white; src.loop = true; bp.type = "bandpass"; bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime(sam ? 500 : 700, at); bp.frequency.exponentialRampToValueAtTime(sam ? 2600 : 1800, at + dur*0.7);
+      env.gain.setValueAtTime(0.0001, at); env.gain.exponentialRampToValueAtTime(sam ? 0.9 : 0.7, at + 0.03); env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      src.connect(bp); bp.connect(env); env.connect(nd.f); len = dur;
+      const th = ac.createOscillator(), tg = ac.createGain(); th.frequency.setValueAtTime(90, at); th.frequency.exponentialRampToValueAtTime(40, at + 0.25);
+      tg.gain.setValueAtTime(0.6, at); tg.gain.exponentialRampToValueAtTime(0.0001, at + 0.3); th.connect(tg); tg.connect(nd.f); th.start(at); th.stop(at + 0.32); }
+    voices++; plays[kind] = (plays[kind] || 0) + 1; src.onended = () => { voices--; nd.g.disconnect(); }; src.start(at); if (src.loop) src.stop(at + len);
+  }
+  // a continuous sound that follows something: helicopter, jet, drone, engines
+  function loop(kind, o = {}){
+    const p = {g:0, lp:16000, pan:0}, nd = out(p, 0), base = o.vol || 0.5, srcs = []; let rateK = 1, started = false;
+    function start(){
+      if (kind === "jet"){ [[brown, 1], [white, 0.18]].forEach(([b, v], i) => { const s = ac.createBufferSource(), g = ac.createGain(), f = ac.createBiquadFilter(); s.buffer = b; s.loop = true;
+          f.type = i ? "bandpass" : "highpass"; f.frequency.value = i ? 2200 : 120; g.gain.value = v; s.connect(f); f.connect(g); g.connect(nd.f); s.start(); srcs.push(s); }); }
+      else if (kind === "drone"){ const s = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), f = ac.createBiquadFilter(); s.type = "sawtooth"; s.frequency.value = o.f || 95;
+        lfo.frequency.value = 5 + Math.random()*3; lg.gain.value = (o.f || 95)*0.03; lfo.connect(lg); lg.connect(s.frequency); f.type = "lowpass"; f.frequency.value = 1100; s.connect(f); f.connect(nd.f); s.start(); lfo.start(); srcs.push(s, lfo); }
+      else { const L = buf[kind]; if (!L || !L.length) return false; const s = ac.createBufferSource(); s.buffer = L[0]; s.loop = true; s.loopStart = 0; s.loopEnd = s.buffer.duration;
+        s.playbackRate.value = (o.rate || 1)*(0.95 + Math.random()*0.1); s.connect(nd.f); s.start(ac.currentTime, Math.random()*s.buffer.duration); srcs.push(s); }
+      return true; }
+    return {
+      set(x, y, z, vol, rate){ if (!started) started = start(); if (!started) return; const q = where(x, y, z), t = ac.currentTime;
+        nd.g.gain.setTargetAtTime((vol == null ? 1 : vol)*base*q.g, t, 0.12); nd.f.frequency.setTargetAtTime(q.lp, t, 0.12); if (nd.pn) nd.pn.pan.setTargetAtTime(q.pan, t, 0.12);
+        if (rate && Math.abs(rate - rateK) > 0.005){ rateK = rate; srcs.forEach(s => { if (s.playbackRate) s.playbackRate.setTargetAtTime(rate, t, 0.1); else if (s.type === "sawtooth") s.frequency.setTargetAtTime((o.f || 95)*rate, t, 0.1); }); } },
+      stop(){ const t = ac.currentTime; nd.g.gain.setTargetAtTime(0, t, 0.08); srcs.forEach(s => { try { s.stop(t + 0.4); } catch(e){} }); setTimeout(() => nd.g.disconnect(), 600); }
+    };
+  }
+  return {ok:true, play, loop,
+    listen(cam){ const e = cam.matrixWorld.elements; S.lx = e[12]; S.ly = e[13]; S.lz = e[14]; S.rx = e[0]; S.rz = e[2]; },
+    // browsers start audio only after a tap; the app in the background goes quiet
+    wake(fromHidden){ if (fromHidden && !hiddenSleep) return; hiddenSleep = false; if (ac.state === "suspended") ac.resume(); master.gain.setTargetAtTime(enabled ? 0.55 : 0, ac.currentTime, 0.05); },
+    // a shared context keeps running for the game, so the field only goes silent
+    sleep(){ if (hiddenSleep) return; hiddenSleep = true; master.gain.setTargetAtTime(0, ac.currentTime, 0.02); },
+    set(on){ enabled = !!on; master.gain.setTargetAtTime(on ? 0.55 : 0, ac.currentTime, 0.05); },
+    // test hooks: what is loaded and played, and a recording of the mix (webm) to listen to outside the game
+    info(){ return {state:ac.state, loaded:Object.fromEntries(Object.entries(buf).map(([k, v]) => [k, v.length])), plays:{...plays}, voices}; },
+    record(sec){ return new Promise(res => { const dst = ac.createMediaStreamDestination(); comp.connect(dst); const rec = new MediaRecorder(dst.stream), parts = [];
+      rec.ondataavailable = e => parts.push(e.data); rec.onstop = () => { comp.disconnect(dst); const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(new Blob(parts, {type:"audio/webm"})); };
+      rec.start(); setTimeout(() => rec.stop(), sec*1000); }); },
+    dispose(){ try { master.gain.value = 0; comp.disconnect(); if (!shared) ac.close(); } catch(e){} }};
+}
 export async function start(el, ctx){
   let level = QL[ctx.quality] ? ctx.quality : ctx.quality === "medium" ? "mid" : "high", Q = QL[level];
   const quality = level === "high" ? "high" : "low";   // ground texture and relief detail are fixed at start
@@ -226,6 +299,7 @@ export async function start(el, ctx){
   const scene = new THREE.Scene(), haze = ctx.terrain === "d" ? 0xc9b48e : 0x9aa6a0;
   scene.background = new THREE.Color(haze); scene.fog = new THREE.Fog(haze, 160, 430);
   const camera = new THREE.PerspectiveCamera(32, 1, 2, 900);
+  const snd = makeSound(ctx.sound !== false, ctx.audio); snd.wake();
   const hemi = new THREE.HemisphereLight(0xcfdcff, 0x4a4234, 0.55); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff0d8, 3.6); sun.castShadow = Q.sh > 0;
   sun.shadow.mapSize.set(Q.sh || 1024, Q.sh || 1024);
@@ -314,6 +388,7 @@ export async function start(el, ctx){
   }
   function explosion(x, z, big, airburst, sc = 1, ay){
     const y = ay != null ? ay : G.height(x, z) + (airburst ? 4 : 0.3);
+    snd.play("boom", x, y, z, {vol:(big ? 1 : 0.55)*Math.min(1.3, sc), rate:big ? 0.85 : airburst ? 1.25 : 1.1});
     const n = Math.round((big ? 34 : 14)*sc);
     for (let i = 0; i < n; i++){ const a = Math.random()*6.28, v = (big ? 6 : 4)*Math.random(); fxFire.emit({x, y:y + Math.random()*(big ? 2 : 1), z, vx:Math.cos(a)*v, vy:(big ? 5 : 3) + Math.random()*4, vz:Math.sin(a)*v, life:0.35 + Math.random()*(big ? 0.6 : 0.3), s0:big ? 6 : 3.5, s1:big ? 3 : 1.5, c:[1, 0.85, 0.45], c1:[0.9, 0.25, 0.05], a:1, drag:2.5}); }
     // dirt thrown up, then smoke
@@ -333,18 +408,20 @@ export async function start(el, ctx){
     const dist = Math.hypot(ex - p.x, ez - p.z), sh = {x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:kind === "missile" ? 3.2 : kind === "rocket" ? 1.6 + dist/260 : 2.2 + dist/200, arc:kind === "missile" ? 140 : dist*(kind === "rocket" ? 0.18 : 0.32), side:u.side, kind, trail:kind !== "shell",
       c:kind === "shell" ? [1, 0.75, 0.4] : [1, 0.9, 0.6], onHit:() => { if (sh.dead) return; explosion(ex, ez, kind !== "rocket", false, kind === "missile" ? 1.6 : kind === "rocket" ? 0.8 : 1); if (dmg && t){ t.inbound = (t.inbound || 0) - dmg; damage(t, dmg); } }};
     sh.dmg = dmg; if (dmg && t) t.inbound = (t.inbound || 0) + dmg;
+    if (kind === "shell") snd.play("arty", p.x, p.y, p.z, {vol:0.9}); else snd.play("rocket", p.x, p.y, p.z, kind === "missile" ? {vol:1, rate:0.6} : {vol:0.5});
     shells.push(sh); return sh;
   }
   function fireAt(u, t, small){
     if (small){ // autocannon and machine guns: a burst of thin tracers, small hits
-      const p = launchPoint(u), dmg = t.pend >= 1 ? Math.floor(t.pend) : 0; if (dmg){ t.pend -= dmg; t.inbound = (t.inbound || 0) + dmg; }
+      const p = launchPoint(u); snd.play("autocannon", p.x, p.y, p.z, {vol:0.55});
+      const dmg = t.pend >= 1 ? Math.floor(t.pend) : 0; if (dmg){ t.pend -= dmg; t.inbound = (t.inbound || 0) + dmg; }
       for (let i = 0; i < small; i++){ const last = i === small - 1, ex = t.x + (Math.random() - 0.5)*(dmg && last ? 1 : 10), ez = t.z + (Math.random() - 0.5)*(dmg && last ? 1 : 10);
         const sh = {x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.8, z1:ez, t:-i*0.09, dur:Math.hypot(ex - p.x, ez - p.z)/700 + 0.05, side:u.side, kind:"bullet", c:u.side ? [1, 0.5, 0.35] : [1, 0.9, 0.55],
           onHit:() => { explosion(ex, ez, false, false, 0.25); if (last && dmg){ t.inbound -= dmg; damage(t, dmg); } }}; shells.push(sh); }
       for (let i = 0; i < 3; i++) fxFire.emit({x:p.x, y:p.y, z:p.z, vx:0, vy:0, vz:0, life:0.08, s0:1.1, s1:0.5, c:[1, 0.85, 0.5], a:1});
       return;
     }
-    const {p, d} = muzzle(u);
+    const {p, d} = muzzle(u); snd.play("tank", p.x, p.y, p.z, {vol:0.9});
     const tx = t.obj.position.x, tz = t.obj.position.z, dmg = t.pend >= 1 ? Math.floor(t.pend) : 0, hit = dmg > 0; t.pend -= dmg; if (hit) t.inbound = (t.inbound || 0) + dmg;
     const ex = hit ? tx + (Math.random() - 0.5)*1.5 : tx + (Math.random() - 0.5)*16, ez = hit ? tz + (Math.random() - 0.5)*1.5 : tz + (Math.random() - 0.5)*16;
     const ey = G.height(ex, ez) + (hit ? 1.4 : 0.2), dist = Math.hypot(ex - p.x, ez - p.z);
@@ -491,7 +568,7 @@ export async function start(el, ctx){
   function onField(a, m = 30){ return a.obj && Math.abs(a.x) < FIELD/2 + m && Math.abs(a.z) < FIELD/2 + m; }
   // weapons
   function rockets(a, t){
-    const d = payload(t), tx = t ? t.x : a.x + Math.cos(a.h)*60, tz = t ? t.z : a.z - Math.sin(a.h)*60;
+    const d = payload(t), tx = t ? t.x : a.x + Math.cos(a.h)*60, tz = t ? t.z : a.z - Math.sin(a.h)*60; snd.play("rocket", a.x, a.y, a.z, {vol:0.7});
     for (let i = 0; i < 8; i++){ const last = i === 7, ex = tx + (last && d ? 0 : (Math.random() - 0.5)*16), ez = tz + (last && d ? 0 : (Math.random() - 0.5)*16);
       const p = new THREE.Vector3(0.4, -1.2, (i % 2 ? 1 : -1)*2.5); a.obj.localToWorld(p);
       shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.3, z1:ez, t:-i*0.09, dur:Math.hypot(ex - p.x, ez - p.z, p.y)/170 + 0.1, side:a.side, kind:"arocket", trail:true, c:[1, 0.85, 0.55],
@@ -507,7 +584,7 @@ export async function start(el, ctx){
   function atgm(a, t){
     const d = payload(t), p = new THREE.Vector3(1.5, -0.9, (Math.random() < 0.5 ? 1 : -1)*2.6); a.obj.localToWorld(p);
     const ex = t.x + (d ? 0 : (Math.random() - 0.5)*10), ez = t.z + (d ? 0 : (Math.random() - 0.5)*10), ey = G.height(ex, ez) + (d ? 1.4 : 0.3);
-    launchSmoke(p, 6, 0.7);
+    launchSmoke(p, 6, 0.7); snd.play("rocket", p.x, p.y, p.z, {vol:0.45, rate:1.3});
     shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:Math.hypot(ex - p.x, ez - p.z, ey - p.y)/140 + 0.2, arc:2, side:a.side, kind:"atgm", trail:true, c:[1, 0.8, 0.5],
       onHit:() => { explosion(ex, ez, d > 0, false, 0.9); land(t, d); }});
   }
@@ -518,7 +595,7 @@ export async function start(el, ctx){
     const real = cand.filter(a => a.pend >= 1); if (real.length) return real[Math.floor(Math.random()*real.length)];
     return cand.length && Math.random() < 0.05 ? cand[Math.floor(Math.random()*cand.length)] : null;
   }
-  function launchSAM(p, a, miss){ a.chased = true; homers.push({x:p.x, y:p.y, z:p.z, vx:0, vy:25, vz:0, a, miss, t:0}); launchSmoke(p, 10, 1); flash.position.copy(p); flash.intensity = 80; flashT = 0.08; }
+  function launchSAM(p, a, miss){ a.chased = true; snd.play("sam", p.x, p.y, p.z, {vol:0.8}); homers.push({x:p.x, y:p.y, z:p.z, vx:0, vy:25, vz:0, a, miss, t:0}); launchSmoke(p, 10, 1); flash.position.copy(p); flash.intensity = 80; flashT = 0.08; }
   function flares(a){ for (let i = 0; i < 10; i++) fxFire.emit({x:a.x, y:a.y - 1, z:a.z, vx:(Math.random() - 0.5)*14, vy:-2 - Math.random()*4, vz:(Math.random() - 0.5)*14, g:-6, life:1.2 + Math.random()*0.8, s0:2.2, s1:0.8, c:[1, 0.95, 0.75], c1:[1, 0.5, 0.15], a:1, drag:1.2}); }
   function homersStep(dt){
     for (let i = homers.length - 1; i >= 0; i--){ const m = homers[i], a = m.a; m.t += dt;
@@ -748,9 +825,30 @@ export async function start(el, ctx){
     perf.frames++; perf.time += raw;
     if (perf.time >= 3000){ const fps = perf.frames*1000/perf.time; perf.frames = 0; perf.time = 0; perf.last = Math.round(fps); if (fps < 27 && lower()) perf.t0 = now + 1500; }
   }
+  // continuous sounds: one per aircraft in the air (jets with a Doppler shift), and the engines of the vehicles near the camera
+  const LOOP_CAP = {plane:6, heli:5, drone:5}; let engine = null, engT = 0;
+  function soundStep(dt){
+    if (!snd.ok) return; snd.listen(camera);
+    const n = {plane:0, heli:0, drone:0};
+    for (const a of air){
+      const up = a.alive && a.obj && a.state !== "wait";
+      if (!up){ if (a.snd){ a.snd.stop(); a.snd = null; } continue; }
+      if (!a.snd){ if (n[a.cls] >= LOOP_CAP[a.cls]) continue; a.snd = a.cls === "heli" ? snd.loop("heli", {vol:0.5}) : a.cls === "plane" ? snd.loop("jet", {vol:0.75}) : snd.loop("drone", a.loiter ? {vol:0.3, f:170} : {vol:0.22, f:95}); }
+      n[a.cls]++; if (!a.snd) continue;
+      let rate = 1;
+      if (a.cls === "plane"){ const dx = camera.position.x - a.x, dy = camera.position.y - a.y, dz = camera.position.z - a.z, d = Math.hypot(dx, dy, dz) || 1, vr = (Math.cos(a.h)*dx - Math.sin(a.h)*dz)*a.v/d;
+        rate = clamp(1 + vr/340*2.5, 0.7, 1.4); }
+      a.snd.set(a.x, a.y, a.z, a.state === "fall" ? 0.7 : 1, rate);
+    }
+    engT -= dt; if (engT < 0){ engT = 0.3; engine = engine || snd.loop("engine", {vol:0.4});
+      let k = 0; for (const u of units) if (u.alive && u.obj){ const d = Math.hypot(u.x - cam.x, u.z - cam.z); if (d < 90) k += (1 - d/90)*(u.state === "move" ? 1 : 0.45); }
+      engine.set(cam.x, G.height(cam.x, cam.z) + 2, cam.z, clamp(k*0.25, 0, 1)*clamp(1.6 - cam.dist/120, 0.15, 1)); }
+  }
+  cv.addEventListener("pointerdown", () => snd.wake());
   function frame(now){
     if (!running) return; requestAnimationFrame(frame);
-    if (document.hidden) { last = now; return; }
+    if (document.hidden) { last = now; snd.sleep(); return; }
+    snd.wake(true); soundStep(Math.min(0.1, (now - last)/1000));
     const raw = now - last, dt = clamp(raw/1000, 0, 0.05); last = now; measure(now, raw);
     step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
     renderer.render(scene, camera); drawHud(dt);
@@ -776,7 +874,7 @@ export async function start(el, ctx){
     names(map){ Object.assign(ctx.names, map); },
 
     focus(i, dist, yaw){ const u = units.filter(v => v.obj)[i]; if (!u) return; cam.x = u.x; cam.z = u.z; cam.dist = dist || 40; if (yaw != null) cam.yaw = yaw; placeCamera(); },
-    advance(sec){ for (let t = 0; t < sec; t += 1/30) step(1/30); },
+    advance(sec){ for (let t = 0; t < sec; t += 1/30){ step(1/30); soundStep(1/30); } },
     list(){ return units.filter(v => v.obj).map(v => v.side + ':' + v.model); },
     quality(lv){ if (lv && QL[lv]){ while (level !== lv && lower()); } return {level, fps:perf.last || null}; },
     lods(){ return units.filter(u => u.obj).map(u => u.model + ":" + u.lod); },
@@ -784,6 +882,9 @@ export async function start(el, ctx){
     airFocus(i, dist){ const a = air.filter(a => a.obj)[i]; if (!a) return false; const k = (a.y - G.height(a.x, a.z))/Math.tan(cam.pitch);
       cam.x = a.x - Math.sin(cam.yaw)*k; cam.z = a.z - Math.cos(cam.yaw)*k; cam.dist = dist || 60; placeCamera(); return true; },
     info(){ return {air:[0, 1].map(s => air.filter(a => a.side === s && a.alive).length), alive:[0, 1].map(s => units.filter(u => u.side === s && u.alive).length), particles:fxSmoke.items.length + fxFire.items.length, calls:renderer.info.render.calls, tris:renderer.info.render.triangles}; },
-    dispose(){ running = false; ro.disconnect(); renderer.dispose(); scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); renderer.domElement.remove(); }
+    sound(on){ snd.set(on); },
+    soundInfo(){ return snd.ok ? snd.info() : null; },
+    soundRecord(sec){ return snd.ok ? snd.record(sec) : Promise.resolve(null); },
+    dispose(){ running = false; snd.dispose(); ro.disconnect(); renderer.dispose(); scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); renderer.domElement.remove(); }
   };
 }
