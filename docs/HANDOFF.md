@@ -114,18 +114,23 @@ Read this first in a new session.
 - Pitfalls: the sim/test server must send `.js` as `text/javascript` (module import); `www/lib/three` is not in git (CI copies it): in a session without npm, take it from the APK on the `apk` branch (`assets/public/lib/three`). Headless Chromium has WebGL with `--use-angle=swiftshader --enable-unsafe-swiftshader`.
 - The user's working rules for the assistant (save tokens: short tool output, few images, batches of ≤3 models, short reports, update this file and suggest a new chat at the end of a stage) were given in chat. Ask the user to paste them again in a new chat.
 
-## Next stage (asked 01.11.2026, partly agreed): delivery to the front
-- Sending machines **and troops** from the reserve to a direction needs oil and time: they travel, e.g. ~180 days, before they fight.
-- Transport aviation (`transport` kind) shortens the trip.
-- The reserve army (personnel, `me().army` not at the front) reaches the front the same way.
-- The user's answers (01.11.2026):
-  - Travel time depends on the distance to the enemy (`farWar`, `travelDays`); ~180 days is the long end.
-  - Oil for the trip: calculate it (per machine and per day on the road, like `FUEL_BBL`).
-  - Units en route can be recalled.
-  - The enemy obeys the same rule.
-- Still to settle when the stage starts: what the deployment window shows (en route, arrival date), how much transport aviation shortens the trip, the numbers for oil and days. Show the user the plan with these numbers before building.
+## Delivery to the front (stage done 01.11.2026)
+- `src/game.html`, block «delivery to the front» after `depAll`. New wars (`startWar` creates `road:[]`, `men:0`) use it; old saves without `w.road` keep instant deployment until the player sends something.
+  - Trip `warTrip(w)` (= `roadDays(enemy)`, kept in `w.trip`): near war (`!farWar`) `5 + dist*0.15`, max 30 days; far war `20 + dist*0.32`, 30–180 days (dist between `LABELS` centres; without LABELS 14 / 90). KZ—KG 9, CN—IN 15, US—RU 180.
+  - Transport aviation (`planesFree()` = `airliftCap()` minus planes busy on trade and on `w.road`): a plane takes 10 light machines (`AIRLIFT_KINDS`: ifv, apc, mlrs, shorad, mrsam, ew, loiter) or 1 thousand men, trip `/3.5` (min 2). Aircraft, helicopters, drones (`SELF_FLY`) fly in `2 + trip/60`, 2–5 days. Tanks, SPGs, SRBM, LRSAM go by land only.
+  - `w.road = [{i, id, n, left, tot, air, planes, back}]`; `MEN = "_men"` = troops (thousands, per war, not per direction). `depCommitted` counts the road, so the reserve excludes it. `roadSend`, `roadSplit`, `roadTo(w, i, id)`, `roadRecall`, `turnBack` (way back = days already travelled), `depSet` (slider = at the front + on the way; lowering it turns the latest on the road back first, then the front sends machines home with the full trip), `menSet`, `menReserve`, `menFix` (called in `depFix`).
+  - Oil: `roadOil(w)` (machine ½ of `FUEL_BBL`, self-flying aircraft full, plane 600 bbl/day, 1 thousand men 5 bbl/day) is added to `fuelNeed`; `roadDay(w)` moves the road by `w.fuel` (no oil → the column stands). Arrival → `w.dep[i]` (a taken direction → spread over the others) or `w.men`, event «Прибыло подкрепление», `w.arrD[i] = {day, n}`.
+  - Troops: `myTroops = w.men` (was `freeArmy()*warShare`); losses reduce `w.men`. `startWar` sends the free reserve; with other wars on, it takes up to an even share from their `w.men`.
+  - Plan presets (`depPreset`) and a taken direction move machines in a quarter of the trip (`shiftDays`, min 3).
+  - Enemy: `initWar` (new wars) puts all its `depOk` machines and its troops (`w.emen`, share 0–1) on `w.eroad`; its transport planes lift light kinds and troops. `thTroops = e.army*w.emen`. `warMonth` restock goes on the road; `enemyLoss` and the restock gap count `w.eroad`; `enemyFuelDay` adds `eroadOil`. The unfuelled reserve `w.er` is unchanged (it stands at the front, it does not travel).
+  - The «mob» phase lasts `max(10, w.trip)` days.
+  - UI: deploy window: road line (days by land / by air / flying, free planes, en route here, arrival date via `dateIn`), buttons «Вернуть технику/войска с дороги» (`data-deprecall`), «Личный состав» slider (`data-depmen`), rows show «в пути». Fronts panel: «в пути N, через X дн.». Reserve panel: reserve troops, «В пути на фронт» with the nearest date, trip length.
+  - Field: the bridge shows a small banner «Подкрепление прибыло» (`bfArrive`) when `w.arrD[st.i]` changes; the squads come in through the usual `api.sync`.
+- **Balance** (headless sim, 1000 days, several runs, old vs new): KZ—KG 218–244 vs 227–237 days; KR—JP varies widely in both (59–76% after 1000 days, or a loss); CN—IN ~85% unfinished in both; US—RU 219 vs 378 days.
+- Pitfalls: the game script is one IIFE, nothing is global. For headless tests copy `www/index.html` to a temp file, inject `window.__T={newGame,startWar,dayTick,...}` before the last `})();`, serve `www` with `python3 -m http.server`; never commit the copy. Game modals can replace the deploy window during a test: reopen it with `showDeploy` before clicking. The 3D banner was not checked in a browser (no `www/lib/three` in this session).
 
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
 - Before each big new feature, discuss the plan with the user first.
+- Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.

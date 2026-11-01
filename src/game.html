@@ -418,6 +418,7 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-banner{position:absolute;inset:0;display:grid;place-items:center;z-index:3;pointer-events:none;background:radial-gradient(ellipse at center,rgb(0 0 0 / .45),transparent 70%);animation:bfBan .5s ease-out}
 #bf-root .bf-banner div{text-align:center;color:#fff;text-shadow:0 2px 12px #000}
 #bf-root .bf-banner b{display:block;font-family:var(--f-display);font-size:clamp(22px,4vw,38px);text-transform:uppercase;letter-spacing:.04em}
+#bf-root .bf-banner.bf-arr{inset:16% 0 auto 0;background:none} #bf-root .bf-banner.bf-arr b{font-size:clamp(16px,2.6vw,24px)}
 #bf-root .bf-banner.good b{color:#FFD27A} #bf-root .bf-banner.bad b{color:#FF8A8A}
 #bf-root .bf-banner small{display:block;margin-top:6px;font-size:14px;color:#E6ECF5}
 @keyframes bfBan{from{opacity:0;transform:scale(1.08)}to{opacity:1;transform:none}}
@@ -2010,7 +2011,7 @@ function phaseTick(w){
   w.phase = w.phase || (w.days > 10 ? "man" : "mob");
   w.track = w.track || []; w.track.push(w.fronts.map(f => f.p)); if (w.track.length > 31) w.track.shift();
   const moved = days => { const a = w.track[Math.max(0, w.track.length - 1 - days)], b = w.track[w.track.length - 1]; return a ? Math.max(0, ...b.map((v, i) => v >= 100 ? 0 : Math.abs(v - (a[i] ?? v)))) : 99; };
-  if (w.phase === "mob" && w.days >= 10){ w.phase = "man"; warEvent(w, "Мобилизация завершена: начались манёвренные бои.", ""); }
+  if (w.phase === "mob" && w.days >= (w.road && w.trip ? Math.max(10, w.trip) : 10)){ w.phase = "man"; warEvent(w, "Мобилизация завершена: начались манёвренные бои.", ""); }
   if (w.phaseCd > 0) w.phaseCd--;
   if (w.phase === "man" && w.track.length > 30 && !(w.phaseCd > 0) && moved(30) < 5){ w.phase = "pos"; w.phaseCd = 15; warEvent(w, "Фронт застыл: война перешла в позиционную фазу. Нужны артиллерия, дроны и штурмы рубежей.", "bad"); advise("gen", "Фронт встал. Без прорыва война затянется: копите снаряды и штурмуйте рубежи.", {tab:"hq"}); }
   else if (w.phase === "pos" && w.track.length > 10 && !(w.phaseCd > 0) && moved(10) >= 3){ w.phase = "man"; w.phaseCd = 30; warEvent(w, "Прорыв! Фронт снова пришёл в движение.", "good"); }
@@ -2167,7 +2168,7 @@ function frontsPanel(w){
     const ticks = LINES.map(v => `<s style="left:${50 + v/2}%"></s><s style="left:${50 - v/2}%"></s>`).join("");
     return `<div class="front-row">
       <div class="row"><b>${f.name} направление${f.capital ? " · к столице" : ""}</b><small class="muted">${TERRAIN[f.p >= 0 ? f.t : f.myT].n} · войск ${Math.round(f.share*100)}% · ${WAR_MODES[f.mode || w.mode].name.toLowerCase()} · <span class="${(f.sup ?? 100) < 50 ? "down" : (f.sup ?? 100) < 70 ? "warn" : ""}">снабжение ${Math.round(f.sup ?? 100)}%</span></small></div>
-      ${f.p < 100 ? `<div class="row"><small class="dep-sum ${depPower(w.dep[i]) > 0 ? "" : "down"}">Техника: ${depSummary(w.dep[i]) || "нет — только пехота"}</small></div>` : ""}
+      ${f.p < 100 ? `<div class="row"><small class="dep-sum ${depPower(w.dep[i]) > 0 ? "" : "down"}">Техника: ${depSummary(w.dep[i]) || "нет — только пехота"}${(r => r.n ? ` · в пути ${r.n.toLocaleString("ru-RU")}, через ${Math.ceil(r.next)} дн.` : "")(roadTo(w, i))}</small></div>` : ""}
       <div class="front-bar thin"><i class="mine" style="width:${clamp(50 + f.p/2, 0, 100)}%"></i>${ticks}<b style="left:${clamp(50 + f.p/2, 0, 100)}%"></b></div>
       <div class="row"><small class="${pl.mine ? "down" : "up"}">${pl.mine ? `Бои на нашей земле: ${pl.name}` : f.p > 0.5 ? `Бои: ${pl.name}` : `Граница · впереди ${f.places[0]}`}${f.storm > 0 ? " · штурм" : ""}</small><span class="bf-btns"><button class="btn sm" data-depopen="${i}">Войска</button>${canStorm ? `<button class="btn sm primary" data-storm="${i}">Штурм рубежа</button>` : ""}<button class="btn sm" data-bfopen="${w.enemy}:${i}">Поле боя</button></span></div>
     </div>`; }).join("");
@@ -2184,12 +2185,18 @@ function initWar(w){
   w.mode = w.mode || "attack"; w.aiMode = "attack"; w.air = 0.5; w.prio = w.prio || 2; w.eArmy0 = e.army;
   w.accMy = {}; w.accTh = {}; w.lossMy = {}; w.lossTh = {}; w.mLossMy = {}; w.mLossTh = {};
   w.cd = {}; w.events = []; w.days = 0; w.troopsLost = 0;
+  // delivery on (a new war): the enemy's army sets out for the front too
+  if (w.road){ for (const id in w.eu) if (depOk(id) && w.eu[id] > 0){ eroadSend(w, id, w.eu[id]); w.eu[id] = 0; } w.emen = 0; eroadSend(w, MEN, 1); }
   return w;
 }
 function startWar(enemyId, byUs){
-  const w = initWar({enemy:enemyId, progress:0, months:0, mode: byUs ? "attack" : "defend", byUs:!!byUs, phase:"mob"});
+  const w = initWar({enemy:enemyId, progress:0, months:0, mode: byUs ? "attack" : "defend", byUs:!!byUs, phase:"mob", road:[], men:0});
   S.wars.push(w); if (!byUs && S.orgs) orgDefenders(w);
   initFronts(w); applyPlan(w);
+  // troops: the free reserve sets out; with other wars on, this one gets at least its even share, taken from them
+  { const want = freeArmy()/S.wars.length, res = menReserve(), others = S.wars.filter(x => x !== w && (x.men||0) > 0), tot = others.reduce((a, x) => a + x.men, 0);
+    if (res < want && tot > 0) others.forEach(x => { x.men -= Math.min(x.men, (want - res)*x.men/tot); });
+    roadSend(w, MEN, menReserve(), null); }
   if (S.wars.length > 1 && w.dep.every(d => depPower(d) <= 0) && Object.keys(S.units).some(id => depOk(id) && S.units[id] > 0)) advise("gen", `Новый фронт — ${C()[enemyId].name}, а вся техника занята на других войнах! Пошлите войска: Штаб → «Войска» у каждого направления.`, {tab:"hq", mood:"alert"});
   return w;
 }
@@ -2197,7 +2204,7 @@ function startWar(enemyId, byUs){
 const DEP_CATS = [["tank","Танки",["tank"]],["ifv","БМП и БТР",["ifv","apc"]],["arty","Артиллерия и ракеты",["sph","mlrs","srbm"]],["ad","ПВО и РЭБ",["shorad","mrsam","lrsam","ew"]],["air","Авиация",["fighter","attack","bomber"]],["heli","Вертолёты",["heli"]],["drone","Дроны",["drone","loiter"]]];
 const DEP_KINDS = new Set(DEP_CATS.flatMap(c => c[2]));
 const depOk = id => !!(MODELS[id] && DEP_KINDS.has(MODELS[id].kind));
-function depCommitted(id, skipW){ let n = 0; for (const w of S.wars){ if (w === skipW || !w.dep) continue; for (const d of w.dep) n += d[id] || 0; } return n; }
+function depCommitted(id, skipW){ let n = 0; for (const w of S.wars){ if (w === skipW || !w.dep) continue; for (const d of w.dep) n += d[id] || 0; n += roadAll(w, id); } return n; }
 function depReserve(id){ return Math.max(0, (S.units[id]||0) - depCommitted(id)); }
 // a new war (or an old save) takes what is free, split between the directions like the plan
 function depInit(w){
@@ -2205,7 +2212,7 @@ function depInit(w){
   if (w.dep && w.dep.length === w.fronts.length) return w.dep;
   w.dep = w.fronts.map(() => ({})); w.lossF = w.fronts.map(() => ({}));
   const act = w.fronts.map((f, i) => i).filter(i => w.fronts[i].p < 100);
-  Object.keys(S.units).forEach(id => { if (!depOk(id)) return; const free = depReserve(id); if (free <= 0) return; depSplit(w, id, free, act); });
+  Object.keys(S.units).forEach(id => { if (!depOk(id)) return; const free = depReserve(id); if (free <= 0) return; (w.road ? roadSplit : depSplit)(w, id, free, act); });
   return w.dep;
 }
 function depSplit(w, id, n, idx){
@@ -2216,10 +2223,11 @@ function depSplit(w, id, n, idx){
 function depFix(){
   const ids = new Set(); S.wars.forEach(w => (w.dep||[]).forEach(d => Object.keys(d).forEach(id => ids.add(id))));
   ids.forEach(id => { const tot = depCommitted(id), have = S.units[id]||0; if (tot <= have) return;
-    const k = have/tot; S.wars.forEach(w => (w.dep||[]).forEach(d => { if (d[id]) d[id] = Math.floor(d[id]*k); })); });
+    const k = have/tot; S.wars.forEach(w => { (w.dep||[]).forEach(d => { if (d[id]) d[id] = Math.floor(d[id]*k); }); if (w.road){ w.road.forEach(r => { if (r.id === id) r.n = Math.floor(r.n*k); }); w.road = w.road.filter(r => r.n > 0); } }); });
+  menFix();
   // a taken direction frees its machines: they move on to the directions still fighting
   S.wars.forEach(w => { if (!w.dep || !w.fronts) return; const act = w.fronts.map((f, i) => i).filter(i => w.fronts[i].p < 100);
-    w.fronts.forEach((f, i) => { if (f.p >= 100 && Object.values(w.dep[i]||{}).some(v => v > 0)){ const d = w.dep[i]; w.dep[i] = {}; Object.entries(d).forEach(([id, n]) => { if (n > 0) depSplit(w, id, n, act); }); if (act.length) warEvent(w, `${f.name} направление взято — техника ушла на другие направления.`, "good"); } }); });
+    w.fronts.forEach((f, i) => { if (f.p >= 100 && Object.values(w.dep[i]||{}).some(v => v > 0)){ const d = w.dep[i]; w.dep[i] = {}; Object.entries(d).forEach(([id, n]) => { if (n > 0) (w.road ? roadSplit : depSplit)(w, id, n, act, shiftDays(w)); }); if (act.length) warEvent(w, `${f.name} направление взято — техника ушла на другие направления.`, "good"); } }); });
 }
 // everything that fights in this war: the deployed machines plus the war's share of the fleet and transport aviation
 function warUnits(w){
@@ -2258,8 +2266,9 @@ function depPreset(w){
   const tot = {}; w.dep.forEach(d => { for (const id in d) tot[id] = (tot[id]||0) + d[id]; });
   let plan = w.plan || "even"; const k = plan.startsWith("main:") ? +plan.slice(5) : -1;
   const wt = act.map(i => k < 0 ? 1 : act.length === 1 ? 1 : i === k ? 0.6*(act.length - 1)/0.4 : 1);
-  w.dep = w.fronts.map(() => ({}));
-  Object.entries(tot).forEach(([id, n]) => { const sum = wt.reduce((a, b) => a + b, 0); let left = n; act.forEach((i, j) => { const q = j === act.length - 1 ? left : Math.floor(n*wt[j]/sum); w.dep[i][id] = q; left -= q; }); });
+  const old = w.dep; w.dep = w.fronts.map(() => ({}));
+  // with delivery on, the machines a direction gains come over from the others in a quarter of the trip
+  Object.entries(tot).forEach(([id, n]) => { const sum = wt.reduce((a, b) => a + b, 0); let left = n; act.forEach((i, j) => { const q = j === act.length - 1 ? left : Math.floor(n*wt[j]/sum), was = (old[i]||{})[id]||0; if (w.road && q > was){ w.dep[i][id] = was; roadSend(w, id, q - was, i, shiftDays(w)); } else w.dep[i][id] = q; left -= q; }); });
 }
 function depSummary(d){
   const parts = DEP_CATS.map(([c, name, kinds]) => [name, Object.entries(d||{}).reduce((a, [id, n]) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) ? n : 0), 0)]).filter(([, n]) => n > 0);
@@ -2267,15 +2276,27 @@ function depSummary(d){
 }
 function depReserveTotal(){ const out = {}; DEP_CATS.forEach(([c, , kinds]) => { out[c] = Object.keys(S.units).reduce((a, id) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) ? depReserve(id) : 0), 0); }); return out; }
 function depPanel(w){
-  depInit(w); const r = depReserveTotal(), rs = DEP_CATS.filter(([c]) => r[c] > 0).map(([c, name]) => `${name.split(" ")[0].toLowerCase()} ${r[c].toLocaleString("ru-RU")}`).join(" · ");
+  depInit(w); const r = depReserveTotal(), mr = menReserve(), rs = [...DEP_CATS.filter(([c]) => r[c] > 0).map(([c, name]) => `${name.split(" ")[0].toLowerCase()} ${r[c].toLocaleString("ru-RU")}`), mr > 0.05 ? `военные ${troops(mr)}` : ""].filter(Boolean).join(" · ");
+  const rd = roadTo(w, null), men = roadTo(w, null, MEN), nx = Math.min(rd.next, men.next);
+  const way = rd.n || men.n > 0.05 ? `<div class="row" style="margin-top:6px"><small><b>В пути на фронт:</b> ${[rd.n && `${rd.n.toLocaleString("ru-RU")} ед. техники`, men.n > 0.05 && `${troops(men.n)} военных`].filter(Boolean).join(", ")} · ближайшие прибудут ${dateIn(nx)}</small></div>` : "";
   return `<div class="panel dep" style="margin-top:12px"><div class="row"><h3>Резерв</h3>${rs ? `<button class="btn sm" data-depall="1">Раздать поровну</button>` : ""}</div>
-    <small class="${rs ? "" : "muted"}">${rs ? `Не воюет: ${rs}` : "Вся техника на фронтах."}</small>
-    <div class="label">Техника в резерве не воюет и не гибнет. Новая техника приходит в резерв — отправляйте её на направления кнопкой «Войска».</div></div>`;
+    <small class="${rs ? "" : "muted"}">${rs ? `Не воюет: ${rs}` : "Вся техника и войска на фронтах."}</small>${way}
+    <div class="label">Резерв не воюет и не гибнет. Новая техника и новобранцы приходят в резерв — отправляйте их кнопкой «Войска». До фронта ${warTrip(w)} ${plural(warTrip(w), "день", "дня", "дней")} пути${airliftCap() ? `, транспортниками ${airTrip(warTrip(w))}` : ""}.</div></div>`;
 }
 function depFuelLine(w, i){
   const here = fuelOf(w.dep[i], w.mode), o = fuelOutlook(), bbl = v => fmtQ(v*1000);
   const last = o.days === Infinity ? "своей добычи хватает" : `запаса хватит на ${Math.floor(o.days).toLocaleString("ru-RU")} ${plural(Math.floor(o.days), "день", "дня", "дней")}`;
   return `<div class="label" style="margin:0 0 8px">Здесь: расход ${bbl(here.oil)} тыс. баррелей/день, содержание ${money(here.cost)}/день. Все фронты: ${bbl(o.need)} тыс. барр./день, ${last}.</div>`;
+}
+function roadLine(w, i){
+  const t = warTrip(w), rd = roadTo(w, i), men = roadTo(w, null, MEN), dn = n => plural(n, "день", "дня", "дней");
+  return `<div class="label" style="margin:0 0 8px">Дорога сюда: ${t} ${dn(t)} по земле${airliftCap() ? `, транспортниками ${airTrip(t)} (свободно самолётов: ${planesFree()}; берут войска и лёгкую технику)` : `; транспортная авиация довезла бы войска и лёгкую технику за ${airTrip(t)}`}; самолёты и вертолёты долетят за ${flyTrip(t)}. В пути техника тратит половину фронтового топлива.${rd.n ? ` <b>Едет сюда: ${rd.n.toLocaleString("ru-RU")} ед., первые прибудут ${dateIn(rd.next)}.</b>` : ""}</div>
+    ${rd.n || men.n > 0.05 ? `<div class="dep-btns" style="margin:0 0 8px">${rd.n ? `<button class="btn sm" data-deprecall="dir">Вернуть технику с дороги</button>` : ""}${men.n > 0.05 ? `<button class="btn sm" data-deprecall="men">Вернуть войска с дороги</button>` : ""}</div>` : ""}`;
+}
+function menRow(w){
+  const here = w.men||0, rd = roadTo(w, null, MEN), cur = here + rd.n, max = cur + menReserve();
+  return `<div class="dep-cat"><div class="row"><b>Личный состав</b><span class="dep-q"><small class="muted">на всю войну: на фронте <b class="num">${troops(here)}</b>${rd.n > 0.05 ? ` · в пути <b class="num">${troops(rd.n)}</b> (первые ${dateIn(rd.next)})` : ""} · в резерве <b class="num">${troops(menReserve())}</b></small></span></div>
+    <div class="dep-row"><span class="dep-n"><span>Военные<small class="muted num" data-depval="_men">${troops(cur)} из ${troops(max)}</small></span></span><input type="range" min="0" max="${max.toFixed(1)}" step="0.1" value="${cur.toFixed(1)}" data-depmen="1" aria-label="Военные: сколько отправить" ${max > 0.05 ? "" : "disabled"}></div></div>`;
 }
 function showDeploy(enemy, i){
   const w = S.wars.find(x => x.enemy === enemy); if (!w) return; depInit(w); const f = w.fronts[i], d = w.dep[i];
@@ -2283,29 +2304,127 @@ function showDeploy(enemy, i){
   const cats = DEP_CATS.map(([c, name, kinds]) => {
     const ids = Object.keys(S.units).filter(id => MODELS[id] && kinds.includes(MODELS[id].kind) && ((S.units[id]||0) > 0 || (d[id]||0) > 0)).sort((a, b) => MODELS[b].pw - MODELS[a].pw);
     if (!ids.length) return "";
-    const here = ids.reduce((a, id) => a + (d[id]||0), 0), res = ids.reduce((a, id) => a + depReserve(id), 0);
-    return `<div class="dep-cat"><div class="row"><b>${name}</b><span class="dep-q"><small class="muted">здесь <b class="num">${here.toLocaleString("ru-RU")}</b> · в резерве <b class="num">${res.toLocaleString("ru-RU")}</b></small></span></div>
+    const here = ids.reduce((a, id) => a + (d[id]||0), 0), res = ids.reduce((a, id) => a + depReserve(id), 0), road = ids.reduce((a, id) => a + roadTo(w, i, id).n, 0);
+    return `<div class="dep-cat"><div class="row"><b>${name}</b><span class="dep-q"><small class="muted">здесь <b class="num">${here.toLocaleString("ru-RU")}</b>${road ? ` · в пути <b class="num">${road.toLocaleString("ru-RU")}</b>` : ""} · в резерве <b class="num">${res.toLocaleString("ru-RU")}</b></small></span></div>
       <div class="dep-btns"><button class="btn sm" data-depcat="${c}:all">Всё из резерва</button><button class="btn sm" data-depcat="${c}:none">Убрать в резерв</button></div>
-      ${ids.map(id => { const max = (d[id]||0) + depReserve(id); return `<div class="dep-row"><span class="dep-n">${sprImg(id, 0, sprCamo(S.player), "dep-spr")}<span>${esc(MODELS[id].name)}<small class="muted num" data-depval="${id}">${(d[id]||0).toLocaleString("ru-RU")} из ${max.toLocaleString("ru-RU")}</small></span></span>
-        <input type="range" min="0" max="${max}" step="1" value="${d[id]||0}" data-depid="${id}" aria-label="${esc(MODELS[id].name)}: сколько отправить" ${max ? "" : "disabled"}></div>`; }).join("")}</div>`;
+      ${ids.map(id => { const rd = roadTo(w, i, id).n, cur = (d[id]||0) + rd, max = cur + depReserve(id); return `<div class="dep-row"><span class="dep-n">${sprImg(id, 0, sprCamo(S.player), "dep-spr")}<span>${esc(MODELS[id].name)}<small class="muted num" data-depval="${id}">${cur.toLocaleString("ru-RU")} из ${max.toLocaleString("ru-RU")}${rd ? ` (в пути ${rd.toLocaleString("ru-RU")})` : ""}</small></span></span>
+        <input type="range" min="0" max="${max}" step="1" value="${cur}" data-depid="${id}" aria-label="${esc(MODELS[id].name)}: сколько отправить" ${max ? "" : "disabled"}></div>`; }).join("")}</div>`;
   }).join("");
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Войска на направлении"><div class="sheet dep-sheet">
     <div class="row"><h2>${esc(f.name)} направление</h2><button class="btn sm" data-close>Готово</button></div>
-    <p class="muted" style="margin:0 0 8px">Сколько техники воюет здесь. Остальное — в резерве: оно не гибнет, но и не помогает. Другие направления и войны держат свою технику.</p>
-    ${depFuelLine(w, i)}
+    <p class="muted" style="margin:0 0 8px">Сколько техники воюет здесь. Остальное — в резерве: оно не гибнет, но и не помогает. Отправленное из резерва сначала едет до фронта, убранное — едет домой.</p>
+    ${depFuelLine(w, i)}${roadLine(w, i)}${menRow(w)}
     ${cats || `<p class="muted">Нет техники. Купите или произведите её во вкладке «Армия».</p>`}
   </div></div>`;
   modalRoot.querySelectorAll("input[data-depid]").forEach(inp => {
     inp.addEventListener("input", () => { const lab = modalRoot.querySelector(`[data-depval="${inp.dataset.depid}"]`); if (lab) lab.textContent = `${(+inp.value).toLocaleString("ru-RU")} из ${(+inp.max).toLocaleString("ru-RU")}`; });
-    inp.addEventListener("change", () => { const ww = S.wars.find(x => x.enemy === enemy); if (!ww) return; depInit(ww); ww.dep[i][inp.dataset.depid] = clamp(Math.round(+inp.value), 0, (ww.dep[i][inp.dataset.depid]||0) + depReserve(inp.dataset.depid)); applyPlan(ww); save(); const sc = modalRoot.querySelector(".dep-sheet").scrollTop; showDeploy(enemy, i); const sh = modalRoot.querySelector(".dep-sheet"); if (sh) sh.scrollTop = sc; render(); });
+    inp.addEventListener("change", () => { const ww = S.wars.find(x => x.enemy === enemy); if (!ww) return; depInit(ww); depSet(ww, i, inp.dataset.depid, +inp.value); applyPlan(ww); save(); const sc = modalRoot.querySelector(".dep-sheet").scrollTop; showDeploy(enemy, i); const sh = modalRoot.querySelector(".dep-sheet"); if (sh) sh.scrollTop = sc; render(); });
   });
+  const mi = modalRoot.querySelector("input[data-depmen]");
+  if (mi){ mi.addEventListener("input", () => { const lab = modalRoot.querySelector('[data-depval="_men"]'); if (lab) lab.textContent = `${troops(+mi.value)} из ${troops(+mi.max)}`; });
+    mi.addEventListener("change", () => { const ww = S.wars.find(x => x.enemy === enemy); if (!ww) return; menSet(ww, +mi.value); save(); const sc = modalRoot.querySelector(".dep-sheet").scrollTop; showDeploy(enemy, i); const sh = modalRoot.querySelector(".dep-sheet"); if (sh) sh.scrollTop = sc; render(); }); }
 }
 function depCatAction(enemy, i, cat, act){
   const w = S.wars.find(x => x.enemy === enemy); if (!w) return; depInit(w); const kinds = (DEP_CATS.find(c => c[0] === cat) || [])[2] || [];
-  Object.keys(S.units).forEach(id => { if (!MODELS[id] || !kinds.includes(MODELS[id].kind)) return; if (act === "all") w.dep[i][id] = (w.dep[i][id]||0) + depReserve(id); else w.dep[i][id] = 0; });
+  Object.keys(S.units).forEach(id => { if (!MODELS[id] || !kinds.includes(MODELS[id].kind)) return; if (act === "all") roadSend(w, id, depReserve(id), i); else depSet(w, i, id, 0); });
   applyPlan(w); save();
 }
-function depAll(w){ depInit(w); const act = w.fronts.map((f, i) => i).filter(i => w.fronts[i].p < 100); Object.keys(S.units).forEach(id => { if (depOk(id)){ const r = depReserve(id); if (r > 0) depSplit(w, id, r, act); } }); applyPlan(w); save(); }
+function depAll(w){ depInit(w); const act = w.fronts.map((f, i) => i).filter(i => w.fronts[i].p < 100); Object.keys(S.units).forEach(id => { if (depOk(id)){ const r = depReserve(id); if (r > 0) roadSplit(w, id, r, act); } }); const m = menReserve(); if (m > 0.05) roadSend(w, MEN, m, null); applyPlan(w); save(); }
+
+/* ---------- delivery to the front: machines and troops travel (and burn oil) before they fight ----------
+   A neighbour's war is a short trip (5–30 days), a distant one 30–180. Transport planes carry troops and light machines
+   (a plane takes 10 machines or 1 thousand men, the trip is 3.5× shorter); aircraft, helicopters and drones fly in themselves in 2–5 days.
+   On the road a machine burns half its front ration, a transport plane 600 bbl a day, a thousand men 5 bbl. Without oil the column stands.
+   w.road (ours) = [{i, id, n, left, tot, air, planes, back}], w.eroad (the enemy's) = [{id, n, left}]; MEN = troops
+   (ours in thousands; the enemy's as a share of its army). Old saves without w.road keep the instant deployment. */
+const MEN = "_men", AIRLIFT_KINDS = ["ifv","apc","mlrs","shorad","mrsam","ew","loiter"], SELF_FLY = ["fighter","attack","bomber","heli","drone"];
+const PLANE_BBL = 600, MEN_BBL = 5, ROAD_K = 0.5;
+function roadDays(iso){
+  const a = LABELS && LABELS[S.player], b = LABELS && LABELS[iso], far = farWar(iso);
+  if (!a || !b) return far ? 90 : 14;
+  const d = Math.hypot(a.x - b.x, a.y - b.y);
+  return Math.round(far ? clamp(20 + d*0.32, 30, 180) : clamp(5 + d*0.15, 5, 30));
+}
+const warTrip = w => w.trip || (w.trip = roadDays(w.enemy));
+const shiftDays = w => Math.max(3, Math.round(warTrip(w)/4));
+const airTrip = days => Math.max(2, Math.round(days/3.5));
+const flyTrip = days => clamp(Math.round(2 + days/60), 2, 5);
+const tripOf = (id, days) => MODELS[id] && SELF_FLY.includes(MODELS[id].kind) ? flyTrip(days) : days;
+const liftable = id => id === MEN || !!(MODELS[id] && AIRLIFT_KINDS.includes(MODELS[id].kind));
+function planesBusy(){ return airBusy() + S.wars.reduce((a, w) => a + (w.road||[]).reduce((b, r) => b + (r.air ? r.planes||0 : 0), 0), 0); }
+const planesFree = () => Math.max(0, airliftCap() - planesBusy());
+function roadSend(w, id, n, i, days, back){
+  n = id === MEN ? n : Math.floor(n); if (!(n > 0)) return 0;
+  w.road = w.road || []; const full = days ?? warTrip(w); let left = n;
+  if (liftable(id)){ const per = id === MEN ? 1 : 10, q = Math.min(left, planesFree()*per);
+    if (q > 0){ const t = airTrip(full); w.road.push({i, id, n:q, left:t, tot:t, air:true, planes:Math.ceil(q/per), back:!!back}); left -= q; } }
+  if (left > 0){ const t = tripOf(id, full); w.road.push({i, id, n:left, left:t, tot:t, back:!!back}); }
+  return n;
+}
+function roadSplit(w, id, n, idx, days){
+  if (!idx.length) return; const wt = idx.map(i => w.fronts[i].share || 1/idx.length), sum = wt.reduce((a, b) => a + b, 0) || 1;
+  let left = n; idx.forEach((i, k) => { const q = k === idx.length - 1 ? left : Math.floor(n*wt[k]/sum); roadSend(w, id, q, i, days); left -= q; });
+}
+// on the way to the front (not back): direction i (null = any), model id (none = all machines), and the nearest arrival
+function roadTo(w, i, id){ let n = 0, next = Infinity;
+  (w.road||[]).forEach(r => { if (r.back || (i != null && r.i !== i) || (id ? r.id !== id : r.id === MEN)) return; n += r.n; next = Math.min(next, r.left); });
+  return {n, next}; }
+const roadAll = (w, id) => (w.road||[]).reduce((a, r) => a + (r.id === id ? r.n : 0), 0);
+// recalled: they turn back and need as many days home as they have travelled
+function turnBack(r){ r.back = true; r.left = r.tot - r.left; r.tot = Math.max(r.left, 0.01); }
+function roadRecall(w, i, ids){ (w.road||[]).forEach(r => { if (r.back || (r.id === MEN ? !(ids||[]).includes(MEN) : (i != null && r.i !== i) || (ids && !ids.includes(r.id)))) return; turnBack(r); }); w.road = (w.road||[]).filter(r => r.left > 0); }
+// the slider sets how many machines belong to direction i (at the front + on the way): more come from the reserve, fewer turn back
+function depSet(w, i, id, want){
+  depInit(w); const cur = (w.dep[i][id]||0) + roadTo(w, i, id).n; want = clamp(Math.round(want), 0, cur + depReserve(id));
+  if (want > cur) return roadSend(w, id, want - cur, i);
+  let cut = cur - want; if (cut <= 0) return;
+  (w.road||[]).filter(r => !r.back && r.i === i && r.id === id).sort((a, b) => b.left - a.left).forEach(r => { if (cut <= 0) return; if (r.n > cut){ w.road.push(Object.assign({}, r, {n:r.n - cut})); r.n = cut; } cut -= r.n; turnBack(r); });
+  w.road = w.road.filter(r => r.left > 0);
+  if (cut > 0){ const q = Math.min(cut, w.dep[i][id]||0); w.dep[i][id] -= q; if (w.road) roadSend(w, id, q, i, warTrip(w), true); }
+}
+// troops of the whole war (not per direction)
+function menCommitted(){ return S.wars.reduce((a, w) => a + (w.men||0) + roadAll(w, MEN), 0); }
+function menReserve(){ return Math.max(0, freeArmy() - menCommitted()); }
+function menFix(){ const tot = menCommitted(), have = freeArmy(); if (tot <= have || tot <= 0) return; const k = have/tot;
+  S.wars.forEach(w => { if (w.men) w.men *= k; (w.road||[]).forEach(r => { if (r.id === MEN) r.n *= k; }); }); }
+function menSet(w, want){
+  const cur = (w.men||0) + roadTo(w, null, MEN).n; want = clamp(want, 0, cur + menReserve());
+  if (want > cur + 0.05) return roadSend(w, MEN, want - cur, null);
+  let cut = cur - want; if (cut <= 0.05) return;
+  (w.road||[]).filter(r => !r.back && r.id === MEN).sort((a, b) => b.left - a.left).forEach(r => { if (cut <= 0) return; if (r.n > cut){ w.road.push(Object.assign({}, r, {n:r.n - cut})); r.n = cut; } cut -= r.n; turnBack(r); });
+  w.road = (w.road||[]).filter(r => r.left > 0);
+  if (cut > 0){ const q = Math.min(cut, w.men||0); w.men -= q; roadSend(w, MEN, q, null, warTrip(w), true); }
+}
+function roadOil(w){ let oil = 0;
+  (w.road||[]).forEach(r => { const m = MODELS[r.id]; if (r.air) oil += r.planes*PLANE_BBL; else if (r.id === MEN) oil += r.n*MEN_BBL; else if (m) oil += (FUEL_BBL[m.kind]||0)*r.n*(SELF_FLY.includes(m.kind) ? 1 : ROAD_K); });
+  return oil/1e6; }
+function roadDay(w){
+  if (!(w.road||[]).length) return; const k = Math.min(1, w.fuel ?? 1), at = {}; let came = 0, men = 0;
+  w.road = w.road.filter(r => { r.left -= k; if (r.left > 0) return true; if (r.back) return false;
+    if (r.id === MEN){ w.men = (w.men||0) + r.n; men += r.n; return false; }
+    depInit(w); const f = w.fronts[r.i];
+    if (!f || f.p >= 100){ const act = w.fronts.map((x, j) => j).filter(j => w.fronts[j].p < 100); depSplit(w, r.id, r.n, act); }
+    else { w.dep[r.i][r.id] = (w.dep[r.i][r.id]||0) + r.n; at[r.i] = (at[r.i]||0) + r.n; }
+    came += r.n; return false; });
+  w.arrD = w.arrD || []; Object.entries(at).forEach(([i, n]) => { w.arrD[i] = {day:w.days, n}; });
+  if (came || men > 0.05) warEvent(w, `Прибыло подкрепление: ${[came && `${came.toLocaleString("ru-RU")} ед. техники`, men > 0.05 && `${troops(men)} военных`].filter(Boolean).join(" и ")}.`, "good");
+}
+// the enemy: the same trip; its transport planes lift light machines and troops (no other limits)
+function eroadSend(w, id, n, days){
+  if (!(n > 0)) return; w.eroad = w.eroad || []; const full = days ?? warTrip(w); let left = n;
+  if (liftable(id)){ const T = unitsOf(["transport"], w.eu), q = id === MEN ? Math.min(left, T/Math.max(1, C()[w.enemy].army)) : Math.min(left, Math.floor(T*10));
+    if (q > 0){ w.eroad.push({id, n:q, left:airTrip(full)}); left -= q; } }
+  if (left > 0) w.eroad.push({id, n:left, left:tripOf(id, full)});
+}
+function eroadDay(w){
+  if (!(w.eroad||[]).length) return; const k = Math.min(1, w.efuel ?? 1);
+  w.eroad = w.eroad.filter(r => { r.left -= k; if (r.left > 0) return true; if (r.id === MEN) w.emen = Math.min(1, (w.emen||0) + r.n); else w.eu[r.id] = (w.eu[r.id]||0) + r.n; return false; });
+}
+const eroadOf = (w, id) => (w.eroad||[]).reduce((a, r) => a + (r.id === id ? r.n : 0), 0);
+const eroadCount = w => (w.eroad||[]).reduce((a, r) => a + (r.id === MEN ? 0 : r.n), 0);
+function eroadOil(w){ const e = C()[w.enemy]; return (w.eroad||[]).reduce((a, r) => { const m = MODELS[r.id]; return a + (r.id === MEN ? r.n*(e ? e.army : 0)*MEN_BBL : m ? (FUEL_BBL[m.kind]||0)*r.n*(SELF_FLY.includes(m.kind) ? 1 : ROAD_K) : 0); }, 0)/1e6; }
+// a date n days ahead, for the arrival
+function dateIn(n){ const d = new Date(S.year, S.month, (S.day||1) + Math.ceil(n)); return `${d.getDate()} ${MONTHS_GEN[d.getMonth()].slice(0,3)} ${d.getFullYear()}`; }
 
 /* ---------- war logistics: fuel and money per machine at the front ----------
    Barrels a day per deployed machine; the reserve at home burns almost nothing. The war mode scales it. Every machine at
@@ -2317,7 +2436,7 @@ const FRONT_COST = 0.0008;   // share of a machine's price a day at the front
 function fuelOf(units, mode){ const k = FUEL_MODE[mode] ?? 1; let oil = 0, cost = 0;
   for (const id in units||{}){ const m = MODELS[id], n = units[id]; if (!m || !(n > 0)) continue; oil += (FUEL_BBL[m.kind]||0)*n; cost += m.price*FRONT_COST*n; }
   return {oil:oil*k/1e6, cost:cost*k}; }
-function fuelNeed(w){ depInit(w); const U = {}; w.dep.forEach(d => { for (const id in d) U[id] = (U[id]||0) + d[id]; }); return fuelOf(U, w.mode); }
+function fuelNeed(w){ depInit(w); const U = {}; w.dep.forEach(d => { for (const id in d) U[id] = (U[id]||0) + d[id]; }); const o = fuelOf(U, w.mode); o.road = roadOil(w); o.oil += o.road; return o; }
 // all wars together: how long the oil in stock lasts after our own production
 function fuelOutlook(){ const need = S.wars.reduce((a, w) => a + fuelNeed(w).oil, 0), prod = prodOf("oil")/30, net = need - prod;
   return {need, prod, days: net > 0 ? (S.stock.oil||0)/net : Infinity}; }
@@ -2338,7 +2457,7 @@ function warFight(w){ const U = warUnits(w), k = w.fuel ?? 1; if (k < 1) for (co
 function enemyFuelDay(w){
   const e = C()[w.enemy]; w.er = w.er || {};
   const all = {}; [w.eu, w.er].forEach(t => { for (const id in t) all[id] = (all[id]||0) + t[id]; });
-  const need = fuelOf(all, w.aiMode === "attack" ? "attack" : "hold").oil; if (need <= 0) return;
+  const need = fuelOf(all, w.aiMode === "attack" ? "attack" : "hold").oil + eroadOil(w); if (need <= 0) return;
   const imp = e.gdp*0.01/365/(COMMOD_WORLD.oil*1.3)*(w.blockade === 1 ? 0.3 : 1)*(e.sanction ? 0.6 : 1);
   const k = clamp((4*e.prof.oil/30 + imp)/need, 0, 1), was = w.efuel ?? 1; w.efuel = was + (k - was)*0.3;
   for (const id in all){ if (!MODELS[id] || !FUEL_BBL[MODELS[id].kind]) continue; const fight = Math.round(all[id]*Math.min(1, w.efuel)); w.eu[id] = fight; w.er[id] = all[id] - fight; if (!w.er[id]) delete w.er[id]; }
@@ -2377,9 +2496,10 @@ function spendAmmo(ammo, units, mult){
 function warDay(w){
   initWar(w); initFronts(w); depFix(); applyPlan(w); w.days++;
   const e = C()[w.enemy], share = warShare(w), Mm = WAR_MODES[w.mode] || WAR_MODES.attack;
-  fuelDay(w); enemyFuelDay(w);
+  fuelDay(w); enemyFuelDay(w); roadDay(w); eroadDay(w);
+  if (w.men == null) w.men = freeArmy()*share;
   const WU = warFight(w), my = forceStats(WU, S.ammo, 1), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
-  const myTroops = freeArmy()*share*(1 + 0.1*tlv("am_small")), thTroops = e.army;
+  const myTroops = (w.men||0)*(1 + 0.1*tlv("am_small")), thTroops = e.army*Math.min(1, w.emen ?? 1);
   const allies = Object.values(C()).filter(x => (x.ally || (w.joined||[]).includes(x.id)) && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*((w.joined||[]).includes(x.id) ? 1.6 : 0.6), 0);
   // 1. the sky: a distant war needs carriers to bring the air force in range
   const far = farWar(e.id), carriers = unitsOf(["carrier"]); w.far = far; w.carriers = carriers;
@@ -2414,7 +2534,7 @@ function warDay(w){
   takeLossesW(w, rM, airRM);
   takeLosses(w.eu, w.accTh, w.lossTh, w.mLossTh, rT, airRT, 1, foeQ(WU));
   if (w.mode !== "defend" && my.loiter > 0){ Object.keys(WU).forEach(id => { if (MODELS[id] && MODELS[id].kind === "loiter") depTake(w, id, Math.ceil(WU[id]*0.01)); }); }
-  const tl = myTroops*rM*0.5; me().army = Math.max(1, me().army - tl); w.troopsLost += tl;
+  const tl = myTroops*rM*0.5; me().army = Math.max(1, me().army - tl); w.men = Math.max(0, (w.men||0) - tl); w.troopsLost += tl;
   wearyAdd(tl/Math.max(1, me().army)*260 + 0.03); e.army = Math.max(0.5, e.army - thTroops*rT*0.5);
   // ammunition
   spendAmmo(S.ammo, WU, Mm.ammo*(1 - 0.03*Math.min(10, facCount("depot")))); spendAmmo(w.ea, w.eu, aiAtk);
@@ -2454,7 +2574,7 @@ function warMonth(w){
   initWar(w); const e = C()[w.enemy];
   w.months++;
   // the enemy reinforces and restocks
-  Object.keys(w.eu0).forEach(id => { const gap = w.eu0[id] - (w.eu[id]||0) - ((w.er||{})[id]||0); if (gap > 0) w.eu[id] = (w.eu[id]||0) + Math.ceil(gap*0.04); });
+  Object.keys(w.eu0).forEach(id => { const gap = w.eu0[id] - (w.eu[id]||0) - ((w.er||{})[id]||0) - eroadOf(w, id); if (gap > 0){ const q = Math.ceil(gap*0.04); if (depOk(id)) eroadSend(w, id, q); else w.eu[id] = (w.eu[id]||0) + q; } });
   const re = defaultAmmo(w.eu0); Object.keys(re).forEach(k => w.ea[k] = (w.ea[k]||0) + re[k]*0.12);
   const my = forceStats(warUnits(w), S.ammo, 1), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
   w.aiMode = th.g + th.airG > (my.g + my.airG)*0.8 || w.progress < -20 ? "attack" : "hold";
@@ -3315,6 +3435,7 @@ function openBattle(enemy, i){
   bfInput(st); requestAnimationFrame(bfLoop);
   sfx("tap");
 }
+function bfArrive(st, n){ const b = document.createElement("div"); b.className = "bf-banner good bf-arr"; b.innerHTML = `<div><b>Подкрепление прибыло</b><small>${n.toLocaleString("ru-RU")} ед. техники вступают в бой</small></div>`; st.root.appendChild(b); sfx("success"); setTimeout(() => b.remove(), 2600); }
 function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null;
   document.body.classList.remove("bf-open"); if (st.speed0 != null && ui.speed > 0) ui.speed = st.speed0;
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
@@ -3363,7 +3484,7 @@ function bf3dOpen(st, w, i){
     accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)])), kindOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.kind])), roleOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, BF3D_ROLE[m.kind] || "front"]))};
   st.root.querySelector("#bf-cv").style.display = "none";
   const box = document.createElement("div"); box.className = "bf3d"; st.root.insertBefore(box, st.root.firstChild);
-  st.lost0 = [Object.assign({}, (w.lossF || [])[i] || {}), Object.assign({}, w.lossTh)];
+  st.lost0 = [Object.assign({}, (w.lossF || [])[i] || {}), Object.assign({}, w.lossTh)]; st.arrDay = ((w.arrD || [])[i] || {}).day ?? -1;
   import("./field/bf3d.js").then(m => m.start(box, ctx)).then(api => {
     if (BF.open !== st){ api.dispose(); return; }
     st.api = api; st.root.querySelector(".bf-load")?.remove();
@@ -3371,6 +3492,7 @@ function bf3dOpen(st, w, i){
     // and what the army still has on this front comes as reinforcements
     st.tick3d = setInterval(() => { const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww) return closeBattle(true); bfTitle(st);
       const fr = ww.fronts[st.i] || {}, fs = fr.share || 1/(ww.fronts.length || 1), ARM = Object.keys(BF3D_ROLE);
+      { const ar = (ww.arrD || [])[st.i]; if (ar && ar.day !== st.arrDay){ st.arrDay = ar.day; bfArrive(st, ar.n); } }
       // a position fell and the banner has not shown yet: its losses explode there, not as ordinary fire
       if (fr.posEv && fr.posEv.day !== st.posDay) return;
       if (api.fuel) api.fuel(0, ww.fuel ?? 1);
@@ -3547,7 +3669,7 @@ function viewHQ(){
   ${ui.hqMore ? `<div class="grid2" style="margin-top:12px">
     <div class="panel"><h3>Соотношение сил</h3>
       <div class="cmp-head"><span>Мы</span><span>Противник</span></div>
-      ${cmp("удар по земле", my.g, th.g)}${cmp("оборона", my.gd, th.gd)}${cmp("авиация", my.air, th.air)}${cmp("ПВО", my.ad, th.ad)}${cmp("ударная авиация и дроны", my.airG, th.airG)}${cmp("личный состав, тыс.", freeArmy()*share, e.army)}
+      ${cmp("удар по земле", my.g, th.g)}${cmp("оборона", my.gd, th.gd)}${cmp("авиация", my.air, th.air)}${cmp("ПВО", my.ad, th.ad)}${cmp("ударная авиация и дроны", my.airG, th.airG)}${cmp("личный состав, тыс.", w.men||0, e.army*Math.min(1, w.emen ?? 1))}
     </div>
     <div class="panel"><h3>Боеприпасы</h3><div class="dip-tags">${amm || `<span class="muted">не расходуются</span>`}</div>
       <div class="label">Сколько дней боёв хватит в текущем режиме. Кончатся — техника этого типа бьёт втрое слабее.</div>
@@ -4686,7 +4808,7 @@ function warTurn(){
   S.wars.forEach(warMonth);
   warOutcomes();
 }
-function enemyLoss(w){ const a = Object.values(w.eu0||{}).reduce((x, y) => x + y, 0), b = Object.values(w.eu||{}).reduce((x, y) => x + y, 0) + Object.values(w.er||{}).reduce((x, y) => x + y, 0); return a ? 1 - b/a : 0; }
+function enemyLoss(w){ const a = Object.values(w.eu0||{}).reduce((x, y) => x + y, 0), b = Object.values(w.eu||{}).reduce((x, y) => x + y, 0) + Object.values(w.er||{}).reduce((x, y) => x + y, 0) + eroadCount(w); return a ? 1 - b/a : 0; }
 function warOutcomes(){
   const meC = me();
   S.wars.slice().forEach(w => {
@@ -7873,6 +7995,7 @@ document.addEventListener("click", e => {
   if (t.dataset.warplan){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.plan = t.dataset.warplan; applyPlan(w); depPreset(w); applyPlan(w); } save(); render(); return; }
   if (t.dataset.depopen !== undefined){ showDeploy(ui.hqWar, +t.dataset.depopen); return; }
   if (t.dataset.depcat){ const [c, a] = t.dataset.depcat.split(":"); const o = ui.depOpen; if (o){ depCatAction(o.enemy, o.i, c, a); showDeploy(o.enemy, o.i); render(); } return; }
+  if (t.dataset.deprecall){ const o = ui.depOpen, w = o && S.wars.find(x => x.enemy === o.enemy); if (w){ const men = t.dataset.deprecall === "men"; roadRecall(w, men ? null : o.i, men ? [MEN] : null); save(); showDeploy(o.enemy, o.i); render(); } return; }
   if (t.dataset.depall){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) depAll(w); render(); return; }
   if (t.dataset.storm !== undefined){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) stormLine(w, +t.dataset.storm); save(); render(); return; }
   if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
