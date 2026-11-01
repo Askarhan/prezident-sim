@@ -64,12 +64,13 @@ def sf_split_gun(tur, min_len=0.8, max_cross=0.45):
     gme = bpy.data.meshes.new(tur.name.replace("_turret", "_gun")); gb.to_mesh(gme); gb.free(); bm.to_mesh(tur.data); bm.free()
     for m in tur.data.materials: gme.materials.append(m)
     g = bpy.data.objects.new(gme.name, gme); bpy.context.scene.collection.objects.link(g); return g
-def sf_decimate(ob, target):
+def sf_decimate(ob, target, sym=None):
     n = len(ob.data.polygons)
     if n <= target: return n
     vs = [v.co for v in ob.data.vertices]; pad = 0.03   # local space: the bmesh below works on local coordinates
     mn = Vector((min(v.x for v in vs), min(v.y for v in vs), min(v.z for v in vs))); mx = Vector((max(v.x for v in vs), max(v.y for v in vs), max(v.z for v in vs)))
     md = ob.modifiers.new("dec", "DECIMATE"); md.ratio = max(0.05, target/n)
+    if sym: md.use_symmetry = True; md.symmetry_axis = sym   # keeps left and right halves alike (the Su-57 lost half a wing without it)
     bpy.context.view_layer.objects.active = ob; bpy.ops.object.select_all(action="DESELECT"); ob.select_set(True)
     bpy.ops.object.modifier_apply(modifier=md.name)
     # collapsing welded, non-manifold meshes can throw spikes outside the model: cut them
@@ -348,7 +349,7 @@ def sf_make_air(root_name, mid, front, rotors=(), accent=None, targets=(6000, 70
     Rf = Matrix.Rotation({"+X": 0, "-Y": math.pi/2, "-X": math.pi, "+Y": -math.pi/2}[front], 4, "Z")
     hubs = [M @ (Rf @ Vector(rt[2])) if len(rt) > 2 else None for rt, g in zip(rotors, groups) if g]
     for o in list(root.children_recursive) + [root]: bpy.data.objects.remove(o, do_unlink=True)
-    sf_decimate(H, targets[0])
+    sf_decimate(H, targets[0], sym="Y")   # nose +X, centred: Y is the left/right axis
     for R in Rs: sf_decimate(R, targets[1])
     if accent:
         acc = bpy.data.materials.get("u_accent"); H.data.materials.append(acc); ai = len(H.data.materials) - 1

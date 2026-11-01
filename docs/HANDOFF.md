@@ -167,7 +167,8 @@ Read this first in a new session.
 - Check: the six files load in headless GLTFLoader (three from the `apk` branch); not looked at on the field.
 
 ## Batch 4 (01.11.2026)
-- Su-57 (andertan, nose −X, no gear in the import) and F-35A (andertan, nose −Y; gear and hanging doors dropped with `sf_loose`, predicate on part size: `mn.z<1.25 and len<2 and width<1`, or thin `width<0.3` parts below the fuselage). Both in `BF3D_MODELS`, removed from `BF3D_LIKE`. Accent = top 30% of the rear 30% (fins). The Su-57 came out 18.5 m long instead of 20.1 (`length` is applied before trimming); fine on the field.
+- Su-57 (andertan, nose −X, no gear in the import) and F-35A (andertan, nose −Y; gear and hanging doors dropped with `sf_loose`, predicate on part size: `mn.z<1.25 and len<2 and width<1`, or thin `width<0.3` parts below the fuselage). Both in `BF3D_MODELS`, removed from `BF3D_LIKE`. Accent = top 30% of the rear 30% (fins).
+- The first Su-57 export had lost half a wing and a tail plane (95k → 6k decimation collapsed one side; the user noticed). Fixed: `sf_decimate(ob, target, sym=None)` can decimate symmetrically, and `sf_make_air` now decimates the airframe with `sym="Y"`. The PC copy of `kab_sf.py` (`D:\\Projects\\kabinet_units\\scripts`) is still the old one: copy the repo version over before the next aircraft. Checked L/R area of the other batch models: F-35, HQ-9, HQ-17 even; IRIS-T uneven, but the import itself is (side equipment).
 - IRIS-T SLS is shown by the IRIS-T SLM **radar** truck (TRML-4D, KojfDiscord War Thunder, 293k): hull only, every part pre-decimated to 1/5. `irist_sls_lo` is heavy (5.6k tris, 550 KB).
 - `sf_box` returns lists, not Vectors: `drop(mn, mx, c)` predicates index `mn[2]`, not `mn.z` (the `accent` callback does get Vectors).
 - Checked: the six files load in headless GLTFLoader.
