@@ -195,6 +195,7 @@ Read this first in a new session.
 - Lancet: the pusher prop is welded to the body by `sf_loose`; cut it off in edit mode (faces with world `y < -0.695` → `separate SELECTED`), then rotor `x`, nose +Y. `sf_make_air` deletes the import root, so inspect/split before calling it (each retry = a new import).
 - Tu-22M3: the import is yawed 151° in the ground plane with gear down; gear groups have names (`stoika_lef/rig/nos`, `stvorka*`, `Line45`) and were deleted. Aligned by rotating about Z along the fin-top → cockpit line, copied unwelded to world space, pre-decimated /3 with `sym="Y"`.
 - Device calls can time out after 60 s while Blender keeps working (a Sketchfab import did): check the scene for `Sketchfab_model` instead of importing again.
+- Heavy bombers are shown smaller than life (user: the B-1B looked too big): `AIR_SCALE` in bf3d.js, b1b 0.55 (→ 24 m), tu22 0.6 (→ 25 m).
 - Still on fallbacks (no CC BY model found or not tried): Switchblade 600 (→ Shahed; nothing on Sketchfab), HQ-16 (procedural), Compass Call (ew), transports Il-76/C-130/Y-20 (not drawn on the field?), stand-ins bmp3/phl03/s500.
 
 ## Next

@@ -516,6 +516,7 @@ export async function start(el, ctx){
   const airCap = () => level === "low" ? {plane:2, heli:2, drone:2} : {plane:4, heli:3, drone:4};
   // heights stay under the default camera (~105 m up) so passes read as low and fast
   // jets cross the field in a few seconds; helicopters and drones are slower but not toy-slow
+  const AIR_SCALE = {b1b:0.55, tu22:0.6};
   const SPEC = {plane:{v:75, alt:[30, 40], turn:1.6}, heli:{v:18, alt:[12, 18], turn:0.9}, drone:{v:26, alt:[44, 54], turn:0.6}, loiter:{v:50, alt:[28, 36], turn:2.2}};
   const bombGeo = new THREE.CapsuleGeometry(0.22, 0.9, 2, 6), bombMat = new THREE.MeshStandardMaterial({color:0x3a3d38, roughness:0.6, metalness:0.3});
   bombGeo.rotateZ(Math.PI/2);
@@ -544,6 +545,7 @@ export async function start(el, ctx){
     a.rotors = []; a.hull = null; set.obj.traverse(o => { if (/_rotor\d*$/.test(o.name)) a.rotors.push(o); if (/_hull$/.test(o.name)) a.hull = o; });
     a.axes = String((a.hull && a.hull.userData && a.hull.userData.rotors) || "").split(",");
     if (a.loiter) root.scale.setScalar(a.model === "shahed" ? (a.id === "shahed" ? 1 : 0.6) : 0.26);   // Shahed model is life-size; smaller loitering munitions borrow it at 0.6
+    else if (AIR_SCALE[a.model]) root.scale.setScalar(AIR_SCALE[a.model]);   // heavy bombers at real size (40+ m) dwarf the low-flying field: shrink to ~25 m
     a.obj = root; scene.add(root); a.chased = false; a.pendT = 0;
     const s = own(a), sp = a.spec, R = Math.random;
     a.alt = sp.alt[0] + R()*(sp.alt[1] - sp.alt[0]); a.v = sp.v; a.pitch = 0; a.roll = 0; a.h = a.side ? -Math.PI/2 : Math.PI/2;
