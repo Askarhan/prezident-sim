@@ -114,11 +114,16 @@ Read this first in a new session.
 - Pitfalls: the sim/test server must send `.js` as `text/javascript` (module import); `www/lib/three` is not in git (CI copies it): in a session without npm, take it from the APK on the `apk` branch (`assets/public/lib/three`). Headless Chromium has WebGL with `--use-angle=swiftshader --enable-unsafe-swiftshader`.
 - The user's working rules for the assistant (save tokens: short tool output, few images, batches of ≤3 models, short reports, update this file and suggest a new chat at the end of a stage) were given in chat. Ask the user to paste them again in a new chat.
 
-## Next stage (asked 01.11.2026, not discussed in detail yet): delivery to the front
+## Next stage (asked 01.11.2026, partly agreed): delivery to the front
 - Sending machines **and troops** from the reserve to a direction needs oil and time: they travel, e.g. ~180 days, before they fight.
 - Transport aviation (`transport` kind) shortens the trip.
 - The reserve army (personnel, `me().army` not at the front) reaches the front the same way.
-- Open questions to settle with the user first: fixed 180 days or by distance (`farWar`, `travelDays`), oil per machine for the trip, what the deployment window shows (en route / arrival date), whether units can be recalled while en route, does the enemy obey the same rule.
+- The user's answers (01.11.2026):
+  - Travel time depends on the distance to the enemy (`farWar`, `travelDays`); ~180 days is the long end.
+  - Oil for the trip: calculate it (per machine and per day on the road, like `FUEL_BBL`).
+  - Units en route can be recalled.
+  - The enemy obeys the same rule.
+- Still to settle when the stage starts: what the deployment window shows (en route, arrival date), how much transport aviation shortens the trip, the numbers for oil and days. Show the user the plan with these numbers before building.
 
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
