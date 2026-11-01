@@ -139,6 +139,15 @@ function treeGeo(R, kind){
   }
   return merge(parts);
 }
+// battle cover between the lines: broken walls, ruins, earth berms, rocks
+function coverGeo(R, kind, len){
+  const parts = [];
+  if (kind === "wall"){ const n = 2 + Math.floor(R()*2), seg = len/n; for (let k = 0; k < n; k++){ if (k && R() < 0.3) continue; const h = 1.4 + R()*0.9, b = new THREE.BoxGeometry(seg*(0.75 + R()*0.2), h, 0.6); b.translate(-len/2 + seg*(k + 0.5), h/2, 0); parts.push(colorize(jitter(b, R, 0.08), R() < 0.5 ? 0x9a948a : 0x8a7f72, 0.12, R)); } }
+  else if (kind === "ruin"){ const w = len, d = 3 + R()*2; [[w, 0.7, 0, -d/2], [0.7, d, -w/2, 0], [w*0.5, 0.7, -w/4, d/2]].forEach(([sx, sz, x, z], k) => { const h = 1.2 + R()*(k ? 1.4 : 2.2), b = new THREE.BoxGeometry(sx, h, sz); b.translate(x, h/2, z); parts.push(colorize(jitter(b, R, 0.12), 0xa59f95, 0.15, R)); });
+    const rub = new THREE.DodecahedronGeometry(1.2, 0); rub.scale(1.4, 0.5, 1.2); rub.translate(w*0.15, 0.2, 0); parts.push(colorize(jitter(rub, R, 0.3), 0x8d867c, 0.2, R)); }
+  else { const b = new THREE.CylinderGeometry(1.5, 1.5, len, 7, 1); b.rotateZ(Math.PI/2); b.scale(1, 0.85, 1.3); b.translate(0, 0.1, 0); parts.push(colorize(jitter(b, R, 0.2), kind === "rock" ? 0x7d7a74 : 0x6f5a3e, 0.15, R)); }
+  return merge(parts);
+}
 function houseGeo(R){
   const parts = [], w = 7 + R()*3, d = 6 + R()*2, h = 3;
   const b = new THREE.BoxGeometry(w, h, d); b.translate(0, h/2, 0); parts.push(colorize(b, R() < 0.5 ? 0xb8ad98 : 0x9c9486, 0.1, R));
@@ -319,9 +328,21 @@ export async function start(el, ctx){
   const CLS = {tank:{tank:1, ifv:1.2, apc:1.3, arty:1.3}, ifv:{tank:0.45, ifv:1, apc:1.2, arty:1.1}, apc:{tank:0.15, ifv:0.5, apc:1, arty:0.9},
     sph:{tank:0.5, ifv:0.8, apc:1, arty:0.9}, mlrs:{tank:0.4, ifv:0.9, apc:1.2, arty:1}, srbm:{tank:1.5, ifv:1.5, apc:1.5, arty:1.5}};
   const bCls = k => k === "tank" || k === "ifv" || k === "apc" ? k : "arty";
-  function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; }
-  if (B) units.forEach(bInit);
-  scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]), level === "low" ? 0.55 : 1);
+  function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.next = Math.random()*3; u.lane = u.x; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; }
+  if (B){ units.forEach(bInit);
+    // the outermost squads of each side try to go round the flank
+    [0, 1].forEach(sd => { const fr = units.filter(u => u.side === sd && u.role === "front").sort((a, b) => a.x - b.x); if (fr.length >= 4){ fr[0].flank = -1; fr[fr.length - 1].flank = 1; } });
+    const RC = rng(ctx.seed + 77), kinds = ctx.terrain === "u" ? ["ruin", "ruin", "wall", "berm"] : ctx.terrain === "m" ? ["rock", "rock", "berm", "ruin"] : ctx.terrain === "f" ? ["berm", "berm", "ruin", "wall"] : ["berm", "wall", "ruin", "berm"];
+    const n = level === "low" ? 16 : 24, geos = []; B.covers = []; B.spots = [];
+    for (let k = 0, tries = 0; k < n && tries < 400; tries++){
+      const x = (RC() - 0.5)*FIELD*0.84, z = (RC() - 0.5)*100, kind = kinds[Math.floor(RC()*kinds.length)], len = kind === "ruin" ? 5 + RC()*3 : 6 + RC()*6;
+      if (B.covers.some(c => Math.hypot(c.x - x, c.z - z) < 15) || units.some(u => Math.hypot(u.x - x, u.z - z) < 7)) continue;
+      const ang = (RC() - 0.5)*0.5, g = coverGeo(RC, kind, len); g.rotateY(ang); g.translate(x, G.height(x, z) - 0.15, z); geos.push(g); k++;
+      const ex = Math.cos(ang), ez = -Math.sin(ang), nx = Math.sin(ang), nz = Math.cos(ang), r = kind === "wall" ? 1 : kind === "ruin" ? 2.6 : 1.9;
+      B.covers.push({x, z, kind, pts:[-len/3, 0, len/3].map(o => [x + ex*o, z + ez*o, Math.max(r, len/6)])});
+      (len >= 8 ? [-len/4, len/4] : [0]).forEach(o => [0, 1].forEach(sd => { const k2 = sd ? -3.6 : 3.6; B.spots.push({x:x + ex*o + nx*k2, z:z + ez*o + nz*k2, side:sd, by:null}); })); }
+    if (geos.length){ const cm = new THREE.Mesh(merge(geos), new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.95, metalness:0, flatShading:true})); cm.castShadow = cm.receiveShadow = true; scene.add(cm); } }
+  scatterProps(scene, ctx, G, R, [...units.map(u => [u.x, u.z, 9]), ...(B ? B.covers.map(c => [c.x, c.z, 8]) : [])], level === "low" ? 0.55 : 1);
   // load models and place them
   // weak phones load only the light copies; the others load the full models now and the light ones in the background
   const models = {};
@@ -447,11 +468,46 @@ export async function start(el, ctx){
   function bShot(u, t, frac = 1){
     if (!t || !t.alive || B.ended) return; const a = B.stats[u.id], d = B.stats[t.id]; if (!a || !d) return;
     const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc", dist = Math.hypot(t.x - u.x, t.z - u.z);
-    const acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (Math.random() > acc) return;
+    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
     if (direct && (d.kind === "tank" || d.kind === "ifv")){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
       if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
     const pen = 2*a.ga/(a.ga + d.df);
     t.pend += u.cnt*a.ga*0.25*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
+  }
+  // line of fire: 0 blocked (cover or a hill between), 1 clear, 2 clear but the target hugs cover (harder to hit)
+  function bLos(a, t){
+    const ax = a.x, az = a.z, dx = t.x - ax, dz = t.z - az, L2 = dx*dx + dz*dz || 1, L = Math.sqrt(L2); let cov = false;
+    for (const c of B.covers) for (const o of c.pts){ const q = clamp(((o[0] - ax)*dx + (o[1] - az)*dz)/L2, 0, 1), px = ax + dx*q - o[0], pz = az + dz*q - o[1]; if (px*px + pz*pz > o[2]*o[2]) continue;
+      const ds = q*L, de = (1 - q)*L; if (ds < 6) continue; if (de < 7){ cov = true; continue; } return 0; }
+    const ya = G.height(ax, az) + 2.2, yb = G.height(t.x, t.z) + 1.5; for (let k = 1; k < 6; k++){ const q = k/6; if (G.height(ax + dx*q, az + dz*q) > ya + (yb - ya)*q + 0.4) return 0; }
+    return cov ? 2 : 1;
+  }
+  // a few times a second: the nearest enemy it can really see (a player's target first)
+  function bTarget(u, dt){
+    u.tT = (u.tT || 0) - dt;
+    if (u.forced && u.forced.alive){ if (u.tT < 0 || u.target !== u.forced){ u.target = u.forced; u.tT = 0.4; const l = bLos(u, u.target); u.los = l > 0; u.tcov = l === 2; } return; }
+    u.forced = null; if (u.target && u.target.alive && u.tT > 0) return; u.tT = 0.5 + Math.random()*0.3;
+    const es = enemiesOf(u).map(v => [v, Math.hypot(v.x - u.x, v.z - u.z)]).sort((a, b) => a[1] - b[1]).slice(0, 4);
+    let pick = null; for (const [v] of es){ const l = bLos(u, v); if (l){ pick = [v, l]; break; } }
+    if (pick){ u.target = pick[0]; u.los = true; u.tcov = pick[1] === 2; u.blind = 0; }
+    else { u.target = es.length ? es[0][0] : null; u.los = u.tcov = false; if (u.state === "hold" && !u.order && (u.blind = (u.blind || 0) + 0.6) > 5){ u.blind = 0; u.next = Math.min(u.next, 0); } }
+  }
+  // the next position: cover to cover toward the enemy (attacker), the best cover near its lane (defender), back to safer cover when badly hit
+  function bPlan(u){
+    if (u.spot && u.spot.by === u) u.spot.by = null; u.spot = null;
+    const s = u.side ? -1 : 1, foe = enemiesOf(u); if (!foe.length){ u.next = 3; return; }
+    let nf = foe[0], nd = 1e9; for (const v of foe){ const d = Math.hypot(v.x - u.x, v.z - u.z); if (d < nd){ nd = d; nf = v; } }
+    const hurt = !u.hurtDone && u.hp < u.hpMax*0.45; if (hurt){ u.hurtDone = true; floats.push({u, text:"отходит в укрытие", t:0}); }
+    const push = u.side === B.atkSide && !hurt && nd > (u.flank ? 22 : 34), lane = u.flank ? clamp(u.lane + u.flank*25, -FIELD*0.45, FIELD*0.45) : u.lane;
+    let best = null, bs = -1e9;
+    for (const p of B.spots){ if (p.side !== u.side || (p.by && p.by !== u && p.by.alive)) continue;
+      const prog = (u.z - p.z)*s, dx = Math.abs(p.x - lane), d = Math.hypot(p.x - u.x, p.z - u.z); if (d > 60) continue;
+      let sc = hurt ? -prog*1.2 - dx*0.3 + (prog < -6 ? 10 : -30) : push ? (prog > 5 && prog < 32 ? 30 - Math.abs(prog - 16) : -40) - dx*0.6 : -Math.abs(prog)*0.6 - dx*0.4 - d*0.2;
+      if (!hurt && sc > bs - 15) sc += bLos(p, nf) ? 12 : -8;   // will it see the enemy from there?
+      if (sc > bs){ bs = sc; best = p; } }
+    if (best && bs > -35){ best.by = u; u.spot = best; u.wp = [best.x, best.z]; }
+    else { const fw = push ? 10 + Math.random()*8 : hurt ? -14 : 0; u.wp = [clamp(lane + (Math.random() - 0.5)*16, -FIELD/2 + 8, FIELD/2 - 8), clamp(u.z - s*fw + (Math.random() - 0.5)*6, -FIELD/2 + 8, FIELD/2 - 8)]; }
+    u.state = "move";
   }
   async function bSpawn(side, id, n){ B.coming[side]++; try { await reinforce(side, id, n); } finally { B.coming[side]--; } }
   function bReserve(side){ const j = B.reserve.findIndex(r => r.side === side && r.at == null); if (j < 0) return; const r = B.reserve.splice(j, 1)[0]; bSpawn(side, r.id, r.n); }
@@ -466,6 +522,7 @@ export async function start(el, ctx){
     for (let j = B.reserve.length - 1; j >= 0; j--){ const r = B.reserve[j]; if (r.at != null && B.t >= r.at){ B.reserve.splice(j, 1); bSpawn(r.side, r.id, r.n); } }
     // mines: the attacker's moving squads in the first minute and a half
     if (B.t < 90) for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*0.012){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
+    if (B.mark && B.markT > 0){ B.markT -= dt; B.mark.material.opacity = clamp(B.markT, 0, 1); }
     if (B.chk > 0) return; B.chk = 0.5;
     const alive = s => units.some(u => u.alive && u.side === s && !u.air) || B.coming[s] > 0 || B.reserve.some(r => r.side === s);
     if (!alive(1)) return bEnd(true); if (!alive(0)) return bEnd(false);
@@ -517,9 +574,22 @@ export async function start(el, ctx){
   const hud = document.createElement("canvas"); hud.className = "bf3d-hud"; el.appendChild(hud); const hg = hud.getContext("2d");
   let selected = null, selT = 0, downAt = null;
   cv.addEventListener("pointerdown", e => { downAt = {x:e.clientX, y:e.clientY, t:performance.now()}; });
-  cv.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
+  let bTap = false; const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  if (B) cv.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400 || B.ended) return;
+    const me = selected; if (!me || !me.alive || me.side !== 0 || me.air || me.role !== "front") return;
+    const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; let best = null, bd = 44;
+    for (const u of units){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5), d = Math.hypot(q.x - mx, q.y - my); if (d < bd){ bd = d; best = u; } }
+    if (best && best.side === 0) return;   // another of ours: just select it
+    bTap = true;
+    if (best){ me.forced = best; me.tT = 0; floats.push({u:best, text:"цель", t:0}); return; }
+    ndc.set(mx/r.width*2 - 1, -(my/r.height)*2 + 1); ray.setFromCamera(ndc, camera); const hit = ray.intersectObject(G.mesh)[0]; if (!hit) return;
+    const x = clamp(hit.point.x, -FIELD/2 + 8, FIELD/2 - 8), z = clamp(hit.point.z, -FIELD/2 + 8, FIELD/2 - 8);
+    if (me.spot && me.spot.by === me) me.spot.by = null; me.spot = null; me.order = {x, z}; me.wp = [x, z]; me.state = "move"; me.next = 999; me.forced = null;
+    B.mark = B.mark || (() => { const m = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.3, 28), new THREE.MeshBasicMaterial({color:0x7fb0ff, transparent:true, depthWrite:false})); m.rotation.x = -Math.PI/2; scene.add(m); return m; })();
+    B.mark.position.set(x, G.height(x, z) + 0.3, z); B.mark.material.opacity = 1; B.markT = 1.6; floats.push({u:me, text:"выдвигаюсь", t:0}); });
+  cv.addEventListener("pointerup", e => { if (bTap){ bTap = false; return; } if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
     const r = cv.getBoundingClientRect(); let best = null, bd = 44; for (const u of [...units, ...air]){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5); const d = Math.hypot(q.x - (e.clientX - r.left), q.y - (e.clientY - r.top)); if (d < bd){ bd = d; best = u; } }
-    selected = best; selT = 4; });
+    selected = best; selT = B ? 8 : 4; if (B && best && best.side === 0 && best.role === "front" && !B.ended) floats.push({u:best, text:"куда? тапни точку или врага", t:0}); });
   // a tap on the FPS line (top right) switches the next part of the field off, to see what slows a phone down
   const DIAG = ["", "звук", "подписи", "авиация", "дым и огонь", "всё перечисленное"]; let diag = 0;
   cv.addEventListener("pointerup", e => { const r = cv.getBoundingClientRect(); if (r.right - e.clientX > 320 || e.clientY - r.top > 30) return;
@@ -548,6 +618,7 @@ export async function start(el, ctx){
       const w = 26, k = clamp(u.hp/u.hpMax, 0, 1);
       hg.fillStyle = "rgba(0,0,0,.55)"; hg.fillRect(q.x - w/2 - 1, q.y - 1, w + 2, 5);
       hg.fillStyle = u.side ? "#ff5a4f" : "#4f8cff"; hg.fillRect(q.x - w/2, q.y, w*k, 3);
+      if (B && u === selected){ const g = screenOf(u, 0.5); hg.strokeStyle = "#9cc0ff"; hg.lineWidth = 2; hg.beginPath(); hg.ellipse(g.x, g.y, 22, 11, 0, 0, Math.PI*2); hg.stroke(); }
       if (u.nofuel){ const t = "нет топлива"; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#ffb347"; hg.fillText(t, q.x, q.y - 4); }
       else if (close || u === selected || B){ const t = B ? (u.cnt < u.n0 ? `${bName(u)} ×${u.n0} → ×${u.cnt}` : `${bName(u)} ×${u.cnt}`) : `${ctx.names[u.id] || u.id} ×${Math.max(1, Math.round(u.hp))}`; hg.lineWidth = 3; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.strokeText(t, q.x, q.y - 4); hg.fillStyle = "#fff"; hg.fillText(t, q.x, q.y - 4); } }
     for (let i = floats.length - 1; i >= 0; i--){ const f = floats[i]; f.t += dt; if (f.t > 1.6 || !f.u.obj){ floats.splice(i, 1); continue; }
@@ -798,18 +869,18 @@ export async function start(el, ctx){
       const turn = angDiff(u.h, want); u.h += clamp(turn, -0.7*dt, 0.7*dt);
       if (Math.abs(turn) < 0.5){ const v = Math.min(d, (u.next > 900 ? 9 : 5)*dt); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
         if (Math.random() < dt*8) fxSmoke.emit({x:u.x - Math.cos(u.h)*3.5 + (Math.random() - 0.5)*2, y:G.height(u.x, u.z) + 0.3, z:u.z + Math.sin(u.h)*3.5 + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5), vy:0.6, vz:(Math.random() - 0.5), life:2 + Math.random(), s0:1.4, s1:5, c:ctx.terrain === "d" ? [0.72, 0.6, 0.42] : [0.52, 0.45, 0.34], a:0.35, drag:0.8, fadeIn:0.1}); }
-      if (d < 1.5){ u.state = "hold"; u.next = 10 + Math.random()*16; }
+      if (d < 1.5){ u.state = "hold"; u.next = B ? (u.order ? 25 : u.side === B.atkSide ? 5 + Math.random()*6 : 12 + Math.random()*10) : 10 + Math.random()*16; if (B) u.order = null; }
     } else if (u.next < 0){
       // a short bound to a new firing position
-      const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move";
+      if (B) bPlan(u); else { const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move"; }
     }
     // target and turret
-    if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
+    if (B) bTarget(u, dt); else if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
     if (u.turret){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
       if (u.gun){ const el2 = u.target ? clamp(Math.hypot(u.target.x - u.x, u.target.z - u.z)/2200, 0.005, 0.06) : 0; u.gun.rotation.z = lerp(u.gun.rotation.z, el2, dt*2); }
-      if (u.target && Math.abs(diff) < 0.035 && u.reload < 0){ const k = ctx.kindOf[u.id]; if (B) bShot(u, u.target); fireAt(u, u.target, k === "ifv" ? 4 : k === "apc" ? 7 : 0); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(k === "apc" ? 0.5 : k === "ifv" ? 0.6 : 1)*(0.7 + Math.random()*0.6); }
+      if (u.target && Math.abs(diff) < 0.035 && u.reload < 0 && (!B || u.los)){ const k = ctx.kindOf[u.id]; if (B) bShot(u, u.target); fireAt(u, u.target, k === "ifv" ? 4 : k === "apc" ? 7 : 0); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(k === "apc" ? 0.5 : k === "ifv" ? 0.6 : 1)*(0.7 + Math.random()*0.6); }
     }
     if (u.recoil){ u.recoil = Math.max(0, u.recoil - dt*4); if (u.gun) u.gun.position.x = u.gun0 - Math.sin(u.recoil*Math.PI)*0.45; }
     // losses no gun is aiming at arrive by artillery or a drone
