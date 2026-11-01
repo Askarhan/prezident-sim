@@ -323,7 +323,7 @@ export async function start(el, ctx){
   }));
   /* ---- a commanded battle (ctx.battle): the field decides. Each unit is a squad of real machines: hp = machines × machine armour,
      a shot hits with the strength of all its live machines; every machine lost goes to the game through onLoss ---- */
-  const B = ctx.battle ? Object.assign({t:0, lost:[0, 0], coming:[0, 0], feed:[], ended:false, chk:0, shake:0}, ctx.battle) : null;
+  const B = ctx.battle ? Object.assign({t:0, lost:[0, 0], coming:[0, 0], cn:[0, 0], feed:[], ended:false, chk:0, shake:0}, ctx.battle) : null;
   // attacker kind → target kind: tank vs tank full, autocannon vs tank weak, artillery in between
   const CLS = {tank:{tank:1, ifv:1.2, apc:1.3, arty:1.3}, ifv:{tank:0.45, ifv:1, apc:1.2, arty:1.1}, apc:{tank:0.15, ifv:0.5, apc:1, arty:0.9},
     sph:{tank:0.5, ifv:0.8, apc:1, arty:0.9}, mlrs:{tank:0.4, ifv:0.9, apc:1.2, arty:1}, srbm:{tank:1.5, ifv:1.5, apc:1.5, arty:1.5}};
@@ -472,7 +472,7 @@ export async function start(el, ctx){
     if (direct && (d.kind === "tank" || d.kind === "ifv")){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
       if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
     const pen = 2*a.ga/(a.ga + d.df);
-    t.pend += u.cnt*a.ga*0.25*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
+    t.pend += u.cnt*a.ga*0.13*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
   }
   // line of fire: 0 blocked (cover or a hill between), 1 clear, 2 clear but the target hugs cover (harder to hit)
   function bLos(a, t){
@@ -509,7 +509,7 @@ export async function start(el, ctx){
     else { const fw = push ? 10 + Math.random()*8 : hurt ? -14 : 0; u.wp = [clamp(lane + (Math.random() - 0.5)*16, -FIELD/2 + 8, FIELD/2 - 8), clamp(u.z - s*fw + (Math.random() - 0.5)*6, -FIELD/2 + 8, FIELD/2 - 8)]; }
     u.state = "move";
   }
-  async function bSpawn(side, id, n){ B.coming[side]++; try { await reinforce(side, id, n); } finally { B.coming[side]--; } }
+  async function bSpawn(side, id, n){ B.coming[side]++; B.cn[side] += n; try { await reinforce(side, id, n); } finally { B.coming[side]--; B.cn[side] -= n; } }
   function bReserve(side){ const j = B.reserve.findIndex(r => r.side === side && r.at == null); if (j < 0) return; const r = B.reserve.splice(j, 1)[0]; bSpawn(side, r.id, r.n); }
   function bEnd(win){
     if (B.ended) return; B.ended = true; B.win = win; const lose = win ? 1 : 0, own = lose ? -1 : 1;
@@ -526,6 +526,9 @@ export async function start(el, ctx){
     if (B.chk > 0) return; B.chk = 0.5;
     const alive = s => units.some(u => u.alive && u.side === s && !u.air) || B.coming[s] > 0 || B.reserve.some(r => r.side === s);
     if (!alive(1)) return bEnd(true); if (!alive(0)) return bEnd(false);
+    // a side down to about a third of what it brought breaks: the survivors pull back (the war keeps them)
+    const left = s => units.reduce((a, u) => a + (u.alive && u.side === s && !u.air ? u.cnt : 0), 0) + B.cn[s] + B.reserve.reduce((a, r) => a + (r.side === s ? r.n : 0), 0);
+    if (B.t > 30) for (const s of [1, 0]) if (left(s) < B.total[s]*0.35){ B.feed.unshift({text:s ? "враг отступает" : "наши отходят", side:1 - s, t:0}); return bEnd(s === 1); }
     if (B.type === "atk" && B.t >= B.limit){ const sh = s => B.lost[s]/Math.max(1, B.total[s]); return bEnd(sh(0) < sh(1)); }   // time is up: the side with more losses pulls back
     if (B.type === "def" && B.t >= B.hold) return bEnd(true);
   }
@@ -1041,6 +1044,7 @@ export async function start(el, ctx){
     raid(type, o){ raid(type, o); },
     strike(side, type, o){ return cstrike(side, type, o); },
     aim(fn){ if (B) B.aim = fn || null; },
+    ff(sec){ for (let k = 0; k < sec*20 && running; k++) step(0.05); },   // test hook: run the field ahead without drawing
     battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win} : null; },
     // share of a side's ground squads that has fuel; the rest stands still with a «нет топлива» label
     fuel(side, k){ const g = units.filter(u => u.alive && u.obj && u.side === side && !u.air), dry = Math.round(g.length*(1 - clamp(k, 0, 1)));

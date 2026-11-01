@@ -3716,7 +3716,7 @@ function bf3dBattle(st, w, i){
     const list = Object.keys(grp).filter(id => MODELS[id] && BF3D_ROLE[MODELS[id].kind] === role && grp[id] > 0).sort((a, b) => grp[b] - grp[a]);
     list.forEach(id => { const m = MODELS[id]; stats[id] = {ga:m.ga, df:m.df, kind:m.kind}; });
     const tot = list.reduce((a, id) => a + grp[id], 0); total[side] += tot; if (role === "front") counts[side] = tot; if (!tot) return;
-    const waves = role === "front" && cb.type === "def" && side === 1, cap = role === "front" ? (waves ? Math.min(W, Math.ceil(tot/3)) : W) : tot;
+    const waves = role === "front" && cb.type === "def" && side === 1, cap = role === "front" ? (waves ? Math.min(W, Math.ceil(tot*0.6)) : W) : tot;
     const E = Math.min(tot, cap), N = clamp(Math.round(E/3), 1, role === "front" ? slots : 2), avg = Math.max(3, Math.ceil(E/N));
     // squads per model: every model gets one while there are slots, the rest by size
     const k = list.map(id => [id, grp[id]/tot*N]).map(([id, v]) => [id, Math.floor(v), v - Math.floor(v)]);
@@ -3726,8 +3726,8 @@ function bf3dBattle(st, w, i){
     const chunks = [];
     k.forEach(([id, q]) => { let used = 0; if (q > 0){ const e = Math.max(q, Math.round(grp[id]*E/tot)); for (let j = 0; j < q; j++){ const n = Math.max(1, Math.round(e/q)); if (used + n > grp[id]) break; units.push({id, model:bf3dModel(id), side, role, hp:n}); used += n; } }
       for (let r = grp[id] - used; r > 0; r -= avg) chunks.push({side, id, n:Math.min(r, avg)}); });
-    // the attacker in a defence battle comes in waves: a minute apart
-    let acc = 0; chunks.forEach(c => { if (waves){ c.at = acc < cap ? 60 : acc < 2*cap ? 120 : null; acc += c.n; } reserve.push(c); });
+    // the attacker in a defence battle comes in two waves: 60% at once, the next 45 s later
+    let acc = 0; chunks.forEach(c => { if (waves){ c.at = acc < cap ? 45 : null; acc += c.n; } reserve.push(c); });
   }));
   const defSide = cb.type === "atk" ? 1 : 0;
   const battle = {type:cb.type, stats, reserve, total, defSide, atkSide:1 - defSide, defK:CB_DEFK, limit:CB_LIMIT, hold:CB_HOLD,
