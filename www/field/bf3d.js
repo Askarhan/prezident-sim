@@ -40,7 +40,7 @@ const PAL = {
   u:{a:[92,92,88], b:[112,110,104], soil:[80,76,70], road:[58,60,62]},
   d:{a:[178,152,106], b:[200,176,128], soil:[150,124,88], road:[146,124,90]}
 };
-function buildGround(ctx, R, N, quality){
+function buildGround(ctx, R, N, quality, segs){
   const ter = PAL[ctx.terrain] ? ctx.terrain : "p", pal = PAL[ter], S = quality === "high" ? 2048 : 1024, k = S/FIELD;
   const cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d");
   // base colour at quarter resolution, scaled up
@@ -93,7 +93,7 @@ function buildGround(ctx, R, N, quality){
   const det = new THREE.CanvasTexture(dc); det.wrapS = det.wrapT = THREE.RepeatWrapping; det.anisotropy = 8;
   // relief: low hills, sunken trenches and craters
   // the land goes on beyond the field into the haze: one big mesh, the field texture mirrored outside
-  const BIG = FIELD*2.5, seg = quality === "high" ? 250 : 160, geo = new THREE.PlaneGeometry(BIG, BIG, seg, seg); geo.rotateX(-Math.PI/2);
+  const BIG = FIELD*2.5, seg = segs || (quality === "high" ? 250 : 160), geo = new THREE.PlaneGeometry(BIG, BIG, seg, seg); geo.rotateX(-Math.PI/2);
   tex.wrapS = tex.wrapT = THREE.MirroredRepeatWrapping;
   const amp = ter === "m" ? 9 : ter === "d" ? 4 : 2.4, pos3 = geo.attributes.position;
   const height = (x, z) => {
@@ -145,14 +145,14 @@ function houseGeo(R){
   const roof = new THREE.CylinderGeometry(d*0.62, d*0.62, w + 0.6, 3, 1); roof.rotateZ(Math.PI/2); roof.rotateX(Math.PI/6*0); roof.scale(1, 0.5, 1); roof.translate(0, h + d*0.16, 0); parts.push(colorize(roof, R() < 0.5 ? 0x6e2a1c : 0x3c4046, 0.12, R));
   return merge(parts);
 }
-function scatterProps(scene, ctx, G, R, avoid){
+function scatterProps(scene, ctx, G, R, avoid, dens = 1){
   const mat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.95, metalness:0, flatShading:true});
   const kinds = ctx.terrain === "f" ? {pine:[3, 260], oak:[2, 80], bush:[2, 60]} : ctx.terrain === "m" ? {pine:[2, 90], bush:[2, 80]} : ctx.terrain === "d" ? {bush:[2, 40]} : {oak:[3, 120], pine:[1, 20], bush:[2, 110]};
   const onRoad = (x, z, m) => G.roads.some(rd => rd.pts.some(([a, b], i) => { const q = rd.pts[i + 1]; if (!q) return false; const dx = q[0] - a, dz = q[1] - b, L2 = dx*dx + dz*dz || 1, t = clamp(((x - a)*dx + (z - b)*dz)/L2, 0, 1); return Math.hypot(x - a - dx*t, z - b - dz*t) < rd.w/2 + m; }));
   const ok = (x, z, r) => !onRoad(x, z, r) && !avoid.some(([ax, az, ar]) => Math.hypot(ax - x, az - z) < ar + r);
   const dummy = new THREE.Object3D();
-  for (const [kind, [variants, count]] of Object.entries(kinds)){
-    const geos = Array.from({length:variants}, () => treeGeo(R, kind));
+  for (const [kind, [variants, count0]] of Object.entries(kinds)){
+    const count = Math.round(count0*dens), geos = Array.from({length:variants}, () => treeGeo(R, kind));
     geos.forEach(geo => {
       const pts = [];
       for (let i = 0; i < count/variants*3 && pts.length < count/variants; i++){
@@ -215,7 +215,7 @@ class Particles {
 }
 
 /* ---------- the scene ---------- */
-/* ---------- sound: recordings for guns, explosions, helicopters and engines; jets, drones and missile launches are synthesised.
+/* ---------- sound: recordings for guns, explosions, helicopters and engines; missile and rocket launches are synthesised.
    Every sound sits on the field: quieter, duller and a little later with distance from the camera, panned to its side. ---------- */
 const SFX = {tank:["tank1", "tank2", "tank3", "tank4", "tank5"], autocannon:["autocannon"], arty:["arty"], boom:["boom"], heli:["heli_loop"], engine:["engine_loop"]};
 const SFX_GAP = {tank:0.05, autocannon:0.07, arty:0.08, boom:0.07, rocket:0.08, sam:0.12};   // the same sound no more often than this (s)
@@ -228,11 +228,11 @@ function makeSound(on, shared){
   master.connect(comp); comp.connect(ac.destination);
   const buf = {}, last = {}, plays = {}; let voices = 0, hiddenSleep = false, enabled = true;
   Object.entries(SFX).forEach(([k, names]) => { buf[k] = []; names.forEach(n => fetch(`field/sfx/${n}.ogg`).then(r => r.ok ? r.arrayBuffer() : Promise.reject(n)).then(b => ac.decodeAudioData(b)).then(d => buf[k].push(d)).catch(() => {})); });
-  const noise = (sec, brown) => { const b = ac.createBuffer(1, Math.round(ac.sampleRate*sec), ac.sampleRate), d = b.getChannelData(0); let l = 0;
-    for (let i = 0; i < d.length; i++){ const w = Math.random()*2 - 1; if (brown){ l = (l + 0.02*w)/1.02; d[i] = l*3.5; } else d[i] = w; }
+  const noise = sec => { const b = ac.createBuffer(1, Math.round(ac.sampleRate*sec), ac.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
     // loop seam: fade the ends into each other
     const f = Math.round(ac.sampleRate*0.05); for (let i = 0; i < f; i++){ const k = i/f; d[i] = d[i]*k + d[d.length - f + i]*(1 - k); } return b; };
-  const white = noise(1.5, false), brown = noise(3, true);
+  const white = noise(1.5);
   function where(x, y, z){ const dx = x - S.lx, dy = y - S.ly, dz = z - S.lz, d = Math.hypot(dx, dy, dz);
     return {d, g:1/(1 + Math.max(0, d - 45)/55), lp:clamp(16000 - (d - 60)*55, 1200, 16000), pan:clamp((dx*S.rx + dz*S.rz)/Math.max(30, d), -0.8, 0.8), delay:Math.min(0.35, d/900)}; }
   function out(p, vol){ const f = ac.createBiquadFilter(), g = ac.createGain(), pn = ac.createStereoPanner ? ac.createStereoPanner() : null;
@@ -256,21 +256,17 @@ function makeSound(on, shared){
       tg.gain.setValueAtTime(0.6, at); tg.gain.exponentialRampToValueAtTime(0.0001, at + 0.3); th.connect(tg); tg.connect(nd.f); th.start(at); th.stop(at + 0.32); }
     voices++; plays[kind] = (plays[kind] || 0) + 1; src.onended = () => { voices--; nd.g.disconnect(); }; src.start(at); if (src.loop) src.stop(at + len);
   }
-  // a continuous sound that follows something: helicopter, jet, drone, engines
+  // a continuous sound that follows something: a helicopter, the engines
   function loop(kind, o = {}){
     const p = {g:0, lp:16000, pan:0}, nd = out(p, 0), base = o.vol || 0.5, srcs = []; let rateK = 1, started = false;
     function start(){
-      if (kind === "jet"){ [[brown, 1], [white, 0.18]].forEach(([b, v], i) => { const s = ac.createBufferSource(), g = ac.createGain(), f = ac.createBiquadFilter(); s.buffer = b; s.loop = true;
-          f.type = i ? "bandpass" : "highpass"; f.frequency.value = i ? 2200 : 120; g.gain.value = v; s.connect(f); f.connect(g); g.connect(nd.f); s.start(); srcs.push(s); }); }
-      else if (kind === "drone"){ const s = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), f = ac.createBiquadFilter(); s.type = "sawtooth"; s.frequency.value = o.f || 95;
-        lfo.frequency.value = 5 + Math.random()*3; lg.gain.value = (o.f || 95)*0.03; lfo.connect(lg); lg.connect(s.frequency); f.type = "lowpass"; f.frequency.value = 1100; s.connect(f); f.connect(nd.f); s.start(); lfo.start(); srcs.push(s, lfo); }
-      else { const L = buf[kind]; if (!L || !L.length) return false; const s = ac.createBufferSource(); s.buffer = L[0]; s.loop = true; s.loopStart = 0; s.loopEnd = s.buffer.duration;
-        s.playbackRate.value = (o.rate || 1)*(0.95 + Math.random()*0.1); s.connect(nd.f); s.start(ac.currentTime, Math.random()*s.buffer.duration); srcs.push(s); }
+      const L = buf[kind]; if (!L || !L.length) return false; const s = ac.createBufferSource(); s.buffer = L[0]; s.loop = true; s.loopStart = 0; s.loopEnd = s.buffer.duration;
+      s.playbackRate.value = (o.rate || 1)*(0.95 + Math.random()*0.1); s.connect(nd.f); s.start(ac.currentTime, Math.random()*s.buffer.duration); srcs.push(s);
       return true; }
     return {
       set(x, y, z, vol, rate){ if (!started) started = start(); if (!started) return; const q = where(x, y, z), t = ac.currentTime;
         nd.g.gain.setTargetAtTime((vol == null ? 1 : vol)*base*q.g, t, 0.12); nd.f.frequency.setTargetAtTime(q.lp, t, 0.12); if (nd.pn) nd.pn.pan.setTargetAtTime(q.pan, t, 0.12);
-        if (rate && Math.abs(rate - rateK) > 0.005){ rateK = rate; srcs.forEach(s => { if (s.playbackRate) s.playbackRate.setTargetAtTime(rate, t, 0.1); else if (s.type === "sawtooth") s.frequency.setTargetAtTime((o.f || 95)*rate, t, 0.1); }); } },
+        if (rate && Math.abs(rate - rateK) > 0.005){ rateK = rate; srcs.forEach(s => s.playbackRate.setTargetAtTime(rate, t, 0.1)); } },
       stop(){ const t = ac.currentTime; nd.g.gain.setTargetAtTime(0, t, 0.08); srcs.forEach(s => { try { s.stop(t + 0.4); } catch(e){} }); setTimeout(() => nd.g.disconnect(), 600); }
     };
   }
@@ -306,7 +302,7 @@ export async function start(el, ctx){
   Object.assign(sun.shadow.camera, {left:-90, right:90, top:90, bottom:-90, near:10, far:400}); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
   scene.add(sun); scene.add(sun.target);
   const R = rng(ctx.seed), N = noise2(ctx.seed);
-  const G = buildGround(ctx, R, N, quality); scene.add(G.mesh);
+  const G = buildGround(ctx, R, N, quality, level === "low" ? 110 : 0); scene.add(G.mesh);
 
   // units: positions first so props keep away from them
   const units = [];
@@ -316,7 +312,7 @@ export async function start(el, ctx){
     list.forEach((u, k) => { const x = (k + 0.5 - n/2)*(span/Math.max(n, 1)) + (R() - 0.5)*8, d = DEPTH[role], z = s*(d[0] + R()*(d[1] - d[0]));
       units.push({...u, role, x, z, h: u.side ? -Math.PI/2 : Math.PI/2, home:[x, z], hp:u.hp || 1, hpMax:u.hp || 1, pend:0, alive:true, reload:2 + R()*6, state:"hold", next:R()*8}); });
   }));
-  scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]));
+  scatterProps(scene, ctx, G, R, units.map(u => [u.x, u.z, 9]), level === "low" ? 0.55 : 1);
   // load models and place them
   // weak phones load only the light copies; the others load the full models now and the light ones in the background
   const models = {};
@@ -484,6 +480,7 @@ export async function start(el, ctx){
     const dpr = Math.min(2, window.devicePixelRatio || 1), W = el.clientWidth, H = el.clientHeight;
     if (hud.width !== Math.round(W*dpr)){ hud.width = Math.round(W*dpr); hud.height = Math.round(H*dpr); }
     hg.setTransform(dpr, 0, 0, dpr, 0, 0); hg.clearRect(0, 0, W, H);
+    if (fps.v){ hg.font = "600 10px system-ui, sans-serif"; hg.textAlign = "left"; hg.fillStyle = "rgba(255,255,255,.55)"; hg.fillText(`${fps.v} FPS · ${level}`, 8, H - 8); }
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
     for (const u of [...units, ...air]){ if (!u.alive || !u.obj || u.temp || (u.air && u.state === "fall")) continue; const q = screenOf(u, u.air ? 3.2 : 4.2); if (!q.vis) continue;
@@ -568,7 +565,7 @@ export async function start(el, ctx){
   function onField(a, m = 30){ return a.obj && Math.abs(a.x) < FIELD/2 + m && Math.abs(a.z) < FIELD/2 + m; }
   // weapons
   function rockets(a, t){
-    const d = payload(t), tx = t ? t.x : a.x + Math.cos(a.h)*60, tz = t ? t.z : a.z - Math.sin(a.h)*60; snd.play("rocket", a.x, a.y, a.z, {vol:0.7});
+    const d = payload(t), tx = t ? t.x : a.x + Math.cos(a.h)*60, tz = t ? t.z : a.z - Math.sin(a.h)*60;
     for (let i = 0; i < 8; i++){ const last = i === 7, ex = tx + (last && d ? 0 : (Math.random() - 0.5)*16), ez = tz + (last && d ? 0 : (Math.random() - 0.5)*16);
       const p = new THREE.Vector3(0.4, -1.2, (i % 2 ? 1 : -1)*2.5); a.obj.localToWorld(p);
       shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.3, z1:ez, t:-i*0.09, dur:Math.hypot(ex - p.x, ez - p.z, p.y)/170 + 0.1, side:a.side, kind:"arocket", trail:true, c:[1, 0.85, 0.55],
@@ -825,20 +822,19 @@ export async function start(el, ctx){
     perf.frames++; perf.time += raw;
     if (perf.time >= 3000){ const fps = perf.frames*1000/perf.time; perf.frames = 0; perf.time = 0; perf.last = Math.round(fps); if (fps < 27 && lower()) perf.t0 = now + 1500; }
   }
+  // frames per second, shown small in the corner of the field
+  const fps = {n:0, t:0, v:0}; function fpsTick(raw){ if (raw > 1000) return; fps.n++; fps.t += raw; if (fps.t >= 1000){ fps.v = Math.round(fps.n*1000/fps.t); fps.n = 0; fps.t = 0; } }
   // continuous sounds: one per aircraft in the air (jets with a Doppler shift), and the engines of the vehicles near the camera
-  const LOOP_CAP = {plane:6, heli:5, drone:5}; let engine = null, engT = 0;
+  const LOOP_CAP = {plane:0, heli:5, drone:0}; let engine = null, engT = 0;
   function soundStep(dt){
     if (!snd.ok) return; snd.listen(camera);
     const n = {plane:0, heli:0, drone:0};
     for (const a of air){
       const up = a.alive && a.obj && a.state !== "wait";
       if (!up){ if (a.snd){ a.snd.stop(); a.snd = null; } continue; }
-      if (!a.snd){ if (n[a.cls] >= LOOP_CAP[a.cls]) continue; a.snd = a.cls === "heli" ? snd.loop("heli", {vol:0.5}) : a.cls === "plane" ? snd.loop("jet", {vol:0.75}) : snd.loop("drone", a.loiter ? {vol:0.3, f:170} : {vol:0.22, f:95}); }
+      if (!a.snd){ if (n[a.cls] >= LOOP_CAP[a.cls]) continue; a.snd = snd.loop("heli", {vol:0.5}); }
       n[a.cls]++; if (!a.snd) continue;
-      let rate = 1;
-      if (a.cls === "plane"){ const dx = camera.position.x - a.x, dy = camera.position.y - a.y, dz = camera.position.z - a.z, d = Math.hypot(dx, dy, dz) || 1, vr = (Math.cos(a.h)*dx - Math.sin(a.h)*dz)*a.v/d;
-        rate = clamp(1 + vr/340*2.5, 0.7, 1.4); }
-      a.snd.set(a.x, a.y, a.z, a.state === "fall" ? 0.7 : 1, rate);
+      a.snd.set(a.x, a.y, a.z, a.state === "fall" ? 0.7 : 1);
     }
     engT -= dt; if (engT < 0){ engT = 0.3; engine = engine || snd.loop("engine", {vol:0.4});
       let k = 0; for (const u of units) if (u.alive && u.obj){ const d = Math.hypot(u.x - cam.x, u.z - cam.z); if (d < 90) k += (1 - d/90)*(u.state === "move" ? 1 : 0.45); }
@@ -849,8 +845,8 @@ export async function start(el, ctx){
     if (!running) return; requestAnimationFrame(frame);
     if (document.hidden) { last = now; snd.sleep(); return; }
     snd.wake(true); soundStep(Math.min(0.1, (now - last)/1000));
-    const raw = now - last, dt = clamp(raw/1000, 0, 0.05); last = now; measure(now, raw);
-    step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+    const raw = now - last, dt = clamp(raw/1000, 0, 0.1); last = now; measure(now, raw); fpsTick(raw);
+    if (dt > 0.05){ step(dt/2); step(dt/2); } else step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
     renderer.render(scene, camera); drawHud(dt);
   }
   requestAnimationFrame(frame);
@@ -874,6 +870,11 @@ export async function start(el, ctx){
     names(map){ Object.assign(ctx.names, map); },
 
     focus(i, dist, yaw){ const u = units.filter(v => v.obj)[i]; if (!u) return; cam.x = u.x; cam.z = u.z; cam.dist = dist || 40; if (yaw != null) cam.yaw = yaw; placeCamera(); },
+    // test hook: average milliseconds per frame for each part (simulation, sound, render, HUD)
+    bench(n = 60){ const T = {step:0, sound:0, render:0, hud:0}; for (let i = 0; i < n; i++){ let t = performance.now(); step(1/30); lodPass(1/30); T.step += performance.now() - t;
+        t = performance.now(); soundStep(1/30); T.sound += performance.now() - t; t = performance.now(); renderer.render(scene, camera); renderer.getContext().finish(); T.render += performance.now() - t;
+        t = performance.now(); drawHud(1/30); T.hud += performance.now() - t; }
+      for (const k in T) T[k] = +(T[k]/n).toFixed(2); T.air = air.filter(a => a.alive && a.obj).length; T.units = units.filter(u => u.alive && u.obj).length; T.particles = fxSmoke.items.length + fxFire.items.length; T.shells = shells.length; T.tris = renderer.info.render.triangles; T.calls = renderer.info.render.calls; return T; },
     advance(sec){ for (let t = 0; t < sec; t += 1/30){ step(1/30); soundStep(1/30); } },
     list(){ return units.filter(v => v.obj).map(v => v.side + ':' + v.model); },
     quality(lv){ if (lv && QL[lv]){ while (level !== lv && lower()); } return {level, fps:perf.last || null}; },

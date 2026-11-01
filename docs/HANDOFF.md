@@ -63,6 +63,29 @@ Read this first in a new session.
   - `api.consume(side, id, n)` shrinks squads by spent drones without showing shoot-downs.
 - The close button and Android Back now leave the 3D field (the handler used to be bound only on the 2D path).
 
+## Sound on the field (01.11.2026)
+- Recordings from Freesound, cut by `tools/sfx/build_sfx.py <sources>` into `www/field/sfx/*.ogg` (304 KB):
+
+  | Sound | File(s) |
+  |---|---|
+  | Tank guns | `tank1`–`tank5` |
+  | Autocannon | `autocannon` |
+  | Artillery | `arty` |
+  | Explosions | `boom` |
+  | Helicopter loop | `heli_loop` |
+  | Engine loop | `engine_loop` |
+
+  Rocket and SAM launches are synthesised.
+- Sources (Freesound ids): 854186, 189344, 239135 (qubodup); 448002 (kneeling); 423118 (ogsoundfx); 49483 (lorenzosu); 186934 (readeonly). Their licences are not checked yet (the user is checking them): anything CC BY-NC must be replaced before release, CC BY goes to the credits.
+- `makeSound(on, sharedAudioContext)` in `bf3d.js`. Every sound is placed relative to the camera: gain, low-pass and delay by distance, stereo pan. It uses the game's `AC` and `settings.sound`, and goes silent when the app is hidden.
+- The user found jet and drone sounds too busy, so they were removed; only helicopters keep a loop.
+- Test hooks: `api.soundInfo()`, `api.soundRecord(sec)` (webm of the mix), `api.bench(n)` (ms per frame: step / sound / render / HUD).
+
+## Performance (01.11.2026)
+- The user reported slow motion on a phone, even on low graphics. Cause: the frame time was capped at 0.05 s, so below 20 FPS the battle itself slowed down. It now keeps real time, using up to two sub-steps per frame (dt up to 0.1 s).
+- The low level is lighter: relief has 110×110 segments instead of 160, and there are 55% of the trees (~117k triangles instead of ~185k).
+- The field shows `N FPS · level` in the bottom-left corner, so the user can report real numbers from the phone.
+
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
