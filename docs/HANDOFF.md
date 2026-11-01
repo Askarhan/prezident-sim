@@ -88,6 +88,9 @@ Read this first in a new session.
 - The field shows a readout in the top-right corner: FPS, graphics level, and ms per frame for the frame, the battle, sound, render (CPU side) and labels.
 - Tapping the readout switches off, in turn: sound, labels, aircraft, smoke and fire, then all of these together. This finds on the phone what slows it down.
 - The labels' 2D canvas now draws at 1× pixel density (1.5× on high). A full-screen 2× canvas cleared every frame is costly on phones.
+- The user saw ~26–27 FPS on every graphics level, and switching parts off changed nothing. So the frame is limited by something outside the field.
+- While the field is open (`body.bf-open`), the game screen under it is now taken out of rendering (`#app`, advisor and float layers get `display:none`). The game day ticks on, but nothing redraws the hidden map: no `updateWarMap`, `battleLoop`, `render`, `updateLive` or clock. On close it renders once.
+- The readout shows "кадр N мс, из них поле M": the frame time against our own code's time. If M is small and N is ~33 ms, the phone caps the frame rate (battery saver or the phone's game mode).
 
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.

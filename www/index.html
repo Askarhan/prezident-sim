@@ -389,6 +389,7 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 #worldmap #map-fx .fx-arrow.us{fill:#FFB020}
 #map-fx .fx-battle .fx-hit{fill:transparent;stroke:none}
 #worldmap #map-fx .fx-front.us{fill:rgb(245 165 36 / .28);stroke:#F5A524}
+body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!important}
 #bf-root{position:fixed;inset:0;z-index:60;background:#12160F;touch-action:none;overscroll-behavior:none}
 #bf-root .bf3d{position:absolute;inset:0}
 #bf-root .bf3d-cv{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -2866,7 +2867,7 @@ function battleScene(){
 }
 function battleLoop(now){
   BT.raf = 0;
-  const S2 = bScreen(), active = S && S.wars && S.wars.length && ui.tab === "map";
+  const S2 = bScreen(), active = S && S.wars && S.wars.length && ui.tab === "map" && !BF.open;
   if (!S2 || !active){ if (S2){ const g = S2.cv.getContext("2d"); g.clearRect(0, 0, S2.cv.width, S2.cv.height); } BT.fx = []; return; }
   if (!SPR.ready){ sprLoad(); BT.raf = requestAnimationFrame(battleLoop); return; }
   const dt = Math.min(0.1, (now - (BT.last || now))/1000); BT.last = now;
@@ -3213,6 +3214,8 @@ function openBattle(enemy, i){
   root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div><div class="bf-msg hide" role="status"></div><div class="bf-strikes" role="group" aria-label="Удары по направлению"></div>`;
   document.body.appendChild(root);
   const st = BF.open = {enemy, i, cam:{x:BF_W/2, y:BF_H/2 - 4, z:-0.85}, root, dirty:true, gen:null, t0:performance.now()};
+  // the map with its animated fronts keeps the phone busy even when covered: take it out of rendering while the field is open
+  document.body.classList.add("bf-open");
   root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) return closeBattle(); const b = e.target.closest("[data-fstrike]"); if (b) bfStrike(st, b.dataset.fstrike); });
   bfStrikeBar(st); st.tickBar = setInterval(() => bfStrikeBar(st), 1000);
   bfTitle(st);
@@ -3221,7 +3224,8 @@ function openBattle(enemy, i){
   bfInput(st); requestAnimationFrame(bfLoop);
   sfx("tap");
 }
-function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null; if (!silent) sfx("tap"); }
+function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null;
+  document.body.classList.remove("bf-open"); if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
 const BF3D_MODELS = ["su25","ka52","tb2","a10","su34","mi24","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
@@ -5363,7 +5367,7 @@ function dayTick(){
   shipTick();
   wearyDay();
   if ((S.day||1) % 3 === 0){ goalsTick(); lessonsTick(); }
-  if (S.wars.length){ S.wars.forEach(warDay); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map") updateWarMap(); }
+  if (S.wars.length){ S.wars.forEach(warDay); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map" && !BF.open) updateWarMap(); }
   const speed = (selfSuff("metal") < 60 ? 0.5 : 1) * (1 + 0.015*minDelta("housing"));
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
@@ -5399,6 +5403,7 @@ function tick(ts){
     dayTick();
     if (S.day > daysIn(S.month, S.year)){ acc = 0; nextMonth(); return; }
   }
+  if (BF.open){ if (dirty){ dirty = false; save(); } return; }   // the game screen is hidden under the battlefield
   if (dirty){ dirty = false; save(); render(); }
   updateLive();
   updateClock();

@@ -486,7 +486,9 @@ export async function start(el, ctx){
     if (hud.width !== Math.round(W*dpr)){ hud.width = Math.round(W*dpr); hud.height = Math.round(H*dpr); }
     hg.setTransform(dpr, 0, 0, dpr, 0, 0); hg.clearRect(0, 0, W, H);
     if (fps.v){ hg.font = "600 10px system-ui, sans-serif"; hg.textAlign = "right"; hg.fillStyle = "rgba(255,255,255,.85)"; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.lineWidth = 3; const P = fps.ms;
-      const line = `${fps.v} FPS · ${level} · кадр ${P.frame} мс: бой ${P.step} · звук ${P.sound} · отрисовка ${P.render} · подписи ${P.hud}${diag ? " · выкл.: " + DIAG[diag] : ""}`; hg.strokeText(line, W - 10, 16); hg.fillText(line, W - 10, 16); }
+      // "поле" is the time our code takes per frame; the rest of the frame is the browser, the GPU or a frame-rate cap
+      const own = (+P.step + +P.sound + +P.render + +P.hud).toFixed(1);
+      const line = `${fps.v} FPS · ${level} · кадр ${P.frame} мс, из них поле ${own} (бой ${P.step} · звук ${P.sound} · отрисовка ${P.render} · подписи ${P.hud})${diag ? " · выкл.: " + DIAG[diag] : ""}`; hg.strokeText(line, W - 10, 16); hg.fillText(line, W - 10, 16); }
     if (diag === 2 || diag === 5) return;
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
