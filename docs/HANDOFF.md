@@ -133,5 +133,6 @@ Read this first in a new session.
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
+- Not yet seen in 3D (no `www/lib/three` in the last session): the «Подкрепление прибыло» banner and the enemy's idle machines with the «нет топлива» label. Ask the user how they look in the APK, or check headless with three from the `apk` branch.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
