@@ -86,6 +86,15 @@ Rules agreed with the user:
 - Test (`tools/sim/fieldtypes.js`, forces `st.cbt`/`st.wx` on the offer card): FR–DE ambush in rain won 35 vs 49 losses in 169 s; breakthrough at night lost 43 vs 28; assault in fog lost 43 vs 23 (the auto-calculation also loses FR–DE assaults). One run each: tune with more runs if the user finds a type too easy or hard.
 - Next variety ideas (not built): city battle, enemy doctrine by its force mix, mid-battle events, rewards (trophies, morale, veteran squads).
 
+### AI and cover rework done (02.11.2026)
+- User: tanks drove head-on and shot point-blank; covers were all alike. Assistant's choice of fix (user: «делай как считаешь правильным»).
+- Battle lines now start further apart (`DEPTH` when `ctx.battle` and not ambush: front 36–50, arty 64–80, ad 86–100; ambush keeps the old depth).
+- `bPlan` rewritten: fighting distance by class (`bBand`: tank 44/62/88, IFV 34/48/66, APC 28/40/56, capped by `B.vis`); the attacker closes in (`bClose`) only after 62% of the time limit or when the enemy lost 45%. Bounding overwatch (`BOUND` 9 s, `u.grp` alternates by x): one attacker group moves while the other holds (`bMayMove`). Spot score: distance band, line of fire, enemy's side in view (`bFace`, flankers ×2, lane ±40), −18 near a mate (spread), defender keeps to `home` z. No cover → a point at the ideal distance on its own lane, max 22 m bound.
+- Side/rear armour in `bShot`: side ×1.6, rear ×2.2 (float «в борт!»/«в корму!»), ricochets only on frontal hits. Holding squads turn the hull to the target; moves backward under 45 m away from the enemy go in reverse at 3 m/s.
+- Cover: `COVER` (16 kinds: wall, ruin, berm, rock, house, barn, hay, trench, blocks, container, wreck, car/bus, trees, logs, boulders, dune), placed as groups `COVER_SETS` (farm, treeline, trenches, village, ruins, yard, checkpoint, street, logyard, rocks, ridge, dunes, fort…) picked by terrain from `COVER_MIX`; 18/28 pieces (low/other). LOS points are spread along the length (one per ~5 m); spots stand `dep + 2.4` behind.
+- Test (one run each): same winner as `cbPlan` in 4 of 6 (FR–DE assault and IT–FR defence won by the player where auto mostly loses), losses ~0.3–0.7, battles 57–81 s. Defence may now be a bit easy; tune with more runs if the user notices.
+- Pitfall: `houseGeo` sits right after `coverGeo`; a replace of the cover block removed it once (the field then silently waits; check page errors beyond the flag 404s).
+
 ### Testing the field headless
 - three: `git fetch --depth 1 origin apk:refs/remotes/origin/apk`, `git show origin/apk:kabinet-prezidenta-debug.apk > k.apk`, unzip `assets/public/lib/three/*` into `www/lib/three` (ignored by git).
 - The built page wraps the game in `(function(){ ... })();`, so tests cannot call game functions. Make an unwrapped copy `www/t.html` (drop the first `(function(){` line and the last `})();` before `</script>`), serve `www` with `python3 -m http.server 8765`, delete `t.html` before committing.
