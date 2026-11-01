@@ -3483,7 +3483,7 @@ function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.c
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- a commanded field battle: once per CB_CD game days per war the player commits a strike group and the field decides one direction ---- */
 // stage 1: the outcome is planned from the forces when the battle starts and applied as it runs; the real squad battle in bf3d.js replaces the plan later
-const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4, CB_LIMIT = 300, CB_HOLD = 180, CB_DEFK = 1.25;
+const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4, CB_RATIO = 3, CB_LIMIT = 300, CB_HOLD = 180, CB_DEFK = 1.25;
 // how many machines can fight at once on a direction (front width by terrain); the rest of a strike group waits in reserve
 const CB_WIDTH = {p:120, d:140, f:80, u:60, m:50};
 function cbReady(w){ return (w.bfCd || 0) <= (w.days || 0); }
@@ -3501,9 +3501,13 @@ const cbDefUs = t => t === "def" || t === "amb", cbDefThem = t => t === "atk" ||
 function cbGroups(w, i, pct, tp){
   depInit(w); const f = w.fronts[i], nF = w.fronts.filter(x => x.p < 100).length || 1, fs = f.share || 1/nF, es = Math.min(CB_EMAX, pct*CB_EMAX/CB_MAX);
   const pick = (u, k) => { const o = {}; for (const id in u||{}){ const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind) || !(u[id] > 0)) continue; const n = Math.floor(u[id]*k); if (n > 0) o[id] = n; } return o; };
-  const g = pick(w.dep[i], pct), e = pick(w.eu, fs*es), type = tp || cbType(f);
+  const type = tp || cbType(f), pool = cbCount(pick(w.eu, fs)), mine = cbCount(pick(w.dep[i], pct));
+  // outnumbered, the enemy throws in more (all it has here when it defends, up to 60% otherwise); a group over 3x its answer stays home to hold the front
+  let ek = es; if (pool && mine > pool*es*1.3) ek = Math.min(cbDefThem(type) ? 1 : 0.6, Math.max(es, mine/(1.3*pool)));
+  const ne = pool*ek, cap = pool && mine > ne*CB_RATIO ? Math.max(ne*CB_RATIO, 12)/mine : 1;
+  const g = pick(w.dep[i], pct*Math.min(1, cap)), eo = ne > mine*CB_RATIO ? Math.max(mine*CB_RATIO, 12)/ne : 1, e = pick(w.eu, fs*ek*Math.min(1, eo));   // the enemy does not bring more than 3x ours either
   const myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(type) ? DEF_K : 1), enP = depPower(e)*(cbDefThem(type) ? DEF_K : 1);
-  return {g, e, type, myP, enP};
+  return {g, e, type, myP, enP, capped:cap < 1};
 }
 const cbEdge = (a, b) => { const X = Math.pow(a, WAR_EXP), Y = Math.pow(b, WAR_EXP); return X + Y > 0 ? X/(X + Y) : 0.5; };
 const cbCount = u => Object.values(u||{}).reduce((a, n) => a + n, 0);
@@ -3593,6 +3597,7 @@ function cbOffer(st, w, i){
     box.querySelector("[data-cbus]").textContent = `${cbCount(G.g)} маш.: ${cbList(G.g)}`;
     box.querySelector("[data-cbthem]").textContent = `${cbCount(G.e)} маш.: ${cbList(G.e)}`;
     const e = box.querySelector("[data-cbedge]"); e.textContent = r > 0.65 ? "Явный перевес на нашей стороне" : r > 0.53 ? "Небольшой перевес у нас" : r >= 0.47 ? "Силы равны" : r >= 0.35 ? "Противник сильнее" : "Противник намного сильнее";
+    if (G.capped) e.textContent += ". Больше брать нет смысла: враг выставил всё, что может, остальные держат фронт";
     e.className = "bf-cmd-edge " + (r > 0.53 ? "good" : r >= 0.47 ? "" : "bad");
     box.querySelector("[data-cbgo]").disabled = !cbCount(G.g); };
   R.addEventListener("input", upd); upd();

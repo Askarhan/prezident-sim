@@ -95,6 +95,10 @@ Rules agreed with the user:
 - Test (one run each): same winner as `cbPlan` in 4 of 6 (FR–DE assault and IT–FR defence won by the player where auto mostly loses), losses ~0.3–0.7, battles 57–81 s. Defence may now be a bit easy; tune with more runs if the user notices.
 - Pitfall: `houseGeo` sits right after `coverGeo`; a replace of the cover block removed it once (the field then silently waits; check page errors beyond the flag 404s).
 
+### Force ratio cap (02.11.2026, user's report: our 33% = ~1000 tanks vs the enemy's 103)
+- `cbGroups`: outnumbered by more than 1.3×, the enemy raises its share (up to 100% of the direction when it defends, 60% otherwise); then each side brings at most `CB_RATIO` 3× the other's group (floor 12); the rest hold the front. The card adds «Больше брать нет смысла…» when our group is capped (`G.capped`).
+- Check: RU–KZ 27 vs 9, US–MX assault 742 vs 372 (Mexico all in), KZ–RU 3 vs 10, FR–DE unchanged 105 vs 115.
+
 ### Testing the field headless
 - three: `git fetch --depth 1 origin apk:refs/remotes/origin/apk`, `git show origin/apk:kabinet-prezidenta-debug.apk > k.apk`, unzip `assets/public/lib/three/*` into `www/lib/three` (ignored by git).
 - The built page wraps the game in `(function(){ ... })();`, so tests cannot call game functions. Make an unwrapped copy `www/t.html` (drop the first `(function(){` line and the last `})();` before `</script>`), serve `www` with `python3 -m http.server 8765`, delete `t.html` before committing.
