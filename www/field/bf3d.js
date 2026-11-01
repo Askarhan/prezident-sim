@@ -488,7 +488,8 @@ export async function start(el, ctx){
     if (fps.v){ hg.font = "600 10px system-ui, sans-serif"; hg.textAlign = "right"; hg.fillStyle = "rgba(255,255,255,.85)"; hg.strokeStyle = "rgba(0,0,0,.7)"; hg.lineWidth = 3; const P = fps.ms;
       // "поле" is the time our code takes per frame; the rest of the frame is the browser, the GPU or a frame-rate cap
       const own = (+P.step + +P.sound + +P.render + +P.hud).toFixed(1);
-      const line = `${fps.v} FPS · ${level} · кадр ${P.frame} мс, из них поле ${own} (бой ${P.step} · звук ${P.sound} · отрисовка ${P.render} · подписи ${P.hud})${diag ? " · выкл.: " + DIAG[diag] : ""}`; hg.strokeText(line, W - 10, 16); hg.fillText(line, W - 10, 16); }
+      // short by default; the details show once the diagnostics are switched on by a tap
+      const line = diag ? `${fps.v} FPS · кадр ${P.frame} мс: бой ${P.step} · звук ${P.sound} · отрисовка ${P.render} · подписи ${P.hud} · выкл.: ${DIAG[diag]}` : `${fps.v} FPS · ${level} · кадр ${P.frame} мс · поле ${own}`; hg.strokeText(line, W - 10, 16); hg.fillText(line, W - 10, 16); }
     if (diag === 2 || diag === 5) return;
     const close = cam.dist < 80; selT -= dt; if (selT <= 0) selected = null;
     hg.font = "600 11px system-ui, sans-serif"; hg.textAlign = "center";
@@ -513,7 +514,8 @@ export async function start(el, ctx){
   const isAir = id => AIR_ROLES.has(roleOf(id));
   const airCap = () => level === "low" ? {plane:2, heli:2, drone:2} : {plane:4, heli:3, drone:4};
   // heights stay under the default camera (~105 m up) so passes read as low and fast
-  const SPEC = {plane:{v:34, alt:[30, 40], turn:0.95}, heli:{v:13, alt:[12, 18], turn:0.8}, drone:{v:17, alt:[44, 54], turn:0.6}, loiter:{v:30, alt:[28, 36], turn:1.5}};
+  // jets cross the field in a few seconds; helicopters and drones are slower but not toy-slow
+  const SPEC = {plane:{v:75, alt:[30, 40], turn:1.6}, heli:{v:18, alt:[12, 18], turn:0.9}, drone:{v:26, alt:[44, 54], turn:0.6}, loiter:{v:50, alt:[28, 36], turn:2.2}};
   const bombGeo = new THREE.CapsuleGeometry(0.22, 0.9, 2, 6), bombMat = new THREE.MeshStandardMaterial({color:0x3a3d38, roughness:0.6, metalness:0.3});
   bombGeo.rotateZ(Math.PI/2);
   function airAdd(side, id, hp, wait){
@@ -545,7 +547,7 @@ export async function start(el, ctx){
     const s = own(a), sp = a.spec, R = Math.random;
     a.alt = sp.alt[0] + R()*(sp.alt[1] - sp.alt[0]); a.v = sp.v; a.pitch = 0; a.roll = 0; a.h = a.side ? -Math.PI/2 : Math.PI/2;
     if (a.cls === "plane"){ a.target = pickGround(a, false); const tx = a.target ? a.target.x : (R() - 0.5)*140;
-      a.x = clamp(tx + (R() - 0.5)*80, -FIELD/2, FIELD/2); a.z = s*(FIELD/2 + 70); a.state = "in"; a.kind = a.raid > 0 || a.temp ? "bombs" : R() < 0.5 ? "rockets" : "bombs"; }
+      a.x = clamp(tx + (R() - 0.5)*80, -FIELD/2, FIELD/2); a.z = s*(FIELD/2 + 160); a.state = "in"; a.kind = a.raid > 0 || a.temp ? "bombs" : R() < 0.5 ? "rockets" : "bombs"; }
     else if (a.cls === "heli"){ const mine = air.filter(b => b !== a && b.side === a.side && b.cls === "heli" && b.hx != null).map(b => b.hx);
       let hx = 0, best = -1; for (let i = 0; i < 8; i++){ const x = (R() - 0.5)*FIELD*0.7, d = Math.min(99, ...mine.map(m => Math.abs(m - x))); if (d > best){ best = d; hx = x; } }
       a.hx = hx; a.hz = s*(tz + 30 + R()*14); a.x = hx + (R() - 0.5)*30; a.z = s*(FIELD/2 + 30); a.state = a.shots > 0 ? "strike" : "in"; if (a.sx == null) a.sx = hx; }
@@ -654,12 +656,12 @@ export async function start(el, ctx){
       if (a.state === "in"){
         if (a.target && !a.target.alive) a.target = pickGround(a, false);
         const t = a.target, tx = t ? t.x : a.x, tzz = t ? t.z : -s*40, dd = Math.hypot(tx - a.x, tzz - a.z);
-        fly(a, tx, groundY(tx, tzz) + (dd < 150 ? lerp(17, a.alt, dd/150) : a.alt), tzz, dt, a.v);
+        fly(a, tx, groundY(tx, tzz) + (dd < 220 ? lerp(17, a.alt, dd/220) : a.alt), tzz, dt, a.v);
         const ahead = Math.cos(a.h)*(tx - a.x) - Math.sin(a.h)*(tzz - a.z);
-        if ((dd < 60 && ahead > 15) || ahead < 0){ if (a.kind === "rockets") rockets(a, t); else bombs(a, t, 4, 1.7); a.state = "out"; a.wp = [clamp(a.x + (R() - 0.5)*120, -FIELD/2, FIELD/2), s*(FIELD/2 + 140)]; }
+        if ((dd < 85 && ahead > 20) || ahead < 0){ if (a.kind === "rockets") rockets(a, t); else bombs(a, t, 4, 1.7); a.state = "out"; a.wp = [clamp(a.x + (R() - 0.5)*120, -FIELD/2, FIELD/2), s*(FIELD/2 + 260)]; }
       } else {
         fly(a, a.wp[0], gy + a.alt + 8, a.wp[1], dt, a.v*1.1);
-        if (a.z*s > FIELD/2 + 110) rest(a, 7 + R()*12);
+        if (a.z*s > FIELD/2 + 230) rest(a, 7 + R()*12);
       }
     } else if (a.cls === "heli"){
       if (a.state === "strike"){
@@ -685,7 +687,7 @@ export async function start(el, ctx){
       const t = a.target, tx = t ? t.x : a.x, tzz = t ? t.z : -s*40, ty = G.height(tx, tzz) + 1;
       if (a.jam && a.state === "in" && a.z*s < -5){ a.state = "fall"; a.vy = 1; a.spin = (R() < 0.5 ? -1 : 1)*5; if (a.obj) place(a); return; }
       if (a.state === "in"){ const d = fly(a, tx, groundY(tx, tzz) + a.alt, tzz, dt, a.v); if (d < a.alt*0.9) { a.state = "dive"; a.dmg = payload(t); } }
-      else { const dx = tx - a.x, dy = ty - a.y, dz = tzz - a.z, d = Math.hypot(dx, dy, dz), v = 48;
+      else { const dx = tx - a.x, dy = ty - a.y, dz = tzz - a.z, d = Math.hypot(dx, dy, dz), v = 75;
         a.h = Math.atan2(-dz, dx); a.pitch = Math.atan2(dy, Math.hypot(dx, dz)); a.roll = 0;
         a.x += dx/d*v*dt; a.y += dy/d*v*dt; a.z += dz/d*v*dt;
         if (d < 2.5 || a.y < ty){ explosion(tx, tzz, false, false, 0.9); land(t, a.dmg); a.dmg = 0; rest(a, 4 + R()*9); return; } }
@@ -738,7 +740,7 @@ export async function start(el, ctx){
     if (u.state === "move"){
       const dx = u.wp[0] - u.x, dz = u.wp[1] - u.z, d = Math.hypot(dx, dz), want = Math.atan2(-dz, dx);
       const turn = angDiff(u.h, want); u.h += clamp(turn, -0.7*dt, 0.7*dt);
-      if (Math.abs(turn) < 0.5){ const v = Math.min(d, 5*dt); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
+      if (Math.abs(turn) < 0.5){ const v = Math.min(d, (u.next > 900 ? 9 : 5)*dt); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
         if (Math.random() < dt*8) fxSmoke.emit({x:u.x - Math.cos(u.h)*3.5 + (Math.random() - 0.5)*2, y:G.height(u.x, u.z) + 0.3, z:u.z + Math.sin(u.h)*3.5 + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5), vy:0.6, vz:(Math.random() - 0.5), life:2 + Math.random(), s0:1.4, s1:5, c:ctx.terrain === "d" ? [0.72, 0.6, 0.42] : [0.52, 0.45, 0.34], a:0.35, drag:0.8, fadeIn:0.1}); }
       if (d < 1.5){ u.state = "hold"; u.next = 10 + Math.random()*16; }
     } else if (u.next < 0){
@@ -868,6 +870,10 @@ export async function start(el, ctx){
       const left = v => v.hp - v.pend - (v.pendAir || 0), u = pool.reduce((a, b) => left(b) > left(a) ? b : a);
       if (via === "air"){ u.pendAir = (u.pendAir || 0) + n; u.pendAirT = 0; } else u.pend += n; },
     raid(type, o){ raid(type, o); },
+    // a position changed hands: the winners' front squads roll forward across the line, the losers' pull back to their rear
+    posTaken(dir){ for (const u of units){ if (!u.alive || !u.obj || u.role !== "front") continue;
+        const own = u.side ? -1 : 1, win = (u.side === 0) === (dir > 0);
+        u.state = "move"; u.next = 999; u.wp = win ? [u.x + (Math.random() - 0.5)*8, u.z - own*(30 + Math.random()*12)] : [u.x + (Math.random() - 0.5)*10, own*(FIELD/2 + 40)]; } },
     // machines spent (drones that flew their strike): the squads get smaller without anything being shot down
     consume(side, id, n){ let left = n; air.filter(a => a.alive && !a.temp && a.side === side && a.id === id).forEach(a => { const q = Math.min(left, Math.max(0, a.hp - 0.5)); a.hp -= q; left -= q; }); },
     // what the army really has on this front: reinforce from the map edge when there is more than the squads hold

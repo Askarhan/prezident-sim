@@ -414,6 +414,20 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-msg{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(10px,env(safe-area-inset-bottom)) + 62px);max-width:min(560px,92vw);padding:8px 14px;border-radius:10px;background:rgb(14 20 30 / .92);border:1px solid rgb(255 255 255 / .18);color:#fff;font-size:13px;text-align:center;z-index:2;transition:opacity .4s}
 #bf-root .bf-msg.good{border-color:rgb(57 208 195 / .6)} #bf-root .bf-msg.bad{border-color:rgb(255 93 93 / .6)}
 #bf-root .bf-msg.hide{opacity:0}
+#bf-root .bf-pos{position:absolute;left:50%;transform:translateX(-50%);top:max(10px,env(safe-area-inset-top));width:min(340px,40vw);z-index:2;pointer-events:none;color:#fff;text-align:center;font-size:12px}
+#bf-root .bf-pos b{display:block;font-size:12.5px;margin-bottom:4px;text-shadow:0 1px 3px #000}
+#bf-root .bf-pos .bar{height:8px;border-radius:5px;background:rgb(0 0 0 / .55);overflow:hidden;border:1px solid rgb(255 255 255 / .2)}
+#bf-root .bf-pos .bar i{display:block;height:100%;background:linear-gradient(90deg,#F2A93B,#FFD27A);transition:width .6s}
+#bf-root .bf-pos.def .bar i{background:linear-gradient(90deg,#E5484D,#FF8A8A)}
+#bf-root .bf-pos.wait .bar i{background:rgb(255 255 255 / .35)}
+#bf-root .bf-pos button{pointer-events:auto;margin-top:6px;padding:4px 10px;border-radius:8px;border:1px solid rgb(255 255 255 / .25);background:rgb(14 20 30 / .85);color:#fff;font-size:12px}
+#bf-root .bf-banner{position:absolute;inset:0;display:grid;place-items:center;z-index:3;pointer-events:none;background:radial-gradient(ellipse at center,rgb(0 0 0 / .45),transparent 70%);animation:bfBan .5s ease-out}
+#bf-root .bf-banner div{text-align:center;color:#fff;text-shadow:0 2px 12px #000}
+#bf-root .bf-banner b{display:block;font-family:var(--f-display);font-size:clamp(22px,4vw,38px);text-transform:uppercase;letter-spacing:.04em}
+#bf-root .bf-banner.good b{color:#FFD27A} #bf-root .bf-banner.bad b{color:#FF8A8A}
+#bf-root .bf-banner small{display:block;margin-top:6px;font-size:14px;color:#E6ECF5}
+@keyframes bfBan{from{opacity:0;transform:scale(1.08)}to{opacity:1;transform:none}}
+@media (max-width:700px){#bf-root .bf-pos{top:calc(max(10px,env(safe-area-inset-top)) + 46px);width:60vw}}
 @media (max-width:520px){#bf-root .bf-sk{min-width:0;padding:6px 8px}#bf-root .bf-sk small{display:none}}
 .front-row .bf-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .dep-sheet{max-height:86vh;overflow:auto}
@@ -1617,39 +1631,52 @@ const KINDS = {
 };
 // id: [kind, name, origin country, generation, price (bln $), power, vs ground, vs air, defence, min GDP of the owner]
 const MODEL_ROWS = [
-  ["t72","tank","Т-72Б3","ru",1,0.003,0.5,6,0,6],["t90","tank","Т-90М","ru",2,0.0045,0.75,9,0,9],["armata","tank","Т-14 «Армата»","ru",3,0.009,1.1,12,0,13],
-  ["m1a1","tank","M1A1 Abrams","us",1,0.0045,0.6,8,0,8],["leo","tank","Leopard 2A7","de",2,0.008,0.9,10,0,11],["abrams","tank","M1A2 SEPv3 Abrams","us",3,0.01,1.05,11,0,12],
-  ["type96","tank","Тип 96","cn",1,0.0025,0.45,6,0,5],["ztz99","tank","ZTZ-99A","cn",2,0.005,0.8,9,0,9],
+  ["t72","tank","Т-72Б3","ru",1,0.003,0.5,6,0,6],["t90","tank","Т-90М","ru",2,0.0045,0.75,9,0,9],["armata","tank","Т-14 «Армата»","ru",3,0.009,1.14,12,0,14],
+  ["m1a1","tank","M1A1 Abrams","us",1,0.0045,0.675,9,0,9],["leo","tank","Leopard 2A7","de",2,0.008,1.07,12,0,13],["abrams","tank","M1A2 SEPv3 Abrams","us",3,0.01,1.23,13,0,14],
+  ["type96","tank","Тип 96","cn",1,0.0025,0.45,6,0,5],["ztz99","tank","ZTZ-99A","cn",2,0.005,0.844,9.5,0,9.5],
   ["bmp2","ifv","БМП-2","ru",1,0.0012,0.22,3,1,3],["bmp3","ifv","БМП-3","ru",2,0.002,0.32,5,1,4],
   ["marder","ifv","Marder 1A5","de",1,0.0018,0.25,4,1,4],["bradley","ifv","M2A4 Bradley","us",2,0.0035,0.4,6,1,6],["zbd04","ifv","ZBD-04A","cn",2,0.002,0.3,5,1,4],
-  ["btr82","apc","БТР-82А","ru",1,0.0008,0.12,2,0,2],["patria","apc","Patria AMV","fi",2,0.003,0.16,2,0,3],["stryker","apc","Stryker","us",2,0.0045,0.2,3,0,4],["zsl92","apc","ZSL-92","cn",1,0.0007,0.1,2,0,2],
-  ["akacia","sph","2С3 «Акация»","ru",1,0.002,0.35,7,0,3],["msta","sph","2С19 «Мста-С»","ru",2,0.004,0.55,10,0,4],
-  ["paladin","sph","M109A7 Paladin","us",2,0.006,0.6,10,0,5],["pzh","sph","PzH 2000","de",3,0.012,0.8,13,0,5],["plz05","sph","PLZ-05","cn",2,0.004,0.55,10,0,4],
-  ["grad","mlrs","БМ-21 «Град»","ru",1,0.0015,0.35,8,0,2],["tornado","mlrs","«Торнадо-С»","ru",2,0.006,0.65,13,0,3],
-  ["m270","mlrs","M270 MLRS","us",2,0.008,0.7,13,0,3],["himars","mlrs","M142 HIMARS","us",3,0.0055,0.85,15,0,3],["phl03","mlrs","PHL-03","cn",2,0.005,0.6,12,0,3],
-  ["tochka","srbm","«Точка-У»","ru",1,0.015,0.9,16,0,2],["iskander","srbm","«Искандер-М»","ru",2,0.05,2.2,30,0,3],
-  ["mig29","fighter","МиГ-29","ru",1,0.025,1.8,4,10,5],["su35","fighter","Су-35С","ru",2,0.065,3.2,8,16,8],["su57","fighter","Су-57","ru",3,0.1,4.6,11,22,11],
-  ["f16","fighter","F-16C","us",1,0.03,2,5,11,5],["f15ex","fighter","F-15EX Eagle II","us",2,0.09,3.4,9,17,8],["f35","fighter","F-35A","us",3,0.11,4.8,12,22,12],
-  ["j10","fighter","J-10C","cn",2,0.04,2.8,7,14,6],["j20","fighter","J-20","cn",3,0.11,4.4,10,21,11],
-  ["su25","attack","Су-25СМ3","ru",1,0.012,1.4,10,1,5],["a10","attack","A-10C Thunderbolt II","us",2,0.02,1.8,13,1,7],
-  ["su34","bomber","Су-34","ru",2,0.05,3,18,4,7,800],["tu22","bomber","Ту-22М3","ru",3,0.2,5.5,34,0,8,1500],["b1b","bomber","B-1B Lancer","us",3,0.3,6,38,0,9,8000],
-  ["mi24","heli","Ми-24П","ru",1,0.012,0.8,6,1,3],["ka52","heli","Ка-52","ru",2,0.016,1.2,9,2,5],["ah1z","heli","AH-1Z Viper","us",2,0.03,1.3,9,2,5],["apache","heli","AH-64E Apache","us",3,0.035,1.6,12,2,6],["z10","heli","Z-10","cn",2,0.015,1.1,8,1,4],
-  ["tb2","drone","Bayraktar TB2","tr",1,0.005,0.45,5,0,1],["reaper","drone","MQ-9 Reaper","us",2,0.03,0.9,9,0,2],["wingloong","drone","Wing Loong II","cn",2,0.015,0.7,7,0,1],
-  ["shahed","loiter","Shahed-136","ir",1,0.00003,0.012,0.4,0,0],["lancet","loiter","«Ланцет-3»","ru",2,0.00004,0.016,0.6,0,0],["switchblade","loiter","Switchblade 600","us",2,0.00006,0.018,0.7,0,0],
+  ["btr82","apc","БТР-82А","ru",1,0.0008,0.12,2,0,2],["patria","apc","Patria AMV","fi",2,0.00194,0.224,3,0,4],["stryker","apc","Stryker","us",2,0.00369,0.271,4,0,5.5],["zsl92","apc","ZSL-92","cn",1,0.0007,0.1,2,0,2],
+  ["akacia","sph","2С3 «Акация»","ru",1,0.002,0.35,7,0,3],["msta","sph","2С19 «Мста-С»","ru",2,0.004,0.648,12,0,4.5],
+  ["paladin","sph","M109A7 Paladin","us",2,0.006,0.84,14,0,7],["pzh","sph","PzH 2000","de",3,0.00866,1.29,21,0,8],["plz05","sph","PLZ-05","cn",2,0.004,0.648,12,0,4.5],
+  ["grad","mlrs","БМ-21 «Град»","ru",1,0.0015,0.35,8,0,2],["tornado","mlrs","«Торнадо-С»","ru",2,0.00552,1.06,21,0,5],
+  ["m270","mlrs","M270 MLRS","us",2,0.00541,1.14,21,0,5],["himars","mlrs","M142 HIMARS","us",3,0.0055,1.25,22,0,4.5],["phl03","mlrs","PHL-03","cn",2,0.005,0.94,19,0,4.5],
+  ["tochka","srbm","«Точка-У»","ru",1,0.015,0.9,16,0,2],["iskander","srbm","«Искандер-М»","ru",2,0.05,2.93,40,0,4],
+  ["mig29","fighter","МиГ-29","ru",1,0.025,1.8,4,10,5],["su35","fighter","Су-35С","ru",2,0.065,3.4,8.5,17,8.5],["su57","fighter","Су-57","ru",3,0.1,4.6,11,22,11],
+  ["f16","fighter","F-16C","us",1,0.03,2,5,11,5],["f15ex","fighter","F-15EX Eagle II","us",2,0.09,4.05,11,20,9.5],["f35","fighter","F-35A","us",3,0.11,4.8,12,22,12],
+  ["j10","fighter","J-10C","cn",2,0.04,2.8,7,14,6],["j20","fighter","J-20","cn",3,0.11,4.82,11,23,12],
+  ["su25","attack","Су-25СМ3","ru",1,0.012,1.4,10,1,5],["a10","attack","A-10C Thunderbolt II","us",2,0.02,1.93,14,1,7.5],
+  ["su34","bomber","Су-34","ru",2,0.05,3,18,4,7,800],["tu22","bomber","Ту-22М3","ru",3,0.187,8.77,54,0,13,1500],["b1b","bomber","B-1B Lancer","us",3,0.216,9.45,60,0,14,8000],
+  ["mi24","heli","Ми-24П","ru",1,0.012,0.8,6,1,3],["ka52","heli","Ка-52","ru",2,0.016,1.2,9,2,5],["ah1z","heli","AH-1Z Viper","us",2,0.03,1.95,14,2,8],["apache","heli","AH-64E Apache","us",3,0.035,2.08,16,2,8],["z10","heli","Z-10","cn",2,0.015,1.1,8,1,4],
+  ["tb2","drone","Bayraktar TB2","tr",1,0.005,0.45,5,0,1],["reaper","drone","MQ-9 Reaper","us",2,0.0229,1.39,14,0,3],["wingloong","drone","Wing Loong II","cn",2,0.0132,1.09,11,0,1.5],
+  ["shahed","loiter","Shahed-136","ir",1,3e-05,0.015,0.5,0,0],["lancet","loiter","«Ланцет-3»","ru",2,4e-05,0.013,0.5,0,0],["switchblade","loiter","Switchblade 600","us",2,6e-05,0.026,1,0,0],
   ["il76","transport","Ил-76МД","ru",1,0.05,0.2,0,0,4],["c130","transport","C-130J Super Hercules","us",1,0.07,0.25,0,0,4],["y20","transport","Y-20","cn",2,0.06,0.25,0,0,4],
-  ["tor","shorad","«Тор-М2»","ru",1,0.012,0.9,1,9,4],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.2,2,12,4],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.2,0,13,3],["hq17","shorad","HQ-17","cn",2,0.012,1,1,10,3],
-  ["buk","mrsam","«Бук-М2»","ru",1,0.03,1.6,0,15,4],["nasams","mrsam","NASAMS","us",2,0.04,1.8,0,18,4],["hq16","mrsam","HQ-16","cn",2,0.03,1.6,0,16,4],
-  ["s300","lrsam","С-300ПМУ2","ru",1,0.12,2.6,0,24,5],["s400","lrsam","С-400 «Триумф»","ru",2,0.3,4,0,36,6],["s500","lrsam","С-500 «Прометей»","ru",3,0.7,6,0,50,7,1500],
-  ["patriot","lrsam","Patriot PAC-3","us",2,0.4,4.2,0,38,6],["thaad","lrsam","THAAD","us",3,0.8,6,0,52,7,5000],["hq9","lrsam","HQ-9B","cn",2,0.2,3.6,0,33,6],
-  ["krasukha","ew","«Красуха-4»","ru",2,0.02,0.8,0,4,3],["compass","ew","EC-37B Compass Call","us",3,0.12,1.2,0,6,4],
-  ["k20380","corvette","Корвет пр. 20380","ru",1,0.25,3.5,8,10,20],["type056","corvette","Корвет Тип 056","cn",1,0.1,2.5,6,7,15],
-  ["gorshkov","frigate","Фрегат «Адмирал Горшков»","ru",2,0.5,6.5,16,20,35],["fremm","frigate","Фрегат FREMM","fr",2,0.8,7,16,22,38],["type054a","frigate","Фрегат Тип 054A","cn",2,0.35,5.5,13,18,30],
-  ["burke","destroyer","Эсминец Arleigh Burke","us",3,2,14,30,40,70,3000],["type055","destroyer","Эсминец Тип 055","cn",3,1,12,28,36,65,3000],
-  ["kilo","sub","ПЛ «Варшавянка» 636.3","ru",1,0.3,5,18,0,25],["type214","sub","ПЛ Type 214","de",2,0.5,6,20,0,28],["yasen","sub","АПЛ «Ясень-М»","ru",3,1.6,12,40,0,45,1500],["virginia","sub","АПЛ Virginia","us",3,3,14,44,0,50,5000],
-  ["nimitz","carrier","Авианосец Nimitz","us",3,13,48,60,60,200,15000],["fujian","carrier","Авианосец «Фуцзянь»","cn",3,8,40,50,50,170,10000]
+  ["tor","shorad","«Тор-М2»","ru",1,0.012,1.09,1,11,5],["pantsir","shorad","«Панцирь-С1»","ru",2,0.015,1.47,2,15,5],["gepard","shorad","Flakpanzer Gepard","de",1,0.006,0.6,1,7,3],["irist_sls","shorad","IRIS-T SLS","de",2,0.02,1.84,0,20,4.5],["hq17","shorad","HQ-17","cn",2,0.012,1.29,1,13,4],
+  ["buk","mrsam","«Бук-М2»","ru",1,0.03,1.6,0,15,4],["nasams","mrsam","NASAMS","us",2,0.04,2,0,20,4.5],["hq16","mrsam","HQ-16","cn",2,0.03,1.6,0,16,4],
+  ["s300","lrsam","С-300ПМУ2","ru",1,0.12,2.6,0,24,5],["s400","lrsam","С-400 «Триумф»","ru",2,0.3,5.43,0,49,8],["s500","lrsam","С-500 «Прометей»","ru",3,0.534,9.47,0,79,11,1500],
+  ["patriot","lrsam","Patriot PAC-3","us",2,0.389,6.63,0,60,9.5],["thaad","lrsam","THAAD","us",3,0.543,9.56,0,83,11,5000],["hq9","lrsam","HQ-9B","cn",2,0.2,3.92,0,36,6.5],
+  ["krasukha","ew","«Красуха-4»","ru",2,0.02,0.8,0,4,3],["compass","ew","EC-37B Compass Call","us",3,0.0628,1.92,0,9.5,6.5],
+  ["k20380","corvette","Корвет пр. 20380","ru",1,0.25,4.88,11,14,28],["type056","corvette","Корвет Тип 056","cn",1,0.1,2.5,6,7,15],
+  ["gorshkov","frigate","Фрегат «Адмирал Горшков»","ru",2,0.5,7.23,18,22,39],["fremm","frigate","Фрегат FREMM","fr",2,0.8,10.13,23,32,55],["type054a","frigate","Фрегат Тип 054A","cn",2,0.35,5.5,13,18,30],
+  ["burke","destroyer","Эсминец Arleigh Burke","us",3,2,21,45,60,105,3000],["type055","destroyer","Эсминец Тип 055","cn",3,1,12,28,36,65,3000],
+  ["kilo","sub","ПЛ «Варшавянка» 636.3","ru",1,0.3,5,18,0,25],["type214","sub","ПЛ Type 214","de",2,0.5,7.75,26,0,36],["yasen","sub","АПЛ «Ясень-М»","ru",3,1.6,18.92,63,0,71,1500],["virginia","sub","АПЛ Virginia","us",3,1.82,22.19,70,0,79,5000],
+  ["nimitz","carrier","Авианосец Nimitz","us",3,13,56.7,71,71,236,15000],["fujian","carrier","Авианосец «Фуцзянь»","cn",3,8,40,50,50,170,10000]
 ];
 const MODELS = {};
 MODEL_ROWS.forEach(([id, kind, name, origin, gen, price, pw, ga, aa, df, req]) => { MODELS[id] = {id, kind, name, origin, gen, price, pw, ga, aa, df, req:req||0}; });
+// armour decides who dies: under the same fire a model loses machines in proportion to (average armour of its kind / its armour)
+const DF_REF = {}; { const s = {}; Object.values(MODELS).forEach(m => { (s[m.kind] = s[m.kind] || []).push(m.df); }); for (const k in s) DF_REF[k] = s[k].reduce((a, b) => a + b, 0)/s[k].length; }
+const armourK = m => m.df > 0 && DF_REF[m.kind] > 0 ? DF_REF[m.kind]/m.df : 1;
+// who shoots matters too: an enemy with stronger guns (or air defence) kills more of the same machines.
+// foeQ = the foe's average attack per machine against the average of all models (1 = an average army)
+const GA_MEAN = (() => { const L = Object.values(MODELS).filter(m => ["tank","ifv","apc","sph","mlrs"].includes(m.kind)); return L.reduce((a, m) => a + m.ga, 0)/L.length; })();
+const AA_MEAN = (() => { const L = Object.values(MODELS).filter(m => ["fighter","shorad","mrsam","lrsam"].includes(m.kind)); return L.reduce((a, m) => a + m.aa, 0)/L.length; })();
+function foeQ(units){
+  let g = 0, gn = 0, a = 0, an = 0;
+  for (const [id, n] of Object.entries(units||{})){ const m = MODELS[id]; if (!m || !(n > 0)) continue;
+    if (["tank","ifv","apc","sph","mlrs"].includes(m.kind)){ g += m.ga*n; gn += n; } else if (["fighter","shorad","mrsam","lrsam"].includes(m.kind)){ a += m.aa*n; an += n; } }
+  return {g:gn ? clamp(Math.pow(g/gn/GA_MEAN, 0.8), 0.5, 2) : 1, a:an ? clamp(Math.pow(a/an/AA_MEAN, 0.8), 0.5, 2) : 1};
+}
 const LANDLOCKED = new Set(["kz","kg","uz","by","az"]);
 const AMMO = {
   shell:{name:"Артиллерийские снаряды",short:"снаряды",unit:"тыс. шт",price:0.004,batch:20,steel:4},
@@ -1939,7 +1966,10 @@ function frontRoutes(att, tgt, n){
   });
   return out;
 }
-const WAR_EXP = 1.6, WAR_SPEED = 2.2, DEF_K = 1.25;   // DEF_K: the defender's edge — equal armies get stuck, superiority is needed to advance
+const WAR_EXP = 1.6, WAR_SPEED = 1.3, DEF_K = 1.25;
+// an offensive has a speed limit (% of a direction per day): supply, roads and holding ground slow even an overwhelming army.
+// A direction is a chain of positions (every POS_STEP %); after taking one, the troops regroup for a few days, longer after a fortified line.
+const FRONT_VMAX = 1.3, POS_STEP = 5, REGROUP = [2, 3], REGROUP_LINE = 5;   // DEF_K: the defender's edge — equal armies get stuck, superiority is needed to advance
 function frontsOf(iso){ return FRONTS[iso] || [["Основное","p",["Приграничье","Центральные районы", (CAPITALS[iso]||["Столица"])[0]]]]; }
 function initFronts(w){
   if (w.fronts) return;
@@ -2022,15 +2052,28 @@ function frontsDay(w, base){
     const sh = (x, y) => { const X = Math.pow(x, WAR_EXP), Y = Math.pow(y, WAR_EXP); return X/(X + Y); };
     // a clear superiority moves the front fast, near-equal armies grind slowly
     const diff = sh(aM*surprise[0], dT) - sh(aT*surprise[1], dM);
+    f.diff = diff;
     let d = diff*WAR_SPEED*(0.5 + 0.5*Math.abs(diff))*ph.k + rnd(-0.2, 0.2)*ph.k;
     // fortified lines slow the attacker down until it storms them
     if (d > 0 && f.p >= 0){ const t = lineAhead(f.p); if (t - f.p < 3 && !(f.storm > 0)) d *= 0.15; }
     if (d < 0 && f.p <= 0){ const t = lineBehind(f.p); if (t + f.p < 3){ f.aiWait = (f.aiWait||0) + 1; if (f.aiWait < 10) d *= 0.15; } else f.aiWait = 0; }
     if (f.storm > 0){ f.storm--; if (d > 0) d *= w.phase === "pos" ? 3 : 2; }
+    // only an overwhelming superiority reaches the speed limit; a merely stronger army is held to less
+    // a populous country is deeper: more towns to take, more people to resist — the attacker's limit falls with the defender's size
+    { const depth = pop => clamp(Math.pow((pop || 20)/20, 0.3), 0.8, 2), dep = d >= 0 ? depth(C()[w.enemy].pop) : depth(me().pop);
+      const vmax = FRONT_VMAX*(w.phase === "pos" ? 0.5 : 1)*(0.55 + 0.45*clamp((Math.abs(diff) - 0.5)/0.45, 0, 1))/dep; d = clamp(d, -vmax, vmax); }
+    // regrouping after a taken position: that side does not advance for a few days
+    if (f.regroup > 0){ f.regroup--; if (d > 0) d = 0; }
+    if (f.regroupT > 0){ f.regroupT--; if (d < 0) d = 0; }
     if (f.pause > 0){ f.pause--; if (d > 0) d = 0; }
     else if (f.buff > 0){ f.buff--; if (d > 0) d *= f.buffK || 1; }
     if (f.defBuff > 0){ f.defBuff--; if (d < 0) d *= 0.5; }
-    const before = f.p; f.p = clamp(f.p + d, -100, 100);
+    f.lastD = d; const before = f.p; f.p = clamp(f.p + d, -100, 100);
+    // a new position taken (also by strikes since yesterday): the winner regroups; the field learns about it through f.posEv
+    { const was = f.posN ?? Math.floor(before/POS_STEP), now = Math.floor(f.p/POS_STEP), line = LINES.some(t => (before < t && f.p >= t) || (before > -t && f.p <= -t));
+      if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days}; }
+      else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days}; }
+      f.posN = now; }
     LINES.forEach((t, k) => {
       if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); wearyAdd(-3); }
       if (before > -t && f.p <= -t){ warEvent(w, `${f.myName} направление: противник занял ${f.myPlaces[k]}.`, "bad"); S.mods.push({stat:"approval", v:-2, left:3}); wearyAdd(4); }
@@ -2204,10 +2247,10 @@ function depTake(w, id, n, i){
 // losses of the deployed machines (the same rates as before, now only for what is really at war)
 function takeLossesW(w, rate, airRate){
   const U = warUnits(w), before = Object.assign({}, U);
-  takeLosses(U, w.accMy, w.lossMy, w.mLossMy, rate, airRate, 1);
+  takeLosses(U, w.accMy, w.lossMy, w.mLossMy, rate, airRate, 1, foeQ(w.eu));
   for (const id in before){ const d = Math.round(before[id] - U[id]); if (d > 0) depTake(w, id, d); }
 }
-function hitFront(w, i, rate, tally){ depInit(w); const d = w.dep[i] || {}; Object.keys(d).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = depTake(w, id, Math.floor(d[id]*rate), i); if (tally && l) tally[id] = (tally[id]||0) + l; } }); }
+function hitFront(w, i, rate, tally){ depInit(w); const d = w.dep[i] || {}; Object.keys(d).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = depTake(w, id, Math.floor(d[id]*rate*armourK(m)), i); if (tally && l) tally[id] = (tally[id]||0) + l; } }); }
 // a direction's weight in the battle comes from the machines sent there; the personnel is split evenly
 function depPower(d){ let s = 0; for (const id in d||{}){ const m = MODELS[id]; if (m && d[id] > 0) s += (m.ga + m.df*0.6 + m.aa*0.3)*d[id]; } return s; }
 function depShares(w){
@@ -2266,12 +2309,13 @@ function depAll(w){ depInit(w); const act = w.fronts.map((f, i) => i).filter(i =
 
 function warShare(w){ const sum = S.wars.reduce((a,x)=>a + (x.prio||2), 0) || 1; return (w.prio||2)/sum; }
 function warEvent(w, text, kind){ w.events = [{d:dateStr(), text, kind:kind||""}, ...(w.events||[])].slice(0, 8); }
-function takeLosses(units, acc, tally, mtally, rate, airRate, share){
+function takeLosses(units, acc, tally, mtally, rate, airRate, share, foe){
+  const Q = foe || {g:1, a:1};
   for (const id of Object.keys(units)){
     const m = MODELS[id], n = units[id]; if (!m || n <= 0) continue;
     const k = KINDS[m.kind];
     let r = GROUND_K.has(m.kind) ? rate : k.cls === "air" ? (m.kind === "loiter" ? 0 : airRate) : k.cls === "ad" ? rate*0.4 : k.cls === "navy" ? rate*0.08 : rate;
-    acc[id] = (acc[id]||0) + n*share*r;
+    acc[id] = (acc[id]||0) + n*share*r*armourK(m)*(GROUND_K.has(m.kind) ? Q.g : k.cls === "air" ? Q.a : 1);
     const lost = Math.min(n, Math.floor(acc[id]));
     if (lost > 0){ units[id] -= lost; acc[id] -= lost; tally[id] = (tally[id]||0) + lost; mtally[id] = (mtally[id]||0) + lost; }
   }
@@ -2324,7 +2368,7 @@ function warDay(w){
   const rM = 0.0036*(atkT/(atkT + defM))*Mm.loss, rT = 0.0036*(atkM/(atkM + defT))*(w.aiMode === "attack" ? 1 : 0.7);
   const airRM = 0.0035*(th.air + th.ad)/(my.air + th.air + th.ad + 1)*(Mm.loss), airRT = 0.0035*(my.air + my.ad)/(th.air + my.air + my.ad + 1);
   takeLossesW(w, rM, airRM);
-  takeLosses(w.eu, w.accTh, w.lossTh, w.mLossTh, rT, airRT, 1);
+  takeLosses(w.eu, w.accTh, w.lossTh, w.mLossTh, rT, airRT, 1, foeQ(WU));
   if (w.mode !== "defend" && my.loiter > 0){ Object.keys(WU).forEach(id => { if (MODELS[id] && MODELS[id].kind === "loiter") depTake(w, id, Math.ceil(WU[id]*0.01)); }); }
   const tl = myTroops*rM*0.5; me().army = Math.max(1, me().army - tl); w.troopsLost += tl;
   wearyAdd(tl/Math.max(1, me().army)*260 + 0.03); e.army = Math.max(0.5, e.army - thTroops*rT*0.5);
@@ -2402,7 +2446,7 @@ function fsBlock(w, i, type){
   if (st.ammo) for (const k in st.ammo) if ((S.ammo[k]||0) < st.ammo[k]) return `мало: ${AMMO[k].short}`;
   return null;
 }
-function fsKill(w, id, n, kills){ n = Math.min(Math.floor(n), w.eu[id]||0); if (n <= 0) return 0; w.eu[id] -= n; w.lossTh[id] = (w.lossTh[id]||0) + n; kills[id] = (kills[id]||0) + n; return n; }
+function fsKill(w, id, n, kills){ if (MODELS[id]) n *= armourK(MODELS[id]); n = Math.min(Math.floor(n), w.eu[id]||0); if (n <= 0) return 0; w.eu[id] -= n; w.lossTh[id] = (w.lossTh[id]||0) + n; kills[id] = (kills[id]||0) + n; return n; }
 function fieldStrike(w, i, type){
   const st = FIELD_STRIKES[type], f = w.fronts[i], why = fsBlock(w, i, type); if (why) return {ok:false, text:why};
   initWar(w); const e = C()[w.enemy], fs = f.share || 1/(w.fronts.length || 1), have = fsHave(w, i, type), tot = have.reduce((a, [, k]) => a + k, 0);
@@ -2415,12 +2459,12 @@ function fieldStrike(w, i, type){
     const eff = w.air, scale = Math.min(1, tot/12);
     Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)) fsKill(w, id, w.eu[id]*fs*0.045*eff*scale + (Math.random() < eff ? 1 : 0), kills); });
     ourLoss(w.air < 0.4 ? 0.04 : 0.008);
-    push = (2 + 6*eff)*(0.5 + 0.5*scale); good = w.air >= 0.4;
+    push = (0.6 + 1.8*eff)*(0.5 + 0.5*scale); good = w.air >= 0.4;   // up to about half a position
   } else if (type === "heli"){
     // ATGMs against armour; short-range air defence on this direction is what helicopters fear
     const sh = Object.entries(w.eu).reduce((a, [id, n]) => a + (MODELS[id] && MODELS[id].kind === "shorad" ? MODELS[id].aa*n*fs : 0), 0), risk = 0.01 + 0.08*sh/(sh + 150), scale = Math.min(1, tot/10);
     Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const r = m.kind === "tank" ? 0.04 : m.kind === "ifv" || m.kind === "apc" ? 0.03 : 0; if (r) fsKill(w, id, w.eu[id]*fs*r*scale + (Math.random() < 0.5 ? 1 : 0), kills); });
-    ourLoss(risk); push = 1 + 1.5*scale; good = risk < 0.05; extra.risk = risk;
+    ourLoss(risk); push = 0.4 + 0.6*scale; good = risk < 0.05; extra.risk = risk;
   } else {
     // the drones are spent; enemy electronic warfare jams a share of them
     let left = st.use; have.forEach(([id]) => { if (left > 0){ const l = depTake(w, id, Math.min(left, (w.dep[i][id]||0)), i); left -= l; extra.spent = extra.spent || {}; extra.spent[id] = l; } });
@@ -2428,7 +2472,7 @@ function fieldStrike(w, i, type){
     Object.entries(extra.spent).forEach(([id, l]) => { w.lossF[i][id] = Math.max(0, (w.lossF[i][id]||0) - l); });
     const jam = clamp(th.ew/(th.ew + 30), 0, 0.7), hits = Math.round(st.use*(1 - jam)*rnd(0.5, 0.8)); extra.jam = jam;
     let killed = 0; ["tank","sph","mlrs","ifv"].forEach(kind => Object.keys(w.eu).forEach(id => { if (MODELS[id] && MODELS[id].kind === kind && killed < hits*0.3) killed += fsKill(w, id, Math.min(w.eu[id]*fs + 1, Math.ceil(hits*0.08)), kills); }));
-    push = 0.8; good = jam < 0.4;
+    push = 0.4; good = jam < 0.4;
     bSplit(te, fightWeights(w.eu, w.ea, 1, e, 1 - w.air, 0, 1).ew, "i", Math.round(st.use*jam));
     text = `${f.name} направление, удар дронами: ${hits} из ${st.use} долетели${jam > 0.2 ? ` (РЭБ заглушила ${Math.round(jam*100)}%)` : ""}`;
   }
@@ -3211,13 +3255,16 @@ function openBattle(enemy, i){
   sprLoad(); bfLoadProps();
   closeBattle(true);
   const root = document.createElement("div"); root.id = "bf-root"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Поле боя");
-  root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div><div class="bf-msg hide" role="status"></div><div class="bf-strikes" role="group" aria-label="Удары по направлению"></div>`;
+  root.innerHTML = `<canvas id="bf-cv"></canvas><div class="bf-top"><button class="bf-back" data-bfclose aria-label="Назад к карте">${ic("close","sm")}</button><div class="bf-title"></div></div><div class="bf-load">Разворачиваем поле боя…</div><div class="bf-msg hide" role="status"></div><div class="bf-strikes" role="group" aria-label="Удары по направлению"></div><div class="bf-pos" role="status"></div>`;
   document.body.appendChild(root);
   const st = BF.open = {enemy, i, cam:{x:BF_W/2, y:BF_H/2 - 4, z:-0.85}, root, dirty:true, gen:null, t0:performance.now()};
   // the map with its animated fronts keeps the phone busy even when covered: take it out of rendering while the field is open
   document.body.classList.add("bf-open");
-  root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) return closeBattle(); const b = e.target.closest("[data-fstrike]"); if (b) bfStrike(st, b.dataset.fstrike); });
-  bfStrikeBar(st); st.tickBar = setInterval(() => bfStrikeBar(st), 1000);
+  root.addEventListener("click", e => { if (e.target.closest("[data-bfclose]")) return closeBattle(); const b = e.target.closest("[data-fstrike]"); if (b) bfStrike(st, b.dataset.fstrike);
+    if (e.target.closest("[data-bfhurry]")){ st.hurry = true; ui.speed = 2; bfPos(st); }
+    if (e.target.closest("[data-bfresume]")){ if (S.pendingEvent){ closeBattle(); showReport(); } else { ui.speed = 1; bfPos(st); } } });
+  st.speed0 = ui.speed; ui.speed = 1; st.posDay = ((w.fronts[i] || {}).posEv || {}).day;
+  bfStrikeBar(st); bfPos(st); st.tickBar = setInterval(() => { bfStrikeBar(st); bfPos(st); }, 1000);
   bfTitle(st);
   if (bf3dOk()){ bf3dOpen(st, w, i); sfx("tap"); return; }
   setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); root.querySelector(".bf-load")?.remove(); bfFit(st); st.dirty = true; }, 30);
@@ -3225,7 +3272,8 @@ function openBattle(enemy, i){
   sfx("tap");
 }
 function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null;
-  document.body.classList.remove("bf-open"); if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
+  document.body.classList.remove("bf-open"); if (st.speed0 != null && ui.speed > 0) ui.speed = st.speed0;
+  if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
 const BF3D_MODELS = ["su25","ka52","tb2","a10","su34","mi24","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
@@ -3307,6 +3355,32 @@ function bfStrike(st, type){
   st.api.raid(type, {n:Object.values(r.spent).reduce((a, b) => a + b, 0), jam:r.jam});
   for (const [id, n] of Object.entries(r.kills)){ st.api.hit(1, id, n, "air"); st.lost0[1][id] = (st.lost0[1][id] || 0) + n; }
   for (const [id, n] of Object.entries(r.spent)) st.api.consume(0, id, n);
+}
+/* ---- the battle for a position: every POS_STEP % of a direction is a position; the field shows the fight for the next one
+   and ends when the war takes it (or loses one), then returns to the map ---- */
+function bfPos(st){
+  const w = S.wars.find(x => x.enemy === st.enemy), el = st.root.querySelector(".bf-pos"); if (!w || !el || st.done) return;
+  const f = w.fronts[st.i]; if (!f) return;
+  // the war took (or lost) a position since the field opened
+  const ev = f.posEv; if (ev && ev.day !== st.posDay){ st.posDay = ev.day; return bfPosDone(st, ev.dir, f); }
+  let cls = "", title, pct, btn = "";
+  // the game paused itself (an event waits for a decision, or the player paused): say so, the battle stands still
+  if (ui.speed === 0){ cls = "wait"; title = S.pendingEvent ? "Время остановлено: ждёт решение по событию" : "Время на паузе"; pct = 0; btn = `<button data-bfresume>${S.pendingEvent ? "К событию" : "Продолжить"}</button>`; }
+  else if (f.regroup > 0){ cls = "wait"; title = `Перегруппировка перед следующей позицией: ${f.regroup} ${plural(f.regroup, "день", "дня", "дней")}`; pct = 0; if (!st.hurry) btn = `<button data-bfhurry>Ускорить время</button>`; }
+  else { if (st.hurry){ st.hurry = false; ui.speed = 1; }
+    const lo = Math.floor(f.p/POS_STEP)*POS_STEP;
+    if ((f.lastD || 0) >= 0){ title = f.regroupT > 0 ? "Противник перегруппировывается — наш штурм" : "Штурм позиции врага"; pct = (f.p - lo)/POS_STEP; }
+    else { cls = "def"; title = "Противник штурмует нашу позицию"; pct = (lo + POS_STEP - f.p)/POS_STEP; } }
+  const html = `<b>${title}</b><div class="bar"><i style="width:${Math.round(clamp(pct, 0, 1)*100)}%"></i></div>${btn}`;
+  el.className = "bf-pos " + cls; if (el.innerHTML !== html) el.innerHTML = html;
+}
+function bfPosDone(st, dir, f){
+  st.done = true; st.root.querySelector(".bf-pos").innerHTML = "";
+  const win = dir > 0, ban = document.createElement("div"); ban.className = "bf-banner " + (win ? "good" : "bad");
+  ban.innerHTML = `<div><b>${win ? "Наша армия уничтожила позицию врага" : "Противник прорвал нашу позицию"}</b><small>${win ? `${esc(f.name)} направление: фронт продвинулся. Войска перегруппируются ${f.regroup} ${plural(f.regroup, "день", "дня", "дней")}.` : `${esc(f.myName || f.name)} направление: мы отходим на следующий рубеж.`}</small></div>`;
+  st.root.appendChild(ban); sfx(win ? "success" : "alert"); buzz(60);
+  if (st.api) st.api.posTaken(dir);
+  setTimeout(() => { if (BF.open === st) closeBattle(true); }, 4200);
 }
 function bfTitle(st){
   const w = S.wars.find(x => x.enemy === st.enemy); if (!w) return closeBattle(true);
@@ -4572,7 +4646,7 @@ function warOutcomes(){
       S.pendingVictory = {iso:e.id, w:{eu:w.eu, ea:w.ea, days:w.days}};
       addLog(`Победа! ${e.name} капитулировала.`); dirty = true;
       setTimeout(showVictory, 50);
-    } else if (!S.pendingVictory && w.days > 30 && !(w.offerCd > 0) && !w.offer && (w.progress >= 50 || (enemyLoss(w) >= 0.4 && w.progress >= 15))){
+    } else if (!S.pendingVictory && w.days > 45 && !(w.offerCd > 0) && !w.offer && (w.progress >= 60 || (enemyLoss(w) >= 0.4 && w.progress >= 25))){
       // the losing enemy sues for peace on our terms
       w.offer = true; w.offerCd = 60; w.peaceCd = 0;
       addLog(`${e.name} просит мира.`); warEvent(w, `${e.name} просит мира и готова принять наши условия.`, "good");

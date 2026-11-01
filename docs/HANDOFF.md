@@ -92,6 +92,13 @@ Read this first in a new session.
 - While the field is open (`body.bf-open`), the game screen under it is now taken out of rendering (`#app`, advisor and float layers get `display:none`). The game day ticks on, but nothing redraws the hidden map: no `updateWarMap`, `battleLoop`, `render`, `updateLive` or clock. On close it renders once.
 - The readout shows "кадр N мс, из них поле M": the frame time against our own code's time. If M is small and N is ~33 ms, the phone caps the frame rate (battery saver or the phone's game mode).
 
+## War length, balance, battle for a position (01.11.2026)
+- See the last section of `docs/war-design.md` for the rules and the test table.
+- `tools/sim/warsim.js [days] [runs]` plays the test wars in headless Chromium through the real game code. The run takes seconds; rerun it after any war change.
+- `tools/sim/balance.py` prints the stat/price proposal per model. The numbers it produced are already applied to `MODEL_ROWS`.
+- Field: the speed is ×1 while the field is open (restored on close). `bfPos`/`bfPosDone` in `src/game.html`, `api.posTaken(dir)` in `bf3d.js`.
+- Aircraft speeds in `bf3d.js` `SPEC`: jets 75 m/s, helicopters 18, drones 26, loitering munitions 50 (dive 75). The user found the old speeds "like a biplane".
+
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
