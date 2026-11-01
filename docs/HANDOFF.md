@@ -202,3 +202,21 @@ Read this first in a new session.
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
+
+## NEXT STAGE (agreed 02.11.2026): commanded field battle
+The user found the field boring: it only shows what the map already decided, and ~30 s after opening a banner says the position fell. New rule: while a commanded battle is open, the field decides the outcome. Build it in stages, discuss details with the user before each.
+
+Rules agreed with the user:
+- One commanded battle per war every 15 **game** days (`w.bfCd`), on any one direction. Cooldown in game days on purpose: speed 1×/3× changes only real-time waiting, not the balance (the user asked; explained). During the cooldown the field opens only to watch, the old way, no pause.
+- Before the battle the player picks the strike group with a slider: at most **33%** of the direction's machines. Only that group can die; the rest hold the front.
+- The map is paused during the battle. On exit, days passed = minutes of battle (1–5); the game fast-forwards those days everywhere except this direction, which takes the field's result (losses and the line taken/held). Leaving early: the rest is auto-resolved the old way.
+- No retreats: the battle runs to the end. Win banner «Мы уничтожили позицию врага! Победа!» (the line falls), loss «Враг уничтожил нашу армию».
+- Damage model (the user's idea): each field unit is a squad of N real machines (e.g. 70 Armata vs 67 Abrams → 3 squads each, 24+23+23 vs 23+22+22). Squad HP = N × machine HP (from armour). A squad's shot hits with the strength of all its machines × an attacker/target class factor (tank vs tank full, autocannon vs tank weak, ATGM strong); equal squads die in ~4–5 hits, bigger and better squads win faster. Lost HP ÷ machine HP = machines destroyed; label «Армата ×24 → ×17»; these are the war's real losses.
+- AI: squads spread across the flanks with intervals (not bunched in the centre), take cover behind walls, ruins, houses, berms (the props), fire only with a clear line of fire (raycast against props/relief a few times a second, not every frame, for phones), move cover to cover, try flanking; a damaged squad looks for better cover.
+- Drive: HP bars, «не пробил / рикошет», burning hulks stay, turrets can blow off, kill feed («Т-90М уничтожил Abrams»), loss score, day timer, camera shake on near blasts. Air/heli/drone strikes inside the battle with cooldowns in seconds, spending real ammunition.
+- Variety (so battles don't bore): first version has two battle types, **assault** (take the line) and **defence** (hold N minutes against waves), and terrain by country. Later stages, 1–2 at a time: breakthrough, ambush on a supply column, city battle, night/fog/rain, enemy doctrine by its real force mix, mid-battle events, rewards (trophies, morale, veteran squads).
+- Infantry (from `w.men`): a separate stage after the core battle (phone load), the assistant's recommendation.
+
+Order: 1) rules in `game.html` (cooldown, strike group slider, pause, days on exit, applying results, auto-resolve on early exit); 2) battle in `bf3d.js` (HP, damage, cover AI, end conditions, HUD); 3) in-battle strikes + balance with `tools/sim/warsim.js` (a field battle should average about what the auto-calculation gives, plus a bonus for good strikes).
+
+Open question on fuel: the user conquered Mexico in a test with no fuel trouble. Fuel is implemented (`fuelDay`), but the amounts are realistic (a tank 4 bbl/day), so an army burns a tiny share of an oil country's output; it only bites without oil, under sanctions or with an empty treasury. Ask the user whether to make it harsher (losses in transport, front money) or to make delivery the bottleneck (strikes on columns).
