@@ -425,6 +425,21 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-banner div{text-align:center;color:#fff;text-shadow:0 2px 12px #000}
 #bf-root .bf-banner b{display:block;font-family:var(--f-display);font-size:clamp(22px,4vw,38px);text-transform:uppercase;letter-spacing:.04em}
 #bf-root .bf-banner.bf-arr{inset:16% 0 auto 0;background:none} #bf-root .bf-banner.bf-arr b{font-size:clamp(16px,2.6vw,24px)}
+#bf-root.cmd .bf-pos,#bf-root.cmd .bf-strikes{display:none}
+#bf-root .bf-cmd{position:absolute;inset:0;z-index:4;display:grid;place-items:center;padding:16px;background:rgb(0 0 0 / .45)}
+#bf-root .bf-cmd-card{width:min(440px,100%);background:#1C2318;border:1px solid rgb(255 255 255 / .16);border-radius:14px;padding:16px;color:#fff;display:flex;flex-direction:column;gap:8px;font-size:13px}
+#bf-root .bf-cmd-card>b{font-family:var(--f-display);font-size:19px;text-transform:uppercase;letter-spacing:.03em}
+#bf-root .bf-cmd-card small{color:#C9D3C0;font-size:12px;line-height:1.35}
+#bf-root .bf-cmd-card input[type=range]{width:100%}
+#bf-root .bf-cmd-side{display:flex;gap:8px;font-size:12px;line-height:1.3} #bf-root .bf-cmd-side i{font-style:normal;font-weight:700;flex:0 0 38px}
+#bf-root .bf-cmd-side.us i,#bf-root .bf-cmdhud .us{color:#7FA6FF} #bf-root .bf-cmd-side.them i,#bf-root .bf-cmdhud .them{color:#FF8A8A}
+#bf-root .bf-cmd-edge{font-weight:700;color:#FFD27A} #bf-root .bf-cmd-edge.good{color:#8FE08F} #bf-root .bf-cmd-edge.bad{color:#FF8A8A}
+#bf-root .bf-cmd-btns{display:flex;gap:8px;margin-top:4px} #bf-root .bf-cmd-btns button{flex:1;min-height:44px;border-radius:10px;border:1px solid rgb(255 255 255 / .2);background:rgb(255 255 255 / .08);color:#fff;font-weight:700}
+#bf-root .bf-cmd-btns .bf-cmd-go{background:#C8402F;border-color:#E26A5A} #bf-root .bf-cmd-btns button:disabled{opacity:.4}
+#bf-root .bf-cmdhud{position:absolute;left:50%;transform:translateX(-50%);top:max(10px,env(safe-area-inset-top));width:min(360px,44vw);z-index:2;color:#fff;text-align:center;font-size:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;text-shadow:0 1px 3px #000}
+#bf-root .bf-cmdhud b{flex:1 0 100%;font-size:12.5px} #bf-root .bf-cmdhud .bar{flex:1 0 100%;height:8px;border-radius:5px;background:rgb(0 0 0 / .55);overflow:hidden;border:1px solid rgb(255 255 255 / .2);margin:2px 0}
+#bf-root .bf-cmdhud .bar i{display:block;height:100%;background:linear-gradient(90deg,#C8402F,#FF8A5A);transition:width .6s}
+#bf-root .bf-cmdhud button{pointer-events:auto;flex:1 0 100%;margin-top:4px;min-height:32px;border-radius:8px;border:1px solid rgb(255 255 255 / .2);background:rgb(0 0 0 / .5);color:#fff;font-size:12px}
 #bf-root .bf-banner.good b{color:#FFD27A} #bf-root .bf-banner.bad b{color:#FF8A8A}
 #bf-root .bf-banner small{display:block;margin-top:6px;font-size:14px;color:#E6ECF5}
 @keyframes bfBan{from{opacity:0;transform:scale(1.08)}to{opacity:1;transform:none}}
@@ -2010,7 +2025,7 @@ function warSync(w){
   if (cap && others.length && cap.p >= LINES[1] && others.every(f => f.p >= 100)) w.progress = 100;
   if (cap && others.length && cap.p <= -LINES[1] && others.every(f => f.p <= -100)) w.progress = -100;
 }
-function warPush(w, v){ initFronts(w); w.fronts.forEach(f => f.p = clamp(f.p + v, -100, 100)); warSync(w); }
+function warPush(w, v){ initFronts(w); w.fronts.forEach((f, k) => { if (w.bfLock !== k) f.p = clamp(f.p + v, -100, 100); }); warSync(w); }
 /* phases: mobilisation (first 10 days, the side that struck first has the surprise), manoeuvre, positional (front frozen for a month) */
 const PHASES = {mob:{n:"Мобилизация", k:0.6, hint:"стороны разворачивают войска; у напавшего — внезапность"}, man:{n:"Манёвренная фаза", k:1.3, hint:"фронт подвижен, решают авиация и танки"}, pos:{n:"Позиционная фаза", k:0.5, hint:"фронт застыл: решают артиллерия, дроны и штурмы рубежей"}};
 function phaseTick(w){
@@ -2037,6 +2052,7 @@ function frontsDay(w, base){
   if (!w.counter && w.phase !== "mob" && Math.random() < 0.03){ const f = w.fronts[weak]; if (f && f.p < 100 && ((f.sup ?? 100) < 60 || f.share < 0.25)){ w.counter = {i:weak, days:7}; warEvent(w, `${f.name} направление: противник перешёл в контрнаступление.`, "bad"); advise("gen", `Контрнаступление противника на ${f.name.toLowerCase()} направлении! Там у нас ${f.share < 0.25 ? "мало войск" : "плохое снабжение"}.`, {tab:"hq", mood:"alert"}); } }
   w.fronts.forEach((f, i) => {
     if (f.p >= 100) return;
+    if (w.bfLock === i) return;   // a commanded field battle decided this direction: it stands while the rest of the war catches up
     const st = supplyTarget(w, f); f.sup = (f.sup ?? 100) + (st - (f.sup ?? 100))*0.1;
     if (f.sup < 45 && !f.supWarn){ f.supWarn = true; warEvent(w, `${f.name} направление: снабжение упало до ${Math.round(f.sup)}% — наступление вязнет.`, "bad"); } else if (f.sup > 60) f.supWarn = false;
     let es = w.aiMode === "attack" ? (na === 1 ? 1 : i === weak ? 1/na + 0.1 : (1 - 1/na - 0.1)/(na - 1)) : f.share;
@@ -2071,16 +2087,20 @@ function frontsDay(w, base){
     if (f.defBuff > 0){ f.defBuff--; if (d < 0) d *= 0.5; }
     f.lastD = d; const before = f.p; f.p = clamp(f.p + d, -100, 100);
     // a new position taken (also by strikes since yesterday): the winner regroups; the field learns about it through f.posEv
-    { const was = f.posN ?? Math.floor(before/POS_STEP), now = Math.floor(f.p/POS_STEP), line = LINES.some(t => (before < t && f.p >= t) || (before > -t && f.p <= -t));
-      if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days, line, boom:line ? posBreak(w, i, 1) : 0}; }
-      else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days, line, boom:line ? posBreak(w, i, -1) : 0}; }
-      f.posN = now; }
-    LINES.forEach((t, k) => {
-      if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); wearyAdd(-3); }
-      if (before > -t && f.p <= -t){ warEvent(w, `${f.myName} направление: противник занял ${f.myPlaces[k]}.`, "bad"); S.mods.push({stat:"approval", v:-2, left:3}); wearyAdd(4); }
-    });
+    frontMoved(w, f, i, before);
   });
   warSync(w); phaseTick(w); wcardTick(w);
+}
+// the front moved from `before` to f.p: a new position or line taken/lost (frontsDay, a commanded field battle)
+function frontMoved(w, f, i, before){
+  { const was = f.posN ?? Math.floor(before/POS_STEP), now = Math.floor(f.p/POS_STEP), line = LINES.some(t => (before < t && f.p >= t) || (before > -t && f.p <= -t));
+    if (now > was){ f.regroup = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:1, day:w.days, line, boom:line ? posBreak(w, i, 1) : 0}; }
+    else if (now < was){ f.regroupT = line ? REGROUP_LINE : REGROUP[0] + Math.floor(Math.random()*(REGROUP[1] - REGROUP[0] + 1)); f.posEv = {dir:-1, day:w.days, line, boom:line ? posBreak(w, i, -1) : 0}; }
+    f.posN = now; }
+  LINES.forEach((t, k) => {
+    if (before < t && f.p >= t){ warEvent(w, `${f.name} направление: взят рубеж — ${f.places[k]}.`, "good"); S.mods.push({stat:"approval", v:1, left:2}); wearyAdd(-3); }
+    if (before > -t && f.p <= -t){ warEvent(w, `${f.myName} направление: противник занял ${f.myPlaces[k]}.`, "bad"); S.mods.push({stat:"approval", v:-2, left:3}); wearyAdd(4); }
+  });
 }
 function stormLine(w, i){
   const f = w.fronts[i]; if (!f || f.storm > 0) return;
@@ -3448,17 +3468,118 @@ function openBattle(enemy, i){
     if (e.target.closest("[data-bfhurry]")){ st.hurry = true; ui.speed = 2; bfPos(st); }
     if (e.target.closest("[data-bfresume]")){ if (S.pendingEvent){ closeBattle(); showReport(); } else { ui.speed = 1; bfPos(st); } } });
   st.speed0 = ui.speed; ui.speed = 1; st.posDay = ((w.fronts[i] || {}).posEv || {}).day;
-  bfStrikeBar(st); bfPos(st); st.tickBar = setInterval(() => { bfStrikeBar(st); bfPos(st); }, 1000);
-  bfTitle(st);
+  bfStrikeBar(st); bfPos(st); st.tickBar = setInterval(() => { bfStrikeBar(st); bfPos(st); cbTick(st); }, 1000);
+  bfTitle(st); cbOffer(st, w, i);
   if (bf3dOk()){ bf3dOpen(st, w, i); sfx("tap"); return; }
   setTimeout(() => { if (BF.open !== st) return; st.gen = bfGenerate(w, i); root.querySelector(".bf-load")?.remove(); bfFit(st); st.dirty = true; }, 30);
   bfInput(st); requestAnimationFrame(bfLoop);
   sfx("tap");
 }
 function bfArrive(st, n){ const b = document.createElement("div"); b.className = "bf-banner good bf-arr"; b.innerHTML = `<div><b>Подкрепление прибыло</b><small>${n.toLocaleString("ru-RU")} ед. техники вступают в бой</small></div>`; st.root.appendChild(b); sfx("success"); setTimeout(() => b.remove(), 2600); }
-function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null;
+function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.cb && !st.cb.end) cbEnd(st, true); if (st.api) try { st.api.dispose(); } catch(e){} clearInterval(st.tick3d); clearInterval(st.tickBar); st.root.remove(); BF.open = null;
   document.body.classList.remove("bf-open"); if (st.speed0 != null && ui.speed > 0) ui.speed = st.speed0;
   if (S && S.countries){ render(); if (S.wars.length) battleKick(); } if (!silent) sfx("tap"); }
+/* ---- a commanded field battle: once per CB_CD game days per war the player commits a strike group and the field decides one direction ---- */
+// stage 1: the outcome is planned from the forces when the battle starts and applied as it runs; the real squad battle in bf3d.js replaces the plan later
+const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4;
+function cbReady(w){ return (w.bfCd || 0) <= (w.days || 0); }
+function cbType(f){ return (f.lastD || 0) >= 0 ? "atk" : "def"; }
+// the strike group (pct of the direction's ground machines) and the enemy's answer, scaled to ours up to CB_EMAX
+function cbGroups(w, i, pct){
+  depInit(w); const f = w.fronts[i], nF = w.fronts.filter(x => x.p < 100).length || 1, fs = f.share || 1/nF, es = Math.min(CB_EMAX, pct*CB_EMAX/CB_MAX);
+  const pick = (u, k) => { const o = {}; for (const id in u||{}){ const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind) || !(u[id] > 0)) continue; const n = Math.floor(u[id]*k); if (n > 0) o[id] = n; } return o; };
+  const g = pick(w.dep[i], pct), e = pick(w.eu, fs*es), type = cbType(f);
+  const myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(type === "def" ? DEF_K : 1), enP = depPower(e)*(type === "atk" ? DEF_K : 1);
+  return {g, e, type, myP, enP};
+}
+const cbEdge = (a, b) => { const X = Math.pow(a, WAR_EXP), Y = Math.pow(b, WAR_EXP); return X + Y > 0 ? X/(X + Y) : 0.5; };
+const cbCount = u => Object.values(u||{}).reduce((a, n) => a + n, 0);
+const cbList = (u, max) => Object.entries(u||{}).sort((a, b) => b[1] - a[1]).slice(0, max || 4).map(([id, n]) => `${MODELS[id].name} ×${n}`).join(" · ") || "—";
+function cbPlan(w, i, pct){
+  const G = cbGroups(w, i, pct), r = cbEdge(G.myP*rnd(0.88, 1.12), G.enP*rnd(0.88, 1.12)), win = r > 0.5, m = Math.abs(2*r - 1);
+  const lose = 0.5 + 0.4*m, keep = clamp(0.4*(1 - m) + 0.05, 0.05, 0.45);
+  const loss = (u, k) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, Math.min(n, Math.round(n*k*rnd(0.8, 1.2)))]));
+  return {i, type:G.type, g:G.g, e:G.e, L:loss(G.g, win ? keep : lose), LE:loss(G.e, win ? lose : keep), win, dur:Math.round(60*(1 + 4*(1 - m))), t:0, a:{}, ae:{}, pct};
+}
+// losses up to share `k` of the plan: ours through depTake (they are this direction's machines), the enemy's from its war stock
+function cbApply(w, k){
+  const cb = w.cb; if (!cb) return;
+  for (const id in cb.L){ const want = Math.floor(cb.L[id]*k) - (cb.a[id] || 0); if (want <= 0) continue; const l = depTake(w, id, want, cb.i); cb.a[id] = (cb.a[id] || 0) + want;
+    if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; } }
+  for (const id in cb.LE){ const want = Math.floor(cb.LE[id]*k) - (cb.ae[id] || 0); if (want <= 0) continue; const l = Math.min(want, Math.floor(w.eu[id] || 0)); cb.ae[id] = (cb.ae[id] || 0) + want;
+    if (l > 0){ w.eu[id] -= l; w.lossTh[id] = (w.lossTh[id]||0) + l; w.mLossTh[id] = (w.mLossTh[id]||0) + l; } }
+}
+// the field's verdict on the line: an assault won takes the position, a defence lost gives ours up
+function cbOutcome(w){
+  const cb = w.cb, f = w.fronts[cb.i]; if (!f || f.p >= 100) return;
+  const before = f.p, lo = Math.floor(f.p/POS_STEP)*POS_STEP;
+  if (cb.type === "atk" && cb.win) f.p = Math.min(100, lo + POS_STEP + 0.01);
+  else if (cb.type === "def" && !cb.win) f.p = Math.max(-100, lo - 0.01);
+  else if (cb.type === "atk") f.pause = Math.max(f.pause || 0, 3);
+  else f.regroupT = Math.max(f.regroupT || 0, REGROUP_LINE);
+  if (f.p !== before){ f.lastD = f.p - before; frontMoved(w, f, cb.i, before); }
+  warEvent(w, `${f.p >= 0 ? f.name : f.myName} направление: ${cb.type === "atk" ? (cb.win ? "наш штурм под личным командованием взял позицию" : "наш штурм отбит") : (cb.win ? "атака врага отбита" : "противник прорвал позицию")}. Потери: ${cbCount(cb.a)} наших машин, ${cbCount(cb.ae)} вражеских.`, cb.win ? "good" : "bad");
+}
+// the game was closed during a battle: it counts as left early, the rest is auto-resolved, no days pass
+function cbOrphans(){ (S.wars || []).forEach(w => { if (!w.cb) return; try { cbApply(w, 1); cbOutcome(w); } catch(e){ console.error(e); } delete w.cb; }); }
+function cbOffer(st, w, i){
+  const f = w.fronts[i]; if (!f || f.p >= 100) return;
+  if (!cbReady(w)){ const d = w.bfCd - w.days; return setTimeout(() => { if (BF.open === st) bfMsg(st, `Командовать боем можно раз в ${CB_CD} дней войны: следующий бой через ${d} ${plural(d, "день", "дня", "дней")}. Сейчас — только наблюдение.`); }, 600); }
+  const box = document.createElement("div"); box.className = "bf-cmd"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Командовать боем");
+  const type = cbType(f);
+  box.innerHTML = `<div class="bf-cmd-card"><b>${type === "atk" ? "Штурм позиции врага" : "Оборона нашей позиции"}</b>
+    <small>${type === "atk" ? "Ударная группа идёт на штурм. Победа — позиция взята." : "Враг штурмует. Удержим — его группа разбита."} Карта стоит, пока идёт бой; после боя пройдёт столько дней, сколько минут он длился. Отступления нет. Следующий такой бой — через ${CB_CD} дней войны.</small>
+    <label>Ударная группа: <span class="num" data-cbpct></span> техники направления</label>
+    <input type="range" min="1" max="${Math.round(CB_MAX*100)}" step="1" value="20" data-cbr aria-label="Доля техники направления в ударной группе">
+    <div class="bf-cmd-side us"><i>Мы</i><span data-cbus></span></div><div class="bf-cmd-side them"><i>Враг</i><span data-cbthem></span></div>
+    <div class="bf-cmd-edge" data-cbedge></div>
+    <div class="bf-cmd-btns"><button class="bf-cmd-go" data-cbgo>В бой</button><button data-cbwatch>Только смотреть</button></div></div>`;
+  st.root.appendChild(box);
+  const R = box.querySelector("[data-cbr]");
+  const upd = () => { const p = +R.value/100, G = cbGroups(w, i, p), r = cbEdge(G.myP, G.enP);
+    box.querySelector("[data-cbpct]").textContent = R.value + "%";
+    box.querySelector("[data-cbus]").textContent = `${cbCount(G.g)} маш.: ${cbList(G.g)}`;
+    box.querySelector("[data-cbthem]").textContent = `${cbCount(G.e)} маш.: ${cbList(G.e)}`;
+    const e = box.querySelector("[data-cbedge]"); e.textContent = r > 0.65 ? "Явный перевес на нашей стороне" : r > 0.53 ? "Небольшой перевес у нас" : r >= 0.47 ? "Силы равны" : r >= 0.35 ? "Противник сильнее" : "Противник намного сильнее";
+    e.className = "bf-cmd-edge " + (r > 0.53 ? "good" : r >= 0.47 ? "" : "bad");
+    box.querySelector("[data-cbgo]").disabled = !cbCount(G.g); };
+  R.addEventListener("input", upd); upd();
+  box.addEventListener("click", e => { e.stopPropagation();
+    if (e.target.closest("[data-cbwatch]")){ box.remove(); sfx("tap"); }
+    if (e.target.closest("[data-cbgo]")){ const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww || !cbReady(ww)) return box.remove();
+      ww.cb = cbPlan(ww, i, +R.value/100); ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd"); cbHud(st); sfx("tap"); buzz(30); save(); } });
+}
+function cbHud(st){
+  const cb = st.cb; if (!cb) return; let el = st.root.querySelector(".bf-cmdhud");
+  if (!el){ el = document.createElement("div"); el.className = "bf-cmdhud"; st.root.appendChild(el);
+    el.addEventListener("click", e => { if (e.target.closest("[data-cbend]")){ e.stopPropagation(); if (st.cb && !st.cb.end) cbEnd(st, true, true); } }); }
+  if (cb.end) return el.remove();
+  const mm = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2, "0")}`, left = (u, a) => cbCount(u) - cbCount(a);
+  const html = `<b>${cb.type === "atk" ? "Штурм позиции" : "Оборона позиции"} · ${mm(cb.t)} / ${mm(cb.dur)}</b><div class="bar"><i style="width:${Math.round(clamp(cb.t/cb.dur, 0, 1)*100)}%"></i></div>
+    <span class="us">Мы ×${cbCount(cb.g)} → ×${left(cb.g, cb.a)}</span><span class="them">Враг ×${cbCount(cb.e)} → ×${left(cb.e, cb.ae)}</span><button data-cbend>Досчитать бой</button>`;
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+function cbTick(st){
+  const cb = st.cb; if (!cb || cb.end || document.hidden) return; const w = S.wars.find(x => x.enemy === st.enemy); if (!w || w.cb !== cb) return;
+  cb.t++; cbApply(w, Math.min(0.97, cb.t/cb.dur)); if (cb.t >= cb.dur) return cbEnd(st, false); cbHud(st);
+}
+// the battle ends (on time, or left early: the rest is auto-resolved the same way); the map then catches up the days it lasted
+function cbEnd(st, early, stay){
+  const w = S.wars.find(x => x.enemy === st.enemy), cb = st.cb; if (!cb || cb.end) return; cb.end = true;
+  if (!w || w.cb !== cb){ st.cb = null; return; }
+  cbApply(w, 1); cbOutcome(w); delete w.cb;
+  const f = w.fronts[cb.i] || {}; st.posDay = (f.posEv || {}).day; st.done = true;
+  const days = clamp(Math.round(cb.dur/60), 1, 5); w.bfLock = cb.i;
+  try { for (let k = 0; k < days; k++){ if (S.over || S.pendingEvent || S.pendingVictory) break; S.day = (S.day||1) + 1; dayTick(); if (S.day > daysIn(S.month, S.year)){ nextMonth(); break; } } } catch(e){ console.error(e); }
+  delete w.bfLock; dirty = true; save();
+  const title = cb.win ? (cb.type === "atk" ? "Мы уничтожили позицию врага! Победа!" : "Атака врага отбита! Победа!") : (cb.type === "atk" ? "Враг уничтожил нашу армию" : "Враг прорвал нашу позицию");
+  const sub = `Потери: наши ${cbCount(cb.a)} из ${cbCount(cb.g)}, враг ${cbCount(cb.ae)} из ${cbCount(cb.e)}. Прошло ${days} ${plural(days, "день", "дня", "дней")}.`;
+  cbHud(st); st.root.classList.remove("cmd");
+  if (early && !stay) return toast(`${title} ${sub}`);
+  const ban = document.createElement("div"); ban.className = "bf-banner " + (cb.win ? "good" : "bad"); ban.innerHTML = `<div><b>${title}</b><small>${esc(sub)}</small></div>`;
+  st.root.appendChild(ban); sfx(cb.win ? "success" : "alert"); buzz(60);
+  setTimeout(() => { if (BF.open === st) closeBattle(true); }, 5200);
+}
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
 const BF3D_MODELS = ["su25","lancet","tu22","b1b","j10","f15ex","ah1z","j20","z10","wingloong","ka52","tb2","a10","su34","mi24","mig29","su35","su57","f16","f35","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
 function bf3dOk(){ if (ui.bf2d) return false; try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch(e){ return false; } }
@@ -4183,7 +4304,7 @@ function C(){ return S.countries; }
 function save(){ if (S) storageSet(JSON.stringify(S)); }
 function load(){
   const raw = storageGet(); if (!raw) return false;
-  try { const s = JSON.parse(raw); if (!s || !s.countries || s.over) return false; if (!s.capital) s.capital = {health:33,edu:33,infra:33,police:33}; if (!s.research) s.research = {current:null, done:{}, prog:{}}; if (s.science===undefined) s.science = 1; migrate(s); S = s; return true; } catch(e){ return false; }
+  try { const s = JSON.parse(raw); if (!s || !s.countries || s.over) return false; if (!s.capital) s.capital = {health:33,edu:33,infra:33,police:33}; if (!s.research) s.research = {current:null, done:{}, prog:{}}; if (s.science===undefined) s.science = 1; migrate(s); S = s; try { cbOrphans(); } catch(e){ console.error(e); } return true; } catch(e){ return false; }
 }
 function migrate(s){
   if (!s.gdp0 && s.countries && s.countries[s.player]) s.gdp0 = s.countries[s.player].gdp;
@@ -5662,7 +5783,7 @@ function tick(ts){
   requestAnimationFrame(tick);
   if (!lastTs) lastTs = ts;
   const dt = Math.min(ts - lastTs, 1000); lastTs = ts;
-  if (!S || !S.countries || S.over || ui.speed===0 || S.pendingEvent || S.pendingVictory) return;
+  if (!S || !S.countries || S.over || ui.speed===0 || S.pendingEvent || S.pendingVictory || (BF.open && BF.open.cb)) return;   // a commanded field battle holds the map
   if (ui.speed===3 && !speed3Unlocked()){ ui.speed = 2; ui.resumeSpeed = 2; toast("Время ×3 за рекламу закончилось. Скорость ×2."); render(); }
   acc += dt;
   const msDay = SPEED_MS[ui.speed];
