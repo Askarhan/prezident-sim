@@ -99,6 +99,18 @@ Read this first in a new session.
 - Field: the speed is ×1 while the field is open (restored on close). `bfPos`/`bfPosDone` in `src/game.html`, `api.posTaken(dir)` in `bf3d.js`.
 - Aircraft speeds in `bf3d.js` `SPEC`: jets 75 m/s, helicopters 18, drones 26, loitering munitions 50 (dive 75). The user found the old speeds "like a biplane".
 
+## Next stage (agreed 01.11.2026, not started): fuel, war logistics, captured reserves
+- Fuel per machine at the front, in barrels a day per deployed machine (`w.dep`): tank ~4, IFV ~2, APC ~1, SPH/MLRS ~1.5, fighter ~25, attack ~20, bomber ~60, helicopter ~6, drone ~0.3, AD ~1.
+  - The reserve at home burns almost nothing.
+  - War mode multiplies it: defend ×0.5, attack ×1, general offensive ×1.5.
+  - It replaces the current upkeep-based fuel in `warDay`, which buys the shortfall on the market or halves the whole army.
+- **Shortage:** if oil cannot be bought (sanctions or no money), only the fuelled share fights. On the field the unfuelled machines stand still with a "нет топлива" label.
+- **Money:** every machine at the front also costs money a day (repairs, transport). No hard cap on the number at the front: oil and money are the limit.
+- Deployment window shows "расход N тыс. баррелей/день, запаса хватит на X дней".
+- **Enemy, same rules:** its oil comes from its production and economy. What it cannot fuel stays in reserve (does not fight, does not lose). On capitulation we get 70% of the reserve left at the end of the war, plus 30% of the surviving combat equipment as now.
+- **Breakthrough:** when a position falls, the loser loses 2% of that direction's machines. Half are destroyed (they explode on the field at the victory banner), half become our trophies on that direction.
+- The user's working rules for the assistant (save tokens: short tool output, few images, batches of ≤3 models, short reports, update this file and suggest a new chat at the end of a stage) were given in chat. Ask the user to paste them again in a new chat.
+
 ## Next
 - Next model batches (≤3 at a time): fighters (MiG-29 / Su-35 / F-16), then Apache / Reaper / Shahed. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - The web preview artifact still has the previous build: republish `www/index.html`, `field/bf3d.js` and `field/models/{su25,ka52,tb2}{,_lo}.glb.txt` (base64) to it.
