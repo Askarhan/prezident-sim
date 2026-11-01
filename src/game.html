@@ -420,6 +420,7 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-banner b{display:block;font-family:var(--f-display);font-size:clamp(22px,4vw,38px);text-transform:uppercase;letter-spacing:.04em}
 #bf-root .bf-banner.bf-arr{inset:16% 0 auto 0;background:none} #bf-root .bf-banner.bf-arr b{font-size:clamp(16px,2.6vw,24px)}
 #bf-root.cmd .bf-pos,#bf-root.cmd .bf-strikes{display:none}
+#bf-root.cmd .bf-msg{bottom:auto;top:calc(max(8px,env(safe-area-inset-top)) + 76px)}
 #bf-root .bf-cmd{position:absolute;inset:0;z-index:4;display:grid;place-items:center;padding:16px;background:rgb(0 0 0 / .45)}
 #bf-root .bf-cmd-card{width:min(440px,100%);background:#1C2318;border:1px solid rgb(255 255 255 / .16);border-radius:14px;padding:16px;color:#fff;display:flex;flex-direction:column;gap:8px;font-size:13px}
 #bf-root .bf-cmd-card>b{font-family:var(--f-display);font-size:19px;text-transform:uppercase;letter-spacing:.03em}
@@ -432,6 +433,12 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-cmd-btns .bf-cmd-go{background:#C8402F;border-color:#E26A5A} #bf-root .bf-cmd-btns button:disabled{opacity:.4}
 #bf-root .bf-cmdhud{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(380px,calc(100vw - 24px));z-index:2;color:#fff;text-align:center;font-size:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;text-shadow:0 1px 3px #000}
 #bf-root .bf-cmdhud b{flex:1 0 100%;font-size:12.5px} #bf-root .bf-cmdhud .bar{flex:1 0 100%;height:8px;border-radius:5px;background:rgb(0 0 0 / .55);overflow:hidden;border:1px solid rgb(255 255 255 / .2);margin:2px 0}
+#bf-root .bf-cbsk{position:absolute;left:50%;transform:translateX(-50%);bottom:96px;width:min(500px,calc(100vw - 16px));display:grid;grid-template-columns:repeat(4,1fr);gap:5px;z-index:2}
+#bf-root .bf-cbsk .bf-sk{min-width:0;padding:5px 6px 5px 5px;gap:5px;border-radius:10px} #bf-root .bf-cbsk .bf-sk span{min-width:0;overflow:hidden}
+#bf-root .bf-cbsk .bf-sk i{width:24px;height:24px;font-size:15px;flex:0 0 24px;border-radius:7px} #bf-root .bf-cbsk .bf-sk b{font-size:11.5px} #bf-root .bf-cbsk .bf-sk small{font-size:10px;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){#bf-root .bf-cbsk .bf-sk i{display:none} #bf-root .bf-cbsk .bf-sk{padding:5px 7px;justify-content:center;text-align:center}}
+#bf-root .bf-cbsk .bf-sk b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bf-root .bf-cbsk .bf-sk.on{border-color:#F2A93B;box-shadow:0 0 0 1px #F2A93B inset}
 #bf-root .bf-cmdhud .bar i{display:block;height:100%;background:linear-gradient(90deg,#C8402F,#FF8A5A);transition:width .6s}
 #bf-root .bf-cmdhud button{pointer-events:auto;flex:0 0 auto;margin-top:4px;padding:0 14px;min-height:32px;border-radius:8px;border:1px solid rgb(255 255 255 / .2);background:rgb(0 0 0 / .5);color:#fff;font-size:12px}
 #bf-root .bf-banner.good b{color:#FFD27A} #bf-root .bf-banner.bad b{color:#FF8A8A}
@@ -3562,7 +3569,8 @@ function cbHud(st){
   const cb = st.cb; if (!cb) return; let el = st.root.querySelector(".bf-cmdhud");
   if (!el){ el = document.createElement("div"); el.className = "bf-cmdhud"; st.root.appendChild(el);
     el.addEventListener("click", e => { if (e.target.closest("[data-cbend]")){ e.stopPropagation(); if (st.cb && !st.cb.end) cbEnd(st, true, true); } }); }
-  if (cb.end) return el.remove();
+  if (cb.end){ cbSkBar(st); return el.remove(); }
+  cbSkBar(st, el);
   const mm = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2, "0")}`, left = (u, a) => cbCount(u) - cbCount(a);
   const bt = cb.real && st.api && st.api.battle ? st.api.battle() : null, t = bt ? bt.t : cb.t, lim = cb.real ? (cb.type === "atk" ? CB_LIMIT : CB_HOLD) : cb.dur;
   const head = cb.real ? (cb.type === "atk" ? `Штурм · ${mm(t)} из ${mm(lim)}` : `Оборона: держаться ${mm(Math.max(0, lim - t))}`) : `${cb.type === "atk" ? "Штурм позиции" : "Оборона позиции"} · ${mm(t)} / ${mm(lim)}`;
@@ -3573,8 +3581,79 @@ function cbHud(st){
 function cbTick(st){
   const cb = st.cb; if (!cb || cb.end || document.hidden) return; const w = S.wars.find(x => x.enemy === st.enemy); if (!w || w.cb !== cb) return;
   cb.t++;
-  if (cb.real){ if (cb.t > CB_LIMIT + 120) return cbEnd(st, true, true); return cbHud(st); }   // the field decides; a stuck field is resolved after the limit
+  if (cb.real){ if (cb.t > CB_LIMIT + 120) return cbEnd(st, true, true); cbFoe(st, w); return cbHud(st); }   // the field decides; a stuck field is resolved after the limit
   cbApply(w, Math.min(0.97, cb.t/cb.dur)); if (cb.t >= cb.dur) return cbEnd(st, false); cbHud(st);
+}
+/* ---- strikes inside the commanded battle: cooldowns in battle seconds, small portions of real ammunition; the enemy strikes too ---- */
+const CB_STRIKES = {
+  air:{name:"Авиаудар", ic:"jet", cd:60, ammo:[[null, {bomb:40}]], kinds:["attack","bomber","fighter"], min:2, need:"нет самолётов", cost:"40 бомб"},
+  heli:{name:"Вертолёты", ic:"heli", cd:40, ammo:[[null, {atgm:20}]], kinds:["heli"], min:2, need:"нет вертолётов", cost:"20 ПТУР"},
+  drones:{name:"Дроны", ic:"drone", cd:30, use:10, ammo:[[null, {}]], kinds:["loiter"], min:10, need:"мало дронов", cost:"10 дронов"},
+  arty:{name:"Артудар", ic:"ammo", cd:45, ammo:[["sph", {shell:0.2}], ["mlrs", {rocket:40}]], kinds:["sph","mlrs"], min:2, need:"нет артиллерии", cost:"залп"}
+};
+const cbFs = (w, i) => { const f = w.fronts[i] || {}; return f.share || 1/(w.fronts.filter(x => x.p < 100).length || 1); };
+const cbSum = (u, kinds, k = 1, f) => Object.entries(u || {}).reduce((a, [id, n]) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) && n > 0 ? n*k*(f ? f(MODELS[id]) : 1) : 0), 0);
+// side 0 is ours (this direction's machines, our stock), side 1 the enemy (its share on the direction, its stock if it keeps one)
+function cbMine(w, side){ const i = w.cb.i; return side ? [w.eu, cbFs(w, i)] : [w.dep[i] || {}, 1]; }
+function cbAmmo(w, side, type){
+  const A = side ? (w.ea || {}) : S.ammo, [u, k] = cbMine(w, side);
+  for (const [kind, am] of CB_STRIKES[type].ammo){ if (kind && cbSum(u, [kind], k) < 1) continue;
+    if (Object.entries(am).every(([a, n]) => side ? A[a] == null || A[a] >= n : (A[a] || 0) >= n)) return am; }
+  return null;
+}
+function cbSkBlock(st, w, type, side = 0){
+  const cb = w.cb, s = CB_STRIKES[type], bt = st.api && st.api.battle && st.api.battle(); if (!cb || !bt || bt.ended) return "бой окончен";
+  const ready = ((side ? cb.ske : cb.sk) || {})[type] || 0; if (bt.t < ready) return `${Math.ceil(ready - bt.t)} с`;
+  const [u, k] = cbMine(w, side); if (cbSum(u, s.kinds, k) < s.min) return s.need;
+  return cbAmmo(w, side, type) ? null : "нет боеприпасов";
+}
+function cbFire(st, type, side, p){
+  const w = S.wars.find(x => x.enemy === st.enemy), cb = w && w.cb; if (!cb || cb !== st.cb || cb.end || !st.api || !st.api.strike || cbSkBlock(st, w, type, side)) return;
+  const s = CB_STRIKES[type], i = cb.i, [mine, k] = cbMine(w, side), [foe, fk] = cbMine(w, 1 - side), am = cbAmmo(w, side, type);
+  const have = Object.entries(mine).filter(([id, n]) => MODELS[id] && s.kinds.includes(MODELS[id].kind) && n*k >= 1).sort((a, b) => b[1] - a[1]), n = have.reduce((a, [, c]) => a + c*k, 0);
+  const sup = side ? 1 - (w.air ?? 0.5) : (w.air ?? 0.5), R = rnd(0.8, 1.2), shoot = p0 => (Math.random() < p0) + (Math.random() < p0);
+  let kills = 0, down = 0, jam = 0;
+  if (type === "air"){ const ad = cbSum(foe, ["shorad","mrsam","lrsam"], fk, m => m.aa || 1); down = shoot(clamp(ad/(ad + 250), 0, 0.45)*(sup < 0.4 ? 1.4 : 0.6)); kills = (1.5 + 3.5*sup)*Math.min(1, n/6)*R*(1 - 0.3*down); }
+  else if (type === "heli"){ const sh = cbSum(foe, ["shorad"], fk, m => m.aa || 1); down = shoot(0.03 + 0.35*sh/(sh + 150)); kills = 3*Math.min(1, n/6)*R*(1 - 0.3*down); }
+  else if (type === "drones"){ const ew = cbSum(foe, ["ew"], fk); jam = clamp(ew/(ew + 6), 0, 0.7); kills = s.use*(1 - jam)*0.35*R; }
+  else kills = 2.5*Math.min(1, n/8)*R;
+  const r = st.api.strike(side, type, {x:p && p.x, z:p && p.z, kills, down, jam, n:s.use || 0, model:have.length ? bf3dModel(have[0][0]) : null}); if (!r) return;
+  // ammunition, shot-down aircraft (real losses), spent drones (not losses)
+  for (const a in am){ if (side){ if (w.ea && w.ea[a] != null) w.ea[a] = Math.max(0, w.ea[a] - am[a]); } else S.ammo[a] = Math.max(0, (S.ammo[a] || 0) - am[a]); }
+  const lose = (id, c, spent) => {
+    if (side){ const l = Math.min(c, Math.floor(w.eu[id] || 0)); if (l > 0){ w.eu[id] -= l; if (!spent){ w.lossTh[id] = (w.lossTh[id]||0) + l; w.mLossTh[id] = (w.mLossTh[id]||0) + l; } } return l; }
+    const l = depTake(w, id, c, i); if (spent){ if (w.lossF && w.lossF[i]) w.lossF[i][id] = Math.max(0, (w.lossF[i][id]||0) - l); } else if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; } return l; };
+  for (let j = 0; j < down && have.length; j++) lose(have[0][0], 1);
+  if (type === "drones"){ let left = s.use; have.forEach(([id]) => { if (left > 0) left -= lose(id, Math.min(left, Math.floor((mine[id] || 0)*k)), true); }); }
+  (side ? (cb.ske = cb.ske || {}) : (cb.sk = cb.sk || {}))[type] = st.api.battle().t + s.cd*(side ? 1.6 : 1);
+  const dn = down ? `, ПВО сбила ${down}` : jam > 0.2 ? `, РЭБ заглушила ${Math.round(jam*100)}%` : "";
+  bfMsg(st, side ? `Враг: ${s.name.toLowerCase()} по нашим позициям${dn}.` : `${s.name}: ${r.names}${dn}.`, side || down ? "bad" : "good");
+  cbSkBar(st);
+}
+// the enemy uses what it has on the direction: not before 20 s, at most one strike in 12 s
+function cbFoe(st, w){
+  const cb = w.cb, bt = st.api && st.api.strike && st.api.battle(); if (!bt || bt.ended || bt.t < (cb.skeT || 20) || Math.random() > 0.2) return;
+  const ty = Object.keys(CB_STRIKES).filter(k => !cbSkBlock(st, w, k, 1)); if (!ty.length) return;
+  cb.skeT = bt.t + 12; cbFire(st, ty[Math.floor(Math.random()*ty.length)], 1, null);
+}
+function cbSkBar(st, hud){
+  const cb = st.cb, w = S.wars.find(x => x.enemy === st.enemy); let el = st.root.querySelector(".bf-cbsk");
+  if (!cb || cb.end || !cb.real || !st.api || !st.api.strike || !w || w.cb !== cb){ if (el) el.remove(); return; }
+  if (!el){ el = document.createElement("div"); el.className = "bf-cbsk"; el.setAttribute("role", "group"); el.setAttribute("aria-label", "Удары в бою"); st.root.appendChild(el);
+    el.addEventListener("click", e => { const b = e.target.closest("[data-cbsk]"); if (b){ e.stopPropagation(); cbSkTap(st, b.dataset.cbsk); } }); }
+  if (hud && hud.offsetHeight) el.style.bottom = `${hud.offsetHeight + parseFloat(getComputedStyle(hud).bottom || 10) + 8}px`;
+  // buttons are built once and updated in place: a rebuild every second would swallow taps
+  if (!el.children.length) el.innerHTML = Object.entries(CB_STRIKES).map(([id, s]) => `<button class="bf-sk" data-cbsk="${id}"><i aria-hidden="true">${ic(s.ic)}</i><span><b>${s.name}</b><small></small></span></button>`).join("");
+  for (const b of el.children){ const id = b.dataset.cbsk, why = cbSkBlock(st, w, id), on = st.aim === id, txt = why || (on ? "куда?" : CB_STRIKES[id].cost), sm = b.querySelector("small");
+    b.classList.toggle("off", !!why); b.classList.toggle("on", on); b.setAttribute("aria-disabled", String(!!why)); if (sm.textContent !== txt) sm.textContent = txt; }
+}
+// first tap arms the strike (then tap an enemy or a point on the field); a second tap on the same button lets it pick the target itself
+function cbSkTap(st, type){
+  const w = S.wars.find(x => x.enemy === st.enemy); if (!w || !st.cb || !st.api) return; const why = cbSkBlock(st, w, type);
+  if (why){ bfMsg(st, `${CB_STRIKES[type].name}: ${why}.`, "bad"); sfx("tap"); return; }
+  if (st.aim === type){ st.aim = null; st.api.aim(null); cbFire(st, type, 0, null); return; }
+  st.aim = type; st.api.aim(pt => { if (st.aim !== type) return; st.aim = null; cbFire(st, type, 0, pt); });
+  bfMsg(st, `${CB_STRIKES[type].name}: тапни по врагу или точке. Ещё раз по кнопке — цель выберется сама.`); sfx("tap"); cbSkBar(st);
 }
 // the battle ends (on time, or left early: the rest is auto-resolved the same way); the map then catches up the days it lasted
 function cbEnd(st, early, stay){

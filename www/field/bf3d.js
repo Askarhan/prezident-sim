@@ -576,6 +576,14 @@ export async function start(el, ctx){
   cv.addEventListener("pointerdown", e => { downAt = {x:e.clientX, y:e.clientY, t:performance.now()}; });
   let bTap = false; const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   if (B) cv.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400 || B.ended) return;
+    // a strike waiting for its target: an enemy squad near the tap, else the ground point
+    if (B.aim){ const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; let best = null, bd = 44, x, z;
+      for (const u of units){ if (!u.alive || !u.obj || u.side === 0) continue; const q = screenOf(u, 1.5), d = Math.hypot(q.x - mx, q.y - my); if (d < bd){ bd = d; best = u; } }
+      if (best){ x = best.x; z = best.z; } else { ndc.set(mx/r.width*2 - 1, -(my/r.height)*2 + 1); ray.setFromCamera(ndc, camera); const hit = ray.intersectObject(G.mesh)[0]; if (!hit) return; x = hit.point.x; z = hit.point.z; }
+      const f = B.aim; B.aim = null; bTap = true;
+      B.mark = B.mark || (() => { const m = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.3, 28), new THREE.MeshBasicMaterial({color:0x7fb0ff, transparent:true, depthWrite:false})); m.rotation.x = -Math.PI/2; scene.add(m); return m; })();
+      B.mark.material.color.setHex(0xff5a4a); B.mark.scale.setScalar(4); B.mark.position.set(x, G.height(x, z) + 0.3, z); B.mark.material.opacity = 1; B.markT = 2;
+      try { f({x, z}); } catch(err){ console.error(err); } return; }
     const me = selected; if (!me || !me.alive || me.side !== 0 || me.air || me.role !== "front") return;
     const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; let best = null, bd = 44;
     for (const u of units){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5), d = Math.hypot(q.x - mx, q.y - my); if (d < bd){ bd = d; best = u; } }
@@ -586,7 +594,7 @@ export async function start(el, ctx){
     const x = clamp(hit.point.x, -FIELD/2 + 8, FIELD/2 - 8), z = clamp(hit.point.z, -FIELD/2 + 8, FIELD/2 - 8);
     if (me.spot && me.spot.by === me) me.spot.by = null; me.spot = null; me.order = {x, z}; me.wp = [x, z]; me.state = "move"; me.next = 999; me.forced = null;
     B.mark = B.mark || (() => { const m = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.3, 28), new THREE.MeshBasicMaterial({color:0x7fb0ff, transparent:true, depthWrite:false})); m.rotation.x = -Math.PI/2; scene.add(m); return m; })();
-    B.mark.position.set(x, G.height(x, z) + 0.3, z); B.mark.material.opacity = 1; B.markT = 1.6; floats.push({u:me, text:"выдвигаюсь", t:0}); });
+    B.mark.material.color.setHex(0x7fb0ff); B.mark.scale.setScalar(1); B.mark.position.set(x, G.height(x, z) + 0.3, z); B.mark.material.opacity = 1; B.markT = 1.6; floats.push({u:me, text:"выдвигаюсь", t:0}); });
   cv.addEventListener("pointerup", e => { if (bTap){ bTap = false; return; } if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
     const r = cv.getBoundingClientRect(); let best = null, bd = 44; for (const u of [...units, ...air]){ if (!u.alive || !u.obj) continue; const q = screenOf(u, 1.5); const d = Math.hypot(q.x - (e.clientX - r.left), q.y - (e.clientY - r.top)); if (d < bd){ bd = d; best = u; } }
     selected = best; selT = B ? 8 : 4; if (B && best && best.side === 0 && best.role === "front" && !B.ended) floats.push({u:best, text:"куда? тапни точку или врага", t:0}); });
@@ -666,17 +674,17 @@ export async function start(el, ctx){
     const set = makeSet(a, src), root = new THREE.Group(); root.add(set.obj); root.rotation.order = "YZX";
     a.rotors = []; a.hull = null; set.obj.traverse(o => { if (/_rotor\d*$/.test(o.name)) a.rotors.push(o); if (/_hull$/.test(o.name)) a.hull = o; });
     a.axes = String((a.hull && a.hull.userData && a.hull.userData.rotors) || "").split(",");
-    if (a.loiter) root.scale.setScalar(a.model === "shahed" ? (a.id === "shahed" ? 1 : 0.6) : 0.26);   // Shahed model is life-size; smaller loitering munitions borrow it at 0.6
+    if (a.loiter) root.scale.setScalar(a.model === "tb2" ? 0.26 : a.model === "shahed" && a.id !== "shahed" && a.id !== "_strike" ? 0.6 : 1);   // Shahed model is life-size; smaller loitering munitions borrow it at 0.6
     else if (AIR_SCALE[a.model]) root.scale.setScalar(AIR_SCALE[a.model]);   // heavy bombers at real size (40+ m) dwarf the low-flying field: shrink to ~25 m
     a.obj = root; scene.add(root); a.chased = false; a.pendT = 0;
     const s = own(a), sp = a.spec, R = Math.random;
     a.alt = sp.alt[0] + R()*(sp.alt[1] - sp.alt[0]); a.v = sp.v; a.pitch = 0; a.roll = 0; a.h = a.side ? -Math.PI/2 : Math.PI/2;
-    if (a.cls === "plane"){ a.target = pickGround(a, false); const tx = a.target ? a.target.x : (R() - 0.5)*140;
+    if (a.cls === "plane"){ a.target = a.aim && a.aim.alive ? a.aim : pickGround(a, false); const tx = a.target ? a.target.x : (R() - 0.5)*140;
       a.x = clamp(tx + (R() - 0.5)*80, -FIELD/2, FIELD/2); a.z = s*(FIELD/2 + 160); a.state = "in"; a.kind = a.raid > 0 || a.temp ? "bombs" : R() < 0.5 ? "rockets" : "bombs"; }
     else if (a.cls === "heli"){ const mine = air.filter(b => b !== a && b.side === a.side && b.cls === "heli" && b.hx != null).map(b => b.hx);
       let hx = 0, best = -1; for (let i = 0; i < 8; i++){ const x = (R() - 0.5)*FIELD*0.7, d = Math.min(99, ...mine.map(m => Math.abs(m - x))); if (d > best){ best = d; hx = x; } }
       a.hx = hx; a.hz = s*(tz + 30 + R()*14); a.x = hx + (R() - 0.5)*30; a.z = s*(FIELD/2 + 30); a.state = a.shots > 0 ? "strike" : "in"; if (a.sx == null) a.sx = hx; }
-    else if (a.loiter){ a.target = pickGround(a, false); a.x = (R() - 0.5)*FIELD*0.6; a.z = s*(FIELD/2 + 30); a.state = "in"; }
+    else if (a.loiter){ a.target = a.aim && a.aim.alive ? a.aim : pickGround(a, false); a.x = (R() - 0.5)*FIELD*0.6; a.z = s*(FIELD/2 + 30); a.state = "in"; }
     else { a.cx = (R() - 0.5)*FIELD*0.5; a.cz = -s*(40 + R()*25); a.r = 38 + R()*14; a.dir = R() < 0.5 ? 1 : -1; a.ang = 0;
       a.x = a.cx + (R() - 0.5)*40; a.z = s*(FIELD/2 + 40); a.state = "in"; a.reload = 6 + R()*6; }
     a.y = groundY(a.x, a.z) + a.alt; place(a); return true;
@@ -846,6 +854,37 @@ export async function start(el, ctx){
       for (let i = 0; i < k; i++){ const a = tempAir(0, "drone", sq ? sq.model : "tb2", true, 0.2 + i*0.3); a.jam = i < nj; }
     }
   }
+  // a strike ordered inside the commanded battle (ours or the enemy's): `kills` machines go to the squads around the aimed point
+  // (or the densest enemy group when no point is given); aircraft or a barrage bring them; `down` aircraft are marked for the air defence
+  function cstrike(side, type, o = {}){
+    if (!B || B.ended) return null;
+    const foes = units.filter(u => u.alive && u.obj && !u.air && u.side !== side); if (!foes.length) return null;
+    const arm = u => ["tank", "ifv", "apc"].includes((B.stats[u.id] || {}).kind), near = (u, x, z) => Math.hypot(u.x - x, u.z - z);
+    let x = o.x, z = o.z;
+    if (x == null){ let bs = -1; for (const u of foes){ const sc = foes.reduce((a, v) => a + (near(v, u.x, u.z) < 22 ? v.cnt : 0), 0)*(type === "heli" && !arm(u) ? 0.3 : 1); if (sc > bs){ bs = sc; x = u.x; z = u.z; } } }
+    const R = {air:22, arty:20, heli:30, drones:35}[type] || 22;
+    let tg = foes.filter(u => near(u, x, z) < R).sort((a, b) => near(a, x, z) - near(b, x, z));
+    if (!tg.length){ const c = foes.reduce((a, b) => near(b, x, z) < near(a, x, z) ? b : a); tg = [c]; x = c.x; z = c.z; }
+    const k = type === "drones" ? clamp(Math.round((o.n || 10)*0.8), 4, 8) : 2, nj = type === "drones" ? Math.min(k - 1, Math.round(k*(o.jam || 0))) : 0;
+    if (type === "heli"){ const a = tg.filter(arm); tg = [(a.length ? a : tg)[0]]; } else tg = tg.slice(0, type === "drones" ? Math.min(3, k - nj) : 3);
+    const sum = tg.reduce((a, u) => a + u.cnt, 0) || 1, s = side ? -1 : 1;
+    const by = {id:{air:"Авиаудар", heli:"Вертолёты", drones:"Дроны", arty:"Артиллерия"}[type], side}, dm = tg.map(u => (o.kills || 0)*u.cnt/sum*u.hpPer);
+    if (type === "arty"){
+      snd.play("arty", x, 4, s*(FIELD/2), {vol:1});
+      tg.forEach((u, j) => { for (let q = 0; q < 6; q++){ const last = q === 5, ex = u.x + (last ? 0 : (Math.random() - 0.5)*16), ez = u.z + (last ? 0 : (Math.random() - 0.5)*16), x0 = clamp(ex + (Math.random() - 0.5)*60, -FIELD/2, FIELD/2), z0 = s*(FIELD/2 + 20);
+        shells.push({x0, y0:G.height(x0, s*(FIELD/2 - 2)) + 3, z0, x1:ex, y1:G.height(ex, ez) + 0.3, z1:ez, t:-(j*0.6 + q*0.3), dur:2.8, arc:70, side, kind:"shell", dmg:1, c:[1, 0.75, 0.4],
+          onHit:() => { explosion(ex, ez, true); if (last && u.alive){ u.lastBy = by; damage(u, dm[j]); } }}); } });
+    } else {
+      tg.forEach((u, j) => { u.pendAir = (u.pendAir || 0) + dm[j]; u.pendAirT = 0; u.lastBy = by; });
+      const cls = type === "air" ? "plane" : type === "heli" ? "heli" : "drone", list = [];
+      for (let q = 0; q < k; q++){ const a = tempAir(side, cls, o.model || (type === "air" ? "su25" : type === "heli" ? "ka52" : "shahed"), type === "drones", 0.2 + q*(type === "drones" ? 0.3 : 0.9));
+        a.aim = tg[q % tg.length]; a.target = a.aim; a.jam = q >= k - nj; list.push(a);
+        if (type === "heli"){ a.shots = 3; a.sx = clamp(x + (q - 0.5)*12, -FIELD*0.45, FIELD*0.45); a.sz = clamp(z + s*50, -FIELD/2 + 6, FIELD/2 - 6); } }
+      // the shot-down ones are the last of the group, so the first one still brings the strike
+      for (let q = 0; q < Math.min(o.down || 0, k); q++) list[k - 1 - q].pend = 1;
+    }
+    return {names:tg.map(u => `${bName(u)} ×${u.cnt}`).join(", "), x, z};
+  }
   function airSync(side, have){
     const cap = airCap();
     for (const [id, n] of Object.entries(have)){
@@ -1000,6 +1039,8 @@ export async function start(el, ctx){
       const left = v => v.hp - v.pend - (v.pendAir || 0), u = pool.reduce((a, b) => left(b) > left(a) ? b : a);
       if (via === "air"){ u.pendAir = (u.pendAir || 0) + n; u.pendAirT = 0; } else u.pend += n; },
     raid(type, o){ raid(type, o); },
+    strike(side, type, o){ return cstrike(side, type, o); },
+    aim(fn){ if (B) B.aim = fn || null; },
     battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win} : null; },
     // share of a side's ground squads that has fuel; the rest stands still with a «нет топлива» label
     fuel(side, k){ const g = units.filter(u => u.alive && u.obj && u.side === side && !u.air), dry = Math.round(g.length*(1 - clamp(k, 0, 1)));
