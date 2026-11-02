@@ -501,7 +501,7 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #occ-layer .us .occ-hatch{fill:url(#hatch-us)}#occ-layer .them .occ-hatch{fill:url(#hatch-them)}#occ-layer .held .occ-hatch{fill:url(#hatch-held);opacity:.3}
 #occ-layer .occ-line-u{fill:none;stroke:rgb(8 14 28 / .9);stroke-width:5.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 #occ-layer .occ-line{fill:none;stroke-width:2.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:8 5;animation:fxDash 1.2s linear infinite}
-#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{stroke:#FF8A5C;animation:none}#occ-layer .pocket .occ-line{stroke:#E9D5FF}#occ-layer .ring .occ-line{stroke:#FBCFE8}.pk-t{font-size:12px;opacity:.75;line-height:1.35}.pk-btns{display:flex;flex-direction:column;gap:6px;flex:none}
+#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{stroke:#FF8A5C;animation:none}
 .fc-dot{stroke:#081224;stroke-width:1.6}.fc-dot.foe{fill:#E8EEF8}.fc-dot.taken{fill:#FFB020}.fc-dot.own{fill:#9FD3FF}.fc-dot.lost{fill:#FF5D5D}
 .fc-name{font:600 9.5px var(--f-data);fill:#F2F5FA;paint-order:stroke;stroke:#081224;stroke-width:3}.fc-name.taken{fill:#FFD27A}.fc-name.lost{fill:#FF9A9A}
 #worldmap #map-fx .fx-front{fill:rgb(255 93 93 / .2);stroke:#FF5D5D;stroke-width:1.5;animation:fxPulse 1.4s ease-in-out infinite}
@@ -2046,7 +2046,7 @@ function warSync(w){
   if (!w.fronts) return;
   const cap = w.fronts.find(f => f.capital);
   const avg = w.fronts.reduce((a, f) => a + f.p, 0)/w.fronts.length;
-  w.progress = avg + (w.pkGain || 0)*(1 - clamp(avg, 0, 100)/100) - (w.pkLost || 0)*(1 - clamp(-avg, 0, 100)/100);
+  w.progress = avg;
   if (cap && cap.p >= 100) w.progress = 100;
   if (cap && cap.p <= -100) w.progress = -100;
   // the front collapses: every other direction is lost and the road to the capital is open past the second line
@@ -2512,7 +2512,7 @@ function fuelDay(w){
 // the empire ties up its own strength: garrisons and patrols keep some machines away from the fight, partisans grow with its size
 function occCount(){ return Object.values(S.occupied||{}).filter(o => !o.referendum).length; }
 function empireK(){ return 1 - Math.min(0.25, 0.02*occCount()); }
-function warFight(w){ const U = warUnits(w), k = (w.fuel ?? 1)*empireK()*pocketTieK(w); if (k < 1) for (const id in U) if (depOk(id)) U[id] *= k; return U; }
+function warFight(w){ const U = warUnits(w), k = (w.fuel ?? 1)*empireK(); if (k < 1) for (const id in U) if (depOk(id)) U[id] *= k; return U; }
 // the enemy under the same rules: its oil is its production plus what its economy can buy; the rest waits in reserve (w.er)
 function enemyFuelDay(w){
   const e = C()[w.enemy]; w.er = w.er || {};
@@ -2771,7 +2771,7 @@ function updateWarMap(){
 }
 /* ---------- front on the map: every direction is a route border → 1st line → 2nd line → key city over real places;
    the land of each direction is painted from the border inward along its route, clipped by the real outline ---------- */
-const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[46,155,255], pocket:[168,85,247], ring:[236,72,153]};   // held after a peace: our colour
+const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[46,155,255]};   // held after a peace: our colour
 function capPoint(iso){ const c = CAPITALS[iso]; const q = c && proj(c[1], c[2]); return q ? {x:q.x, y:q.y} : (LABELS && LABELS[iso]); }
 function countryPath(iso){ return document.querySelector(`#worldmap path[data-iso="${iso}"]`); }
 function inCountry(path, x, y){ try { return path.isPointInFill(new DOMPoint(x, y)); } catch(e){ return true; } }
@@ -2833,134 +2833,16 @@ function occVal(F, prog){
   const {gw, gh, own, ds, at, routes, cs, span, val} = F, size = gw*gh; let any = false;
   const live = routes.map((R, r) => { const p = prog[r] || 0; if (p <= 0.05) return null; const q = clamp(p, 0, 100);
     return {r, p:q, tip:routePoint(R, q), wide:span*(.04 + .11*q/100)*Math.min(1, q/5), more:q > 70 ? span*1.1*((q - 70)/30)**2 : 0, all:p >= 99.9}; }).filter(Boolean);
-  val.fill(-50); if (!live.length && !(F.fallen && F.fallen.length)) return null;
+  val.fill(-50); if (!live.length) return null;
   for (let j = 0, k = 0; j < gh; j++){ const y = F.y0 + (j + .5)*cs;
     for (let i = 0; i < gw; i++, k++){ const x = F.x0 + (i + .5)*cs, mine = own[k]; let best = -50*cs;
       for (let q = 0; q < live.length; q++){ const L = live[q], r = L.r; if (L.all && mine === r){ best = 50*cs; break; }
         const t = at[r][k], past = t > L.p, d = past ? Math.hypot(x - L.tip.x, y - L.tip.y) : ds[r][k], v = L.wide*(1 - .55*(past ? 1 : t/L.p)) + (mine === r ? L.more : 0) - d; if (v > best) best = v; }
       if (best > 0) any = true; val[k] = best/cs; } }
-  if (F.fallen && F.fallen.length){ any = true; F.fallen.forEach(k => { if (val[k] < 2) val[k] = 2; }); }
   return any ? val : null;
 }
-// Pockets: land of the country's main body cut off from its capital by the attacker's wedges. Islands and exclaves are not pockets.
-const PK = {min:0.03, every:4, reach:4, cap:0.3, melt:0.02, tie:0.4, tieMax:0.35, trophy:0.3};   // reach: wedges this many cells from each other already seal the gap (fire control), so a pocket closes before the colours touch
-function cellFlood(gw, gh, ok, seed, mark, id){
-  const st = [seed], out = []; mark[seed] = id;
-  while (st.length){ const k = st.pop(), i = k % gw, j = (k - i)/gw; out.push(k);
-    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++){ const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= gw || b >= gh) continue;
-      const q = b*gw + a; if (!mark[q] && ok(q)){ mark[q] = id; st.push(q); } } }
-  return out;
-}
-// the country on the grid: `base` holds the cells joined to the capital by land, `root` is the capital's cell
-function occLand(F){
-  if (F.base) return F;
-  const {gw, gh, cs, x0, y0} = F, n = gw*gh, land = new Uint8Array(n), path = countryPath(F.iso), cap = capPoint(F.iso), cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
-  const c = cv.getContext("2d", {willReadFrequently:true}); c.setTransform(1/cs, 0, 0, 1/cs, -x0/cs, -y0/cs); c.fill(new Path2D(path.getAttribute("d")));
-  const d = c.getImageData(0, 0, gw, gh).data; let root = -1, bd = Infinity;
-  for (let k = 0; k < n; k++){ if (d[k*4 + 3] < 110) continue; land[k] = 1; const i = k % gw, j = (k - i)/gw, q = Math.hypot(x0 + (i + .5)*cs - cap.x, y0 + (j + .5)*cs - cap.y); if (q < bd){ bd = q; root = k; } }
-  F.base = new Uint8Array(n); F.root = root; F.nBase = root < 0 ? 0 : cellFlood(gw, gh, q => land[q], root, F.base, 1).length;
-  return F;
-}
-// the cut-off pieces at this progress: [{cells, share of the main body, x, y}]
-function pocketCells(F, prog){
-  occLand(F); const {gw, gh, base, root, nBase, cs} = F; if (!nBase) return [];
-  const val = occVal(F, prog); if (!val) return [];
-  const n = gw*gh, free = q => base[q] && val[q] <= -PK.reach, mark = new Int16Array(n), parts = []; let id = 0;
-  for (let k = 0; k < n; k++) if (!mark[k] && free(k)) parts.push({cells:cellFlood(gw, gh, free, k, mark, ++id), id});
-  if (parts.length < 2) return [];
-  // the body is what holds the capital; if the capital has fallen, the biggest piece
-  const main = mark[root] ? parts.find(p => p.id === mark[root]) : parts.reduce((a, b) => b.cells.length > a.cells.length ? b : a);
-  return parts.filter(p => p !== main && p.cells.length >= Math.max(3, nBase*PK.min)).map(p => { let sx = 0, sy = 0;
-    // the pocket also takes the strip under fire around it, up to the wedges
-    for (let r = 0, edge = p.cells; r < PK.reach; r++){ const add = [];
-      edge.forEach(k => { const i = k % gw; for (const q of [i ? k - 1 : -1, i < gw - 1 ? k + 1 : -1, k - gw, k + gw]) if (q >= 0 && q < n && base[q] && !mark[q] && val[q] <= 0){ mark[q] = p.id; add.push(q); } });
-      p.cells = p.cells.concat(add); edge = add; }
-    p.cells.forEach(k => { const i = k % gw; sx += i; sy += (k - i)/gw; });
-    return {cells:p.cells, share:p.cells.length/nBase, x:F.x0 + (sx/p.cells.length + .5)*cs, y:F.y0 + (sy/p.cells.length + .5)*cs}; });
-}
-function pocketName(iso, x, y){ let best = null, bd = Infinity;
-  placePool(iso).forEach(p => { const q = p.ll && proj(p.ll[0], p.ll[1]); if (!q) return; const d = Math.hypot(q.x - x, q.y - y); if (d < bd){ bd = d; best = p; } });
-  return best ? best.name : ""; }
-// finds the pockets of a war and keeps each one's identity between scans (the nearest old pocket is the same pocket); cells stay out of the save
-function pocketScan(w){ pocketSide(w, false); pocketSide(w, true); }
-function pocketSide(w, mine){
-  const F = mine ? warFieldM(w) : warField(w); if (!F) return;
-  const key = mine ? "pocketsM" : "pockets", iso = mine ? S.player : w.enemy, found = pocketCells(F, w.fronts.map(f => Math.max(0, mine ? -f.p : f.p))), old = (w[key] || []).slice(), far = F.span*.18;
-  w[key] = found.map(c => { let m = null, bd = far;
-    old.forEach(o => { const d = Math.hypot(o.x - c.x, o.y - c.y); if (d < bd){ bd = d; m = o; } });
-    if (m) old.splice(old.indexOf(m), 1); else { w.pkN = (w.pkN || 0) + 1; m = {id:w.pkN, days:0, name:pocketName(iso, c.x, c.y), fresh:true}; if (mine) ringTrap(m, c.share); else pocketTrap(w, m, c.share); }
-    m.share = c.share; m.x = c.x; m.y = c.y; c.id = m.id; return m; });
-  old.forEach(o => { if (!mine) pocketFree(w, o); warEvent(w, `${mine ? "Кольцо вокруг наших" : "Котёл"}${o.name ? ` у «${o.name}»` : ""} разорван${mine ? "о" : ""}.`, mine ? "good" : ""); });
-  w[key].forEach(p => { if (p.fresh){ delete p.fresh; const at = p.name ? ` у «${p.name}»` : "", pct = Math.round(p.share*100), t = mine ? `Наши войска окружены${at}: ${pct}% нашей земли отрезано от столицы.` : `Котёл${at}: ${pct}% земли противника отрезано от столицы.`; addLog(t); warEvent(w, t, mine ? "bad" : "good"); toast(t); } });
-  ui.pkC = ui.pkC || {}; ui.pkC[(mine ? "m" : "") + w.enemy] = {F, cells:found.flatMap(c => c.cells), by:Object.fromEntries(found.map(c => [c.id, c.cells]))};
-}
-function warField(w){ const F = occField(S.player, w.enemy, frontLL(w, false)); if (F) F.fallen = w.pkLand || null; return F; }
-function warFieldM(w){ const F = occField(w.enemy, S.player, frontLL(w, true)); if (F) F.fallen = w.pkLandM || null; return F; }
-const pkCount = u => Object.values(u || {}).reduce((a, n) => a + n, 0);
-// the garrison: the pocket's share of the enemy's ground machines and men, at most PK.cap; they stop fighting on the directions
-function pocketTrap(w, p, share){ const k = Math.min(PK.cap, share); p.u = {}; 
-  Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m || !GROUND_K.has(m.kind)) return; const n = Math.floor(w.eu[id]*k); if (n > 0){ w.eu[id] -= n; p.u[id] = n; } });
-  const men = w.emen ?? 1; p.men = men*k; w.emen = men - p.men; p.hold = 14 + Math.round(14*k/PK.cap); }
-// the ring is broken: the garrison is with its army again
-function pocketFree(w, p){ for (const id in p.u) w.eu[id] = (w.eu[id] || 0) + p.u[id]; w.emen = Math.min(1, (w.emen ?? 1) + (p.men || 0)); p.u = {}; p.men = 0; }
-// a pocket holds part of our forces in the ring, and those in the enemy's ring do not fight
-function pocketTieK(w){ const P = w.pockets || [], M = w.pocketsM || []; if (!P.length && !M.length) return 1; const all = pkCount(warUnits(w)) || 1;
-  return (1 - Math.min(PK.tieMax, PK.tie*P.reduce((a, p) => a + pkCount(p.u), 0)/all))*(1 - Math.min(0.6, M.reduce((a, p) => a + p.k, 0))); }
-function ringTrap(p, share){ p.k = Math.min(PK.cap, share); p.hold = 14 + Math.round(14*p.k/PK.cap); }
-const ringHit = (w, rate) => { w.fronts.forEach((f, i) => hitFront(w, i, rate, w.lossMy)); w.men = (w.men || 0)*(1 - rate); };
-function ringFall(w, p){ ringHit(w, p.k*0.5); const P = ui.pkC && ui.pkC["m" + w.enemy];
-  w.pkLandM = (w.pkLandM || []).concat(P && P.by[p.id] || []); w.pkLost = (w.pkLost || 0) + p.share*100; w.pkFellM = (w.pkFellM || 0) + 1; w.pocketsM = w.pocketsM.filter(x => x !== p); S.approval = clamp(S.approval - 4, 0, 100); warSync(w); pocketScan(w);
-  const at = p.name ? ` у «${p.name}»` : "", pct = Math.round(p.share*100), t = p.out ? `Земля${at} оставлена: потеряно ${pct}% нашей земли.` : `Окружённая группировка${at} сдалась: потеряно ${pct}% нашей земли.`; warEvent(w, t, "bad"); addLog(t); }
-function ringBreak(w, p){ ringHit(w, p.k*0.25); p.k = 0; p.out = true; p.hold = Math.min(p.hold, p.days + 5); const t = `Наши войска${p.name ? ` у «${p.name}»` : ""} вышли из окружения с потерями.`; warEvent(w, t, ""); addLog(t); }
-// a wedge far ahead of the others can be cut at the base
-function wedgeOut(w){ const A = w.fronts.map(f => Math.max(0, f.p)), n = A.length, sum = A.reduce((a, b) => a + b, 0); if (n < 2) return null; return w.fronts.find((f, i) => f.p >= 45 && f.p < 100 && f.p - (sum - A[i])/(n - 1) >= 35) || null; }
-function wedgeLine(w){ const f = wedgeOut(w); return f ? `<span class="down">${esc(f.name)} направление вырвалось вперёд: клин могут отсечь</span><br>` : ""; }
-function pocketFall(w, p, tk = PK.trophy){
-  const P = ui.pkC && ui.pkC[w.enemy], got = {}; let n = 0;
-  for (const id in p.u){ const q = p.u[id]; w.lossTh[id] = (w.lossTh[id] || 0) + q; const k = Math.floor(q*tk); if (k > 0){ S.units[id] = (S.units[id] || 0) + k; got[id] = k; n += k; } }
-  w.pkLand = (w.pkLand || []).concat(P && P.by[p.id] || []); w.pkGain = (w.pkGain || 0) + p.share*100; w.pkFell = (w.pkFell || 0) + 1;
-  w.pockets = w.pockets.filter(x => x !== p); warSync(w); pocketScan(w);
-  const t = `Котёл${p.name ? ` у «${p.name}»` : ""} пал: ${Math.round(p.share*100)}% земли наши${n ? `, трофеи: ${n} ед. техники` : ""}.`; warEvent(w, t, "good"); addLog(t);
-}
-// the player's choices on the war card; waiting needs no button
-const pkAidCost = () => me().gdp*0.0002;
-function pocketStorm(w, p){ const rate = clamp(PK.tie*pkCount(p.u)/(pkCount(warUnits(w)) || 1), 0.01, 0.08); w.fronts.forEach((f, i) => hitFront(w, i, rate, w.lossMy)); w.pkStorm = (w.pkStorm || 0) + 1; pocketFall(w, p, PK.trophy/2); }
-// humanitarian only: medicine and the wounded go through, ammunition does not, so the garrison keeps melting
-function pocketAid(w, p){ const c = pkAidCost(); if (p.aid || S.treasury < c) return; S.treasury -= c; p.aid = true; p.hold += 4; S.approval = clamp(S.approval + 3, 0, 100); infamyAdd(-5);
-  const t = `Гуманитарный коридор${p.name ? ` у «${p.name}»` : ""}: медикаменты вошли, раненых вывозят. Боеприпасы не пропускаем.`; warEvent(w, t, "good"); addLog(t); }
-function pocketPanel(w){ const P = w.pockets || [], M = w.pocketsM || []; if (!P.length && !M.length) return "";
-  return `<div class="panel" style="margin-top:12px"><h3>Котлы</h3>${M.map(p => `<div class="row strike"><span><b class="down">Наши в окружении: ${esc(p.name || "группировка")}</b>, ${Math.round(p.share*100)}% нашей земли<br><span class="pk-t">${p.out ? "Войска вышли, земля будет потеряна" : `${Math.round(p.k*100)}% войск не воюет и тает, сдадутся через ${Math.max(0, p.hold - p.days)} дн. Контрнаступление разорвёт кольцо`}.</span></span><span class="pk-btns"><button class="btn primary sm" data-pk="break" data-arg="${w.enemy}:${p.id}"${p.out ? " disabled" : ""}>Прорываться</button></span></div>`).join("")}${P.map(p => { const left = Math.max(0, p.hold - p.days), n = Math.round(pkCount(p.u));
-    return `<div class="row strike"><span><b>${esc(p.name || "Окружённая группировка")}</b>, ${Math.round(p.share*100)}% земли<br><span class="pk-t">${p.out ? "Гарнизон прорвался, зачистка" : `Без снабжения: ${n} ед. техники. Если ждать, сдадутся через ${left} дн., треть техники станет трофеями`}. Пока котёл не пал, земля не наша.</span></span>
-    <span class="pk-btns"><button class="btn primary sm" data-pk="storm" data-arg="${w.enemy}:${p.id}">Штурм</button><button class="btn sm" data-pk="aid" data-arg="${w.enemy}:${p.id}"${p.aid || p.out || S.treasury < pkAidCost() ? " disabled" : ""}>${p.aid ? "Коридор открыт" : "Гум. коридор"}</button></span></div>`; }).join("")}
-    <small class="muted">Штурм: сразу, с потерями на всех направлениях, половина трофеев. Гум. коридор: только медикаменты, без боеприпасов; ${money(pkAidCost())}, одобрение +3, дурная слава −5, сдача на 4 дня позже.</small></div>`; }
-function pocketBreak(w, p){
-  const F = warField(w); for (const id in p.u) p.u[id] = Math.floor(p.u[id]*0.7); p.men *= 0.7; pocketFree(w, p); p.out = true; p.hold = Math.min(p.hold, p.days + 5); w.pkOut = (w.pkOut || 0) + 1;
-  const k = Math.floor((p.y - F.y0)/F.cs)*F.gw + Math.floor((p.x - F.x0)/F.cs), r = F.own[k] || 0, f = w.fronts[r] || w.fronts[0];
-  f.p = clamp(f.p - 4, -100, 100); hitFront(w, w.fronts.indexOf(f), 0.02, w.lossMy); warSync(w);
-  const t = `Окружённые${p.name ? ` у «${p.name}»` : ""} прорвались к своим. ${f.name} направление отброшено.`; warEvent(w, t, "bad"); addLog(t);
-}
-function pocketTick(w){ if (!w.fronts) return;
-  w.pkT = (w.pkT || 0) + 1; const has = (w.pockets || []).length + (w.pocketsM || []).length, due = w.pkT % PK.every === 0;
-  if (due || (has && !(ui.pkC && ui.pkC[w.enemy] && ui.pkC["m" + w.enemy]))) pocketScan(w);
-  if (due){ const f = wedgeOut(w); if (f && Math.random() < 0.04){ f.p = clamp(f.p - 8, -100, 100); hitFront(w, w.fronts.indexOf(f), 0.05, w.lossMy); warSync(w); w.pkCut = (w.pkCut || 0) + 1; const t = `${f.name} направление: клин отсечён у основания, большие потери.`; warEvent(w, t, "bad"); addLog(t); } }
-  (w.pocketsM || []).slice().forEach(p => { p.days++; if (p.k) ringHit(w, PK.melt*p.k); if (p.days >= p.hold) ringFall(w, p); });
-  (w.pockets || []).slice().forEach(p => { p.days++;
-    for (const id in p.u){ const l = Math.floor(p.u[id]*PK.melt + Math.random()); if (l > 0){ p.u[id] = Math.max(0, p.u[id] - l); w.lossTh[id] = (w.lossTh[id] || 0) + l; } } p.men *= 1 - PK.melt;
-    if (p.days >= p.hold) return pocketFall(w, p);
-    const my = pkCount(warUnits(w)) || 1, need = PK.tie*pkCount(p.u)/my;   // too few of ours around the ring: it leaks
-    if (!p.out && Math.random() < 0.008 + 0.05*clamp((need - PK.tieMax)/PK.tieMax, 0, 1)) pocketBreak(w, p); });
-}
-// the pockets of a war as a field for the map (the same units as occVal), softened one step so the edge is not a staircase
-function pocketVal(w, mine){
-  const id = (mine ? "m" : "") + w.enemy; if (!ui.pkC || !ui.pkC[id]) pocketScan(w);
-  const P = ui.pkC && ui.pkC[id]; if (!P || !P.cells.length) return null;
-  if (P.val) return P;
-  const {gw, gh} = P.F, n = gw*gh, a = new Float32Array(n).fill(-2), v = new Float32Array(n); P.cells.forEach(k => { a[k] = 2; });
-  for (let j = 0, k = 0; j < gh; j++) for (let i = 0; i < gw; i++, k++){ let s = 0, c = 0;
-    for (let b = Math.max(0, j - 1); b <= Math.min(gh - 1, j + 1); b++) for (let q = Math.max(0, i - 1); q <= Math.min(gw - 1, i + 1); q++){ s += a[b*gw + q]; c++; }
-    v[k] = s/c; }
-  P.val = v; return P;
-}
+function warField(w){ return occField(S.player, w.enemy, frontLL(w, false)); }
+function warFieldM(w){ return occField(w.enemy, S.player, frontLL(w, true)); }
 // the same field as an image and a front line, for the map without WebGL
 function occRender(F, prog, rgb, given){
   const val = given || occVal(F, prog); if (!val) return null;
@@ -2989,12 +2871,10 @@ function occTargets(){
     if (!w.fronts) return;
     const FT = warField(w), FM = warFieldM(w); if (!FT || !FM) return;
     out.push({key:"w" + w.enemy, F:FT, p:w.fronts.map(f => Math.max(0, f.p)), cls:"us"}, {key:"m" + w.enemy, F:FM, p:w.fronts.map(f => Math.max(0, -f.p)), cls:"them"});
-    const PK = pocketVal(w); if (PK) out.push({key:"k" + w.enemy, F:PK.F, p:[1], val:PK.val, cls:"pocket"});
-    const RG = pocketVal(w, true); if (RG) out.push({key:"q" + w.enemy, F:RG.F, p:[1], val:RG.val, cls:"ring"});
   });
   Object.values(S.occupied||{}).forEach(o => {
     if (o.share >= 1 || S.wars.some(w => w.enemy === o.iso)) return;
-    const F = occField(S.player, o.iso, o.lls || null); if (F) F.fallen = o.cells || null; if (F) out.push({key:"o" + o.iso, F, p:o.fp && o.lls ? o.fp : F.routes.map(() => o.share*100), cls:"held"});
+    const F = occField(S.player, o.iso, o.lls || null); if (F) out.push({key:"o" + o.iso, F, p:o.fp && o.lls ? o.fp : F.routes.map(() => o.share*100), cls:"held"});
   });
   return out;
 }
@@ -4131,7 +4011,7 @@ function viewHQ(){
     w.far ? (w.carriers ? `Далёкая война: авианосцы (${w.carriers}) дают авиации аэродромы рядом с фронтом` : `<span class="down">Далёкая война: авианосцев не осталось, авиация работает на 45%</span>`) : "",
     w.sea ? `Удары с моря крылатыми ракетами: <span class="up num">+${w.sea.toFixed(2).replace(".",",")}% в день</span>` : "",
     w.blockade ? (w.blockade > 0 ? `<span class="up">Морская блокада противника: его экономика сжимается</span>` : `<span class="down">Флот противника блокирует наши порты</span>`) : "",
-    `${wedgeLine(w)}${nukeLine(w)}Топливо: ${(w.fuel ?? 1) < 0.98 ? `<span class="down">не хватает — воюет ${Math.round((w.fuel ?? 1)*100)}% техники</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}${w.frontCost ? ` · содержание фронта ${money(w.frontCost)}` : ""}${(() => { const n = Object.values(w.er||{}).reduce((x, y) => x + y, 0); return n >= 1 ? ` · у противника без топлива стоит ${Math.round(n).toLocaleString("ru-RU")} машин` : ""; })()}`,
+    `${nukeLine(w)}Топливо: ${(w.fuel ?? 1) < 0.98 ? `<span class="down">не хватает — воюет ${Math.round((w.fuel ?? 1)*100)}% техники</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}${w.frontCost ? ` · содержание фронта ${money(w.frontCost)}` : ""}${(() => { const n = Object.values(w.er||{}).reduce((x, y) => x + y, 0); return n >= 1 ? ` · у противника без топлива стоит ${Math.round(n).toLocaleString("ru-RU")} машин` : ""; })()}`,
     w.droneLog ? `Последний удар дронов: ${w.droneLog.n} шт · РЭБ ${w.droneLog.jammed} · ПВО ${w.droneLog.down} · прорвалось ${w.droneLog.hits}` : "",
     airliftCap() ? `Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны` : ""
   ].filter(Boolean).map(x => `<div class="row"><small>${x}</small></div>`).join("");
@@ -4159,7 +4039,7 @@ function viewHQ(){
     <small class="muted">${WAR_MODES[w.mode].hint}</small>
     ${S.wars.length > 1 ? `<div class="row"><span>Приоритет фронта</span><span class="seg">${[1,2,3].map(v => `<button data-warprio="${v}" aria-pressed="${w.prio===v}">${["Низкий","Обычный","Высокий"][v-1]}</button>`).join("")}</span></div><div class="label">На этот фронт идёт ${Math.round(share*100)}% армии.</div>` : ""}
   </div>
-  ${pocketPanel(w)}<div class="panel" style="margin-top:12px"><h3>Удары и решения</h3>
+  <div class="panel" style="margin-top:12px"><h3>Удары и решения</h3>
     ${tlv("nuc_bomb") ? `<div class="row strike nuke"><span><b>☢ Ядерный удар</b><br><small class="muted">боеголовок: ${S.nukes||0}. Противник капитулирует, но весь мир разорвёт с вами отношения на годы</small></span><button class="btn danger sm" data-nuke="${w.enemy}" ${(S.nukes||0) > 0 && nukeReach(w.enemy) ? "" : "disabled"}>${ui.nukeArm === w.enemy ? "ПОДТВЕРДИТЬ" : (S.nukes||0) > 0 ? (nukeReach(w.enemy) ? "Приказ" : "не достаёт") : "нет боеголовок"}</button></div>` : ""}
     ${Object.entries(STRIKES).map(([id, st]) => { const cd = w.cd[id]||0; return `<div class="row strike"><span><b>${st.name}</b><br><small class="muted">${st.desc}</small></span><button class="btn ${cd ? "" : "primary"} sm" data-strike="${id}" ${cd ? "disabled" : ""}>${cd ? `через ${cd} дн.` : "Приказ"}</button></div>`; }).join("")}
   </div>
@@ -4314,7 +4194,7 @@ function showVictory(){
 }
 function peaceTerms(w){
   const p = w.progress, e = C()[w.enemy], t = [];
-  if (p >= 25) t.push({id:"land", title:`Забрать ${Math.round(Math.min(100, p + (w.pockets || []).reduce((a, q) => a + q.share*100, 0)))}% территории`, desc:`${money(e.gdp*p/100)} экономики и население этих земель; нужен гарнизон`, chance: clamp(0.15 + p/110, 0, 0.95)});
+  if (p >= 25) t.push({id:"land", title:`Забрать ${Math.round(Math.min(100, p))}% территории`, desc:`${money(e.gdp*p/100)} экономики и население этих земель; нужен гарнизон`, chance: clamp(0.15 + p/110, 0, 0.95)});
   if (p >= 10) t.push({id:"pay", title:"Контрибуция", desc:`${money(e.gdp*0.05*(p/50))} сразу`, chance: clamp(0.35 + p/140, 0, 0.95)});
   t.push({id:"white", title:"Белый мир", desc:"все остаются при своём", chance: clamp(0.45 + p/200, 0.05, 0.95)});
   if (p < 0) t.push({id:"concede", title:"Уступить", desc:`заплатить ${money(me().gdp*0.03*(-p/50))} и выйти из войны`, chance: 0.9});
@@ -4336,7 +4216,7 @@ function tryPeace(iso, id){
   const w = S.wars.find(x => x.enemy === iso), e = C()[iso], t = peaceTerms(w).find(x => x.id === id);
   if (!(w.offer && id !== "concede") && Math.random() > t.chance){ w.peaceCd = 30; toast(`${e.name} отклонила условия.`); closeModal(); resumeAfter("peace"); render(); return; }
   S.wars = S.wars.filter(x => x !== w); e.rel = -50;
-  if (id === "land"){ const pk = w.pockets || [], cn = ui.pkC && ui.pkC[w.enemy], share = Math.min(1, w.progress/100 + pk.reduce((a, q) => a + q.share, 0)); const o = occupy(iso, share, w); if (o) o.cells = (w.pkLand || []).concat(pk.length && cn ? cn.cells : []);
+  if (id === "land"){ occupy(iso, Math.min(1, w.progress/100), w);
     // the border is fixed where the front stood: the map keeps exactly the land we held
     if (o && w.fronts){ o.lls = frontLL(w, false); o.fp = w.fronts.map(f => Math.max(0, f.p)); } e.gdp *= 1 - share*0.9; e.pop *= 1 - share; e.army *= 0.7; e.rel = -80; infamyAdd(8 + 12*share); addLog(`Мир с ${e.name}: к нам отходит ${Math.round(share*100)}% её территории.`); }
   else if (id === "pay"){ const sum = e.gdp*0.05*(w.progress/50); S.treasury += sum; floatText(S.player, `+${money(sum)}`, "cash big"); infamyAdd(3); addLog(`Мир с ${e.name}: получена контрибуция ${money(sum)}.`); }
@@ -6210,7 +6090,7 @@ function dayTick(){
   shipTick();
   wearyDay();
   if ((S.day||1) % 3 === 0){ goalsTick(); lessonsTick(); }
-  if (S.wars.length){ S.wars.forEach(w => { warDay(w); pocketTick(w); }); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map" && !BF.open) updateWarMap(); }
+  if (S.wars.length){ S.wars.forEach(w => warDay(w)); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map" && !BF.open) updateWarMap(); }
   const speed = (selfSuff("metal") < 60 ? 0.5 : 1) * (1 + 0.015*minDelta("housing"));
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
@@ -9045,7 +8925,6 @@ document.addEventListener("click", e => {
   if (t.dataset.occfree){ occFree(t.dataset.occfree); save(); render(); return; }
   if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
-  if (t.dataset.pk){ const [iso, id] = t.dataset.arg.split(":"), w = S.wars.find(x => x.enemy === iso), p = w && [...(w.pockets || []), ...(w.pocketsM || [])].find(x => x.id === +id); if (p){ const a = t.dataset.pk; if (a === "storm") pocketStorm(w, p); else if (a === "aid") pocketAid(w, p); else ringBreak(w, p); drawOcc(false); render(); } return; }
   if (t.dataset.hqmore){ ui.hqMore = !ui.hqMore; render(); return; }
   if (t.dataset.bfopen){ const [be, bi] = t.dataset.bfopen.split(":"); openBattle(be, +bi); return; }
   if (t.dataset.whomore){ ui.whoMore = !ui.whoMore; render(); return; }
