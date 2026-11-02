@@ -2228,6 +2228,7 @@ function startWar(enemyId, byUs){
   { const want = freeArmy()/S.wars.length, res = menReserve(), others = S.wars.filter(x => x !== w && (x.men||0) > 0), tot = others.reduce((a, x) => a + x.men, 0);
     if (res < want && tot > 0) others.forEach(x => { x.men -= Math.min(x.men, (want - res)*x.men/tot); });
     roadSend(w, MEN, menReserve(), null); }
+  puppetAid(w);
   if (S.wars.length > 1 && w.dep.every(d => depPower(d) <= 0) && Object.keys(S.units).some(id => depOk(id) && S.units[id] > 0)) advise("gen", `Новый фронт — ${C()[enemyId].name}, а вся техника занята на других войнах! Пошлите войска: Штаб → «Войска» у каждого направления.`, {tab:"hq", mood:"alert"});
   return w;
 }
@@ -4137,7 +4138,15 @@ function occFree(iso){ const o = S.occupied && S.occupied[iso], e = C()[iso]; if
   if (e){ e.owner = null; e.rel = -35; e.army = Math.max(e.army, 10); if (o.share >= 1) e.gdp = o.gdpFull/0.9*0.7; }
   infamyAdd(-(8 + 8*o.share)); S.infamyFloor = Math.min(FLOOR_MAX, (S.infamyFloor||0) + 1); S.mods.push({stat:"approval", v:-3, left:6}); wearyAdd(-5);
   flashMap(iso, "good"); addLog(`${partnerName(iso)}: независимость восстановлена. Мир это заметил, но дома многие недовольны.`); }
-function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1)*(v > 0 && settings.worldHard ? 1.35 : 1), 0, 100); }
+// the world fears the strong: a small country's conquests scare it less, and the fear grows with the empire
+function fearK(){ const all = Object.values(C()).reduce((a, x) => a + (!x.owner || x.id === S.player ? x.gdp : 0), 0); return clamp(0.35 + 2*Math.sqrt(me().gdp/Math.max(1, all)), 0.35, 1.3); }
+function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1)*(v > 0 ? fearK()*(settings.worldHard ? 1.35 : 1) : 1), 0, 100); }
+// satellites send a quarter of their forces to a new war, once a year; what they send is ours for good and they grow weaker
+function puppetAid(w){ const names = []; Object.entries(S.puppets||{}).forEach(([iso, pp]) => { const e = C()[iso]; if (!e || S.turn < (pp.aidT||0)) return;
+    const U = defaultUnits(e, e.tech), men = e.army*0.25; let n = 0, k = 0;
+    for (const id in U){ const q = Math.round(U[id]*0.25); if (q > 0 && depOk(id) && MODELS[id]){ S.units[id] = (S.units[id]||0) + q; roadSend(w, id, q, k++ % w.fronts.length); n += q; } }
+    me().army += men; e.army -= men; pp.aidT = S.turn + 12; pp.loyal = Math.max(0, pp.loyal - 4); if (n || men > 0.5) names.push(e.name); });
+  if (names.length) warEvent(w, `Сателлиты прислали войска: ${names.join(", ")}.`, "good"); }
 function garrisonNeed(o){ const e = C()[o.iso]; if (o.referendum) return 0; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2*(1 + Math.min(0.5, 0.04*occCount()))); }
 function garrisonOf(o){ return garrisonNeed(o)*(o.garrison || 1); }
 function garrisonTotal(){ return Object.values(S.occupied||{}).reduce((a,o) => a + garrisonOf(o), 0); }
@@ -4315,7 +4324,7 @@ function viewOccupation(){
   const inf = S.infamy || 0;
   return `<div class="panel"><div class="row"><h3>Репутация агрессора</h3><span class="num ${inf > 50 ? "down" : inf > 25 ? "warn" : "up"}">${Math.round(inf)} / 100</span></div>
       <div class="bar ${inf > 50 ? "low" : inf > 25 ? "mid" : "high"}"><i style="width:${inf}%"></i></div>
-      <div class="label">${inf > COAL_MIN ? "Опасно: державы собирают коалицию, идут санкции, врагам шлют технику. Мир и возврат земель успокаивают мир." : inf >= LL_MIN ? "Державы шлют технику вашим врагам. Выше 50 жди коалицию." : inf > 25 ? "Мир настороже: отношения со всеми медленно портятся." : "Вас считают предсказуемым партнёром."} Снижается со временем и после великодушного мира.</div></div>
+      <div class="label">${fearK() < 0.6 ? "Мир пока не видит в нас угрозы: каждое завоевание пугает его слабее. С ростом страны это пройдёт. " : ""}${inf > COAL_MIN ? "Опасно: державы собирают коалицию, идут санкции, врагам шлют технику. Мир и возврат земель успокаивают мир." : inf >= LL_MIN ? "Державы шлют технику вашим врагам. Выше 50 жди коалицию." : inf > 25 ? "Мир настороже: отношения со всеми медленно портятся." : "Вас считают предсказуемым партнёром."} Снижается со временем и после великодушного мира.</div></div>
     ${occ.length ? `<div class="panel"><h3>Оккупированные территории</h3>${occ.map(occCard).join("")}<div class="label">Гарнизоны всего: ${troops(garrisonTotal())} — эти войска не воюют на фронтах.</div></div>` : ""}
     ${pup.length ? `<div class="panel"><h3>Сателлиты</h3>${pup.map(([iso,pp]) => `<div class="row"><span>${flag(iso)} <b>${esc(partnerName(iso))}</b><br><small class="muted">дань ${money(C()[iso].gdp*0.1/12)}/мес</small></span><span class="num ${pp.loyal < 35 ? "down" : "up"}">лояльность ${Math.round(pp.loyal)}%</span></div>`).join("")}<div class="label">Лояльность держится, пока вы сильнее сателлита минимум в полтора раза.</div></div>` : ""}`;
 }
@@ -4839,13 +4848,14 @@ function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v -
 /* Oil for the war: every country starts with an empty stock and burns almost all its base output itself. The rest (S.oilK fixes it once)
    covers OIL_SPARE of the whole army attacking; the market sells at most OIL_SPOT a day (OIL_BOTH together for a country with no oil).
    Stock grows in peace (auto-sale leaves OIL_KEEP days of full war) and through wells, imports and contracts. */
-const OIL_SPARE = 0.2, OIL_SPOT = 0.25, OIL_BOTH = 0.45, OIL_KEEP = 60;
+const OIL_SPARE = 0.2, OIL_SPOT = 0.25, OIL_BOTH = 0.45, OIL_KEEP = 60, OIL_RAMP = 120;
 function armyOil(){ return fuelOf(S.units, "attack").oil; }
 function oilCiv(){ const b = baseOut("oil")*(1 + lawSum("res")); if (b <= 0) return 0;
   if (S.oilK === undefined){ const n = armyOil(); if (n <= 0) return 0; S.oilK = clamp(1 - OIL_SPARE*n*30/b, 0, 1); }
   return b*S.oilK; }
 function oilSpotMax(){ const n = armyOil(); if (n <= 0 || me().worldSanctions > 0) return 0; const k = Object.values(C()).some(x => x.sanctionsUs) ? 0.7 : 1;   // single sanctions make the market thinner, world sanctions close it
-  return Math.max(OIL_SPOT, OIL_BOTH - prodOf("oil")/30/n)*n*k; }
+  const own = prodOf("oil")/30/n, base = Math.max(OIL_SPOT, OIL_BOTH - own), ramp = clamp(Math.max(0, ...S.wars.map(w => w.days||0))/OIL_RAMP, 0, 1);   // suppliers catch up in a long war: oil limits the start, not the whole war
+  return (base + Math.max(0, 1 - own - base)*ramp)*n*k; }
 function priceMult(r){ return 1 + 0.15*tech("exchange") + (r==="oil" ? 0.35*tech("refining") + (inOrg("opec") ? 0.12 : 0) : 0); }
 function sellAdj(){ return 1 + lawSum("sell") + 0.01*minDelta("trade"); }
 function buyAdj(){ return Math.max(0.5, 1 + lawSum("buy") - 0.01*minDelta("trade")); }
