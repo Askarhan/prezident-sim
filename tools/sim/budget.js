@@ -1,10 +1,10 @@
 // Is a big country really rich? Economy bot + (NEEDS=1) state programs keep the six needs at norm; no wars. Prints money flow by 5 years.
-// node tools/sim/budget.js [years] [countries]. NEEDS=0 is the old bot, without programs. NOTRADE=1: no trade deals.
+// node tools/sim/budget.js [years] [countries]. NEEDS=0 is the old bot, without programs. NOTRADE=1: no trade deals. INDEX=path tests another build.
 const { chromium } = require("playwright"), http = require("http"), fs = require("fs"), path = require("path");
 const WWW = path.resolve(__dirname, "../../www"), YEARS = +(process.argv[2] || 15), LIST = (process.argv[3] || "us,fr,kg").split(","), NEEDS = process.env.NEEDS !== "0", NOTRADE = !!process.env.NOTRADE;
 const HOOK = fs.readFileSync(path.join(__dirname, "econ-bot.js"), "utf8") + "window.SIM_B = BUILDINGS; window.SIM = {newGame, dayTick, nextMonth, daysIn, dipAct, act, budget, canBuild, buildCost, powerBalance, selfSuff, startResearch, researching, researchSlots, tlv, techCostLv, techReqFail, TECH_BY, objCount, NEEDS, FAC, facCov, facNorm, facCanStart, startProg, facProgCost, needCov, tech, growthMonthly, get S(){ return S; }, get ui(){ return ui; }, me};\n";
 const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split("?")[0]); if (p === "/") p = "/sim.html";
-  if (p === "/sim.html"){ const s = fs.readFileSync(path.join(WWW, "index.html"), "utf8"), i = s.lastIndexOf("netGate();\n})();"); r.setHeader("content-type", "text/html"); r.end(s.slice(0, i) + HOOK + s.slice(i)); return; }
+  if (p === "/sim.html"){ const s = fs.readFileSync(process.env.INDEX || path.join(WWW, "index.html"), "utf8"), i = s.lastIndexOf("netGate();\n})();"); r.setHeader("content-type", "text/html"); r.end(s.slice(0, i) + HOOK + s.slice(i)); return; }
   fs.readFile(path.join(WWW, p), (e, d) => { if (e){ r.statusCode = 404; r.end(); } else r.end(d); }); }).listen(0, async () => {
   const b = await chromium.launch(), pg = await b.newPage(); pg.on("pageerror", e => console.log("ERR", e.message.slice(0, 140)));
   await pg.goto(`http://localhost:${srv.address().port}/sim.html`); await pg.waitForTimeout(1500);
