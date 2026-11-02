@@ -4938,6 +4938,9 @@ function suppliers(r){
   return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:travelDays(i)})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
 }
 function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r && !x.cat).reduce((a,x)=>a+x.qty, 0); }
+// the same realistic pictures as the interface; a name without one keeps its drawn icon
+const CARGO_PIC = {ammo:"cls_ammo", plane:"cls_air", jet:"cls_air", heli:"cls_air", drone:"cls_air", tank:"cls_ground", ship:"cls_navy", sam:"cls_ad", metal:"ore"};
+const cargoPic = name => CARGO_PIC[name] || PIC[name] || null;
 function cargoIcon(x){ return x.air ? "plane" : x.cat === "aid" ? "food" : x.cat === "unit" ? KINDS[MODELS[x.r].kind].icon : x.cat === "ammo" ? "ammo" : x.r; }
 function shipId(){ S.shipSeq = (S.shipSeq||0) + 1; return S.shipSeq; }
 /* every seller can ship only so much a month: proportional to its economy and its deposits */
@@ -7905,17 +7908,18 @@ function maFlag(iso, w, h){
     im.onload = () => { MA.flags.set(u, me); mgKick(); }; im.onerror = () => window.__flagFail(u); im.src = u; return null; }
   return im ? maDraw(key, w, h, w, h/2, c => c.drawImage(im, 0, 0, w, h)) : null;
 }
-// an icon of the sprite sheet as a picture of its own: gradients come along, plain line icons get the old gold stroke
-function maIcon(id){
-  const key = "i" + id, had = MA.map.get(key); if (had) return had;
-  const im = MA.icons.get(id);
-  if (im === undefined){ MA.icons.set(id, null); const sym = document.getElementById(id); if (!sym) return null;
+// a cargo icon: the interface's picture, else a <symbol> of the sprite sheet with its gradients (line icons get the old gold stroke)
+function maIcon(name){
+  const key = "i" + name, had = MA.map.get(key); if (had) return had;
+  const im = MA.icons.get(name), cp = cargoPic(name), sz = cp ? 16 : 12;
+  if (im === undefined){ MA.icons.set(name, null); const me = new Image(); me.onload = () => { MA.icons.set(name, me); mgKick(); };
+    if (cp){ me.src = `icons/${cp}.webp`; return null; }
+    const id = iref(name), sym = document.getElementById(id); if (!sym) return null;
     const inner = sym.innerHTML, defs = [...new Set([...inner.matchAll(/url\(#([\w-]+)\)/g)].map(m => m[1]))].map(i => { const e = document.getElementById(i); return e ? e.outerHTML : ""; }).join("");
-    const line = id.startsWith("i-") ? ' fill="none" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' : "", me = new Image();
-    me.onload = () => { MA.icons.set(id, me); mgKick(); };
+    const line = id.startsWith("i-") ? ' fill="none" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' : "";
     me.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${sym.getAttribute("viewBox") || "0 0 24 24"}" width="48" height="48"><defs>${defs}</defs><g${line}>${inner}</g></svg>`);
     return null; }
-  return im ? maDraw(key, 12, 12, 6, 6, c => c.drawImage(im, 0, 0, 12, 12)) : null;
+  return im ? maDraw(key, sz, sz, sz/2, sz/2, c => c.drawImage(im, 0, 0, sz, sz)) : null;
 }
 function maQuad(s, x, y, o, rot){
   if (!s) return;
@@ -7945,7 +7949,7 @@ function mgFxRead(fx, lg){
   });
   MA.marks = marks.sort((a, b) => a.n - b.n);
   const ships = new Map((S.shipments || []).map(x => [String(x.id), x]));
-  MA.cargo = [...fx.querySelectorAll(".fx-cargo")].map(el => { const x = ships.get(el.dataset.sid), A = x && LABELS[x.from], B = x && LABELS[x.to]; return A && B ? {x, g:fxGeom(A, B), ring:el.querySelector(".fx-cg"), icon:el.querySelector("use").getAttribute("href").slice(1)} : null; }).filter(Boolean);
+  MA.cargo = [...fx.querySelectorAll(".fx-cargo")].map(el => { const x = ships.get(el.dataset.sid), A = x && LABELS[x.from], B = x && LABELS[x.to]; return A && B ? {x, g:fxGeom(A, B), ring:el.querySelector(".fx-cg"), icon:el.dataset.ic} : null; }).filter(Boolean);
   // several shipments from one country share a line
   const paths = new Map(); fx.querySelectorAll(".fx-lines path").forEach(el => paths.set(el.getAttribute("class") + el.getAttribute("d"), el));
   const rkey = [...paths.keys()].join("|");
@@ -8021,7 +8025,7 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   // cargo: only the texture is touched, the way along the route comes from the game's numbers
   const step = MA.cargo.length ? acc/SPEED_MS[ui.speed||1] : 0;
   MA.cargo.forEach(q => { const t = q.x, u = clamp(1 - (t.left - step)/t.total, 0, 1); if (t.left <= 0) return; const p = qbez(q.g, u), x = sx(p.x), y = sy(p.y); if (!on(x, y, 20*D)) return;
-    const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -11, -11, 22, 22, c => maPath(c, st, maCircle(8.5))), x, y, 1); maQuad(maIcon(q.icon), x, y, 1); });
+    const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -12, -12, 24, 24, c => maPath(c, st, maCircle(10))), x, y, 1); maQuad(maIcon(q.icon), x, y, 1); });
   const placed = [];
   MA.lbl.forEach(it => { const px = sx(it.L.x)/D, py = sy(it.L.y)/D, sw = it.L.w*k/upp, st = maStyle(it.el), s = maText(it.text, st, PX, 3, {mid:true}); if (!s) return;
     const tw = s.W/D - 8, fits = it.pri >= 3 || sw >= tw*(it.pri === 2 ? .55 : .95);
@@ -8225,7 +8229,8 @@ function fxMarkup(){
     const A = LABELS[x.from], B = LABELS[x.to]; if (!A || !B) return;
     const g = fxGeom(A, B), t = 1 - x.left/x.total, pt = qbez(g, t);
     if (x.dir === "in" && (x.cat || !importQty(x.from, x.r))) lines += `<path class="fx-import faint" d="${fxCurve(A, B).d}"/>`;
-    marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="8.5" class="fx-cg"/><use href="#${iref(cargoIcon(x))}" x="-6" y="-6" width="12" height="12" class="cu"/></g>`;
+    const cn = cargoIcon(x), cp = cargoPic(cn);
+    marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-ic="${cn}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="10" class="fx-cg"/>${cp ? `<image href="icons/${cp}.webp" x="-8" y="-8" width="16" height="16"/>` : `<use href="#${iref(cn)}" x="-6" y="-6" width="12" height="12" class="cu"/>`}</g>`;
   });
   Object.values(S.partners||{}).length && Object.entries(S.partners).forEach(([iso,p]) => { const L = LABELS[iso]; if (p.trade && L && !C()[iso] && !contractIsos.includes(iso)) lines += `<path class="fx-trade" d="${fxCurve(home, L).d}"/>`; });
   // own buildings: badges under the capital label
