@@ -408,6 +408,9 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #bf-root .bf-msg{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(10px,env(safe-area-inset-bottom)) + 62px);max-width:min(560px,92vw);padding:8px 14px;border-radius:10px;background:rgb(14 20 30 / .92);border:1px solid rgb(255 255 255 / .18);color:#fff;font-size:13px;text-align:center;z-index:2;transition:opacity .4s}
 #bf-root .bf-msg.good{border-color:rgb(57 208 195 / .6)} #bf-root .bf-msg.bad{border-color:rgb(255 93 93 / .6)}
 #bf-root .bf-msg.hide{opacity:0}
+#bf-root .bf-cbev{position:absolute;left:50%;transform:translateX(-50%);top:max(64px,calc(env(safe-area-inset-top) + 56px));z-index:6;display:flex;align-items:center;gap:8px;width:min(560px,94vw);padding:8px 12px;border-radius:10px;background:rgb(14 20 30 / .94);border:1px solid rgb(242 169 59 / .6);color:#fff}
+#bf-root .bf-cbev div{flex:1;min-width:0;font-size:12.5px;line-height:1.3} #bf-root .bf-cbev small{display:block;opacity:.8}
+#bf-root .bf-cbev button{flex:0 0 auto;min-height:40px;padding:0 10px;border-radius:8px;border:1px solid rgb(255 255 255 / .25);background:transparent;color:#fff;font:inherit;font-size:12px} #bf-root .bf-cbev button.go{background:#F2A93B;border-color:#F2A93B;color:#14202e;font-weight:600}
 #bf-root .bf-pos{position:absolute;left:50%;transform:translateX(-50%);top:max(10px,env(safe-area-inset-top));width:min(340px,40vw);z-index:2;pointer-events:none;color:#fff;text-align:center;font-size:12px}
 #bf-root .bf-pos b{display:block;font-size:12.5px;margin-bottom:4px;text-shadow:0 1px 3px #000}
 #bf-root .bf-pos .bar{height:8px;border-radius:5px;background:rgb(0 0 0 / .55);overflow:hidden;border:1px solid rgb(255 255 255 / .2)}
@@ -3653,10 +3656,41 @@ function cbHud(st){
     <span class="us">Мы ×${all(cb.g, cb.ig)} → ×${left(cb.g, cb.a, cb.ig, cb.ai)}</span><span class="them">Враг ×${all(cb.e, cb.ie)} → ×${left(cb.e, cb.ae, cb.ie, cb.aie)}</span><button data-cbend>Досчитать бой</button>`;
   if (el.innerHTML !== html) el.innerHTML = html;
 }
+/* ---- events during a commanded battle: one at 35-70 s, sometimes a second at 100-160 s; a choice waits 8 s, then the first answer stands ---- */
+const CB_EV = {
+  dry:{text:"У врага кончаются снаряды: 40 секунд его огонь слабее. Давите!", kind:"good"},
+  cmd:{text:"Снайпер убрал командира врага: его части дрогнут раньше, а меткость на 30 секунд упала.", kind:"good"},
+  fog:{text:"С низин пополз густой туман: на 45 секунд видимость упала для всех.", kind:""},
+  flank:{text:"Разведка: фланг врага открыт.", q:"Обойти двумя крайними группами?", a:["Держать линию", "Обойти"]},
+  reinf:{text:"К врагу на подходе подкрепление.", q:"Ударить по колонне до подхода?", a:["Пропустить", "Ударить артиллерией"]}};
+function cbEvent(st, w){
+  const cb = st.cb, api = st.api; if (!api || !api.ev) return;
+  const used = cb.evs = cb.evs || [], pool = Object.keys(CB_EV).filter(k => !used.includes(k) && (k !== "flank" || cb.type === "atk" || cb.type === "def") && (k !== "reinf" || cb.type !== "amb")), k = pool[Math.floor(Math.random()*pool.length)]; if (!k) return; used.push(k);
+  const E = CB_EV[k]; if (!E.q){ api.ev(k); bfMsg(st, E.text, E.kind); return; }
+  const go = yes => { const box = st.root.querySelector(".bf-cbev"); if (box) box.remove(); clearTimeout(st.evT); if (!st.cb || st.cb !== cb || cb.end) return;
+    if (k === "flank"){ if (yes) api.ev("flank"); return; }
+    let hit = false; if (yes && !cbSkBlock(st, w, "arty", 0)){ cbFire(st, "arty", 0, null); hit = true; }
+    const id = Object.keys(cb.e).filter(x => (w.eu[x]||0) - cb.e[x] >= 3).sort((a, b) => cb.e[b] - cb.e[a])[0]; if (!id) return;
+    const n = Math.round(Math.min(cbCount(cb.e)*0.12*(hit ? 0.5 : 1), w.eu[id] - cb.e[id])); if (n < 2) return; cb.e[id] += n; api.ev("reinf", {id, n}); bfMsg(st, `К врагу подошло ${MODELS[id].name} ×${n}${hit ? ": колонна потрёпана ударом" : ""}.`, "bad"); };
+  const box = document.createElement("div"); box.className = "bf-cbev"; box.setAttribute("role", "group"); box.innerHTML = `<div><b>${esc(E.text)}</b><small>${esc(E.q)}</small></div><button>${esc(E.a[0])}</button><button class="go">${esc(E.a[1])}</button>`;
+  box.querySelectorAll("button").forEach((b, j) => b.addEventListener("click", e => { e.stopPropagation(); sfx("tap"); go(j === 1); })); st.root.appendChild(box); st.evT = setTimeout(() => go(false), 8000);
+}
+// rewards for a battle won on the field: 10-15% of the enemy's destroyed machines as trophies, less war weariness, surviving models are veterans for the next battle of this war
+function cbReward(w, cb){
+  const out = [], tr = {}; let n = 0;
+  for (const id in cb.ae){ const m = MODELS[id], q = Math.floor((cb.ae[id] || 0)*(0.1 + Math.random()*0.05) + Math.random()); if (!m || !GROUND_K.has(m.kind) || q <= 0) continue; S.units[id] = (S.units[id]||0) + q; if (depOk(id) && w.dep && w.dep[cb.i]) w.dep[cb.i][id] = (w.dep[cb.i][id]||0) + q; tr[id] = q; n += q; }
+  if (n) out.push(`трофеи: ${cbList(tr, 3)}`);
+  wearyAdd(cb.city ? -3 : -1.5); out.push("усталость от войны меньше");
+  w.vets = {}; for (const id in cb.g) if ((cb.g[id] - (cb.a[id]||0)) >= cb.g[id]*0.5 && cb.g[id] - (cb.a[id]||0) >= 2) w.vets[id] = 1; const v = Object.keys(w.vets).length; if (v) out.push(`ветераны: ${v} ${plural(v, "модель", "модели", "моделей")} точнее в следующем бою`);
+  return out.join(", ");
+}
 function cbTick(st){
   const cb = st.cb; if (!cb || cb.end || document.hidden) return; const w = S.wars.find(x => x.enemy === st.enemy); if (!w || w.cb !== cb) return;
   cb.t++;
-  if (cb.real){ if (cb.t > CB_LIMIT + 120) return cbEnd(st, true, true); cbFoe(st, w); return cbHud(st); }   // the field decides; a stuck field is resolved after the limit
+  if (cb.real){ if (cb.t > CB_LIMIT + 120) return cbEnd(st, true, true); cbFoe(st, w);
+    if (!cb.evAt){ cb.evAt = 35 + Math.random()*35; cb.ev2 = Math.random() < 0.6 ? 100 + Math.random()*60 : 1e9; }
+    if (cb.t >= cb.evAt){ cb.evAt = cb.ev2; cb.ev2 = 1e9; if (st.api && st.api.battle && !st.api.battle().ended && !st.root.querySelector(".bf-cbev")) cbEvent(st, w); }
+    return cbHud(st); }   // the field decides; a stuck field is resolved after the limit
   cbApply(w, Math.min(0.97, cb.t/cb.dur)); if (cb.t >= cb.dur) return cbEnd(st, false); cbHud(st);
 }
 /* ---- strikes inside the commanded battle: cooldowns in battle seconds, small portions of real ammunition; the enemy strikes too ---- */
@@ -3738,7 +3772,8 @@ function cbEnd(st, early, stay){
   if (!w || w.cb !== cb){ st.cb = null; return; }
   if (cb.real && early) cbRest(w);
   if (!cb.real || early) cbApply(w, 1);
-  cbOutcome(w); delete w.cb;
+  cbOutcome(w); delete w.cb; const evb = st.root.querySelector(".bf-cbev"); if (evb) evb.remove(); clearTimeout(st.evT);
+  const reward = cb.real && !early && cb.win ? cbReward(w, cb) : ""; if (cb.real && !cb.win) w.vets = {};
   const f = w.fronts[cb.i] || {}; st.posDay = (f.posEv || {}).day; st.done = true;
   const days = clamp(Math.round((cb.real && !early ? cb.t : cb.dur)/60), 1, 5); w.bfLock = cb.i;
   try { for (let k = 0; k < days; k++){ if (S.over || S.pendingEvent || S.pendingVictory) break; S.day = (S.day||1) + 1; dayTick(); if (S.day > daysIn(S.month, S.year)){ nextMonth(); break; } } } catch(e){ console.error(e); }
@@ -3747,9 +3782,9 @@ function cbEnd(st, early, stay){
   const sub = `Потери: наши ${cbCount(cb.a)} из ${cbCount(cb.g)}, враг ${cbCount(cb.ae)} из ${cbCount(cb.e)}${cbCount(cb.ig) || cbCount(cb.ie) ? `; пехота: наши ${cbCount(cb.ai)} из ${cbCount(cb.ig)}, враг ${cbCount(cb.aie)} из ${cbCount(cb.ie)}` : ""}. Прошло ${days} ${plural(days, "день", "дня", "дней")}.`;
   cbHud(st); st.root.classList.remove("cmd");
   if (early && !stay) return toast(`${title} ${sub}`);
-  const ban = document.createElement("div"); ban.className = "bf-banner " + (cb.win ? "good" : "bad"); ban.innerHTML = `<div><b>${title}</b><small>${esc(sub)}</small></div>`;
+  const ban = document.createElement("div"); ban.className = "bf-banner " + (cb.win ? "good" : "bad"); ban.innerHTML = `<div><b>${title}</b><small>${esc(sub)}${reward ? `<br>Награда: ${esc(reward)}.` : ""}</small></div>`;
   st.root.appendChild(ban); sfx(cb.win ? "success" : "alert"); buzz(60);
-  setTimeout(() => { if (BF.open === st) closeBattle(true); }, 5200);
+  setTimeout(() => { if (BF.open === st) closeBattle(true); }, reward ? 7500 : 5200);
 }
 /* ---- the 3D field (three.js, loaded on demand); the 2D field stays as the fallback ---- */
 const BF3D_MODELS = ["su25","lancet","tu22","b1b","j10","f15ex","ah1z","j20","z10","wingloong","ka52","tb2","a10","su34","mi24","mig29","su35","su57","f16","f35","apache","reaper","shahed","t72","t90","armata","m1a1","leo","abrams","type96","ztz99","bmp2","bmp3","marder","bradley","zbd04","btr82","patria","stryker","zsl92","akacia","msta","paladin","pzh","plz05","grad","tornado","m270","himars","phl03","tochka","iskander","tor","pantsir","gepard","irist_sls","hq17","buk","nasams","hq16","s300","s400","s500","patriot","thaad","hq9","krasukha"];
@@ -3793,7 +3828,7 @@ function bf3dBattle(st, w, i){
     // in an ambush the enemy's artillery drives in the column with the rest
     const rl = id => cb.type === "amb" && side === 1 && BF3D_ROLE[MODELS[id].kind] === "arty" ? "front" : BF3D_ROLE[MODELS[id].kind];
     const list = Object.keys(grp).filter(id => MODELS[id] && rl(id) === role && grp[id] > 0).sort((a, b) => grp[b] - grp[a]);
-    list.forEach(id => { const m = MODELS[id]; stats[id] = {ga:m.ga, df:m.df, kind:m.kind}; });
+    list.forEach(id => { const m = MODELS[id]; stats[id] = {ga:m.ga, df:m.df, kind:m.kind, vet:!!(side === 0 && (w.vets||{})[id]) || (stats[id] || {}).vet}; });
     const tot = list.reduce((a, id) => a + grp[id], 0); total[side] += tot; if (role === "front") counts[side] = tot; if (!tot) return;
     const waves = role === "front" && cb.type === "def" && side === 1, cap = role === "front" ? (waves ? Math.min(W, Math.ceil(tot*0.6)) : W) : tot;
     const E = Math.min(tot, cap), N = clamp(Math.round(E/3), 1, role === "front" ? slots : 2), avg = Math.max(3, Math.ceil(E/N));

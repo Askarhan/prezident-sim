@@ -380,7 +380,7 @@ export async function start(el, ctx){
   scene.add(sun); scene.add(sun.target);
   // weather and time of day (ctx.wx from a commanded battle): sky, haze, light; fog/night/rain/snow haze follows the camera distance
   const WX = ctx.wx || {}, night = !!WX.night, wk = WX.kind || "clear";
-  const FOG = wk === "fog" ? [-75, 70] : wk === "snow" ? [-35, 180] : wk === "rain" ? [-20, 200] : night ? [-40, 160] : null;
+  let FOG = wk === "fog" ? [-75, 70] : wk === "snow" ? [-35, 180] : wk === "rain" ? [-20, 200] : night ? [-40, 160] : null;
   if (wk !== "clear" || night){
     const sky = wk === "fog" ? (night ? 0x1a2028 : 0xa9b1b4) : wk === "rain" ? (night ? 0x10161e : 0x737d84) : wk === "snow" ? (night ? 0x1c2433 : 0xc3cbd3) : 0x0b1220;
     scene.background.setHex(sky); scene.fog.color.setHex(sky);
@@ -590,7 +590,7 @@ export async function start(el, ctx){
   // floating numbers over the squads: «−3» when the war destroys three of its machines
   const floats = [];
   function damage(t, dmg){ if (!t.alive) return; if (B) return bDamage(t, dmg); t.hp -= dmg; floats.push({u:t, text:"−" + Math.round(dmg), t:0}); if (t.hp <= 0.5) destroy(t); }
-  const bName = u => (ctx.names[u.id] || u.id);
+  const bName = u => (u.side === 0 && (B && B.stats[u.id] || {}).vet ? "★ " : "") + (ctx.names[u.id] || u.id);
   function bDamage(t, dmg){
     t.hp -= dmg; const c = Math.max(0, Math.ceil(t.hp/t.hpPer - 1e-6));
     if (c < t.cnt){ const l = t.cnt - c; t.cnt = c; B.lost[t.side] += l; floats.push({u:t, text:"−" + l, t:0}); try { B.onLoss(t.side, t.id, l); } catch(e){} }
@@ -601,7 +601,7 @@ export async function start(el, ctx){
   function bShot(u, t, frac = 1){
     if (!t || !t.alive || B.ended) return; const a = B.stats[u.id], d = B.stats[t.id]; if (!a || !d) return;
     const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc" || k === "inf" || k === "atgm", dist = Math.hypot(t.x - u.x, t.z - u.z);
-    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (t.inf) acc *= 0.7; if (B.city){ if (t.inf && t.state !== "move") acc *= 0.6; if (!direct) acc *= 0.7; } acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
+    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (t.inf) acc *= 0.7; if (a.vet && u.side === 0) acc *= 1.15; if (u.side === 1 && B.t < (B.dryT || 0)) acc *= 0.6; if (u.side === 1 && B.t < (B.cmdT || 0)) acc *= 0.85; if (B.city){ if (t.inf && t.state !== "move") acc *= 0.6; if (!direct) acc *= 0.7; } acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
     if (direct && (d.kind === "tank" || d.kind === "ifv") && bFace(t, u.x, u.z) > 0.5){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
       if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
     let pen = 2*a.ga/(a.ga + d.df);
@@ -705,6 +705,7 @@ export async function start(el, ctx){
     for (let j = B.reserve.length - 1; j >= 0; j--){ const r = B.reserve[j]; if (r.at != null && B.t >= r.at){ B.reserve.splice(j, 1); bSpawn(r.side, r.id, r.n); } }
     // mines: the attacker's moving squads in the first minute and a half
     if (B.t < 90 && B.type !== "amb") for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*(B.doc === "inf" && B.atkSide === 0 ? 0.03 : 0.012)){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
+    if (B.fogT && B.t > B.fogT){ B.fogT = 0; B.vis = B.fog0[0]; B.acc = B.fog0[1]; FOG = B.fog0[2]; if (!FOG){ scene.fog.near = 160; scene.fog.far = 430; } }
     if (B.mark && B.markT > 0){ B.markT -= dt; B.mark.material.opacity = clamp(B.markT, 0, 1); }
     if (B.chk > 0) return; B.chk = 0.5;
     const alive = s => units.some(u => u.alive && u.side === s && !u.air) || B.coming[s] > 0 || B.reserve.some(r => r.side === s);
@@ -719,7 +720,7 @@ export async function start(el, ctx){
     if (!alive(1)) return bEnd(true); if (!alive(0)) return bEnd(false);
     // a side down to about a third of what it brought breaks: the survivors pull back (the war keeps them)
     const left = s => units.reduce((a, u) => a + (u.alive && u.side === s && !u.air ? u.cnt : 0), 0) + B.cn[s] + B.reserve.reduce((a, r) => a + (r.side === s ? r.n : 0), 0) + (s && B.esc ? B.esc : 0);
-    if (B.t > 30) for (const s of [1, 0]) if (left(s) < B.total[s]*0.35){ B.feed.unshift({text:s ? "враг отступает" : "наши отходят", side:1 - s, t:0}); return bEnd(s === 1); }
+    if (B.t > 30) for (const s of [1, 0]) if (left(s) < B.total[s]*(s && B.cmdT ? 0.45 : 0.35)){ B.feed.unshift({text:s ? "враг отступает" : "наши отходят", side:1 - s, t:0}); return bEnd(s === 1); }
     if (B.type === "brk" && B.t >= B.limit){ B.feed.unshift({text:"время вышло", side:1, t:0}); return bEnd(false); }
     if ((B.type === "atk" || B.type === "amb") && B.t >= B.limit){ const sh = s => B.lost[s]/Math.max(1, B.total[s]); return bEnd(sh(0) < sh(1)); }   // time is up: the side with more losses pulls back
     if (B.type === "def" && B.t >= B.hold) return bEnd(true);
@@ -1268,6 +1269,12 @@ export async function start(el, ctx){
     raid(type, o){ raid(type, o); },
     strike(side, type, o){ return cstrike(side, type, o); },
     aim(fn){ if (B) B.aim = fn || null; },
+    // an event from the game during a battle
+    ev(k, o = {}){ if (!B || B.ended) return;
+      if (k === "dry") B.dryT = B.t + 40; else if (k === "cmd") B.cmdT = B.t + 30;
+      else if (k === "fog"){ if (B.fogT || wk === "fog") return; B.fog0 = [B.vis, B.acc, FOG]; B.fogT = B.t + 45; B.vis = B.vis ? Math.min(B.vis, 55) : 55; B.acc *= 0.8; FOG = [-75, 70]; }
+      else if (k === "flank"){ const fr = units.filter(u => u.alive && u.side === 0 && u.role === "front" && !u.air).sort((a, b) => a.x - b.x); (fr.length > 2 ? [[fr[0], -1], [fr[fr.length - 1], 1]] : fr.map(u => [u, u.x < 0 ? -1 : 1])).forEach(([u, d]) => { u.flank = d; u.lane = clamp(u.x + d*50, -FIELD*0.45, FIELD*0.45); u.next = 0; floats.push({u, text:"обход!", t:0}); }); }
+      else if (k === "reinf"){ B.total[1] += o.n; bSpawn(1, o.id, o.n); } },
     peek(id, dist){ const u = units.find(v => v.id === id && v.alive); if (u){ cam.x = u.x; cam.z = u.z; cam.dist = dist; } return !!u; },   // test hook
     ff(sec){ for (let k = 0; k < sec*20 && running; k++) step(0.05); },   // test hook: run the field ahead without drawing
     battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win, inZone:B.zone ? B.inZone : null, need:B.need, esc:B.esc || 0, alert:B.alert} : null; },
