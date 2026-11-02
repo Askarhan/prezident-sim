@@ -1589,7 +1589,7 @@ const BUILDINGS = {
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, экспорт +3%",trade:0.03},
   highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
-  airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от торговых договоров +10%; максимум 3",deal:0.1,max:3},
+  airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от перевозок; максимум 3",max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"экспорт +5%; максимум 2",trade:0.05,max:2},
   tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО",req:{tech:"armor"}},
   heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны",req:{tech:"rotor"}},
@@ -4391,7 +4391,7 @@ const LAWS = [
   {id:"mob4",grp:"mob",name:"Всё для фронта",pros:["военное производство +75%","стабильность +5"],cons:["ресурсы и продовольствие −50%","рейтинг −8","рост ВВП −1% в год"],mil:0.75,res:-0.5,appr:-8,stab:5,growth:-0.0008},
   {id:"peaceEco",grp:"mob",name:"Мирная экономика",pros:["ресурсы и продовольствие +15%"],cons:["военное производство −20%"],res:0.15,mil:-0.2},
   {id:"protect",grp:"trade",name:"Протекционизм",pros:["сырьё продаётся на 20% дороже"],cons:["закупки на 20% дороже"],sell:0.2,buy:0.2},
-  {id:"freeTrade",grp:"trade",name:"Свободная торговля",pros:["закупки на 20% дешевле","доход от торговых договоров +25%"],cons:["сырьё продаётся на 10% дешевле"],buy:-0.2,deal:0.25,sell:-0.1},
+  {id:"freeTrade",grp:"trade",name:"Свободная торговля",pros:["закупки на 20% дешевле"],cons:["сырьё продаётся на 10% дешевле"],buy:-0.2,sell:-0.1},
   {id:"birthAid",grp:"demo",name:"Материнский капитал",pros:["население растёт быстрее: +0,05% в месяц","рейтинг +2"],cons:["расходы +0,4% ВВП в год"],pop:0.0005,appr:2,cost:0.004},
   {id:"birthCtrl",grp:"demo",name:"Контроль рождаемости",pros:["расходы министерств −10%"],cons:["население не растёт"],soc:-0.1,popFix:true}
 ];
@@ -4786,6 +4786,8 @@ function selfSuff(r){
 }
 function deficits(){ return RES.filter(r => selfSuff(r.id) < 60).length; }
 function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = me().gdp*b.cost/(1 - MAT_SHARE)*b.roi; if (id==="auto" && tech("automation")) v *= 1.5; return v; }
+// income is fixed when a building appears: it stays what the building earned on its own price then, it does not follow GDP
+function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n) r.v += (n - r.n)*objIncome(id); else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v; }
 function objUpkeep(id){ return me().gdp*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
@@ -4955,7 +4957,6 @@ function commodProjection(){
   });
   return rev;
 }
-function minorTradeIncome(){ return Object.entries(S.partners).filter(([iso,p])=>p.trade && !C()[iso]).reduce((a,[iso]) => a + Math.min(me().gdp/12*0.0006, partnerGdp(iso)/12*0.004), 0); }
 const IMPORTABLE = ["wood","steel","oil","rare","uran"];
 function supplyProf(iso, r){ if (r === "rare") return rareProf(iso); if (r === "uran") return uranProf(iso); if (r === "oil") return resProfile(iso, "oil"); const x = C()[iso]; if (x) return r==="wood" ? woodProf(iso) : x.prof.metal; return 0.6 + (hashIso(iso+"s"+r) % 100)/100; }
 function sells(iso, r){ return IMPORTABLE.includes(r) && supplyProf(iso, r) >= 0.9; }
@@ -5086,12 +5087,9 @@ function budget(){
     if (bal > 0) trade += m*0.00006*bal * (S.wars.length ? 0.8 : 1) * (1 + (K.infra-33)/150) * (1 + 0.2*tech("fintech")) * logi;
     else trade += m*0.00009*bal * (Object.values(C()).some(x=>x.sanctionsUs) ? 1.5 : 1);
   });
-  const deals = Object.values(C()).filter(x=>x.trade && !x.owner).length;
-  trade += m * 0.002 * deals * (1 + (K.infra-33)/150) * (ideo("dem")?1.25:1) * (1 + 0.1*objCount("airport")) * (1 + 0.02*minDelta("foreign") + lawSum("deal") + orgDealBonus());
-  trade += minorTradeIncome();
   const commod = commodProjection();
   const imports = allImports().reduce((a,x)=>a + x.q*importPriceFrom(x.iso, x.r), 0);
-  const objects = Object.keys(BUILDINGS).reduce((a,id)=>a + objCount(id)*objIncome(id), 0);
+  const objects = Object.keys(BUILDINGS).reduce((a,id)=>a + objEarned(id), 0);
   const upkeep = Object.keys(BUILDINGS).reduce((a,id)=>a + builtN(id)*objUpkeep(id), 0) + (S.fac ? facUpkeep() : 0);
   const rail = Object.keys(S.rails).filter(id=>S.rails[id].done).reduce((a,id)=>a + railIncome(id), 0);
   const arms = armsExportIncome();
@@ -5121,7 +5119,6 @@ function growthMonthly(){
   g += ideo("tech") ? 0.00033 : ideo("soc") ? -0.00033 : 0;
   if (S.climatePact) g -= 0.0002;
   if (me().worldSanctions > 0) g -= 0.0015;
-  g += 0.0003*Object.values(C()).filter(x=>x.trade && !x.owner).length;
   g -= 0.0008*Object.values(C()).filter(x=>x.sanctionsUs).length;
   g -= 0.002*S.wars.length;
   g -= 0.00025*deficits();   // shortages are already paid for as imports in the budget; this is only the extra drag
@@ -6544,7 +6541,7 @@ const MINISTRIES = [
   {id:"security", blk:"force", ic:"intel", rate:0.0002, def:2, name:"Служба безопасности", post:"Директор Службы безопасности", fx:"шанс спецопераций +1,5%, стабильность +0,3 за уровень"},
   {id:"justice", blk:"force", ic:"balance", rate:0.00015, def:2, name:"Министерство юстиции", post:"Министр юстиции", fx:"сбор налогов +0,6%, стабильность +0,2 за уровень"},
   {id:"emergency", blk:"force", ic:"alert", rate:0.00015, def:2, name:"МЧС", post:"Министр по чрезвычайным ситуациям", fx:"рейтинг и стабильность +0,2, стройки реже срываются"},
-  {id:"foreign", blk:"ext", ic:"diplomacy", rate:0.0002, def:3, name:"Министерство иностранных дел", post:"Министр иностранных дел", fx:"отношения со всеми +0,15 в месяц и доход от договоров +2% за уровень"},
+  {id:"foreign", blk:"ext", ic:"diplomacy", rate:0.0002, def:3, name:"Министерство иностранных дел", post:"Министр иностранных дел", fx:"отношения со всеми +0,15 в месяц за уровень"},
   {id:"science", blk:"ext", ic:"science", legacy:"science", def:3, name:"Министерство науки", post:"Министр науки", fx:"очки исследований: +2 в месяц за уровень"}
 ];
 const MIN_BY = Object.fromEntries(MINISTRIES.map(m => [m.id, m]));
@@ -8693,17 +8690,17 @@ const ORGS = [
   {id:"nato", name:"НАТО", full:"Организация Североатлантического договора", kind:"mil", col:"#1F4E9C", members:["us","ca","gb","fr","de","it","es","pl","tr"], regions:["Европа","Америка"], rival:"csto", minRel:30,
     fx:"на вас нападают в 2 раза реже; при нападении союзники по блоку вступают в войну"},
   {id:"eaeu", name:"ЕАЭС", full:"Евразийский экономический союз", kind:"econ", col:"#2E7D4F", members:["ru","kz","kg","by"], regions:["СНГ"], rival:"eu", minRel:20,
-    fx:"закупки у участников −10%, торговые договоры +15%, рост ВВП +0,1% в год"},
+    fx:"закупки у участников −10%, рост ВВП +0,1% в год"},
   {id:"eu", name:"Евросоюз", full:"Европейский союз", kind:"econ", col:"#2D6FD0", members:["de","fr","it","es","pl"], regions:["Европа"], rival:"eaeu", minRel:35, ideo:"dem",
-    fx:"закупки у участников −10%, торговые договоры +15%, рост ВВП +0,15% в год; нужна демократия"},
+    fx:"закупки у участников −10%, рост ВВП +0,15% в год; нужна демократия"},
   {id:"asean", name:"АСЕАН", full:"Ассоциация государств Юго-Восточной Азии", kind:"econ", col:"#F2A93B", members:["id","vn"], only:["id","vn"], minRel:20,
-    fx:"закупки у участников −10%, торговые договоры +15%, рост ВВП +0,1% в год"},
+    fx:"закупки у участников −10%, рост ВВП +0,1% в год"},
   {id:"cis", name:"СНГ", full:"Содружество Независимых Государств", kind:"pol", col:"#5AA9FF", members:["ru","kz","kg","uz","by","az"], regions:["СНГ"], minRel:0,
     fx:"отношения с участниками +0,3 в месяц"},
   {id:"sco", name:"ШОС", full:"Шанхайская организация сотрудничества", kind:"pol", col:"#39A0D0", members:["cn","ru","kz","kg","uz","in","pk","ir","by"], regions:["СНГ","Азия","Ближний Восток"], minRel:15,
-    fx:"отношения с участниками +0,3 в месяц, торговые договоры +5%"},
+    fx:"отношения с участниками +0,3 в месяц"},
   {id:"brics", name:"БРИКС", full:"Объединение БРИКС", kind:"pol", col:"#E67E22", members:["br","ru","in","cn","za","eg","ir","id"], minRel:20, minGdp:300,
-    fx:"торговые договоры +10%, рост ВВП +0,05% в год, отношения с участниками +0,2 в месяц; ВВП от 300 млрд $"},
+    fx:"рост ВВП +0,05% в год, отношения с участниками +0,2 в месяц; ВВП от 300 млрд $"},
   {id:"g20", name:"G20", full:"«Большая двадцатка»", kind:"pol", col:"#7A3A9C", members:["ar","au","br","ca","cn","fr","de","in","id","it","jp","kr","mx","ru","sa","za","tr","gb","us"], minRel:0, minGdp:600,
     fx:"рейтинг +1, отношения с участниками +0,1 в месяц; ВВП от 600 млрд $"},
   {id:"opec", name:"ОПЕК", full:"Организация стран — экспортёров нефти", kind:"oil", col:"#3A3F2C", members:["sa","ir","ng"], minRel:10, minOil:1.5,
@@ -8753,7 +8750,6 @@ function orgLeave(id, quiet){
 function orgDues(){ const m = me().gdp/12; return ORGS.filter(o => inOrg(o.id)).reduce((a,o) => a + m*ORG_DUES[o.kind], 0); }
 function orgDeterr(c){ return ORGS.some(o => inOrg(o.id) && o.kind === "mil" && !o.members.includes(c.id)) ? 0.5 : ORGS.some(o => inOrg(o.id) && o.kind === "mil") ? 0.2 : 1; }
 function orgRelBonus(iso){ let v = 0; ORGS.forEach(o => { if (inOrg(o.id) && o.members.includes(iso)) v += o.id === "brics" ? 0.2 : o.id === "g20" ? 0.1 : o.kind === "pol" ? 0.3 : 0.15; }); return v; }
-function orgDealBonus(){ let v = 0; ORGS.forEach(o => { if (inOrg(o.id)) v += o.kind === "econ" ? 0.15 : o.id === "brics" ? 0.1 : o.id === "sco" ? 0.05 : 0; }); return v; }
 function orgGrowth(){ let v = 0; ORGS.forEach(o => { if (inOrg(o.id)) v += o.id === "eu" ? 0.000125 : o.kind === "econ" ? 0.00008 : o.id === "brics" ? 0.00004 : 0; }); return v; }
 function orgImportAdj(iso){ return ORGS.some(o => inOrg(o.id) && o.kind === "econ" && o.members.includes(iso)) ? 0.9 : 1; }
 function orgDefenders(w){ const out = []; ORGS.forEach(o => { if (inOrg(o.id) && o.kind === "mil" && !o.members.includes(w.enemy)) orgMembers(o).forEach(i => { if (!out.includes(i) && i !== w.enemy) out.push(i); }); }); if (out.length){ w.joined = [...new Set([...(w.joined||[]), ...out])]; addLog(`Союзники по блоку вступают в войну на вашей стороне: ${out.map(i=>C()[i].name).join(", ")}.`); } }
