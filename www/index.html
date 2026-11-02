@@ -1577,8 +1577,8 @@ const BUILDINGS = {
   hydro:{cat:"energy",name:"Гидроэлектростанция",days:240,cost:0.0024,desc:"+8 ед. электроэнергии; число ГЭС ограничено реками страны",maxFn:"hydroMax"},
   solar:{cat:"energy",name:"Солнечная и ветровая станция",days:60,cost:0.0009,desc:"+2 ед. электроэнергии, рейтинг +0,2; каждая следующая дороже",scale:0.05,dscale:2},
   // material & commodity producers: unlimited, every next one costs more and takes longer
-  sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу",out:{wood:5.8},scale:0.2,dscale:6,decay:0.96},
-  steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь; при нехватке руды — вдвое меньше",out:{steel:15},scale:0.2,dscale:8,decay:0.96,use:{power:2}},
+  sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу: 5,5 в день",out:{wood:165},flat:1},
+  steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь: 5,5 в день; при нехватке руды вдвое меньше",out:{steel:165},flat:1,use:{power:2}},
   oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:6},scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
   raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
   uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
@@ -1749,10 +1749,16 @@ Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
 Object.values(BUILDINGS).forEach(b => {
   const m = b.mat, tk = !!b.out; if (m) Object.defineProperty(b, "mat", {get: () => Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*U(r)*(tk ? resTierK() : 1))])), set(){}, configurable:true});
-  const o = b.out; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v*U(r)])), set(){}, configurable:true}); });
+  const o = b.out, fl = !!b.flat; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, fl ? v : v*U(r)])), set(){}, configurable:true}); });
+/* wood and steel come only from buildings. Sawmills and steelworks give the same 165 a month in every country; a country starts with
+   its own number of them (startMills, kept in S.mills0: those need no power or upkeep). The next one costs MILL_PRICE wood and steel per one already owned. */
+const MILL_PRICE = 230, MILL_US = 300, STEEL_FLAT = 90;
+["sawmill","steelworks"].forEach(id => Object.defineProperty(BUILDINGS[id], "mat", {get: () => { const q = niceQ(MILL_PRICE*Math.max(1, S && S.buildings ? buildN(id) : 1)); return {wood:q, steel:q}; }, set(){}, configurable:true}));
+function startMills(x, g){ const k = MILL_US*Math.pow(g/27000, 0.6); return {sawmill:Math.max(1, Math.round(k*woodProf(x.id)/1.3)), steelworks:Math.max(1, Math.round(k*x.prof.metal/0.9))}; }
+const builtN = id => Math.max(0, objCount(id) - ((S.mills0||{})[id]||0));
 { const R0 = {wood:RAIL_MAT.wood, steel:RAIL_MAT.steel}; ["wood","steel"].forEach(r => Object.defineProperty(RAIL_MAT, r, {get: () => niceQ(R0[r]*U(r))})); }
-Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*U("steel")}); });
-Object.values(AMMO).forEach(a => { const v = a.steel; Object.defineProperty(a, "steel", {get: () => v*U("steel")}); });
+Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*STEEL_FLAT}); });
+Object.values(AMMO).forEach(a => { const v = a.steel; Object.defineProperty(a, "steel", {get: () => v*STEEL_FLAT}); });
 function initUnits(s){
   const g = s.countries[s.player].gdp;
   s.uq = {}; Object.keys(COMMOD).forEach(r => { s.uq[r] = g*COMMOD[r].price/COMMOD_WORLD[r]; });
@@ -4163,7 +4169,7 @@ function coalitionEnd(){ if ((S.infamy||0) >= COAL_END || (BF.open && BF.open.cb
   addLog(`Коалиция распалась: ${ws.map(w => C()[w.enemy].name).join(", ")} вышли из войны. Отношения испорчены надолго.`); advise("dipl", "Коалиция распалась, но мир нам не доверяет: дурная слава уже не сойдёт полностью.", {mood:"alert"}); }
 // giving a country back: the cheapest way down from infamy, at a small price
 function occFree(iso){ const o = S.occupied && S.occupied[iso], e = C()[iso]; if (!o || o.referendum) return; const meC = me();
-  meC.gdp = Math.max(meC.gdp*0.5, meC.gdp - o.added); delete S.occupied[iso];
+  meC.gdp = Math.max(meC.gdp*0.5, meC.gdp - o.added); occMillsOff(o); delete S.occupied[iso];
   if (e){ e.owner = null; e.rel = -35; e.army = Math.max(e.army, 10); if (o.share >= 1) e.gdp = o.gdpFull/0.9*0.7; }
   infamyAdd(-(8 + 8*o.share)); S.infamyFloor = Math.min(FLOOR_MAX, (S.infamyFloor||0) + 1); S.mods.push({stat:"approval", v:-3, left:6}); wearyAdd(-5);
   flashMap(iso, "good"); addLog(`${partnerName(iso)}: независимость восстановлена. Мир это заметил, но дома многие недовольны.`); }
@@ -4182,6 +4188,8 @@ function garrisonTotal(){ return Object.values(S.occupied||{}).reduce((a,o) => a
 function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal() - abroadTotal()); }
 function occIncomeTarget(o){ return o.gdpFull*(0.3 + 0.7*o.integ)*(o.policy === "self" ? 0.7 : 1)*(1 - 0.4*o.damage); }
 function rebuildCost(o){ return o.gdpFull/12*0.006; }
+// land lost again: its sawmills and steelworks go with it
+function occMillsOff(o){ Object.entries(o.mills||{}).forEach(([id, n]) => { S.buildings[id] = Math.max(0, S.buildings[id] - n); S.mills0[id] = Math.max(0, (S.mills0[id]||0) - n); }); }
 function occupy(iso, share, w){
   const e = C()[iso];
   const o = {iso, share, res: clamp(30 + share*20 - (ideo("nat") ? 8 : 0), 10, 60), integ:0, damage: clamp(0.2 + (w && w.days ? Math.min(0.4, w.days/600) : 0.2), 0.1, 0.6),
@@ -4189,6 +4197,7 @@ function occupy(iso, share, w){
   o.added = occIncomeTarget(o); me().gdp += o.added; me().pop += e.pop*share;
   RES.forEach(r => { if (e.prof[r.id] > 1) S.annexBonus[r.id] += Math.min(40, (e.prof[r.id]-1)*30)*share; });
   S.occupied = S.occupied || {}; S.occupied[iso] = o;
+  { const M = startMills(e, e.gdp); o.mills = {}; Object.keys(M).forEach(id => { const n = Math.round(M[id]*share); o.mills[id] = n; S.buildings[id] += n; S.mills0[id] = (S.mills0[id]||0) + n; }); }
   return o;
 }
 // the enemy's reserve that stood without fuel goes to the winner
@@ -4313,7 +4322,7 @@ function occupationTurn(){
     o.unrest = o.res >= 92 ? (o.unrest||0) + 1 : 0;
     if (o.res >= 80 && o.unrest === 0) advise("gen", `Сопротивление в ${partnerName(o.iso)} на пределе (${Math.round(o.res)}%). Усильте гарнизон или смените режим — иначе восстание.`, {tab:"hq", mood:"alert", key:"res-"+o.iso, cd:3});
     if (o.unrest >= 3){
-      meC.gdp = Math.max(meC.gdp*0.5, meC.gdp - o.added); delete S.occupied[o.iso];
+      meC.gdp = Math.max(meC.gdp*0.5, meC.gdp - o.added); occMillsOff(o); delete S.occupied[o.iso];
       if (e){ e.owner = null; e.rel = -90; e.army = Math.max(e.army, 10); if (o.share >= 1){ e.gdp = o.gdpFull/0.9*0.7; } }
       flashMap(o.iso, "bad"); sfx("alarm");
       addLog(`Восстание! ${partnerName(o.iso)} вернула независимость.`);
@@ -4693,6 +4702,9 @@ function migrate(s){
     Object.keys(s.stock).forEach(r => { if (u[r]) s.stock[r] *= u[r]; });
     [s.contracts, s.imports].forEach(o => Object.keys(o || {}).forEach(k => { const r = k.split(":")[1]; if (u[r]) o[k] = niceQ(o[k]*u[r]); }));
     (s.shipments || []).forEach(x => { if (!x.cat && u[x.r]) x.qty = x.qty*u[x.r]; }); }
+  if (!s.mills0){ const M = startMills(s.countries[s.player], s.gdp0 || s.countries[s.player].gdp); s.mills0 = M;
+    Object.keys(M).forEach(id => { s.buildings[id] = (s.buildings[id]||0) + M[id]; });
+    if (!s.turn){ s.stock.wood = M.sawmill*165*3; s.stock.steel = M.steelworks*165*3; } }
   if (s.taxes.exc === undefined){ s.taxes.exc = 5; s.taxes.eco = 2; }
   if (!s.min){ s.min = {}; MINISTRIES.forEach(M => { s.min[M.id] = M.legacy === "science" ? Math.round((s.science ?? 1)*3) : M.legacy ? Math.round(((s.sectors||{})[M.id] ?? 1)*3) : M.def; }); }
   if (!s.ministers) s.ministers = {};
@@ -4762,7 +4774,7 @@ function selfSuff(r){
   if (r === "power") return Math.max(0, 100 + powerBalance());
   const c = me(); let v = c.prof[r]*100 + S.annexBonus[r];
   const b = RES.find(x=>x.id===r).build; v += S.buildings[b]*4;
-  Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*S.buildings[id]; });
+  Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*builtN(id); });
   if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + (S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor"))); }
   if (r==="food") v += 20*tech("agro");
   if (r==="oil" || r==="metal") v += 20*tech("deep");
@@ -4778,7 +4790,7 @@ function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
 function maxSlots(){ return 2 + Math.floor(S.capital.infra/34); }
 function buildN(type){ return objCount(type) + queued(type); }
-function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().gdp * b.cost) * (1 + (b.scale||0)*buildN(type)) * (b.out ? resTierK() : 1); }
+function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().gdp * b.cost) * (1 + (b.scale||0)*buildN(type)) * (b.out && !b.flat ? resTierK() : 1); }
 function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(b.days*2.5, b.days + (b.dscale||0)*buildN(type)) * (1 + lawSum("build"))); }
 function matShort(mat){ let cost = 0; const miss = {}; for (const r in mat){ const lack = Math.max(0, mat[r] - S.stock[r]); if (lack > 0){ miss[r] = lack; cost += lack*importPrice(r); } } return {miss, cost}; }
 function takeMat(mat){ for (const r in mat) S.stock[r] = Math.max(0, S.stock[r] - mat[r]); }
@@ -4852,7 +4864,6 @@ function goldProf(id){ return GOLD_PROF[id] ?? 0.2; }
 function ownOil(){ return me().prof.oil >= 0.4; }
 function commodOpen(r){ if (r === "oil" && ownOil()) return true; const t = COMMOD[r].tech; return !t || !!tech(t); }
 function outMult(r){
-  if (r==="wood") return Math.max(0.5, woodProf(S.player));
   if (r==="steel") return selfSuff("metal") < 60 ? 0.5 : 1;
   if (r==="oil") return Math.max(0.2, me().prof.oil);
   if (r==="rare") return Math.max(0.1, rareProf(S.player))*(1 + 0.25*(tlv("rareearth")-1));
@@ -4863,8 +4874,6 @@ function baseOut(r){ return baseOut0(r)*U(r); }
 function baseOut0(r){
   if (!commodOpen(r)) return 0;
   const c = me();
-  if (r==="wood") return 10*woodProf(S.player);
-  if (r==="steel") return 8*c.prof.metal*(selfSuff("metal") < 60 ? 0.5 : 1);
   if (r==="oil") return 4*c.prof.oil*(1 + 0.25*(Math.max(1, tlv("geo"))-1));
   if (r==="rare") return 0.5*rareProf(S.player);
   if (r==="uran") return 0.4*uranProf(S.player);
@@ -5071,7 +5080,7 @@ function budget(){
   const commod = commodProjection();
   const imports = allImports().reduce((a,x)=>a + x.q*importPriceFrom(x.iso, x.r), 0);
   const objects = Object.keys(BUILDINGS).reduce((a,id)=>a + objCount(id)*objIncome(id), 0);
-  const upkeep = Object.keys(BUILDINGS).reduce((a,id)=>a + objCount(id)*objUpkeep(id), 0) + (S.fac ? facUpkeep() : 0);
+  const upkeep = Object.keys(BUILDINGS).reduce((a,id)=>a + builtN(id)*objUpkeep(id), 0) + (S.fac ? facUpkeep() : 0);
   const rail = Object.keys(S.rails).filter(id=>S.rails[id].done).reduce((a,id)=>a + railIncome(id), 0);
   const arms = armsExportIncome();
   const science = scienceCost();
@@ -6490,7 +6499,7 @@ function powerSupply(){
 function milPlants(){ return ["tankplant","heliplant","aviaplant","samplant","shipyard","ammoplant"].reduce((a,id)=>a+objCount(id),0); }
 function powerUse(){
   const out = [["home","Население и сфера услуг", 90*demandK()]];
-  let ind = 0; Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.use && b.use.power) ind += b.use.power*objCount(id); });
+  let ind = 0; Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.use && b.use.power) ind += b.use.power*builtN(id); });
   if (ind) out.push(["ind","Промышленность", ind]);
   out.push(["army","Армия и военные заводы", 3 + 2*milPlants()]);
   MIN_BLOCKS.forEach(([blk,n]) => { const v = MINISTRIES.filter(m=>m.blk===blk).reduce((a,m)=>a + minLvl(m.id)*0.25, 0); if (v) out.push(["min-"+blk, n, v]); });
