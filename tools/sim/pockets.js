@@ -17,7 +17,7 @@ const server = http.createServer((req, res) => {
   const L = [], T = [], Win = []; let Lost = 0, Stuck = 0;
   for (const [a, d] of WARS){
     const r = await pg.evaluate(([a, d, MAX, REACH, NOPK, BRIEF]) => {
-      const X = SIM; if (REACH != null) X.PK.reach = REACH; if (NOPK) X.PK.min = 9; X.newGame(a); X.ui.speed = 0; X.ui.tab = "army"; if (!X.S.countries[d]) return {err:1};
+      const X = SIM; const R = window.TOT = window.TOT || {fell:0, m:0, out:0, cut:0}; if (REACH != null) X.PK.reach = REACH; if (NOPK) X.PK.min = 9; X.newGame(a); X.ui.speed = 0; X.ui.tab = "army"; if (!X.S.countries[d]) return {err:1};
       const w = X.startWar(d, true); w.mode = "attack"; let first = null, prog = null, left = null, most = 0, big = 0, end = "—";
       for (let i = 0; i < MAX; i++){
         X.S.pendingEvent = null; X.S.pendingVictory = null; X.S.day = (X.S.day||1) + 1; X.dayTick(); if (X.S.day > X.daysIn(X.S.month, X.S.year)) X.nextMonth();
@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
         if (!X.S.wars.includes(w)){ end = (w.progress >= 100 ? "+" : "−") + w.days; left = first == null ? null : w.days - first; break; }
       }
       const F = X.occField(X.S.player, d, X.frontLL(w, false)), n = w.fronts.length, sweep = (lo, hi) => { let c = 0; const R = 200; for (let i = 0; i < R; i++){ const v = Array.from({length:n}, () => lo + Math.random()*(hi - lo)); if (X.pocketCells(F, v).length) c++; } return BRIEF ? "" : Math.round(c/R*100) + "%"; };
-      return {fin:w.fronts.map(f => Math.round(f.p)).join("/") + " p" + Math.round(w.progress) + " пасс" + (w.pockets||[]).length + " " + (w.phase||"") + (w.mode||""), fell:w.pkFell||0, out:w.pkOut||0, pn:w.pkN||0, n, end, left, first, prog, most, big:Math.round(big*100), s1:sweep(30, 50), s2:sweep(50, 70)};
+      R.fell += w.pkFell||0; R.m += w.pkFellM||0; R.out += w.pkOut||0; R.cut += w.pkCut||0; return {fin:w.fronts.map(f => Math.round(f.p)).join("/") + " p" + Math.round(w.progress) + " пасс" + (w.pockets||[]).length + " " + (w.phase||"") + (w.mode||""), fell:w.pkFell||0, out:w.pkOut||0, pn:w.pkN||0, n, end, left, first, prog, most, big:Math.round(big*100), s1:sweep(30, 50), s2:sweep(50, 70)};
     }, [a, d, MAX, REACH, !!process.env.NOPK, !!process.env.BRIEF]);
     if (r.first != null) L.push(r.prog), T.push(r.left);
     if (r.end[0] === "+") Win.push(+r.end.slice(1)); else if (r.end[0] === "−") Lost++; else Stuck++;
@@ -35,6 +35,7 @@ const server = http.createServer((req, res) => {
     console.log(r.err ? `| ${a}>${d} | нет страны |` : `| ${a}>${d} (${r.n}) | ${r.end} | ${r.first ?? "нет"} | ${r.prog ?? "—"} | ${r.most} | ${r.big}% | ${r.s1} | ${r.s2} | ${r.pn}/${r.fell}/${r.out} | ${r.fin} |`);
   }
   console.log(`${process.env.NOPK ? "без котлов" : "с котлами"}: побед ${Win.length} (медиана ${Win.sort((x, y) => x - y)[Win.length >> 1]} дн.), поражений ${Lost}, не кончилось ${Stuck}`);
+  console.log("всего", JSON.stringify(await pg.evaluate(() => window.TOT)));
   console.log(`reach ${REACH ?? "как в игре"}: котёл в ${L.length} из ${WARS.length} войн, прогресс [${L.sort((x, y) => x - y)}], дней до конца войны [${T.sort((x, y) => x - y)}]`);
   await b.close(); server.close();
 });
