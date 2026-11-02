@@ -1583,7 +1583,7 @@ const BUILDINGS = {
   raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
   uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
   goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
-  factory:{cat:"ind",name:"Машиностроительный завод",days:180,cost:0.006,roi:0.03,desc:"рост ВВП +0,3% в год",use:{power:8,metal:5}},
+  factory:{cat:"ind",name:"Машиностроительный завод",days:180,cost:0.006,desc:"рабочие места: снижает безработицу, дохода не даёт",use:{power:8,metal:5}},
   chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,roi:0.032,desc:"нужна нефть от 80%",use:{power:6,oil:6},req:{res:{oil:80}}},
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,roi:0.035,desc:"нужна «Автоматизация»",use:{power:6,metal:8},req:{tech:"automation"}},
   chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"нужны «Финтех» и образование 60",use:{power:10},req:{tech:"fintech",cap:{edu:60}}},
@@ -4402,7 +4402,7 @@ LAWS.forEach(l => { l.desc = [...l.pros, ...l.cons].join(", "); });
 const TECH_EFF = [0, 0.5, 0.85, 1.15, 1.45, 1.75];
 const TECH = [
   {id:"egov",br:"econ",tier:1,max:5,cost:60,days:90,name:"Цифровые госуслуги",fx:"сбор налогов +#%",v:5},
-  {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"прибыль и рост заводов +#%, военные заводы быстрее",v:50},
+  {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"прибыль автозаводов +#%, военные заводы быстрее",v:50},
   {id:"fintech",br:"econ",tier:3,max:5,cost:220,days:200,name:"Финтех и электронные платежи",fx:"торговля +#1%, налоги +#2%",v:[20,5]},
   {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост ВВП +#% в год",v:1.5},
   {id:"smartgrid",br:"res",tier:1,max:5,cost:60,days:90,name:"Умные энергосети",fx:"электроэнергия +#%",v:10},
@@ -4785,7 +4785,7 @@ function selfSuff(r){
   return Math.max(0, v);
 }
 function deficits(){ return RES.filter(r => selfSuff(r.id) < 60).length; }
-function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = me().gdp*b.cost/(1 - MAT_SHARE)*b.roi; if ((id==="factory"||id==="auto") && tech("automation")) v *= 1.5; return v; }
+function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = me().gdp*b.cost/(1 - MAT_SHARE)*b.roi; if (id==="auto" && tech("automation")) v *= 1.5; return v; }
 function objUpkeep(id){ return me().gdp*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
@@ -5117,7 +5117,7 @@ function growthMonthly(){
   g += (K.edu-33)*0.00005 + (K.infra-33)*0.00005 + (K.health-33)*0.00002;
   g -= 0.00025*Math.max(0, taxBurden()-15.8);
   { const pb = powerBalance(); if (pb < 0) g -= Math.min(0.003, -pb*0.00002); }
-  g += 0.00025*S.buildings.factory*(1 + 0.5*tech("automation")) + BUILDINGS.highway.growth*objCount("highway");
+  g += BUILDINGS.highway.growth*objCount("highway");
   g += 0.00125*tech("ai") + 0.0004*tech("fusion") + 0.00025*tech("gene");
   g += ideo("tech") ? 0.00033 : ideo("soc") ? -0.00033 : 0;
   if (S.climatePact) g -= 0.0002;
