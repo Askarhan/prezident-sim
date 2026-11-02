@@ -1577,7 +1577,6 @@ const BUILDINGS = {
   raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
   uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
   goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
-  factory:{cat:"ind",name:"Машиностроительный завод",days:180,cost:0.006,desc:"рабочие места: снижает безработицу, дохода не даёт",use:{power:8,metal:5}},
   chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,roi:0.032,desc:"нужна нефть от 80%",use:{power:6,oil:6},req:{res:{oil:80}}},
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,roi:0.035,desc:"нужна «Автоматизация»",use:{power:6,metal:8},req:{tech:"automation"}},
   chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"нужны «Финтех» и образование 60",use:{power:10},req:{tech:"fintech",cap:{edu:60}}},
@@ -1600,7 +1599,7 @@ const BUILD_CATS = [["energy","Энергетика"],["mat","Сырьё и ма
 // construction materials per object (thousand tonnes)
 const MAT = {farm:{wood:5,steel:3}, oil:{wood:2,steel:9}, mine:{wood:6,steel:5}, power:{wood:3,steel:12}, hydro:{wood:9,steel:36}, solar:{wood:2,steel:8},
   sawmill:{wood:0,steel:5}, steelworks:{wood:15,steel:10}, oilrig:{wood:5,steel:30}, goldmine:{wood:20,steel:20}, raremine:{wood:10,steel:35}, uranmine:{wood:10,steel:40},
-  factory:{wood:20,steel:50}, chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
+  chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
   tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:30,steel:160}};
 const RAIL_MAT = {wood:430, steel:650};
@@ -4650,6 +4649,7 @@ function load(){
   try { const s = JSON.parse(raw); if (!s || !s.countries || s.over) return false; if (!s.capital) s.capital = {health:33,edu:33,infra:33,police:33}; if (!s.research) s.research = {current:null, done:{}, prog:{}}; if (s.science===undefined) s.science = 1; migrate(s); S = s; try { cbOrphans(); } catch(e){ console.error(e); } return true; } catch(e){ return false; }
 }
 function migrate(s){
+  if (s.buildings) delete s.buildings.factory; if (s.queue) s.queue = s.queue.filter(q => q.type !== "factory");   // the machine plant was removed from the game
   if (!s.gdp0 && s.countries && s.countries[s.player]) s.gdp0 = s.countries[s.player].gdp;
   if (!s.resV2 && s.buildings){ const k = {farm:3.75, oil:3.75, mine:3.75, power:3.75, hydro:3.75, solar:3, npp:5/3}; Object.entries(k).forEach(([id,m]) => { if (s.buildings[id]) s.buildings[id] = Math.round(s.buildings[id]*m); }); s.resV2 = true; }
   [s.units, ...(s.wars||[]).map(w => w.eu)].forEach(u => { if (u && u.m113){ u.patria = (u.patria||0) + u.m113; delete u.m113; } if (u && u.irist){ u.irist_sls = (u.irist_sls||0) + u.irist; delete u.irist; } });
@@ -5547,9 +5547,9 @@ const EVENTS = [
      {label:"Уволить министра публично", hint:"рейтинг +3, стабильность −5 на 3 месяца", apply(){ S.mods.push({stat:"approval",v:3,left:6},{stat:"stability",v:-5,left:3}); }},
      {label:"Замять историю", hint:"50% шанс: рейтинг −10 на полгода", apply(){ if (Math.random()<0.5){ S.mods.push({stat:"approval",v:-10,left:6}); addLog("Попытка замять скандал провалилась."); } }}
    ]},
-  {id:"investor", title:"Иностранный инвестор", text:null, dyn(){ const b = randomBig(); this._b = b ? b.id : null; return `Корпорация из страны ${b ? b.name : "-"} готова построить у вас завод в обмен на налоговые льготы.`; },
+  {id:"investor", title:"Иностранный инвестор", text:null, dyn(){ const b = randomBig(); this._b = b ? b.id : null; return `Корпорация из страны ${b ? b.name : "-"} готова построить у вас химкомбинат в обмен на налоговые льготы.`; },
    options:[
-     {label:"Принять предложение", hint:"+1 завод сразу, отношения +10, налоги −0,1% ВВП разово", apply(){ S.buildings.factory++; S.treasury -= me().gdp*0.001; const b = C()[EVENTS[2]._b]; if (b) b.rel += 10; }},
+     {label:"Принять предложение", hint:"+1 химкомбинат сразу, отношения +10, налоги −0,1% ВВП разово", apply(){ S.buildings.chem = (S.buildings.chem||0) + 1; S.treasury -= me().gdp*0.001; const b = C()[EVENTS[2]._b]; if (b) b.rel += 10; }},
      {label:"Отказать", hint:"ничего не меняется", apply(){}}
    ]},
   {id:"strike", title:"Забастовка профсоюзов", text:"Рабочие крупнейших предприятий требуют повышения зарплат.",
@@ -6659,7 +6659,7 @@ function inflTarget(b){
     + (Object.values(C()).some(x => x.sanctionsUs) ? 1.5 : 0) + (powerBalance() < 0 ? 1 : 0), -1, 120);
 }
 function unempTarget(){
-  return clamp(baseUnemp() + 0.4*(S.cb - neutralRate()) - 0.04*(S.wages - 100) - 0.02*Math.min(60, objCount("factory") + objCount("chem") + objCount("auto") + objCount("chips"))*5
+  return clamp(baseUnemp() + 0.4*(S.cb - neutralRate()) - 0.04*(S.wages - 100) - 0.02*Math.min(60, objCount("chem") + objCount("auto") + objCount("chips"))*5
     - (S.progs || []).length*0.15 + (deficits() > 1 ? 1 : 0) + popJobs(), 1, 40);
 }
 function macroApproval(){ return -Math.max(0, S.infl - 5)*0.35 - Math.max(0, S.unemp - baseUnemp())*0.6 + Math.max(0, baseUnemp() - S.unemp)*0.3 + (S.pens - 100)*0.08 + (S.wages - 100)*0.04; }
@@ -8363,7 +8363,7 @@ function fxMarkup(){
   });
   Object.values(S.partners||{}).length && Object.entries(S.partners).forEach(([iso,p]) => { const L = LABELS[iso]; if (p.trade && L && !C()[iso] && !contractIsos.includes(iso)) lines += `<path class="fx-trade" d="${fxCurve(home, L).d}"/>`; });
   // own buildings: badges under the capital label
-  const groups = [["wood",["sawmill"]],["steel",["steelworks"]],["oil",["oilrig","oil"]],["gold",["goldmine"]],["factory",["factory","chem","auto","chips"]],["bridge",["bridge","highway","metro","airport","port"]],["tank",["tankplant","heliplant","aviaplant","samplant"]]]
+  const groups = [["wood",["sawmill"]],["steel",["steelworks"]],["oil",["oilrig","oil"]],["gold",["goldmine"]],["factory",["chem","auto","chips"]],["bridge",["bridge","highway","metro","airport","port"]],["tank",["tankplant","heliplant","aviaplant","samplant"]]]
     .map(([icn, ids]) => [icn, ids.reduce((a,id)=>a+objCount(id),0)]).filter(([,n])=>n>0);
   if (ui.mapSel === S.player && !ui.cardHidden){
     const go = {wood:"build:mat", steel:"build:mat", oil:"build:mat", gold:"build:mat", factory:"build:ind", bridge:"build:inf", tank:"army"};
@@ -9208,7 +9208,7 @@ function newGame(id){
   S = { countries, player:id, turn:0, year:2027, month:0,
     treasury: mine.gdp*0.05, debt: mine.gdp*0.4, approval:55, stability:60,
     taxes:{inc:13,corp:20,vat:12,exc:5,eco:2}, sectors:{health:1,edu:1,infra:1,police:1},
-    laws:{}, buildings:{farm:0,oil:0,mine:0,power:0,factory:0}, queue:[], mods:[], wars:[], log:[],
+    laws:{}, buildings:{farm:0,oil:0,mine:0,power:0}, queue:[], mods:[], wars:[], log:[],
     hist:{gdp:[mine.gdp], appr:[55]}, terms:0, electionIn:48, lowStab:0, topMonths:0, adCd:0, eventCd:3,
     annexBonus:{food:0,oil:0,metal:0,power:0}, gdp0:null, resV2:true, capital:{health:33,edu:33,infra:33,police:33}, research:{current:null, done:{}, prog:{}}, science:1, over:null, last:null, pendingEvent:null };
   migrate(S); S.scenario = scen;
