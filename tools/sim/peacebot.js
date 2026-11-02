@@ -3,7 +3,7 @@
 // node tools/sim/peacebot.js [years] [runs] [countries]        (needs a fresh www/ build and playwright)
 const { chromium } = require("playwright"), http = require("http"), fs = require("fs"), path = require("path");
 const WWW = path.resolve(__dirname, "../../www"), YEARS = +(process.argv[2] || 15), REPS = +(process.argv[3] || 1), LIST = (process.argv[4] || "us,ru,fr,kz,kg").split(",");
-const HOOK = fs.readFileSync(path.join(__dirname, "econ-bot.js"), "utf8") + "window.SIM_B = BUILDINGS; window.SIM = {newGame, dayTick, nextMonth, daysIn, dipAct, unionGate, refGate, refChance, infOf, infTarget, peaceFit, embCost, visitCost, cultCost, aidCost, investSize, act, budget, canBuild, buildCost, powerBalance, selfSuff, startResearch, researching, researchSlots, tlv, techCostLv, techReqFail, TECH_BY, objCount, maxSlots, growthMonthly, get S(){ return S; }, get ui(){ return ui; }, me};\n";
+const HOOK = fs.readFileSync(path.join(__dirname, "econ-bot.js"), "utf8") + "window.SIM_B = BUILDINGS; window.SIM = {newGame, dayTick, nextMonth, daysIn, dipAct, unionGate, refGate, refChance, infOf, infTarget, peaceFit, embCost, visitCost, cultCost, aidCost, investSize, act, budget, canBuild, buildCost, powerBalance, selfSuff, startResearch, researching, researchSlots, tlv, techCostLv, techReqFail, TECH_BY, objCount, growthMonthly, get S(){ return S; }, get ui(){ return ui; }, me};\n";
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split("?")[0]); if (p === "/") p = "/sim.html";
   if (p === "/sim.html"){ const s = fs.readFileSync(path.join(WWW, "index.html"), "utf8"), i = s.lastIndexOf("netGate();\n})();"); res.setHeader("content-type", "text/html"); res.end(s.slice(0, i) + HOOK + s.slice(i)); return; }

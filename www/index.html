@@ -1609,7 +1609,7 @@ const MAT = {farm:{wood:5,steel:3}, oil:{wood:2,steel:9}, mine:{wood:6,steel:5},
   factory:{wood:20,steel:50}, chem:{wood:20,steel:60}, auto:{wood:20,steel:80}, chips:{wood:10,steel:60},
   bridge:{wood:30,steel:80}, highway:{wood:40,steel:40}, metro:{wood:40,steel:150}, airport:{wood:40,steel:90}, port:{wood:50,steel:100},
   tankplant:{wood:20,steel:120}, heliplant:{wood:25,steel:110}, aviaplant:{wood:30,steel:150}, samplant:{wood:20,steel:120}, shipyard:{wood:60,steel:300}, ammoplant:{wood:30,steel:80}, institute:{wood:30,steel:20}, enrich:{wood:40,steel:220}, npp:{wood:30,steel:160}};
-const RAIL_MAT = {wood:80, steel:120};
+const RAIL_MAT = {wood:430, steel:650};
 Object.entries(MAT).forEach(([k, m]) => { if (BUILDINGS[k]) BUILDINGS[k].mat = m; });
 /* recipes: share of material value by resource; materials make 55% of the full price, money pays for the work */
 const MAT_SHARE = 0.55;
@@ -1738,6 +1738,8 @@ const AMMO = {
 /* world prices (bln $ per unit) and physical quantities in real units.
    Every country's volumes are scaled once at the start (S.uq) so that one tonne costs the same everywhere. */
 const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.075, rare:0.0005, uran:0.00033};   // $180/t, $700/t, $75/bbl, $500k/t refined rare-earth metals, $330k/t U3O8
+/* wood and steel for any construction are the same tonnes in every country: MAT_T per base unit, FAC_T per unit of an object's price */
+const MAT_T = 4.13, FAC_T = 0.34, START_MAT = 1500;
 function U(r){ return (S && S.uq && S.uq[r]) || 1; }
 // buildings that produce a resource: a mid-size country pays one back in about 12 months, a big one pays more, a small one less
 function resTierK(){ const g = (S && S.gdp0) || 0; return !g ? 1 : g >= 1500 ? 1.4 : g >= 300 ? 1 : 0.6; }
@@ -1748,15 +1750,14 @@ Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st
   Object.defineProperty(d, "buy", {get: () => buy ? niceQ(buy*U(r)) : buy});
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
 Object.values(BUILDINGS).forEach(b => {
-  const m = b.mat, tk = !!b.out; if (m) Object.defineProperty(b, "mat", {get: () => Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*U(r)*(tk ? resTierK() : 1))])), set(){}, configurable:true});
+  const m = b.mat, tk = !!b.out; if (m) Object.defineProperty(b, "mat", {get: () => Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*(r === "wood" || r === "steel" ? MAT_T : U(r))*(tk ? resTierK() : 1))])), set(){}, configurable:true});
   const o = b.out, fl = !!b.flat; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, fl ? v : v*U(r)])), set(){}, configurable:true}); });
 /* wood and steel come only from buildings. Sawmills and steelworks give the same 165 a month in every country; a country starts with
-   its own number of them (startMills, kept in S.mills0: those need no power or upkeep). The next one costs MILL_PRICE wood and steel per one already owned. */
-const MILL_PRICE = 230, MILL_US = 300, STEEL_FLAT = 90;
-["sawmill","steelworks"].forEach(id => Object.defineProperty(BUILDINGS[id], "mat", {get: () => { const q = niceQ(MILL_PRICE*Math.max(1, S && S.buildings ? buildN(id) : 1)); return {wood:q, steel:q}; }, set(){}, configurable:true}));
+   its own number of them (startMills, kept in S.mills0: those need no power or upkeep). Each one costs MILL_PRICE wood and steel. */
+const MILL_PRICE = 500, MILL_US = 300, STEEL_FLAT = 90;
+["sawmill","steelworks"].forEach(id => Object.defineProperty(BUILDINGS[id], "mat", {get: () => ({wood:MILL_PRICE, steel:MILL_PRICE}), set(){}, configurable:true}));
 function startMills(x, g){ const k = MILL_US*Math.pow(g/27000, 0.6); return {sawmill:Math.max(1, Math.round(k*woodProf(x.id)/1.3)), steelworks:Math.max(1, Math.round(k*x.prof.metal/0.9))}; }
 const builtN = id => Math.max(0, objCount(id) - ((S.mills0||{})[id]||0));
-{ const R0 = {wood:RAIL_MAT.wood, steel:RAIL_MAT.steel}; ["wood","steel"].forEach(r => Object.defineProperty(RAIL_MAT, r, {get: () => niceQ(R0[r]*U(r))})); }
 Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*STEEL_FLAT}); });
 Object.values(AMMO).forEach(a => { const v = a.steel; Object.defineProperty(a, "steel", {get: () => v*STEEL_FLAT}); });
 function initUnits(s){
@@ -4704,7 +4705,7 @@ function migrate(s){
     (s.shipments || []).forEach(x => { if (!x.cat && u[x.r]) x.qty = x.qty*u[x.r]; }); }
   if (!s.mills0){ const M = startMills(s.countries[s.player], s.gdp0 || s.countries[s.player].gdp); s.mills0 = M;
     Object.keys(M).forEach(id => { s.buildings[id] = (s.buildings[id]||0) + M[id]; });
-    if (!s.turn){ s.stock.wood = M.sawmill*165*3; s.stock.steel = M.steelworks*165*3; } }
+    if (!s.turn){ s.stock.wood = Math.max(START_MAT, M.sawmill*165*3); s.stock.steel = Math.max(START_MAT, M.steelworks*165*3); } }
   if (s.taxes.exc === undefined){ s.taxes.exc = 5; s.taxes.eco = 2; }
   if (!s.min){ s.min = {}; MINISTRIES.forEach(M => { s.min[M.id] = M.legacy === "science" ? Math.round((s.science ?? 1)*3) : M.legacy ? Math.round(((s.sectors||{})[M.id] ?? 1)*3) : M.def; }); }
   if (!s.ministers) s.ministers = {};
@@ -4788,7 +4789,6 @@ function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = m
 function objUpkeep(id){ return me().gdp*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
-function maxSlots(){ return 2 + Math.floor(S.capital.infra/34); }
 function buildN(type){ return objCount(type) + queued(type); }
 function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().gdp * b.cost) * (1 + (b.scale||0)*buildN(type)) * (b.out && !b.flat ? resTierK() : 1); }
 function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(b.days*2.5, b.days + (b.dscale||0)*buildN(type)) * (1 + lawSum("build"))); }
@@ -5057,7 +5057,6 @@ function canBuild(id){
   if (b.max && n >= b.max) return {ok:false, why:`максимум ${b.max}`};
   if (b.maxFn){ const mx = window[b.maxFn] ? window[b.maxFn]() : hydroMax(); if (n >= mx) return {ok:false, why: mx ? `рек хватает только на ${mx}` : "в стране нет подходящих рек"}; }
   if (b.perPop && n >= Math.floor(me().pop/b.perPop)+1) return {ok:false, why:"лимит по населению"};
-  if (S.queue.length >= maxSlots()) return {ok:false, why:"все стройплощадки заняты"};
   const sh = matShort(b.mat||{});
   if (Object.keys(sh.miss).length) return {ok:false, mat:true, why:"не хватает: " + Object.entries(sh.miss).map(([k,q])=>`${COMMOD[k].name.toLowerCase()} ${Math.ceil(q)}`).join(", ")};
   if (S.treasury < buildCost(id)) return {ok:false, why:"не хватает денег"};
@@ -5803,7 +5802,7 @@ function advisorsTurn(){
   const c = me(), b = budget();
   Object.keys(S.advCd||{}).forEach(k => { if (S.advCd[k] > 0) S.advCd[k]--; });
   if (b.net < 0) advise("econ", `Господин президент, бюджет уходит в минус: ${money(b.net)} в месяц. Поднимите налоги или урежьте расходы.`, {tab:"economy", mood:"alert", key:"deficit", cd:4});
-  else if (S.treasury > c.gdp*0.06 && S.queue.length < maxSlots()) advise("econ", `В казне ${money(S.treasury)}, а стройплощадки простаивают. Деньги должны работать.`, {tab:"build", key:"idlecash", cd:6});
+  else if (S.treasury > c.gdp*0.06 && !S.queue.length) advise("econ", `В казне ${money(S.treasury)}, а стройка стоит. Деньги должны работать.`, {tab:"build", key:"idlecash", cd:6});
   if (S.debt > c.gdp*0.9) advise("econ", `Госдолг уже ${pct(S.debt/c.gdp*100)} ВВП. Ещё немного — и кредиторы перестанут нам верить.`, {tab:"economy", mood:"alert", key:"debt", cd:6});
   ["oil","rare","uran"].forEach(r => { const h = S.mhist[r]; if (!h) return; if (h.length > 1 && commodOpen(r) && S.stock[r] > 1 && h[h.length-1]/h[h.length-2] > 1.08) advise("econ", `${COMMOD[r].name} подорожала на ${pct((h[h.length-1]/h[h.length-2]-1)*100)}. На складе ${Math.floor(S.stock[r])} ${COMMOD[r].unit} — самое время продать.`, {tab:"trade", key:"price-"+r, cd:3}); });
   const threat = Object.values(C()).filter(x => !x.owner && canReach(x) && x.rel < -40 && !S.wars.some(w=>w.enemy===x.id)).sort((p,q)=>aiPower(q)-aiPower(p))[0];
@@ -5820,7 +5819,7 @@ function advisorTip(tab){
   const c = me(), b = budget();
   let who = "sec", text = "", mood = null;
   if (tab === "economy"){ who = "econ"; text = b.net < 0 ? `Мы тратим больше, чем зарабатываем: ${money(b.net)} в месяц. Предлагаю поднять налог на прибыль или сократить расходы.` : `Бюджет в плюсе на ${money(b.net)} в месяц. Вложения в образование и инфраструктуру окупятся ростом экономики.`; mood = b.net < 0 ? "alert" : null; }
-  else if (tab === "build"){ who = "econ"; const free = maxSlots() - S.queue.length; text = free > 0 ? `Свободно площадок: ${free}. Начните с лесопилки и металлургии — свои материалы делают каждую стройку дешевле.` : `Все площадки заняты. Ближайшая сдача через ${Math.ceil(Math.min(...S.queue.map(q=>q.left)))} дн.`; }
+  else if (tab === "build"){ who = "econ"; text = `Начните с лесопилки и металлургии — свои материалы делают каждую стройку дешевле.`; }
   else if (tab === "trade"){ who = "econ"; const open = Object.keys(COMMOD).filter(commodOpen); const best = open.sort((p,q)=>S.market[q]-S.market[p])[0]; text = `Сейчас на бирже дороже всего ${COMMOD[best].name.toLowerCase()}: ${pct(S.market[best]*100)} от обычной цены. Контракты со странами дают надбавку к бирже.`; if (!tech("geo")) text += " Откройте «Геологоразведку» — нефть продаётся очень выгодно."; }
   else if (tab === "army"){ who = "gen"; const t = Object.values(C()).filter(x=>!x.owner && canReach(x) && !x.ally).sort((p,q)=>aiPower(q)-aiPower(p))[0]; text = S.wars.length ? `Идёт война. Каждая единица техники на счету — свои заводы делают её на 30% дешевле.` : t ? `Сильнейший сосед — ${t.name}: мощь ${Math.round(aiPower(t))} против наших ${Math.round(myPower())}. ${aiPower(t) > myPower() ? "Нам есть куда расти." : "Мы сильнее."}` : "Границы спокойны."; mood = S.wars.length ? "alert" : null; }
   else if (tab === "intel"){ who = "intel"; text = S.intel.pts >= 4 ? `Агентов готово: ${Math.floor(S.intel.pts)}. Выберите цель и операцию — о результате доложу лично.` : `Агенты готовятся. Больше финансирования — быстрее подготовка и выше успех.`; }
@@ -6309,7 +6308,7 @@ function dockBadge(id){
   if (id==="science" && sciIdle()) return `<i class="badge">!</i>`;
   if (id==="army" && S.wars.length) return `<i class="badge bad">${S.wars.length}</i>`;
   if (id==="economy" && b.net < 0) return `<i class="badge bad">!</i>`;
-  if (id==="build" && S.queue.length < maxSlots()) return `<i class="badge soft">${maxSlots()-S.queue.length}</i>`;
+  if (id==="build" && S.queue.length) return `<i class="badge soft">${S.queue.length}</i>`;
   if (id==="intel" && S.intel.pts >= 10) return `<i class="badge soft">!</i>`;
   if (id==="diplomacy" && S.council.res && !S.council.res.myVote) return `<i class="badge">!</i>`;
   return "";
@@ -6532,7 +6531,7 @@ const MINISTRIES = [
   {id:"finance", blk:"econ", ic:"budget", rate:0.0002, def:3, name:"Министерство финансов", post:"Министр финансов", fx:"сбор налогов +0,5% и ставка по долгу −2% за уровень"},
   {id:"trade", blk:"econ", ic:"trade", rate:0.0002, def:2, name:"Министерство торговли", post:"Министр торговли", fx:"сырьё продаётся дороже на 1%, закупки дешевле на 1% за уровень"},
   {id:"energy", blk:"econ", ic:"power", rate:0.0002, def:2, name:"Министерство энергетики", post:"Министр энергетики", fx:"+1,5 ед. электроэнергии за уровень"},
-  {id:"infra", blk:"econ", ic:"road", legacy:true, def:3, name:"Министерство инфраструктуры", post:"Министр инфраструктуры", fx:"рост ВВП, экспорт и число стройплощадок"},
+  {id:"infra", blk:"econ", ic:"road", legacy:true, def:3, name:"Министерство инфраструктуры", post:"Министр инфраструктуры", fx:"рост ВВП и экспорт"},
   {id:"tourism", blk:"econ", ic:"plane", rate:0.00015, def:1, name:"Министерство туризма", post:"Министр туризма", fx:"доход от туристов; в войну падает втрое"},
   {id:"health", blk:"soc", ic:"approval", legacy:true, def:3, name:"Министерство здравоохранения", post:"Министр здравоохранения", fx:"рейтинг и рост населения"},
   {id:"edu", blk:"soc", ic:"summary", legacy:true, def:3, name:"Министерство образования", post:"Министр образования", fx:"рост ВВП, сбор налогов и очки исследований"},
@@ -6913,7 +6912,6 @@ function milBaseMult(){ return (0.85 + 0.15*milFactor("troops")) * (0.9 + 0.1*mi
 function facUnitCost(id){ return FAC[id].cost * (FAC[id].mil ? Math.max(0.5, priceLevel()) : priceLevel()) / 1000; } // bln $
 function facBatch(id){ const F = FAC[id]; if (F.mil) return F.mil === "train" || F.mil === "supply" ? 1 : Math.max(1, Math.ceil(facNeed(id)*0.12)); return Math.max(1, Math.round(facNeed(id)*0.05)); }
 function facUpkeep(){ let v = 0; for (const id in FAC){ const extra = facCount(id) - ((S.facStart && S.facStart[id]) || 0); if (extra > 0) v += extra*facUnitCost(id)*0.003; } return v; }
-function maxProgs(){ return 2 + Math.floor(minEff("housing")/2); }
 function facMinistry(id){ const c = FAC[id].cat; return c; }
 function initFacilities(s){
   const keep = S; S = s;
@@ -6974,7 +6972,6 @@ function facDay(){
   if (done.length) S.progs = S.progs.filter(p => p.left > 0);
 }
 function facCanStart(id){
-  if (S.progs.length >= maxProgs()) return {ok:false, why:`одновременно не больше ${maxProgs()} программ`};
   if (S.progs.some(p => p.id === id)) return {ok:false, why:"программа уже идёт"};
   const mn = id === "renov" ? "housing" : FAC[id].cat;
   if (MIN_BY[mn] && minLvl(mn) === 0) return {ok:false, why:"ведомство не финансируется"};
@@ -6985,8 +6982,8 @@ function facCanStart(id){
 function facProgN(id){ return id === "renov" ? Math.max(1, Math.min(Math.ceil(S.facBad||0), Math.round(facCount("house")*0.03))) : facBatch(id); }
 function facProgFull(id){ return id === "renov" ? facProgN(id)*facUnitCost("house")*0.8 : facProgN(id)*facUnitCost(id); }
 function facProgCost(id){ return facProgFull(id)*(1 - MAT_SHARE); }
-function facProgMat(id){ const rec = id !== "renov" && FAC[id].mil ? {wood:0.3, steel:0.7} : {wood:0.6, steel:0.4}, v = facProgFull(id)*MAT_SHARE;
-  return Object.fromEntries(Object.entries(rec).map(([r, sh]) => [r, niceQ(sh*v/COMMOD[r].world)])); }
+function facProgMat(id){ const rec = id !== "renov" && FAC[id].mil ? {wood:0.3, steel:0.7} : {wood:0.6, steel:0.4}, v = facProgN(id)*(id === "renov" ? FAC.house.cost*0.8 : FAC[id].cost)*FAC_T;
+  return Object.fromEntries(Object.entries(rec).map(([r, sh]) => [r, niceQ(sh*v)])); }
 function facProgDays(id){ return id === "renov" ? 120 : FAC[id].days; }
 function startProg(id){
   const chk = facCanStart(id); if (!chk.ok) return toast(chk.why);
@@ -7101,9 +7098,9 @@ function viewFacilities(){
         : bad >= 1 ? `<button class="btn ${chk.ok?"primary":""} sm" data-prog="renov" ${chk.ok?"":"disabled"}>Расселить ${fmtN(facProgN("renov"))} · ${money(facProgCost("renov"))}</button>${chk.ok ? "" : `<small class="down">${chk.why}</small>`}` : ""}
     </div></div>`; })() : "";
   return `<div class="panel fac-head">
-      <div class="row"><h3>Объекты по стране</h3><span class="num muted">Госпрограмм: ${S.progs.length} / ${maxProgs()}</span></div>
+      <div class="row"><h3>Объекты по стране</h3><span class="num muted">Госпрограмм: ${S.progs.length}</span></div>
       ${S.progs.length ? `<div class="bstats">${S.progs.map(p => `<span>${p.id === "renov" ? "Расселение" : FAC[p.id].name} +${fmtN(p.n)} <b class="num">${Math.ceil(p.left)} дн.</b></span>`).join("")}</div>` : ""}
-      <div class="label">Норма растёт вместе с населением и богатством страны, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: целая партия сразу. Больше программ одновременно — выше финансирование Минстроя.</div>
+      <div class="label">Норма растёт вместе с населением и богатством страны, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: целая партия сразу.</div>
     </div>
     <div class="row"><span>Население <b class="num">${people(me().pop)}</b></span><span class="num ${popRate() < 1 ? "down" : ""}">${((popRate() - 1)*1200).toFixed(1).replace(".",",")}% в год</span></div>
     <div class="row"><span>Настроение людей</span><span class="num ${unrestStage() >= 2 ? "down" : ""}">${UNREST_NAME[unrestStage()]} · ${Math.round(S.unrest || 0)}</span></div>
@@ -7172,7 +7169,7 @@ function viewBuildObj(){
   const queued = t => S.queue.filter(q=>q.type===t).length;
   return `<div class="grid2">
     <div class="panel">
-      <div class="row"><h3>Сейчас строится</h3><span class="num">Площадок занято: ${S.queue.length} / ${maxSlots()}</span></div>
+      <div class="row"><h3>Сейчас строится</h3><span class="num">Строится: ${S.queue.length}</span></div>
       ${S.queue.length ? `<div class="queue">${S.queue.map((q,i)=>`<div class="qitem"><div class="row"><b class="bname">${ic(BUILD_ICON[q.type])}${BUILDINGS[q.type].name}</b><span class="num muted" data-qdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar"><i data-qprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div>${q.boosted ? `<span class="label">Ускорено</span>` : q.left > 31 ? `<button class="btn ad-btn" data-boost="${i}">${ic("play","sm")} −30 дней за рекламу</button>` : ""}</div>`).join("")}</div>` : `<p class="muted" style="margin:0">Сейчас ничего не строится.</p>`}
       ${selfSuff("metal")<60 && S.queue.length ? `<div class="label down">Нехватка руды: стройки идут вдвое медленнее.</div>` : ""}
       <div class="label">Площадок: 2 + 1 за каждые 34 единицы инфраструктуры. Каждой стройке нужны древесина и сталь; если своих не хватает — докупим по импорту, на 60% дороже.</div>
