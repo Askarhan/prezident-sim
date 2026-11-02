@@ -26,7 +26,7 @@ const server = http.createServer((req, res) => {
       const w = X.startWar(d, true); w.mode = "attack"; let offer = null, end = null, diff30 = null;
       for (let i = 0; i < MAX && !end; i++){
         X.S.pendingEvent = null; X.S.pendingVictory = null;
-        X.dayTick(); if (X.S.day > X.daysIn(X.S.month, X.S.year)) X.nextMonth();
+        X.S.day = (X.S.day||1) + 1; X.dayTick(); if (X.S.day > X.daysIn(X.S.month, X.S.year)) X.nextMonth();
         document.querySelectorAll(".modal").forEach(m => m.remove());
         if (w.offer && offer == null) offer = w.days; w.offer = false;
         if (w.days === 30) diff30 = w.fronts.map(f => +(f.diff || 0).toFixed(2));
