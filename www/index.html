@@ -249,6 +249,19 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .modal{position:fixed;inset:0;background:rgb(10 16 22 / .55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .sheet{background:linear-gradient(180deg,#13233D,#0F1B30);box-shadow:0 20px 60px rgb(0 0 0 / .5);border:1px solid var(--line);border-radius:14px;max-width:520px;width:100%;max-height:90%;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
 .sheet h2{font-size:20px}
+.sheet.win-banner{position:relative;overflow:hidden;max-width:480px;text-align:center;align-items:center;border:2px solid #D9A441;box-shadow:0 0 0 1px #6E4A10,0 18px 60px rgba(217,164,65,.28)}
+.win-banner>*{position:relative}
+.win-banner .win-rays{position:absolute;left:50%;top:-180px;width:520px;height:520px;margin-left:-260px;background:repeating-conic-gradient(rgba(217,164,65,.13) 0 12deg,transparent 12deg 24deg);border-radius:50%;animation:winspin 40s linear infinite;pointer-events:none}
+@keyframes winspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.win-banner .win-rays{animation:none}}
+.win-crown{width:84px;height:63px;margin:4px auto 0;display:block;filter:drop-shadow(0 4px 10px rgba(217,164,65,.5))}
+.win-banner h2{margin:0;font-size:28px;line-height:1.15;color:#E9BE62}
+.win-rank{font-weight:700;font-size:17px}
+.win-banner p{margin:0}
+.win-stats{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:100%}
+.win-stats span{display:flex;flex-direction:column;min-width:76px;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
+.win-stats small{font-size:11px;color:var(--muted)}
+.win-btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .stamp{font-family:var(--f-data);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.12em}
 .choices{display:flex;flex-direction:column;gap:8px}
 .choice{text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:10px 12px}
@@ -5227,9 +5240,8 @@ function nextMonth(){
   if (S.topK === undefined) S.topK = rivals.every(x => x.gdp < c.gdp) ? 1.6 : 1;   // the starting leader must pull far ahead
   const top = rivals.every(x => x.gdp*S.topK < c.gdp);
   S.topMonths = top ? S.topMonths+1 : 0;
-  if (controlled().length >= 8) return endGame(true, "Военная победа", "Под вашим контролем 8 стран.");
-  if (S.topMonths >= 12) return endGame(true, "Экономическая победа", "Ваша страна 12 месяцев подряд — крупнейшая экономика мира.");
-  if (S.terms >= 4 && !ideo("auth")) return endGame(true, "Победа на выборах", "Вы отработали четыре срока подряд — 16 лет у власти.");
+  if (worldUnited()) return winFinal();
+  winCheck();
 
   // 12. events
   S.eventCd--;
@@ -5387,10 +5399,42 @@ function runOp(opId, targetId){
     else { addLog(`Операция в стране ${x.name} не удалась, но следов не осталось.`); checkAchievements(); save(); render(); showOpReport(op, x, "clean", "Агенты потрачены, последствий нет."); }
   }
 }
+/* Victories: each one is a title the game goes on after (banner: continue or main menu); uniting the world is the real ending. */
+const WINS = [
+  {id:"mil", name:"Военная победа", rank:"Покоритель", goal:"Контролировать 8 стран", text:"Под вашей рукой 8 стран. Ваше имя знают на всех континентах.", val:() => controlled().length, max:8},
+  {id:"eco", name:"Экономическая победа", rank:"Хозяин мировых рынков", goal:() => `${S.topK > 1 ? "Экономика в 1,6 раза больше любой другой" : "Крупнейшая экономика мира"} 12 месяцев подряд`, text:"Год подряд ваша экономика первая в мире. Рынки следят за каждым вашим словом.", val:() => S.topMonths, max:12},
+  {id:"pol", name:"Политическая победа", rank:"Отец нации", goal:() => ideo("auth") ? "16 лет у власти" : "Отработать 4 срока", text:"16 лет у власти. Выросло поколение, не знавшее другого лидера.", val:() => ideo("auth") ? Math.floor(S.turn/12) : S.terms, max:() => ideo("auth") ? 16 : 4},
+  {id:"ideo", name:"Идеологическая победа", rank:"Властитель умов", goal:"60% стран на нашей стороне, репутация агрессора ниже 25", text:"Большинство стран идёт за вами добровольно. Ваши идеи победили без единого выстрела.", val:() => Math.round(friendShare()*100), max:60, ok:() => (S.infamy||0) < 25, unit:"%"},
+  {id:"sci", name:"Научная победа", rank:"Светоч науки", goal:"Открыть 80% всех исследований", text:"Ваши учёные опередили весь мир. Будущее теперь пишется на вашем языке.", val:() => Math.round(techShare()*100), max:80, unit:"%"}];
+const WIN_TOP = 8, RECORDS_KEY = "president-records-v1";
+function friendShare(){ const a = Object.values(C()).filter(x => x.id !== S.player); return a.length ? a.filter(x => x.owner || x.puppet || x.ally || x.rel >= 50).length/a.length : 0; }
+function techShare(){ const m = TECH.reduce((a, t) => a + (t.max||1), 0); return TECH.reduce((a, t) => a + tlv(t.id), 0)/m; }
+function worldUnited(){ const a = Object.values(C()).filter(x => x.id !== S.player); return a.length > 0 && a.every(x => x.owner || x.puppet); }
+function winDone(w){ const max = typeof w.max === "function" ? w.max() : w.max; return w.val() >= max && (!w.ok || w.ok()); }
+function winCheck(){ S.wins = S.wins || {}; WINS.forEach(w => { if (S.wins[w.id] || !winDone(w)) return; S.wins[w.id] = {year:S.year, month:S.month}; (ui.winQ = ui.winQ || []).push(w.id); addLog(`🏆 ${w.name}: вы получили титул «${w.rank}».`); unlock("winner"); if (S.scenario==="zero" || S.scenario==="lastchance") unlock("hard"); });
+  if ((ui.winQ||[]).length){ pauseFor("win"); setTimeout(showWin, 80); } }
+function winScore(final){ const wins = Object.keys(S.wins||{}).length, a = Object.values(C()), own = a.filter(x => x.owner && x.id !== S.player).length, pup = a.filter(x => x.puppet).length, g = S.gdp0||me().gdp, k = g >= 2000 ? 1 : g >= 300 ? 1.5 : 2.5, y = clamp(1.5 - S.turn/12/80, 0.6, 1.5);
+  return Math.round((1000*wins + 150*own + 80*pup + (final ? 3000 : 0))*k*y); }
+function winBanner(stamp, title, rank, text, stats, btns){ return `<div class="modal" role="dialog" aria-modal="true"><div class="sheet win-banner"><div class="win-rays" aria-hidden="true"></div>
+    <svg class="win-crown" viewBox="0 0 64 48" aria-hidden="true"><path d="M6 40 3 12l15 12L32 4l14 20 15-12-3 28z" fill="url(#g-win)" stroke="#6E4A10" stroke-width="2" stroke-linejoin="round"/><rect x="6" y="40" width="52" height="6" rx="2" fill="#B8862B"/><defs><linearGradient id="g-win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE9A8"/><stop offset="1" stop-color="#D9A441"/></linearGradient></defs></svg>
+    <span class="stamp">${stamp}</span><h2>${esc(title)}</h2>${rank ? `<div class="win-rank">${esc(rank)}</div>` : ""}<p>${esc(text)}</p><div class="win-stats">${stats}</div>${btns}</div></div>`; }
+function winStats(final){ const a = Object.values(C()), own = a.filter(x => x.owner && x.id !== S.player).length, pup = a.filter(x => x.puppet).length, st = (n, v) => `<span><small>${n}</small><b class="num">${v}</b></span>`;
+  return st("Лет у власти", Math.floor(S.turn/12)) + st("Присоединено", own) + st("Сателлиты", pup) + st("Побед", Object.keys(S.wins||{}).length) + st("Счёт", winScore(final).toLocaleString("ru-RU")); }
+function showWin(){ if (!S || S.over) return; const q = ui.winQ || []; if (!q.length) return resumeAfter("win"); if (modalRoot.innerHTML){ setTimeout(showWin, 800); return; }
+  const id = q.shift(), w = WINS.find(x => x.id === id); sfx("success"); save();
+  modalRoot.innerHTML = winBanner("Поздравляем!", w.name, w.rank, w.text, winStats(false), `<div class="win-btns"><button class="btn primary" data-act="winon">Продолжить игру</button><button class="btn" data-act="winmenu">Главное меню</button></div><small class="muted">Осталась главная цель: объединить весь мир.</small>`); }
+function winFinal(){ S.wins = S.wins || {}; const a = Object.values(C()), own = a.filter(x => x.owner && x.id !== S.player).length, pup = a.filter(x => x.puppet).length, all = WINS.every(w => S.wins[w.id]);
+  const rank = all ? "Легенда человечества" : pup > own ? "Мировой гегемон" : "Император Земли";
+  S.overRank = rank; S.overScore = winScore(true); recordAdd(rank, S.overScore);
+  endGame(true, "Вы объединили мир!", pup > own ? `Весь мир признал вашу власть: ${own} стран присоединены, ${pup} управляются вашими людьми. Ни одно государство больше не спорит с ${me().name}.` : `Над всеми столицами мира поднят один флаг. Страна ${me().name} ${Math.floor(S.turn/12)} лет шла к этой цели и дошла.`); }
+function recordsGet(){ try { return JSON.parse(localStorage.getItem(RECORDS_KEY)) || []; } catch(e){ return []; } }
+function recordAdd(rank, score){ const r = recordsGet(); r.push({n:me().name, id:S.player, rank, score, years:Math.floor(S.turn/12), wins:Object.keys(S.wins||{}).length}); r.sort((a, b) => b.score - a.score); try { localStorage.setItem(RECORDS_KEY, JSON.stringify(r.slice(0, WIN_TOP))); } catch(e){} return r.findIndex(x => x.score === score) + 1; }
+function recordsPanel(){ const r = recordsGet(); return r.length ? `<div class="panel"><h3>Рекорды</h3>${r.map((x, i) => `<div class="row"><span>${i + 1}. ${flag(x.id)} <b>${esc(x.n)}</b> · ${esc(x.rank)}<br><small class="muted">${x.years} лет, побед: ${x.wins}</small></span><span class="num">${x.score.toLocaleString("ru-RU")}</span></div>`).join("")}</div>` : ""; }
 function endGame(win, title, text){
   ui.speed = 0;
   S.over = {win, title, text};
   if (win){ unlock("winner"); if (S.scenario==="zero" || S.scenario==="lastchance") unlock("hard"); }
+  if (!win && Object.keys(S.wins||{}).length) recordAdd(`${Object.keys(S.wins).length} ${plural(Object.keys(S.wins).length, "победа", "победы", "побед")}, затем поражение`, winScore(false));
   storageDel();
   render();
   showEnd();
@@ -6319,10 +6363,10 @@ function viewSummary(){
       <ul class="news">${S.log.slice(0,14).map(l=>`<li><span class="when">${esc(l.t)}</span><span>${esc(l.text)}</span></li>`).join("")}</ul>
     </div>
     <div class="panel">
-      <h3>Цели для победы</h3>
-      <div class="goal"><span>Контролировать 8 стран</span><span class="num">${controlled().length} / 8</span></div>
-      <div class="goal"><span>${S.topK > 1 ? "Экономика в 1,6 раза больше любой другой" : "Крупнейшая экономика мира"} 12 месяцев подряд</span><span class="num">${S.topMonths} / 12</span></div>
-      <div class="goal"><span>Отработать 4 срока</span><span class="num">${S.terms} / 4</span></div>
+      <h3>Цели и победы</h3>
+      ${WINS.map(w => { const got = (S.wins||{})[w.id], max = typeof w.max === "function" ? w.max() : w.max; return `<div class="goal"><span>${got ? "🏆 " : ""}${typeof w.goal === "function" ? w.goal() : w.goal}</span><span class="num">${got ? esc(w.rank) : `${w.val()}${w.unit||""} / ${max}${w.unit||""}`}</span></div>`; }).join("")}
+      <div class="goal"><span><b>Главная цель: объединить мир</b> (все страны присоединены или сателлиты)</span><span class="num">${Object.values(C()).filter(x => x.id !== S.player && (x.owner || x.puppet)).length} / ${Object.values(C()).length - 1}</span></div>
+      <div class="label" style="margin-top:4px">После каждой победы игру можно продолжить.</div>
       <div class="label" style="margin-top:4px">Поражение: проигранные выборы, революция (стабильность &lt; 15% три месяца), госдолг &gt; 160% ВВП</div>
     </div>
     <div class="panel">
@@ -8208,6 +8252,7 @@ function renderStart(){
     ${saved ? `<div class="continue"><span>Сохранённая игра: <b>${esc(S.countries[S.player].name)}</b>, ${MONTHS[S.month]} ${S.year}</span><button class="btn primary" data-act="continue">Продолжить</button><button class="btn" data-act="wipe">Удалить сохранение</button></div>` : ""}
     <div class="label" style="margin-bottom:6px">Сценарий</div>
     <div class="scen-grid">${SCENARIOS.map(s=>`<button class="scen" data-scenario="${s.id}" aria-pressed="${(ui.scenario||"normal")===s.id}"><b>${s.name}</b><small>${s.desc}</small></button>`).join("")}</div>
+    ${recordsPanel()}
     <div class="label" style="margin:14px 0 6px">Страна</div>
     <div class="filters">${["Все",...REGIONS].map(r=>`<button class="chip" data-startregion="${r}" aria-pressed="${ui.startRegion===r}">${r}</button>`).join("")}</div>
     <div class="country-grid">${list.map(d => { const [id,name,region,pop,gdp,army] = d; const [dl,dc] = diff(gdp); return `
@@ -8367,6 +8412,7 @@ function chooseEvent(i){
 }
 function showEnd(){
   const o = S.over;
+  if (o.win){ sfx("success"); modalRoot.innerHTML = winBanner("Поздравляем, господин президент!", o.title, S.overRank, o.text, winStats(true), `<button class="btn primary" data-act="restart">Главное меню</button>`); return; }
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><div class="sheet">
     <span class="stamp">${o.win?"Победа":"Конец правления"}</span>
     <h2>${esc(o.title)}</h2>
@@ -8561,6 +8607,8 @@ document.addEventListener("click", e => {
   if (a === "continue"){ ui.tab="map"; ui.mapFocus = S.player; render(); return; }
   if (a === "wipe"){ storageDel(); S = null; renderStart(); return; }
   if (a === "restart"){ S = null; closeModal(); renderStart(); return; }
+  if (a === "winon"){ closeModal(); if ((ui.winQ||[]).length) showWin(); else { resumeAfter("win"); render(); } return; }
+  if (a === "winmenu"){ ui.winQ = []; pausedBy = null; save(); S = null; closeModal(); renderStart(); return; }
   if (a === "mainmenu"){ save(); ui.speed = 0; S = null; advRoot.innerHTML = ""; renderStart(); return; }
   if (a === "newconfirm"){ if (!ui.newConfirm){ ui.newConfirm = true; render(); return; } ui.newConfirm = false; storageDel(); S = null; advRoot.innerHTML = ""; renderStart(); return; }
   act(a, t.dataset.arg);

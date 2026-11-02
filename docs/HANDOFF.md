@@ -28,7 +28,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- Battle and balance stages are finished, see their sections. Ask the user what comes next: feedback from play, the preview, or delivery ideas.
+- Battle, balance and victory stages are finished, see their sections. Ask the user what comes next: feedback from play, the preview, the peaceful path (alliances, influence, referendums), or delivery ideas.
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
@@ -118,6 +118,13 @@ Rules agreed with the user:
 - `api.ff(sec)` (test hook in `bf3d.js`) runs the field ahead without drawing. `tools/sim/fieldbattle.js '[["fr","de","atk",0.33],...]'` (run with `NODE_PATH=$(npm root -g)`) prints `cbPlan` averages vs one field battle per run. Chromium flags: `--use-gl=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`. A Playwright `click` on «В бой» hangs (heavy sync handler): click from `evaluate` with `setTimeout`.
 
 Order (all three done): 1) rules in `game.html` (cooldown, strike group slider, pause, days on exit, applying results, auto-resolve on early exit); 2) battle in `bf3d.js` (HP, damage, cover AI, end conditions, HUD); 3) in-battle strikes + balance with `tools/sim/warsim.js` (a field battle should average about what the auto-calculation gives, plus a bonus for good strikes).
+
+## Victories and the ending done (02.11.2026)
+User's choices: more kinds of victory, the world united as the real ending, satellites count, a congratulation banner with a main menu button. Names are the assistant's.
+- `WINS` (before `endGame`): military (8 countries), economic, political (4 terms, or 16 years for an authoritarian), ideological (60% of countries friendly, infamy under 25, `friendShare`), science (80% of research levels, `techShare`). `winCheck()` in `nextMonth` records them in `S.wins`, queues `ui.winQ`, `showWin` shows `winBanner` with «Продолжить игру» / «Главное меню» (the save stays). These no longer end the game: before, 8 countries ended it and deleted the save, so conquering the world was impossible.
+- `worldUnited()` → `winFinal()`: all 30 other countries annexed or satellites. Title: «Легенда человечества» (all 5 wins), «Мировой гегемон» (more satellites), else «Император Земли». `endGame` + `showEnd` banner with one button, «Главное меню». The game really ends.
+- `winScore`: 1000 per win, 150 per annexed, 80 per satellite, 3000 for the final, × difficulty (GDP at start: 1 / 1.5 / 2.5) × 0.6–1.5 by years. Records: `recordsGet`, `recordAdd`, top 8 in localStorage `president-records-v1`, panel on the start screen; a defeat after a victory also goes in. Goals panel on the summary lists it all.
+- Tested in headless: two wins queue up, continue, final, menu, records; no page errors. Not checked by a person on a phone.
 
 ## Balance stage done (02.11.2026)
 User's answers: conquest must be fairly hard, not extreme, because a small country must be able to do it too; a coalition may fall apart, with small consequences; the nuclear answer is predictable; fuel amounts stay, but production only covers the country.
