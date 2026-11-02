@@ -143,7 +143,7 @@ function treeGeo(R, kind){
 }
 // battle cover between the lines; each kind is built along X (length) and Z (depth) around the origin
 const COVER = {   // half depth (spots stand behind it) and the line-of-fire radius
-  wall:{dep:0.3, r:1}, ruin:{dep:2.4, r:2.6}, berm:{dep:1.8, r:1.9}, rock:{dep:1.8, r:1.9}, house:{dep:3, r:3}, barn:{dep:3.4, r:3.2},
+  wall:{dep:0.3, r:1}, ruin:{dep:2.4, r:2.6}, berm:{dep:1.8, r:1.9}, rock:{dep:1.8, r:1.9}, house:{dep:3, r:3}, flat:{dep:4.5, r:4.6}, barn:{dep:3.4, r:3.2},
   hay:{dep:1.5, r:1.5}, trench:{dep:1, r:1.1}, blocks:{dep:0.6, r:1}, container:{dep:1.3, r:1.5}, wreck:{dep:1.7, r:1.9},
   car:{dep:1, r:1.3}, trees:{dep:2, r:2.3}, logs:{dep:1.3, r:1.4}, boulders:{dep:2.2, r:2.2}, dune:{dep:2.6, r:2.4}};
 function coverGeo(R, kind, len, ter){
@@ -152,6 +152,11 @@ function coverGeo(R, kind, len, ter){
   if (kind === "wall"){ const n = 2 + Math.floor(R()*2), seg = len/n; for (let k = 0; k < n; k++){ if (k && R() < 0.3) continue; const h = 1.4 + R()*0.9; box(seg*(0.75 + R()*0.2), h, 0.6, -len/2 + seg*(k + 0.5), h/2, 0, R() < 0.5 ? 0x9a948a : 0x8a7f72); } }
   else if (kind === "ruin"){ const w = len, d = 3 + R()*2; [[w, 0.7, 0, -d/2], [0.7, d, -w/2, 0], [w*0.5, 0.7, -w/4, d/2]].forEach(([sx, sz, x, z], k) => { const h = 1.2 + R()*(k ? 1.4 : 2.2); box(sx, h, sz, x, h/2, z, 0xa59f95, 0.15, 0.12); });
     const rub = new THREE.DodecahedronGeometry(1.2, 0); rub.scale(1.4, 0.5, 1.2); rub.translate(w*0.15, 0.2, 0); parts.push(colorize(jitter(rub, R, 0.3), 0x8d867c, 0.2, R)); }
+  else if (kind === "flat"){   // a city block of flats: two uneven sections, a dark band of windows on each floor, rubble at the foot
+    const d = 9, c = pick([0x9d958a, 0xa58a74, 0x8c8f92, 0xb3a68f]), dk = 0x24262a, w1 = len*(0.4 + R()*0.25), w2 = len - w1;
+    [[w1, -len/2 + w1/2], [w2, len/2 - w2/2]].forEach(([w, x]) => { const fl = 2 + Math.floor(R()*3), h = fl*3; box(w, h, d, x, h/2, 0, c, 0.06, 0.01); box(w + 0.3, 0.4, d + 0.3, x, h + 0.2, 0, 0x5a5854, 0.05, 0);
+      for (let k = 0; k < fl; k++) box(w + 0.08, 1.1, d + 0.08, x, 1.6 + k*3, 0, dk, 0.05, 0); });
+    const rub = new THREE.DodecahedronGeometry(1, 0); rub.scale(2, 0.7, 1.3); rub.translate((R() - 0.5)*len*0.7, 0.2, (R() < 0.5 ? -1 : 1)*(d/2 + 0.9)); parts.push(colorize(jitter(rub, R, 0.3), 0x8d867c, 0.2, R)); }
   else if (kind === "house" || kind === "barn"){   // a shot-up house (window gaps, half a roof) or a wooden barn with a gable roof
     const barn = kind === "barn", w = len, d = barn ? 6.5 : 5.6, h = barn ? 3.6 : 2.8 + R()*0.6, c = barn ? pick([0x7a3b2c, 0x6b5440, 0x5d4a38]) : ter === "d" ? 0xc4a57c : pick([0xb9b0a0, 0xa8735a, 0xc8c0ae]);
     const side = (L, x, z, rot) => { const n = Math.max(2, Math.round(L/2.4)), seg = L/n; for (let k = 0; k < n; k++){ const o = -L/2 + seg*(k + 0.5), gap = !barn && k % 2 === 1 && R() < 0.8;
@@ -388,7 +393,7 @@ export async function start(el, ctx){
 
   // units: positions first so props keep away from them
   const units = [];
-  const tz = ctx.phase === "pos" ? 15 : 19, CBF = ctx.battle && ctx.battle.type !== "amb", DEPTH = CBF ? {front:[36, 50], arty:[64, 80], ad:[86, 100]} : {front:[tz + 5, tz + 19], arty:[tz + 34, tz + 50], ad:[tz + 56, tz + 70]};
+  const tz = ctx.phase === "pos" ? 15 : 19, CBF = ctx.battle && ctx.battle.type !== "amb", DEPTH = ctx.city ? {front:[60, 72], arty:[92, 104], ad:[104, 112]} : CBF ? {front:[36, 50], arty:[64, 80], ad:[86, 100]} : {front:[tz + 5, tz + 19], arty:[tz + 34, tz + 50], ad:[tz + 56, tz + 70]};
   [0, 1].forEach(side => ["front", "arty", "ad"].forEach(role => {
     const list = ctx.units.filter(u => u.side === side && (u.role || "front") === role), n = list.length, s = side ? -1 : 1, span = role === "front" ? FIELD*0.75 : FIELD*0.5;
     list.forEach((u, k) => { const x = (k + 0.5 - n/2)*(span/Math.max(n, 1)) + (R() - 0.5)*8, d = DEPTH[role], z = s*(d[0] + R()*(d[1] - d[0]));
@@ -406,6 +411,7 @@ export async function start(el, ctx){
   if (B){ B.vis = night ? (wk === "fog" ? 45 : 75) : wk === "fog" ? 55 : wk === "rain" ? 130 : wk === "snow" ? 110 : 0; B.acc = (night ? 0.75 : 1)*({fog:0.8, rain:0.9, snow:0.9}[wk] || 1); B.lit = 0; }
   function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.next = Math.random()*3; u.lane = u.x; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; u.inf = st.kind === "inf" || st.kind === "atgm"; B.gk = B.gk || [0, 0]; u.grp = B.gk[u.side]++ % 2; }
   if (B){ units.forEach(bInit);
+    if (ctx.city) units.forEach(u => { if (u.side === B.defSide && u.role === "front"){ u.z = (u.side ? -1 : 1)*(24 + Math.random()*8); u.home = [u.x, u.z]; } });   // the defender waits inside the city
     // the outermost squads of each side try to go round the flank
     [0, 1].forEach(sd => { const fr = units.filter(u => u.side === sd && u.role === "front").sort((a, b) => a.x - b.x); fr.forEach((u, k) => { u.grp = k % 2; }); if (fr.length >= 4){ fr[0].flank = -1; fr[fr.length - 1].flank = 1; } });
     // ambush: the enemy front is a column on a road across the field, coming in from the left; breakthrough: a red zone in the enemy rear
@@ -422,16 +428,28 @@ export async function start(el, ctx){
     const RC = rng(ctx.seed + 77), mix = COVER_MIX[ctx.terrain] || COVER_MIX.p, n = level === "low" ? 18 : 28, geos = []; B.covers = []; B.spots = [];
     const free = (x, z, rad) => Math.abs(x) < FIELD*0.46 && Math.abs(z) < 62 && !B.covers.some(c => Math.hypot(c.x - x, c.z - z) < (rad + c.rad)*0.8) && !units.some(u => Math.hypot(u.x - x, u.z - z) < rad + 4)
       && !(B.road != null && Math.abs(z - B.road) < Math.min(rad, 4) + 6) && !(B.zone && Math.hypot(B.zone.x - x, B.zone.z - z) < B.zone.r + rad);
-    for (let tries = 0; B.covers.length < n && tries < 200; tries++){
+    function bPut(kind, x, z, len, ang, rad){ const g = coverGeo(RC, kind, len, ctx.terrain); g.rotateY(ang); g.translate(x, G.height(x, z) - 0.12, z); geos.push(g);
+      const C = COVER[kind], ex = Math.cos(ang), ez = -Math.sin(ang), nx = Math.sin(ang), nz = Math.cos(ang), m = Math.max(1, Math.round(len/5));
+      B.covers.push({x, z, kind, rad, pts:Array.from({length:m}, (_, k) => { const o = m === 1 ? 0 : -len/2 + len*(k + 0.5)/m; return [x + ex*o, z + ez*o, Math.max(C.r, len/(2*m))]; })});
+      (len >= 18 ? [-len/3, 0, len/3] : len >= 8 ? [-len/4, len/4] : [0]).forEach(o => [0, 1].forEach(sd => { const k2 = (sd ? -1 : 1)*(C.dep + 2.4); B.spots.push({x:x + ex*o + nx*k2, z:z + ez*o + nz*k2, side:sd, by:null}); })); }
+    // a city: three rows of blocks of flats across the field, streets (lanes) along the way of the advance through them, broad cross streets between the rows
+    if (ctx.city){ B.city = true; B.rows = [-42, 0, 42]; B.lanes = [-100, -60, -20, 20, 60, 100]; B.vis = B.vis ? Math.min(B.vis, 75) : 75;
+      const per = level === "low" ? 1 : 2, len = (28 - (per - 1)*1.5)/per;
+      B.rows.forEach(rz => { for (let cx = -80; cx <= 80; cx += 40) for (let k = 0; k < per; k++) bPut("flat", cx + (k - (per - 1)/2)*(len + 1.5), rz + (RC() - 0.5)*0.8, len, 0, 9);
+        B.lanes.forEach(lx => [0, 1].forEach(sd => { const s = sd ? -1 : 1; [[lx, 3], [lx - 6.5, 7.8], [lx + 6.5, 7.8]].forEach(([x, o]) => B.spots.push({x, z:rz + s*o, side:sd, by:null})); })); });
+      for (let k = 0; k < 10; k++){ const kind = ["car", "wreck", "blocks", "car", "container"][k % 5]; bPut(kind, (RC() - 0.5)*FIELD*0.8, (k % 2 ? 1 : -1)*(19 + RC()*4), kind === "wreck" ? 7 : kind === "container" ? 7 : kind === "blocks" ? 8 : 5, (RC() - 0.5)*0.5, 3); }
+      const pos = [], idx = [], strip = (ax, az, bx, bz, w) => { const n = Math.ceil(Math.hypot(bx - ax, bz - az)/8), base = pos.length/3, px = az === bz ? 0 : 1, pz = az === bz ? 1 : 0;
+        for (let k = 0; k <= n; k++){ const x = ax + (bx - ax)*k/n, z = az + (bz - az)*k/n; [-1, 1].forEach(o => { const qx = x + px*o*w/2, qz = z + pz*o*w/2; pos.push(qx, G.height(qx, qz) + 0.09, qz); }); if (k < n){ const a = base + k*2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } } };
+      B.lanes.forEach(lx => strip(lx, -116, lx, 116, 9)); [-63, -21, 21, 63].forEach(z => strip(-116, z, 116, z, 12));
+      const rg = new THREE.BufferGeometry(); rg.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); rg.setIndex(idx); rg.computeVertexNormals();
+      const rm = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({color:0x4b4b4a, roughness:1, polygonOffset:true, polygonOffsetFactor:-2, side:THREE.DoubleSide, fog:true})); rm.receiveShadow = true; scene.add(rm); }
+    for (let tries = 0; !B.city && B.covers.length < n && tries < 200; tries++){
       const set = COVER_SETS[mix[Math.floor(RC()*mix.length)]], cx = (RC() - 0.5)*FIELD*0.84, cz = (RC() - 0.5)*104, ga = (RC() - 0.5)*0.8, gc = Math.cos(ga), gs = Math.sin(ga);
       for (const [kind, ox, oz, l0] of set){ if (B.covers.length >= n) break;
         const len = l0*(0.85 + RC()*0.3), x = cx + ox*gc + oz*gs, z = cz - ox*gs + oz*gc, rad = Math.min(len/2, 9); if (!free(x, z, rad)) continue;
-        const ang = ga + (RC() - 0.5)*0.3, g = coverGeo(RC, kind, len, ctx.terrain); g.rotateY(ang); g.translate(x, G.height(x, z) - 0.12, z); geos.push(g);
-        const C = COVER[kind], ex = Math.cos(ang), ez = -Math.sin(ang), nx = Math.sin(ang), nz = Math.cos(ang), m = Math.max(1, Math.round(len/5));
-        B.covers.push({x, z, kind, rad, pts:Array.from({length:m}, (_, k) => { const o = m === 1 ? 0 : -len/2 + len*(k + 0.5)/m; return [x + ex*o, z + ez*o, Math.max(C.r, len/(2*m))]; })});
-        (len >= 18 ? [-len/3, 0, len/3] : len >= 8 ? [-len/4, len/4] : [0]).forEach(o => [0, 1].forEach(sd => { const k2 = (sd ? -1 : 1)*(C.dep + 2.4); B.spots.push({x:x + ex*o + nx*k2, z:z + ez*o + nz*k2, side:sd, by:null}); })); } }
+        bPut(kind, x, z, len, ga + (RC() - 0.5)*0.3, rad); } }
     if (geos.length){ const cm = new THREE.Mesh(merge(geos), new THREE.MeshStandardMaterial({vertexColors:true, roughness:0.95, metalness:0, flatShading:true})); cm.castShadow = cm.receiveShadow = true; scene.add(cm); } }
-  scatterProps(scene, ctx, G, R, [...units.map(u => [u.x, u.z, 9]), ...(B ? B.covers.map(c => [c.x, c.z, c.rad + 4]) : []), ...(B && B.road != null ? Array.from({length:27}, (_, k) => [-FIELD*0.65 + k*FIELD*1.3/26, B.road, 9]) : []), ...(B && B.zone ? [[B.zone.x, B.zone.z, B.zone.r + 4]] : [])], level === "low" ? 0.55 : 1);
+  scatterProps(scene, ctx, G, R, [...units.map(u => [u.x, u.z, 9]), ...(B ? B.covers.map(c => [c.x, c.z, c.rad + 4]) : []), ...(B && B.road != null ? Array.from({length:27}, (_, k) => [-FIELD*0.65 + k*FIELD*1.3/26, B.road, 9]) : []), ...(B && B.zone ? [[B.zone.x, B.zone.z, B.zone.r + 4]] : [])], (level === "low" ? 0.55 : 1)*(ctx.city ? 0.2 : 1));
   // load models and place them
   // weak phones load only the light copies; the others load the full models now and the light ones in the background
   const models = {};
@@ -459,9 +477,9 @@ export async function start(el, ctx){
     u.muzzle = (u.hull && u.hull.userData && u.hull.userData.muzzle) || 4.6;
     u.obj = root; u.gun0 = u.gun ? u.gun.position.x : 0; scene.add(root);
   }
-  /* ---- infantry: low-poly men in one instanced mesh per side and weapon, coloured close to the ground; a squad shows up to 8 figures, fewer as it loses men ---- */
-  const INF = B && (B.stats._inf || B.stats._atgm) ? {mesh:[], cap:72, figs:{high:8, mid:5, low:3}, t:0,
-    off:Array.from({length:8}, (_, j) => [(j - 3.5)*1.8 + (R() - 0.5)*0.7, (j % 2 ? -1.5 : 0) + (R() - 0.5)*0.8])} : null;
+  /* ---- infantry: low-poly men in one instanced mesh per side and weapon, coloured close to the ground; a squad shows 3 figures (the user's choice), fewer as it loses men ---- */
+  const INF = B && (B.stats._inf || B.stats._atgm) ? {mesh:[], cap:72, figs:3, t:0,
+    off:Array.from({length:8}, (_, j) => [(j - 3.5)*1.1 + (R() - 0.5)*0.7, (j % 2 ? -1.5 : 0) + (R() - 0.5)*0.8])} : null;
   if (INF){ const RI = rng(ctx.seed + 5), tone = wk === "snow" ? 0xa9aeb0 : ({p:0x565f42, f:0x45503a, d:0x8c7c5c, u:0x5c5c54, m:0x5e5c4a}[ctx.terrain] || 0x565f42);
     const man = (c, atgm) => { const dk = new THREE.Color(c).multiplyScalar(0.62).getHex(), bx = (w, h, d, x, y, z, col) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return colorize(g, col, 0.04, RI); };
       return merge([bx(0.26, 0.86, 0.2, 0, 0.43, 0.14, dk), bx(0.26, 0.86, 0.2, 0, 0.43, -0.14, dk), bx(0.32, 0.74, 0.52, 0, 1.22, 0, c), bx(0.26, 0.26, 0.26, 0, 1.72, 0, dk), bx(0.34, 0.14, 0.34, 0, 1.86, 0, c),
@@ -470,7 +488,7 @@ export async function start(el, ctx){
       [false, true].forEach(at => { const m = new THREE.InstancedMesh(man(c, at), new THREE.MeshLambertMaterial({vertexColors:true}), INF.cap); m.count = 0; m.frustumCulled = false; m.castShadow = level !== "low"; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); INF.mesh.push(m); }); }); }
   const infM = new THREE.Matrix4();
   function infDraw(dt){
-    if (!INF) return; INF.t += dt; const n = [0, 0, 0, 0], F = INF.figs[level] || 5, s0 = 1.2;
+    if (!INF) return; INF.t += dt; const n = [0, 0, 0, 0], F = INF.figs, s0 = 1.2;
     for (const u of units){ if (!u.inf || !u.alive) continue;
       const key = u.side*2 + (u.id === "_atgm" ? 1 : 0), m = INF.mesh[key], c = Math.cos(u.h), s = Math.sin(u.h), walk = u.state === "move", sy = (walk ? 1 : 0.74)*s0, figs = Math.max(1, Math.ceil(F*u.cnt/u.n0));
       if ((u.fyT = (u.fyT || 0) - dt) < 0 || !u.fy){ u.fyT = 0.3; u.fy = INF.off.map(([ox, oz]) => G.height(u.x + s*ox + c*oz, u.z + c*ox - s*oz)); }
@@ -583,12 +601,14 @@ export async function start(el, ctx){
   function bShot(u, t, frac = 1){
     if (!t || !t.alive || B.ended) return; const a = B.stats[u.id], d = B.stats[t.id]; if (!a || !d) return;
     const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc" || k === "inf" || k === "atgm", dist = Math.hypot(t.x - u.x, t.z - u.z);
-    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (t.inf) acc *= 0.7; acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
+    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (t.inf) acc *= 0.7; if (B.city){ if (t.inf && t.state !== "move") acc *= 0.6; if (!direct) acc *= 0.7; } acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
     if (direct && (d.kind === "tank" || d.kind === "ifv") && bFace(t, u.x, u.z) > 0.5){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
       if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
     let pen = 2*a.ga/(a.ga + d.df);
     if (direct && t.role === "front" && !t.air && !t.inf){ const ca = bFace(t, u.x, u.z); if (ca < 0.5){ pen *= ca < -0.5 ? 2.2 : 1.6; if (Math.random() < 0.35) floats.push({u:t, text:ca < -0.5 ? "в корму!" : "в борт!", t:0}); } }
-    t.pend += u.cnt*a.ga*0.13*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
+    // in a city infantry gets close with RPGs from the houses, ATGM teams hit from the windows
+    let urb = 1; if (B.city && !t.inf && d.kind !== "sph" && d.kind !== "mlrs" && d.kind !== "srbm"){ if (k === "inf" && dist < 35){ urb = 4; if (Math.random() < 0.3) floats.push({u:t, text:"РПГ!", t:0}); } else if (k === "atgm") urb = 1.3; }
+    t.pend += u.cnt*a.ga*0.13*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*urb*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
   }
   // line of fire: 0 blocked (cover or a hill between), 1 clear, 2 clear but the target hugs cover (harder to hit)
   function bLos(a, t){
@@ -614,7 +634,14 @@ export async function start(el, ctx){
   // fighting distance by class: tanks duel from afar, IFVs and APCs a bit closer; fog and night pull it in; the end of the battle closes it
   function bBand(u){ const k = (B.stats[u.id] || {}).kind, cl = bClose(u);
     let b = k === "tank" ? [44, 62, 88] : k === "ifv" || k === "inf" ? [34, 48, 66] : k === "atgm" ? [48, 66, 95] : [28, 40, 56]; if (cl) b = [18, 28, 44];
-    if (B.vis){ const v = B.vis*(B.lit ? 1.5 : 1)*0.85; b = b.map(x => Math.min(x, v)); } return b; }
+    if (B.vis){ const v = B.vis*(B.lit ? 1.5 : 1)*0.85; b = b.map(x => Math.min(x, v)); } if (B.city) b = [Math.min(b[0], 22), Math.min(b[1], 36), Math.min(b[2], 56)]; return b; }
+  // a city: machines and men go round the blocks: along the cross street to a lane, through it, then on to the point
+  function bRoute(u){
+    if (!B.city || u.state !== "move" || !u.wp) return; u.route = null; let [tx, tz] = u.wp; const inLane = x => B.lanes.some(l => Math.abs(x - l) < 4.5);
+    for (const r of B.rows) if (Math.abs(tz - r) < 7.5 && !inLane(tx)) tz = r + (u.z > r ? 7.8 : -7.8);
+    const band = B.rows.some(r => Math.abs(u.z - r) < 7.5); u.wp = [tx, tz]; if (!band && !B.rows.some(r => (u.z - r)*(tz - r) < 0)) return;
+    const m = band ? u.x : (u.x + tx)/2, sx = B.lanes.reduce((a, l) => Math.abs(l - m) < Math.abs(a - m) ? l : a, B.lanes[0]);
+    u.route = [[sx, tz], [tx, tz]]; u.wp = [sx, u.z]; }
   // the attacker closes in once the enemy is breaking or time is running out
   function bClose(u){ if (u.side !== B.atkSide) return false; const f = 1 - u.side, lim = B.type === "def" ? B.hold : B.limit || 300;
     return B.t > lim*0.62 || B.lost[f] > B.total[f]*0.45; }
@@ -784,7 +811,7 @@ export async function start(el, ctx){
     if (best){ me.forced = best; me.tT = 0; floats.push({u:best, text:"цель", t:0}); return; }
     ndc.set(mx/r.width*2 - 1, -(my/r.height)*2 + 1); ray.setFromCamera(ndc, camera); const hit = ray.intersectObject(G.mesh)[0]; if (!hit) return;
     const x = clamp(hit.point.x, -FIELD/2 + 8, FIELD/2 - 8), z = clamp(hit.point.z, -FIELD/2 + 8, FIELD/2 - 8);
-    if (me.spot && me.spot.by === me) me.spot.by = null; me.spot = null; me.order = {x, z}; me.wp = [x, z]; me.state = "move"; me.next = 999; me.forced = null;
+    if (me.spot && me.spot.by === me) me.spot.by = null; me.spot = null; me.order = {x, z}; me.wp = [x, z]; me.state = "move"; me.next = 999; me.forced = null; bRoute(me);
     B.mark = B.mark || (() => { const m = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.3, 28), new THREE.MeshBasicMaterial({color:0x7fb0ff, transparent:true, depthWrite:false})); m.rotation.x = -Math.PI/2; scene.add(m); return m; })();
     B.mark.material.color.setHex(0x7fb0ff); B.mark.scale.setScalar(1); B.mark.position.set(x, G.height(x, z) + 0.3, z); B.mark.material.opacity = 1; B.markT = 1.6; floats.push({u:me, text:"выдвигаюсь", t:0}); });
   cv.addEventListener("pointerup", e => { if (bTap){ bTap = false; return; } if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8 || performance.now() - downAt.t > 400) return;
@@ -1101,11 +1128,12 @@ export async function start(el, ctx){
       const back = B && !B.ended && !u.inf && u.next < 900 && d < 45 && Math.abs(angDiff(u.h, want)) > 2.1, turn = angDiff(u.h, back ? want + Math.PI : want); u.h += clamp(turn, -(u.inf ? 3 : 0.7)*dt, (u.inf ? 3 : 0.7)*dt);
       if (Math.abs(turn) < 0.5){ const v = Math.min(d, (u.inf ? (u.next > 900 ? 4 : 2.6) : u.next > 900 ? 9 : back ? 3 : 5)*dt)*(back ? -1 : 1); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
         if (!u.inf && Math.random() < dt*8) fxSmoke.emit({x:u.x - Math.cos(u.h)*3.5 + (Math.random() - 0.5)*2, y:G.height(u.x, u.z) + 0.3, z:u.z + Math.sin(u.h)*3.5 + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5), vy:0.6, vz:(Math.random() - 0.5), life:2 + Math.random(), s0:1.4, s1:5, c:ctx.terrain === "d" ? [0.72, 0.6, 0.42] : [0.52, 0.45, 0.34], a:0.35, drag:0.8, fadeIn:0.1}); }
-      if (d < 1.5){ u.state = "hold"; u.next = B ? (u.order ? 25 : u.side === B.atkSide ? (B.type === "brk" && u.side === 0 ? 3 + Math.random()*2 : 2 + Math.random()*2) : 10 + Math.random()*8) : 10 + Math.random()*16; if (B) u.order = null; }
+      if (d < 1.5 && u.route && u.route.length) u.wp = u.route.shift();
+      else if (d < 1.5){ u.state = "hold"; u.next = B ? (u.order ? 25 : u.side === B.atkSide ? (B.type === "brk" && u.side === 0 ? 3 + Math.random()*2 : 2 + Math.random()*2) : 10 + Math.random()*8) : 10 + Math.random()*16; if (B) u.order = null; }
     } else if (B && u.target && !B.ended){ const tw = Math.atan2(-(u.target.z - u.z), u.target.x - u.x), td = angDiff(u.h, tw); if (Math.abs(td) > 0.25) u.h += clamp(td, -0.4*dt, 0.4*dt); }
     if (u.state !== "move" && u.next < 0){
       // a short bound to a new firing position
-      if (B) bPlan(u); else { const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move"; }
+      if (B){ bPlan(u); bRoute(u); } else { const s = u.side ? -1 : 1; u.wp = [clamp(u.home[0] + (Math.random() - 0.5)*30, -FIELD/2 + 8, FIELD/2 - 8), u.home[1] + s*(Math.random() - 0.5)*14]; u.state = "move"; }
     }
     // target and turret
     if (B){ if (B.type === "amb" && !B.alert && !u.forced){ u.target = null; u.los = false; } else bTarget(u, dt); } else if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }

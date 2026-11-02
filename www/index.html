@@ -3506,6 +3506,10 @@ const CB_TYPES = {
   brk:{name:"Прорыв в тыл врага", text:"Довести часть группы до красной зоны в тылу врага за 3 минуты. Победа — позиция взята, враг в беспорядке.", hud:"Прорыв", win:"Прорыв удался! Позиция взята", lose:"Прорыв не удался", lim:180},
   amb:{name:"Засада на колонну", text:"Колонна врага идёт по дороге. Наши ждут в укрытиях и открывают огонь, когда голова колонны дойдёт до середины (или по твоей команде). Не дай прорваться 40% колонны.", hud:"Засада", win:"Колонна врага разгромлена! Победа!", lose:"Колонна врага прорвалась", lim:240}
 };
+// a battle in a city: an assault or defence on streets; often on an urban direction, sometimes on the last positions before the end of a front
+const CB_CITY = {atk:{name:"Штурм города", text:"Бой на улицах: дома стоят стеной, видно только вдоль улиц. Пехота и ПТРК в домах опасны для техники, береги танки. Победа — позиция взята."},
+  def:{name:"Оборона города", text:"Враг входит в город. Пехота в домах — наша главная сила. Удержим — его группа разбита."}};
+function cbCity(f, type){ if (type !== "atk" && type !== "def") return false; return Math.random() < (bfTerrain(f) === "u" ? 0.75 : Math.abs(f.p) >= 80 ? 0.3 : 0); }
 function cbPick(f){ const b = cbType(f), r = Math.random(); return b === "atk" ? (r < 0.2 ? "brk" : r < 0.4 ? "amb" : "atk") : (r < 0.25 ? "amb" : "def"); }
 const cbDefUs = t => t === "def" || t === "amb", cbDefThem = t => t === "atk" || t === "brk";
 // the strike group (pct of the direction's ground machines) and the enemy's answer, scaled to ours up to CB_EMAX
@@ -3602,7 +3606,7 @@ function cbOffer(st, w, i){
   const f = w.fronts[i]; if (!f || f.p >= 100) return;
   if (!cbReady(w)){ const d = w.bfCd - w.days; return setTimeout(() => { if (BF.open === st) bfMsg(st, `Командовать боем можно раз в ${CB_CD} дней войны: следующий бой через ${d} ${plural(d, "день", "дня", "дней")}. Сейчас — только наблюдение.`); }, 600); }
   const box = document.createElement("div"); box.className = "bf-cmd"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Командовать боем");
-  const type = st.cbt = cbPick(f), wx = st.wx = cbWeather(w, f, type), T = CB_TYPES[type];
+  const type = st.cbt = cbPick(f), wx = st.wx = cbWeather(w, f, type), city = st.city = cbCity(f, type), T = city ? CB_CITY[type] : CB_TYPES[type];
   box.innerHTML = `<div class="bf-cmd-card"><b>${T.name}</b>
     <small>${T.text} Карта стоит, пока идёт бой; после боя пройдёт столько дней, сколько минут он длился. Отступления нет. Следующий такой бой — через ${CB_CD} дней войны.</small>
     <div class="bf-cmd-wx">${esc(wxText(wx))}</div>
@@ -3626,7 +3630,7 @@ function cbOffer(st, w, i){
   box.addEventListener("click", e => { e.stopPropagation();
     if (e.target.closest("[data-cbwatch]")){ box.remove(); sfx("tap"); }
     if (e.target.closest("[data-cbgo]")){ const ww = S.wars.find(x => x.enemy === st.enemy); if (!ww || !cbReady(ww)) return box.remove();
-      ww.cb = cbPlan(ww, i, +R.value/100, st.cbt); ww.cb.wx = st.wx || {kind:"clear"}; ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd");
+      ww.cb = cbPlan(ww, i, +R.value/100, st.cbt); ww.cb.wx = st.wx || {kind:"clear"}; ww.cb.city = !!st.city; ww.bfCd = ww.days + CB_CD; st.cb = ww.cb; box.remove(); st.root.classList.add("cmd");
       if (bf3dOk() && !ui.bf2d){ ww.cb.real = true; bf3dRestart(st, ww, i); } cbHud(st); sfx("tap"); buzz(30); save(); } });
 }
 function cbHud(st){
@@ -3775,7 +3779,7 @@ function bf3dUnits(w, i){
 function bf3dTanksLost(t){ let n = 0; for (const id in t||{}) if (MODELS[id] && ["tank","ifv","apc"].includes(MODELS[id].kind)) n += t[id]; return n; }
 // a commanded battle on the 3D field: only the two strike groups, split into squads; the front width keeps the rest in reserve
 function bf3dBattle(st, w, i){
-  const cb = st.cb, f = w.fronts[i], slots = {high:8, mid:6, low:4}[gfxLevel()] || 6, W = CB_WIDTH[bfTerrain(f)] || 100;
+  const cb = st.cb, f = w.fronts[i], slots = {high:8, mid:6, low:4}[gfxLevel()] || 6, W = CB_WIDTH[cb.city ? "u" : bfTerrain(f)] || 100;
   const units = [], reserve = [], counts = [0, 0], total = [0, 0], stats = {};
   [[cb.g, 0], [cb.e, 1]].forEach(([grp, side]) => ["front", "arty"].forEach(role => {
     // in an ambush the enemy's artillery drives in the column with the rest
@@ -3830,7 +3834,7 @@ function bf3dOpen(st, w, i){
   const ctx = {sound:!!settings.sound, audio:settings.sound ? AC : null, terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:gfxLevel(), auto:(settings.gfx || "auto") === "auto", onQuality:lv => { settings.gfxAuto = lv; settingsSave(); },
     hitUs:0.22 + 0.4*edge, hitThem:0.22 + 0.4*(1 - edge), rofUs:7 - 2.5*edge, rofThem:4.5 + 2.5*edge, artyUs:arty(w.dep[i], 1), artyThem:arty(w.eu, 1),
     accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)])), kindOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.kind])), roleOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, BF3D_ROLE[m.kind] || "front"]))};
-  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; ctx.wx = st.cb.wx;
+  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; ctx.wx = st.cb.wx; if (st.cb.city){ ctx.city = true; ctx.terrain = "u"; }
     for (const id in CB_INF){ ctx.names[id] = CB_INF[id].name; ctx.modelOf[id] = id; ctx.kindOf[id] = CB_INF[id].kind; ctx.roleOf[id] = "front"; } }
   st.root.querySelector("#bf-cv").style.display = "none";
   const box = document.createElement("div"); box.className = "bf3d"; st.root.insertBefore(box, st.root.firstChild);
