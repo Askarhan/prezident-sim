@@ -2622,6 +2622,7 @@ function warDay(w){
   if (w.offerCd > 0) w.offerCd--;
 }
 function warMonth(w){
+  llMonth(w);
   initWar(w); const e = C()[w.enemy];
   w.months++;
   // the enemy reinforces and restocks
@@ -4092,6 +4093,36 @@ const OCC_POLICY = {
   iron:{name:"Жёсткий режим", hint:"быстро гасит восстания; мир возмущён, при демократии падает рейтинг"}
 };
 const GARRISON_LV = [[0.5,"Мало"],[1,"Норма"],[2,"Много"]];
+/* The world's answer to conquest, measured by S.infamy. Scaled to the player so a small country can still conquer the world:
+   lend-lease is a share of OUR machines at this war, a coalition is picked to fit under COAL_K × our power. */
+const LL_MIN = 30, COAL_MIN = 50, COAL_END = 35, COAL_CD = 18, COAL_K = 1.2, FLOOR_MAX = 15;
+function llRate(){ const i = S.infamy||0; return i < LL_MIN ? 0 : 0.01 + 0.05*(i - LL_MIN)/70; }
+function worldDonors(skip){ return Object.values(C()).filter(x => !x.owner && !x.ally && !x.puppet && x.id !== skip && x.rel < 30 && !S.wars.some(w => w.enemy === x.id)).sort((a, b) => aiPower(b) - aiPower(a)); }
+function llMonth(w){ const r = llRate(); if (!r || !w.dep) return;
+  let ours = 0; w.dep.forEach(d => { for (const id in d) if (depOk(id)) ours += d[id]; });
+  const ids = Object.keys(w.eu0).filter(id => depOk(id) && w.eu0[id] > 0), tot = ids.reduce((a, id) => a + w.eu0[id], 0), don = worldDonors(w.enemy).slice(0, 2);
+  if (!tot || !ours || !don.length) return; let n = 0;
+  ids.forEach(id => { const q = Math.round(ours*r*w.eu0[id]/tot); if (q > 0){ eroadSend(w, id, q, 25); n += q; } });
+  if (n && !w.llSaid){ w.llSaid = true; warEvent(w, `${don.map(x => x.name).join(" и ")} шлют врагу технику: мир боится нашей экспансии.`, "bad"); }
+  w.llGot = (w.llGot||0) + n; }
+function coalitionForm(){ const mine = myPower(), want = Math.min(5, 2 + Math.floor(Object.keys(S.occupied||{}).length/4)), cap = mine*COAL_K*(deterrence() ? 0.7 : 1), foes = []; let sum = 0;
+  for (const x of worldDonors().filter(x => x.rel < 10)){ if (foes.length >= want) break; const p = aiPower(x); if (sum + p <= cap && (canReach(x) || p > mine*0.3)){ foes.push(x); sum += p; } }
+  S.coalCd = S.turn + 3; if (!foes.length || sum < mine*0.35) return;
+  S.coalCd = S.turn + COAL_CD;
+  foes.forEach(x => { const w = startWar(x.id, false); w.coal = true; x.rel = -100; x.trade = false; });
+  addLog(`⚠ Коалиция против агрессора: ${foes.map(x => x.name).join(", ")} объявили вам войну.`);
+  advise("gen", `Коалиция! ${foes.map(x => x.name).join(", ")} одновременно объявили нам войну. Это ответ на нашу агрессию. Если умерить аппетиты (мир, возврат земель), коалиция распадётся.`, {tab:"hq", mood:"alert"}); sfx("alarm"); }
+// a coalition falls apart when the fear passes; small marks stay
+function coalitionEnd(){ if ((S.infamy||0) >= COAL_END || (BF.open && BF.open.cb)) return; const ws = S.wars.filter(w => w.coal); if (!ws.length) return;
+  ws.forEach(w => { const e = C()[w.enemy]; e.rel = Math.min(e.rel, -30); });
+  S.wars = S.wars.filter(w => !w.coal); S.infamyFloor = Math.min(FLOOR_MAX, (S.infamyFloor||0) + 3); S.mods.push({stat:"approval", v:-2, left:6});
+  addLog(`Коалиция распалась: ${ws.map(w => C()[w.enemy].name).join(", ")} вышли из войны. Отношения испорчены надолго.`); advise("dipl", "Коалиция распалась, но мир нам не доверяет: дурная слава уже не сойдёт полностью.", {mood:"alert"}); }
+// giving a country back: the cheapest way down from infamy, at a small price
+function occFree(iso){ const o = S.occupied && S.occupied[iso], e = C()[iso]; if (!o || o.referendum) return; const meC = me();
+  meC.gdp = Math.max(meC.gdp*0.5, meC.gdp - o.added); delete S.occupied[iso];
+  if (e){ e.owner = null; e.rel = -35; e.army = Math.max(e.army, 10); if (o.share >= 1) e.gdp = o.gdpFull/0.9*0.7; }
+  infamyAdd(-(8 + 8*o.share)); S.infamyFloor = Math.min(FLOOR_MAX, (S.infamyFloor||0) + 1); S.mods.push({stat:"approval", v:-3, left:6}); wearyAdd(-5);
+  flashMap(iso, "good"); addLog(`${partnerName(iso)}: независимость восстановлена. Мир это заметил, но дома многие недовольны.`); }
 function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1), 0, 100); }
 function garrisonNeed(o){ const e = C()[o.iso]; if (o.referendum) return 0; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2); }
 function garrisonOf(o){ return garrisonNeed(o)*(o.garrison || 1); }
@@ -4247,17 +4278,11 @@ function occupationTurn(){
     if (pp.loyal < 15){ delete S.puppets[iso]; e.puppet = false; e.ally = false; e.rel = -45; addLog(`${e.name} свергла марионеточное правительство и вышла из-под вашего влияния.`); advise("dipl", `${e.name} больше не наш сателлит: новое правительство враждебно.`, {mood:"alert"}); }
   });
   // infamy: decays, spoils relations, triggers sanctions and coalitions
-  S.infamy = Math.max(0, (S.infamy||0) - 0.6);
+  S.infamy = Math.max(S.infamyFloor||0, (S.infamy||0) - 0.6);
   if (S.infamy > 15) Object.values(C()).forEach(x => { if (!x.owner && !x.puppet && !x.ally) x.rel = clamp(x.rel - S.infamy*0.015, -100, 100); });
   if (S.infamy > 50 && !(me().worldSanctions > 0) && Math.random() < (ideo("auth") ? 0.06 : 0.04)){ me().worldSanctions = 24; addLog("Совет наций ввёл санкции против вас за агрессию."); advise("dipl", "Совет наций ввёл против нас санкции на 2 года из-за репутации агрессора.", {mood:"alert", tab:"diplomacy"}); }
-  if (S.infamy > 55 && Math.random() < 0.025*(S.infamy - 50)/10*(deterrence() ? 0.3 : 1)){
-    const foes = Object.values(C()).filter(x => !x.owner && !x.ally && !x.puppet && canReach(x) && x.rel < 0 && !S.wars.some(w => w.enemy === x.id)).sort((a,b) => aiPower(b) - aiPower(a)).slice(0, 3);
-    if (foes.length >= 2 && foes.reduce((a,x) => a + aiPower(x), 0) > myPower()*0.6){
-      foes.forEach(x => { startWar(x.id, false); x.rel = -100; x.trade = false; });
-      addLog(`⚠ Коалиция против агрессора: ${foes.map(x => x.name).join(", ")} объявили вам войну.`);
-      advise("gen", `Коалиция! ${foes.map(x => x.name).join(", ")} одновременно объявили нам войну. Это ответ на нашу агрессию.`, {tab:"hq", mood:"alert"}); sfx("alarm");
-    }
-  }
+  if ((S.infamy||0) > COAL_MIN && S.turn >= (S.coalCd||0) && Math.random() < 0.05 + 0.01*(S.infamy - COAL_MIN)) coalitionForm();
+  coalitionEnd();
 }
 function occCard(o){
   if (o.referendum) return `<div class="occ"><div class="row"><b>${flag(o.iso)} ${esc(partnerName(o.iso))}</b><span class="pill good">в составе страны</span></div><small class="muted">Жители проголосовали за вхождение. Гарнизон не нужен, доход ${money(o.added/12)}/мес. Если страна проиграет войну или стабильность упадёт ниже 25, могут подняться сепаратисты.</small></div>`;
@@ -4266,6 +4291,7 @@ function occCard(o){
     <div class="row"><small>Сопротивление</small><small class="num">${o.unrest ? `<span class="down">восстание через ${3 - o.unrest} мес.!</span>` : ""}</small></div><div class="bar ${o.res > 70 ? "low" : o.res > 40 ? "mid" : "high"}"><i style="width:${o.res}%"></i></div>
     <div class="row"><small>Интеграция</small><small class="num">${Math.round(o.integ*100)}% · доход ${money(o.added/12)}/мес из ${money(o.gdpFull/12)}</small></div><div class="bar high"><i style="width:${o.integ*100}%"></i></div>
     <div class="row"><small>Разрушения</small><small class="num">${Math.round(o.damage*100)}%</small></div>
+    <button class="btn sm" data-occfree="${o.iso}">Вернуть независимость</button><small class="muted"> репутация лучше, рейтинг −3</small>
     <div class="row"><span>Гарнизон <small class="muted">${troops(garrisonOf(o))} из армии</small></span><span class="seg">${GARRISON_LV.map(([v,l]) => `<button data-garrison="${o.iso}:${v}" aria-pressed="${(o.garrison||1)===v}">${l}</button>`).join("")}</span></div>
     <div class="modes">${Object.entries(OCC_POLICY).map(([id,pp]) => `<button class="choice ${o.policy===id?"on":""}" data-occpol="${o.iso}:${id}"><b>${pp.name}</b><small>${pp.hint}${id==="rebuild" ? ` · ${money(rebuildCost(o))}/мес` : ""}</small></button>`).join("")}</div>
   </div>`;
@@ -4275,7 +4301,7 @@ function viewOccupation(){
   const inf = S.infamy || 0;
   return `<div class="panel"><div class="row"><h3>Репутация агрессора</h3><span class="num ${inf > 50 ? "down" : inf > 25 ? "warn" : "up"}">${Math.round(inf)} / 100</span></div>
       <div class="bar ${inf > 50 ? "low" : inf > 25 ? "mid" : "high"}"><i style="width:${inf}%"></i></div>
-      <div class="label">${inf > 55 ? "Опасно: соседи могут собрать коалицию, Совет наций вводит санкции." : inf > 25 ? "Мир настороже: отношения со всеми медленно портятся." : "Вас считают предсказуемым партнёром."} Снижается со временем и после великодушного мира.</div></div>
+      <div class="label">${inf > COAL_MIN ? "Опасно: державы собирают коалицию, идут санкции, врагам шлют технику. Мир и возврат земель успокаивают мир." : inf >= LL_MIN ? "Державы шлют технику вашим врагам. Выше 50 жди коалицию." : inf > 25 ? "Мир настороже: отношения со всеми медленно портятся." : "Вас считают предсказуемым партнёром."} Снижается со временем и после великодушного мира.</div></div>
     ${occ.length ? `<div class="panel"><h3>Оккупированные территории</h3>${occ.map(occCard).join("")}<div class="label">Гарнизоны всего: ${troops(garrisonTotal())} — эти войска не воюют на фронтах.</div></div>` : ""}
     ${pup.length ? `<div class="panel"><h3>Сателлиты</h3>${pup.map(([iso,pp]) => `<div class="row"><span>${flag(iso)} <b>${esc(partnerName(iso))}</b><br><small class="muted">дань ${money(C()[iso].gdp*0.1/12)}/мес</small></span><span class="num ${pp.loyal < 35 ? "down" : "up"}">лояльность ${Math.round(pp.loyal)}%</span></div>`).join("")}<div class="label">Лояльность держится, пока вы сильнее сателлита минимум в полтора раза.</div></div>` : ""}`;
 }
@@ -8428,6 +8454,7 @@ document.addEventListener("click", e => {
   if (t.dataset.peace){ tryPeace(t.dataset.iso, t.dataset.peace); return; }
   if (t.hasAttribute("data-closepeace")){ S.wars.forEach(w => { if (w.offer){ w.offer = false; warEvent(w, "Мы отвергли мирное предложение. Война продолжается.", ""); } }); closeModal(); resumeAfter("peace"); return; }
   if (t.dataset.garrison){ const [iso, v] = t.dataset.garrison.split(":"); S.occupied[iso].garrison = +v; save(); render(); return; }
+  if (t.dataset.occfree){ occFree(t.dataset.occfree); save(); render(); return; }
   if (t.dataset.occpol){ const [iso, v] = t.dataset.occpol.split(":"); S.occupied[iso].policy = v; addLog(`${partnerName(iso)}: ${OCC_POLICY[v].name.toLowerCase()}.`); save(); render(); return; }
   if (t.dataset.hqwar){ ui.hqWar = t.dataset.hqwar; render(); return; }
   if (t.dataset.hqmore){ ui.hqMore = !ui.hqMore; render(); return; }
