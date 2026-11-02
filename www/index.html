@@ -3492,6 +3492,11 @@ function closeBattle(silent){ if (!BF.open) return; const st = BF.open; if (st.c
 const CB_CD = 15, CB_MAX = 0.33, CB_EMAX = 0.4, CB_RATIO = 3, CB_LIMIT = 300, CB_HOLD = 180, CB_DEFK = 1.25;
 // how many machines can fight at once on a direction (front width by terrain); the rest of a strike group waits in reserve
 const CB_WIDTH = {p:120, d:140, f:80, u:60, m:50};
+// infantry in a commanded battle: counted in squads of CB_SQ men out of w.men (thousands), at most one squad per machine, every fifth an ATGM team
+const CB_SQ = 10, CB_INFK = 1, CB_INF = {_inf:{name:"Пехота", ga:1.5, df:1.2, kind:"inf"}, _atgm:{name:"ПТРК", ga:5, df:1, kind:"atgm"}};
+const cbInfSplit = n => { n = Math.floor(n); if (n <= 0) return {}; const a = Math.round(n*0.2); return a ? {_inf:n - a, _atgm:a} : {_inf:n}; };
+const cbInfPower = u => Object.entries(u||{}).reduce((a, [id, n]) => a + (CB_INF[id].ga + CB_INF[id].df*0.6)*n, 0);
+const cbInfText = u => Object.entries(u||{}).map(([id, n]) => `${CB_INF[id].name} ×${n}`).join(", ");
 function cbReady(w){ return (w.bfCd || 0) <= (w.days || 0); }
 function cbType(f){ return (f.lastD || 0) >= 0 ? "atk" : "def"; }
 // battle types: assault, defence, breakthrough to a point in the enemy rear, ambush on an enemy column; picked when the battle is offered
@@ -3512,8 +3517,12 @@ function cbGroups(w, i, pct, tp){
   let ek = es; if (pool && mine > pool*es*1.3) ek = Math.min(cbDefThem(type) ? 1 : 0.6, Math.max(es, mine/(1.3*pool)));
   const ne = pool*ek, cap = pool && mine > ne*CB_RATIO ? Math.max(ne*CB_RATIO, 12)/mine : 1;
   const g = pick(w.dep[i], pct*Math.min(1, cap)), eo = ne > mine*CB_RATIO ? Math.max(mine*CB_RATIO, 12)/ne : 1, e = pick(w.eu, fs*ek*Math.min(1, eo));   // the enemy does not bring more than 3x ours either
-  const myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(type) ? DEF_K : 1), enP = depPower(e)*(cbDefThem(type) ? DEF_K : 1);
-  return {g, e, type, myP, enP, capped:cap < 1};
+  // infantry follows the same share: a breakthrough is a raid of machines only, an ambushed column has its men still mounted
+  const sq = men => men*1000/CB_SQ, E = C()[w.enemy] || {army:0};
+  const ig = type === "brk" ? {} : cbInfSplit(Math.min(sq((w.men||0)*pct*Math.min(1, cap)), cbCount(g)*CB_INFK));
+  const ie = type === "amb" ? {} : cbInfSplit(Math.min(sq(E.army*Math.min(1, w.emen ?? 1)*fs*ek*Math.min(1, eo)), cbCount(e)*CB_INFK));
+  const myP = (depPower(g) + cbInfPower(ig))*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(type) ? DEF_K : 1), enP = (depPower(e) + cbInfPower(ie))*(cbDefThem(type) ? DEF_K : 1);
+  return {g, e, ig, ie, type, myP, enP, capped:cap < 1};
 }
 const cbEdge = (a, b) => { const X = Math.pow(a, WAR_EXP), Y = Math.pow(b, WAR_EXP); return X + Y > 0 ? X/(X + Y) : 0.5; };
 const cbCount = u => Object.values(u||{}).reduce((a, n) => a + n, 0);
@@ -3522,11 +3531,14 @@ function cbPlan(w, i, pct, tp){
   const G = cbGroups(w, i, pct, tp), r = cbEdge(G.myP*rnd(0.88, 1.12), G.enP*rnd(0.88, 1.12)), win = r > 0.5, m = Math.abs(2*r - 1);
   const lose = 0.5 + 0.4*m, keep = clamp(0.4*(1 - m) + 0.05, 0.05, 0.45);
   const loss = (u, k) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, Math.min(n, Math.round(n*k*rnd(0.8, 1.2)))]));
-  return {i, type:G.type, g:G.g, e:G.e, L:loss(G.g, win ? keep : lose), LE:loss(G.e, win ? lose : keep), win, dur:Math.round(60*(1 + 4*(1 - m))), t:0, a:{}, ae:{}, pct};
+  return {i, type:G.type, g:G.g, e:G.e, ig:G.ig, ie:G.ie, L:loss(G.g, win ? keep : lose), LE:loss(G.e, win ? lose : keep), LI:loss(G.ig, win ? keep : lose), LIE:loss(G.ie, win ? lose : keep), ai:{}, aie:{}, win, dur:Math.round(60*(1 + 4*(1 - m))), t:0, a:{}, ae:{}, pct};
 }
 // losses up to share `k` of the plan: ours through depTake (they are this direction's machines), the enemy's from its war stock
 function cbLoss(w, side, id, n){
   const cb = w.cb; if (!cb || !(n > 0)) return;
+  if (id[0] === "_"){ const a = side ? (cb.aie = cb.aie || {}) : (cb.ai = cb.ai || {}), k = n*CB_SQ/1000; a[id] = (a[id] || 0) + n;   // squads lost are real men off the war's troops
+    if (!side){ me().army = Math.max(1, me().army - k); w.men = Math.max(0, (w.men||0) - k); w.troopsLost = (w.troopsLost||0) + k; wearyAdd(k/Math.max(1, me().army)*260); }
+    else { const e = C()[w.enemy]; if (e) e.army = Math.max(0.5, e.army - k); } return; }
   if (!side){ const l = depTake(w, id, n, cb.i); cb.a[id] = (cb.a[id] || 0) + n; if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; w.mLossMy[id] = (w.mLossMy[id]||0) + l; } }
   else { const l = Math.min(n, Math.floor(w.eu[id] || 0)); cb.ae[id] = (cb.ae[id] || 0) + n; if (l > 0){ w.eu[id] -= l; w.lossTh[id] = (w.lossTh[id]||0) + l; w.mLossTh[id] = (w.mLossTh[id]||0) + l; } }
 }
@@ -3534,15 +3546,18 @@ function cbApply(w, k){
   const cb = w.cb; if (!cb) return;
   for (const id in cb.L) cbLoss(w, 0, id, Math.floor(cb.L[id]*k) - (cb.a[id] || 0));
   for (const id in cb.LE) cbLoss(w, 1, id, Math.floor(cb.LE[id]*k) - (cb.ae[id] || 0));
+  for (const id in cb.LI) cbLoss(w, 0, id, Math.floor(cb.LI[id]*k) - ((cb.ai||{})[id] || 0));
+  for (const id in cb.LIE) cbLoss(w, 1, id, Math.floor(cb.LIE[id]*k) - ((cb.aie||{})[id] || 0));
 }
 // a real battle left early (or the game closed during it): the rest is resolved from what is still alive on both sides
 function cbRest(w){
   const cb = w.cb, f = w.fronts[cb.i] || {}, rem = (u, a) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, Math.max(0, n - (a[id] || 0))]));
-  const g = rem(cb.g, cb.a), e = rem(cb.e, cb.ae), myP = depPower(g)*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(cb.type) ? DEF_K : 1), enP = depPower(e)*(cbDefThem(cb.type) ? DEF_K : 1);
+  const ai = cb.ai || {}, aie = cb.aie || {}, ig = rem(cb.ig || {}, ai), ie = rem(cb.ie || {}, aie);
+  const g = rem(cb.g, cb.a), e = rem(cb.e, cb.ae), myP = (depPower(g) + cbInfPower(ig))*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(cb.type) ? DEF_K : 1), enP = (depPower(e) + cbInfPower(ie))*(cbDefThem(cb.type) ? DEF_K : 1);
   const r = cbEdge(myP*rnd(0.9, 1.1), enP*rnd(0.9, 1.1)), m = Math.abs(2*r - 1), win = r > 0.5;
   if (cb.type === "def" && cb.t >= CB_HOLD - 20 && cbCount(g) > 0) cb.win = true; else cb.win = win;
   const lose = 0.5 + 0.4*m, keep = clamp(0.4*(1 - m) + 0.05, 0.05, 0.45), part = (u, a, k) => Object.fromEntries(Object.entries(u).map(([id, n]) => [id, (a[id] || 0) + Math.round(n*k)]));
-  cb.L = part(g, cb.a, cb.win ? keep : lose); cb.LE = part(e, cb.ae, cb.win ? lose : keep); cb.dur = cb.t + 60*(1 + 2*(1 - m));
+  cb.L = part(g, cb.a, cb.win ? keep : lose); cb.LE = part(e, cb.ae, cb.win ? lose : keep); cb.LI = part(ig, ai, cb.win ? keep : lose); cb.LIE = part(ie, aie, cb.win ? lose : keep); cb.dur = cb.t + 60*(1 + 2*(1 - m));
 }
 // the field's verdict on the line: an assault won takes the position, a defence lost gives ours up
 function cbOutcome(w){
@@ -3600,8 +3615,9 @@ function cbOffer(st, w, i){
   const R = box.querySelector("[data-cbr]");
   const upd = () => { const p = +R.value/100, G = cbGroups(w, i, p, type), r = cbEdge(G.myP, G.enP);
     box.querySelector("[data-cbpct]").textContent = R.value + "%";
-    box.querySelector("[data-cbus]").textContent = `${cbCount(G.g)} маш.: ${cbList(G.g)}`;
-    box.querySelector("[data-cbthem]").textContent = `${cbCount(G.e)} маш.: ${cbList(G.e)}`;
+    const inf = u => cbCount(u) ? ` · ${cbInfText(u)}` : "";
+    box.querySelector("[data-cbus]").textContent = `${cbCount(G.g)} маш.: ${cbList(G.g)}${inf(G.ig)}`;
+    box.querySelector("[data-cbthem]").textContent = `${cbCount(G.e)} маш.: ${cbList(G.e)}${inf(G.ie)}`;
     const e = box.querySelector("[data-cbedge]"); e.textContent = r > 0.65 ? "Явный перевес на нашей стороне" : r > 0.53 ? "Небольшой перевес у нас" : r >= 0.47 ? "Силы равны" : r >= 0.35 ? "Противник сильнее" : "Противник намного сильнее";
     if (G.capped) e.textContent += ". Больше брать нет смысла: враг выставил всё, что может, остальные держат фронт";
     e.className = "bf-cmd-edge " + (r > 0.53 ? "good" : r >= 0.47 ? "" : "bad");
@@ -3619,11 +3635,11 @@ function cbHud(st){
     el.addEventListener("click", e => { if (e.target.closest("[data-cbend]")){ e.stopPropagation(); if (st.cb && !st.cb.end) cbEnd(st, true, true); } }); }
   if (cb.end){ cbSkBar(st); return el.remove(); }
   cbSkBar(st, el);
-  const mm = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2, "0")}`, left = (u, a) => cbCount(u) - cbCount(a);
+  const mm = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2, "0")}`, all = (u, v) => cbCount(u) + cbCount(v), left = (u, a, v, b) => all(u, v) - all(a, b);
   const bt = cb.real && st.api && st.api.battle ? st.api.battle() : null, t = bt ? bt.t : cb.t, lim = cb.real ? CB_TYPES[cb.type].lim : cb.dur;
   const head = cb.real ? (cb.type === "def" ? `Оборона: держаться ${mm(Math.max(0, lim - t))}` : cb.type === "brk" ? `Прорыв: ${bt && bt.inZone != null ? `в зоне ×${bt.inZone} из ×${bt.need}` : ""} · ${mm(Math.max(0, lim - t))}` : `${CB_TYPES[cb.type].hud} · ${mm(t)} из ${mm(lim)}`) : `${CB_TYPES[cb.type].name} · ${mm(t)} / ${mm(lim)}`;
   const html = `<b>${head}</b><div class="bar"><i style="width:${Math.round(clamp(t/lim, 0, 1)*100)}%"></i></div>
-    <span class="us">Мы ×${cbCount(cb.g)} → ×${left(cb.g, cb.a)}</span><span class="them">Враг ×${cbCount(cb.e)} → ×${left(cb.e, cb.ae)}</span><button data-cbend>Досчитать бой</button>`;
+    <span class="us">Мы ×${all(cb.g, cb.ig)} → ×${left(cb.g, cb.a, cb.ig, cb.ai)}</span><span class="them">Враг ×${all(cb.e, cb.ie)} → ×${left(cb.e, cb.ae, cb.ie, cb.aie)}</span><button data-cbend>Досчитать бой</button>`;
   if (el.innerHTML !== html) el.innerHTML = html;
 }
 function cbTick(st){
@@ -3716,7 +3732,7 @@ function cbEnd(st, early, stay){
   try { for (let k = 0; k < days; k++){ if (S.over || S.pendingEvent || S.pendingVictory) break; S.day = (S.day||1) + 1; dayTick(); if (S.day > daysIn(S.month, S.year)){ nextMonth(); break; } } } catch(e){ console.error(e); }
   delete w.bfLock; dirty = true; save();
   const title = CB_TYPES[cb.type][cb.win ? "win" : "lose"];
-  const sub = `Потери: наши ${cbCount(cb.a)} из ${cbCount(cb.g)}, враг ${cbCount(cb.ae)} из ${cbCount(cb.e)}. Прошло ${days} ${plural(days, "день", "дня", "дней")}.`;
+  const sub = `Потери: наши ${cbCount(cb.a)} из ${cbCount(cb.g)}, враг ${cbCount(cb.ae)} из ${cbCount(cb.e)}${cbCount(cb.ig) || cbCount(cb.ie) ? `; пехота: наши ${cbCount(cb.ai)} из ${cbCount(cb.ig)}, враг ${cbCount(cb.aie)} из ${cbCount(cb.ie)}` : ""}. Прошло ${days} ${plural(days, "день", "дня", "дней")}.`;
   cbHud(st); st.root.classList.remove("cmd");
   if (early && !stay) return toast(`${title} ${sub}`);
   const ban = document.createElement("div"); ban.className = "bf-banner " + (cb.win ? "good" : "bad"); ban.innerHTML = `<div><b>${title}</b><small>${esc(sub)}</small></div>`;
