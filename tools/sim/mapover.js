@@ -16,13 +16,17 @@ const open = async (b, init) => {
   const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader','--ignore-gpu-blocklist']}), out = {};
   const {p, errs} = await open(b);
   await p.evaluate(() => { C().fr.trade = true; S.rails.de = {done:1}; const L = LABELS.kz; ui.map = {k:2.6, x:300 - L.x*2.6, y:170 - L.y*2.6}; startWar('kz', true);
-    const w = S.wars[0]; w.fronts.forEach((f, i) => { f.p = i ? -18 : 35; }); w.track = [w.fronts.map(() => 5)]; for (let i = 0; i < 40; i++) S.shipments.push({id:'t' + i, from:['fr','cn','de','tr'][i%4], to:'ru', r:['oil','steel','wood','rare'][i%4], qty:1, left:20 - i/3, total:30, dir:i%3 ? 'in' : 'out', cat:i%5 ? undefined : 'ammo', air:i%7 === 0}); ui.mapHtml = null; ui.tab = 'map'; render(); });
+    const w = S.wars[0]; w.fronts.forEach((f, i) => { f.p = [38, 14, 62][i] ?? 20; }); w.track = [w.fronts.map(() => 5)]; for (let i = 0; i < 4; i++) S.shipments.push({id:'t' + i, from:['fr','cn','de','tr'][i%4], to:'ru', r:['oil','steel','wood','rare'][i%4], qty:1, left:20 - i/3, total:30, dir:i%3 ? 'in' : 'out', cat:i%5 ? undefined : 'ammo', air:i%7 === 0}); ui.mapHtml = null; ui.tab = 'map'; render(); });
   await p.waitForTimeout(1800);
-  await p.evaluate(() => { const q = qbez(fxGeom(LABELS.tr, LABELS.ru), .5); ui.map = {k:3, x:450 - q.x*3, y:170 - q.y*3}; mapApply(); }); await p.waitForTimeout(700);
+  await p.evaluate(() => { const L = LABELS.kz; ui.map = {k:3.4, x:440 - L.x*3.4, y:165 - L.y*3.4}; mapApply(); }); await p.waitForTimeout(700);
   out.gl = await p.evaluate(() => { const m = {}; MA.marks.forEach(q => { m[q.kind] = (m[q.kind] || 0) + 1; }); return {marks:m, routes:MA.routes.map(r => r.speed.toFixed(1) + (r.dash ? 'd' : '')), anim:MG.anim, occ:Object.keys(MG.occ), sprites:MA.map.size, cargo:MA.cargo.length, icons:[...MA.map.keys()].filter(k => k[0] === 'i').length, moveMs:(() => { const t = performance.now(); for (let i = 0; i < 100; i++) moveCargo(); return +(performance.now() - t).toFixed(2); })(), flags:[...MA.map.keys()].filter(k => k[0] === 'f').length, atlasY:MA.y, q:MA.n/30, err:MG.gl.getError()}; });
   await p.screenshot({path:D + '/war.png'});
   const hit = await p.evaluate(() => { const el = document.querySelector('#map-fx .fx-hit'); if (!el) return null; const r = el.getBoundingClientRect(), x = r.left + r.width/2, y = r.top + r.height/2, t = document.elementFromPoint(x, y); return {x, y, on:!!(t && t.closest('[data-battle]'))}; });
   out.hit = hit && hit.on; if (hit && hit.on){ await p.mouse.click(hit.x, hit.y); await p.waitForTimeout(600); out.opened = await p.evaluate(() => !!(window.BF && BF.open) || !!document.querySelector('.bf-root,.bf-offer,.bf')); }
+  out.spread = await p.evaluate(() => [['ru','kz'],['us','mx'],['de','fr'],['cn','ru']].map(([a, b]) => { const r = frontRoutes(a, b, 3); return a + '>' + b + ': ' + (r ? r.map(x => x.places.join('/')).join(' | ') : '-'); }));
+  out.ms = await p.evaluate(() => { const w = S.wars[0], t0 = performance.now(); ui.occF = {}; const F = occField('ru', 'kz', frontLL(w, false)), t1 = performance.now(); for (let i = 0; i < 20; i++) occVal(F, [30 + i, 20, 60]); return [+(t1 - t0).toFixed(1), +((performance.now() - t1)/20).toFixed(2), F.gw + 'x' + F.gh]; });
+  await p.evaluate(() => { const w = S.wars[0]; S.occupied = S.occupied || {}; S.occupied.fr = {iso:'fr', share:.3, lls:null}; drawOcc(false); }); await p.waitForTimeout(300);
+  out.held = await p.evaluate(() => [Object.keys(MG.occ).join(), MG.gl.getError()]);
   out.errs = errs.slice(0, 4);
   const s2 = await open(b, () => { const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function(t, o){ return /webgl/.test(t) ? null : g.call(this, t, o); }; });
   out.fallback = await s2.p.evaluate(() => ({ok:MG.ok, vis:[...document.querySelectorAll('#map-labels text')].filter(t => t.style.display !== 'none').length, flags:document.querySelectorAll('#map-labels image').length}));

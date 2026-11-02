@@ -1997,16 +1997,21 @@ function frontRoutes(att, tgt, n){
   if (!aPts.length) return null;
   const A = aPts.reduce((b, p) => llDist(p, capLL) < llDist(b, capLL) ? p : b, aPts[0]);
   const capP = pool.find(p => p.name === cap[0]) || {name:cap[0], ll:capLL, dir:0, t:fr[0][1], dname:fr[0][0]};
-  const keys = [capP, ...pool.filter(p => p.key && p !== capP).sort((a, b) => llDist(A, a.ll) - llDist(A, b.ll))];
-  pool.filter(p => !p.key).sort((a, b) => llDist(A, b.ll) - llDist(A, a.ll)).forEach(p => keys.push(p));
+  // the directions spread over the country: each next target stands as far as possible from those already taken, not right on the border
+  const nearA = ll => aPts.reduce((b, p) => llDist(p, ll) < llDist(b, ll) ? p : b, aPts[0]), far = 0.35*llDist(A, capLL), keys = [capP];
+  const rest = pool.filter(p => p !== capP && p.name !== cap[0] && p.ll), deep = rest.filter(p => llDist(nearA(p.ll), p.ll) >= far), cand = deep.length >= n - 1 ? deep : rest;
+  while (keys.length < n && keys.length <= cand.length){ let best = null, bs = -1;
+    cand.forEach(p => { if (keys.includes(p)) return; const sc = Math.min(...keys.map(q => llDist(q.ll, p.ll)))*(p.key ? 1.25 : 1); if (sc > bs){ bs = sc; best = p; } });
+    if (!best) break; keys.push(best); }
   const used = new Set(), out = [], names = new Set();
   keys.slice(0, n).forEach(K => used.add(K.name));
   keys.slice(0, n).forEach((K, i) => {
     // the first line lies in the first half of the way, the second one further on; both close to the straight way
-    const dk = llDist(A, K.ll), detour = p => llDist(A, p.ll) + llDist(p.ll, K.ll) - dk;
-    const pick = (lo, hi, after) => { const c = pool.filter(p => !used.has(p.name) && !p.key && llDist(A, p.ll) > Math.max(lo*dk, after) && llDist(A, p.ll) <= hi*dk && detour(p) < 0.45*dk).sort((a, b) => detour(a) - detour(b))[0];
+    const Ai = nearA(K.ll), dk = llDist(Ai, K.ll), detour = p => llDist(Ai, p.ll) + llDist(p.ll, K.ll) - dk;
+    const pick = (lo, hi, after, lim) => { const c = pool.filter(p => !used.has(p.name) && !(p.key && lim < 0.9) && llDist(Ai, p.ll) > Math.max(lo*dk, after) && llDist(Ai, p.ll) <= hi*dk && detour(p) < lim*dk).sort((a, b) => detour(a) - detour(b))[0];
       if (c) used.add(c.name); return c; };
-    const p1 = pick(0, 0.5, 0), p2 = pick(0.3, 0.92, p1 ? llDist(A, p1.ll) : 0);
+    // a few places in a country: a looser second look, so the lines keep real names
+    const p1 = pick(0, 0.5, 0, 0.45) || pick(0, 0.65, 0, 0.9), after = p1 ? llDist(Ai, p1.ll) : 0, p2 = pick(0.3, 0.92, after, 0.45) || pick(0.2, 0.95, after, 0.9);
     // a missing line gets a generic name; the map puts it on the way from the border (coordinates unknown here)
     const mid = [p1 ? {name:p1.name, ll:p1.ll} : {name:"Приграничный район", ll:null}, p2 ? {name:p2.name, ll:p2.ll} : {name:"Дальние подступы", ll:null}];
     let nm = K.dname; if (names.has(nm)) nm = i === 0 ? "Столичное" : ["Северное","Южное","Западное","Восточное","Центральное"].find(x => !names.has(x)) || nm; names.add(nm);
@@ -2782,16 +2787,6 @@ function capPoint(iso){ const c = CAPITALS[iso]; const q = c && proj(c[1], c[2])
 function countryPath(iso){ return document.querySelector(`#worldmap path[data-iso="${iso}"]`); }
 function inCountry(path, x, y){ try { return path.isPointInFill(new DOMPoint(x, y)); } catch(e){ return true; } }
 // distance from a point to a polyline with its route value (0 at the border … 100 at the key city)
-function routeAt(R, x, y){
-  let best = {d:Infinity, t:0, ang:0};
-  for (let s = 0; s < R.pts.length - 1; s++){
-    const a = R.pts[s], b = R.pts[s + 1], dx = b.x - a.x, dy = b.y - a.y, L2 = dx*dx + dy*dy || 1e-9;
-    let k = ((x - a.x)*dx + (y - a.y)*dy)/L2; const raw = k; k = clamp(k, 0, 1);
-    const px = a.x + dx*k, py = a.y + dy*k, d = Math.hypot(x - px, y - py);
-    if (d < best.d){ best = {d, t: R.ts[s] + (R.ts[s + 1] - R.ts[s])*k, ang: Math.atan2(dy, dx), raw}; }
-  }
-  return best;
-}
 function routePoint(R, t){
   for (let s = 0; s < R.pts.length - 1; s++){ if (t <= R.ts[s + 1] || s === R.pts.length - 2){ const a = R.pts[s], b = R.pts[s + 1], k = clamp((t - R.ts[s])/((R.ts[s + 1] - R.ts[s]) || 1), 0, 1); return {x:a.x + (b.x - a.x)*k, y:a.y + (b.y - a.y)*k, ang:Math.atan2(b.y - a.y, b.x - a.x)}; } }
   return R.pts[R.pts.length - 1];
@@ -2802,101 +2797,72 @@ function frontLL(w, mine){
   return w.fronts.map(f => { const own = mine ? f.myLL : f.ll; if (own) return own; const names = mine ? f.myPlaces : f.places;
     const L = names.map(nm => { const p = pool.find(q => q.name === nm); return p ? p.ll : null; }); return L; });
 }
-// field of an attack from `att` into `tgt`: a grid over the country, each inside cell owned by the nearest route, with its route value
+// field of an attack from `att` into `tgt`: every direction is a route from its own entry on the border through its places.
+// The land taken grows as a wedge along the taken part of each route, so a quiet part of the country stays clean.
+// The grid is coarse and needs no test against the border: the country's real shape cuts the picture when it is drawn.
 function occField(att, tgt, lls){
   lls = lls || [null]; const n = lls.length;
   const key = att + ">" + tgt + ":" + lls.map(x => x ? x.map(p => p ? p.join(",") : "-").join(";") : "-").join("|"); ui.occF = ui.occF || {};
   if (ui.occF[key]) return ui.occF[key];
-  const B = LABELS && LABELS[tgt], path = countryPath(tgt), from = capPoint(att); if (!B || !path || !from) return null;
+  const B = LABELS && LABELS[tgt], path = countryPath(tgt), cen0 = capPoint(att); if (!B || !path || !cen0) return null;
   const pad = 0.04, x0 = B.x - B.w*(0.5 + pad), y0 = B.y - B.h*(0.5 + pad), W0 = B.w*(1 + 2*pad), H0 = B.h*(1 + 2*pad);
-  const N = 120, cs = Math.max(W0, H0)/N, gw = Math.max(8, Math.ceil(W0/cs)), gh = Math.max(8, Math.ceil(H0/cs));
-  const inside = new Uint8Array(gw*gh);
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) inside[j*gw + i] = inCountry(path, x0 + (i + 0.5)*cs, y0 + (j + 0.5)*cs) ? 1 : 0;
-  const cell = (i, j) => ({x: x0 + (i + 0.5)*cs, y: y0 + (j + 0.5)*cs});
-  // border cells facing the attacker
-  const cen = {x:B.x, y:B.y}, fx = from.x - cen.x, fy = from.y - cen.y, border = [];
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){
-    if (!inside[j*gw + i]) continue;
-    const edge = i === 0 || j === 0 || i === gw - 1 || j === gh - 1 || !inside[j*gw + i - 1] || !inside[j*gw + i + 1] || !inside[(j - 1)*gw + i] || !inside[(j + 1)*gw + i];
-    if (edge){ const c = cell(i, j); border.push({...c, face: (c.x - cen.x)*fx + (c.y - cen.y)*fy}); }
-  }
-  // where the attacker can come from: the shared land border, otherwise the side facing it
-  const D8 = [[1,0],[-1,0],[0,1],[0,-1],[0.7,0.7],[-0.7,0.7],[0.7,-0.7],[-0.7,-0.7]];
-  const attPs = (att === S.player ? landIsos() : [att]).map(countryPath).filter(Boolean);
-  const land = border.filter(b => D8.some(([a, c]) => [1.5, 3].some(r => attPs.some(P => inCountry(P, b.x + a*cs*r, b.y + c*cs*r)))));
-  const facing = border.filter(b => b.face > 0), pool = land.length ? land : facing.length ? facing : border;
+  const N = 64, cs = Math.max(W0, H0)/N, gw = Math.max(8, Math.ceil(W0/cs)), gh = Math.max(8, Math.ceil(H0/cs));
+  const cell = (i, j) => ({x: x0 + (i + 0.5)*cs, y: y0 + (j + 0.5)*cs}), cen = {x:B.x, y:B.y};
+  // every direction starts from the attacker's place nearest to it, and enters where that way crosses the border
+  const froms = [cen0]; (att === S.player ? landIsos() : [att]).forEach(a => { placePool(a).forEach(p => { const q = p.ll && proj(p.ll[0], p.ll[1]); if (q) froms.push(q); }); const c = capPoint(a); if (c) froms.push(c); });
+  const near = (p, L) => L.reduce((b, q) => Math.hypot(q.x - p.x, q.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? q : b, L[0]);
+  const lp = (a, b, t) => ({x:a.x + (b.x - a.x)*t, y:a.y + (b.y - a.y)*t});
   const routes = [];
   for (let r = 0; r < n; r++){
-    const L = lls[r];
-    let P = L ? L.map(q => q ? proj(q[0], q[1]) : null) : [null, null, null];
+    const L = lls[r]; let P = L ? L.map(q => q ? proj(q[0], q[1]) : null) : [null, null, null];
     if (!P[2]) P[2] = capPoint(tgt);
-    // entry: the cell of that border nearest to the first line
-    let E = pool[0] || cen, bs = Infinity; const t1 = P[0] || P[1] || P[2];
-    const wA = land.length ? 0 : 0.6;
-    pool.forEach(b => { const s = Math.hypot(b.x - t1.x, b.y - t1.y) + wA*Math.hypot(b.x - from.x, b.y - from.y); if (s < bs){ bs = s; E = b; } });
-    const lp = (a, b, t) => ({x:a.x + (b.x - a.x)*t, y:a.y + (b.y - a.y)*t});
+    const t1 = P[0] || P[1] || P[2], A = near(t1, froms); let E = t1;
+    for (let s = 0; s <= 48; s++){ const q = lp(A, t1, s/48); if (inCountry(path, q.x, q.y)){ E = q; break; } }
     if (!P[0] && !P[1]){ P[0] = lp(E, P[2], 0.25); P[1] = lp(E, P[2], 0.6); }
     else if (!P[0]) P[0] = lp(E, P[1], 25/60);
     else if (!P[1]) P[1] = lp(P[0], P[2], 35/75);
     const pts = [E, ...P], len = pts.slice(1).reduce((a, p, k) => a + Math.hypot(p.x - pts[k].x, p.y - pts[k].y), 0) || 1;
     routes.push({pts, ts:[0, ...LINES], len});
   }
-  // distance from the attacker's border through the country (Dijkstra over the grid): the front spreads inward from it
-  const dist = new Float32Array(gw*gh).fill(Infinity), heap = [];
-  const push = (k, d) => { heap.push([d, k]); let i = heap.length - 1; while (i > 0){ const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
-  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length){ heap[0] = last; let i = 0; for (;;){ const l = 2*i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
-  pool.forEach(b => { const i = clamp(Math.floor((b.x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((b.y - y0)/cs), 0, gh - 1), k = j*gw + i; if (inside[k] && dist[k] > 0){ dist[k] = 0; push(k, 0); } });
-  const NB = [[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.414],[1,-1,1.414],[-1,1,1.414],[-1,-1,1.414]];
-  while (heap.length){ const [d, k] = pop(); if (d > dist[k]) continue; const i = k % gw, j = (k - i)/gw;
-    NB.forEach(([a, b, w]) => { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= gw || jj >= gh) return; const q = jj*gw + ii; if (!inside[q]) return; const nd = d + w; if (nd < dist[q]){ dist[q] = nd; push(q, nd); } }); }
-  // every cell belongs to the direction whose route is nearest; inside it, distances count from the nearest point of that area
-  const own = new Int8Array(gw*gh).fill(-1), minD = routes.map(() => Infinity);
-  for (let k = 0; k < gw*gh; k++){ if (!inside[k] || !isFinite(dist[k])) continue; const i = k % gw, c = cell(i, (k - i)/gw);
-    let bo = 0, bd = Infinity; routes.forEach((R, r) => { const d = routeAt(R, c.x, c.y).d; if (d < bd){ bd = d; bo = r; } }); own[k] = bo; minD[bo] = Math.min(minD[bo], dist[k]); }
-  const cellOf = p => { const i = clamp(Math.floor((p.x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((p.y - y0)/cs), 0, gh - 1); return j*gw + i; };
-  // the lines' places are where the front stands when a line is taken: thresholds 25 / 60 / 100 follow their real distances
-  routes.forEach((R, r) => {
-    const base = isFinite(minD[r]) ? minD[r] : 0, maxD = Math.max(1, ...[...dist].filter((d, k) => own[k] === r && isFinite(d)).map(d => d - base));
-    const dk = R.pts.slice(1).map(p => { let best = Infinity, k0 = cellOf(p); if (inside[k0] && isFinite(dist[k0])) best = dist[k0] - base;
-      else { const i0 = k0 % gw, j0 = (k0 - i0)/gw; for (let jj = Math.max(0, j0 - 6); jj <= Math.min(gh - 1, j0 + 6); jj++) for (let ii = Math.max(0, i0 - 6); ii <= Math.min(gw - 1, i0 + 6); ii++){ const q = jj*gw + ii; if (inside[q] && isFinite(dist[q])) best = Math.min(best, dist[q] - base); } }
-      return isFinite(best) ? Math.max(0, best) : maxD; });
-    const d1 = Math.max(1, dk[0]), d2 = Math.max(d1 + 1, dk[1]), d3 = Math.max(d2 + 1, Math.min(maxD, Math.max(dk[2], d2 + 1)));
-    R.base = base; R.dk = [0, d1, d2, d3]; R.maxD = maxD;
-  });
-  const thr = (r, p) => { const R = routes[r]; if (p >= 99.9) return Infinity; if (p <= 0.05) return -1;
-    const T = [0, 25, 60, 100]; for (let s = 0; s < 3; s++) if (p <= T[s + 1]) return R.dk[s] + (R.dk[s + 1] - R.dk[s])*(p - T[s])/(T[s + 1] - T[s]); return R.dk[3]; };
-  const F = {key, iso:tgt, x0, y0, cs, gw, gh, inside, dist, own, routes, cell, thr, cellOf};
+  // for every cell, per route: distance to it and how far along it the nearest point is (0–100); the nearest route owns the cell
+  const size = gw*gh, own = new Int8Array(size), ds = routes.map(() => new Float32Array(size)), at = routes.map(() => new Float32Array(size));
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){ const k = j*gw + i, c = cell(i, j); let bd = Infinity;
+    routes.forEach((R, r) => { let d0 = Infinity, t0 = 0;
+      for (let s = 0; s < R.pts.length - 1; s++){ const a = R.pts[s], b = R.pts[s + 1], vx = b.x - a.x, vy = b.y - a.y, l2 = vx*vx + vy*vy || 1, u = clamp(((c.x - a.x)*vx + (c.y - a.y)*vy)/l2, 0, 1), d = Math.hypot(c.x - a.x - vx*u, c.y - a.y - vy*u);
+        if (d < d0){ d0 = d; t0 = R.ts[s] + (R.ts[s + 1] - R.ts[s])*u; } }
+      ds[r][k] = d0; at[r][k] = t0; if (d0 < bd){ bd = d0; own[k] = r; } }); }
+  const F = {key, iso:tgt, x0, y0, cs, gw, gh, own, ds, at, routes, cell, span:Math.max(B.w, B.h), val:new Float32Array(size), seen:new Map()};
   // a point inside the country nearest to (x, y)
-  F.snap = (x, y) => { const i = clamp(Math.floor((x - x0)/cs), 0, gw - 1), j = clamp(Math.floor((y - y0)/cs), 0, gh - 1); if (inside[j*gw + i]) return {x, y};
-    let best = null, bd = Infinity; for (let jj = Math.max(0, j - 12); jj <= Math.min(gh - 1, j + 12); jj++) for (let ii = Math.max(0, i - 12); ii <= Math.min(gw - 1, i + 12); ii++){ if (!inside[jj*gw + ii]) continue; const c = cell(ii, jj), d = Math.hypot(c.x - x, c.y - y); if (d < bd){ bd = d; best = c; } } return best || {x, y}; };
+  F.snap = (x, y) => { const id = x.toFixed(1) + "," + y.toFixed(1), had = F.seen.get(id); if (had) return had; let out = {x, y};
+    if (!inCountry(path, x, y)) search: for (let q = 1; q <= 12; q++) for (let a = 0; a < 8; a++){ const px = x + Math.cos(a*.7854)*q*cs, py = y + Math.sin(a*.7854)*q*cs; if (inCountry(path, px, py)){ out = {x:px, y:py}; break search; } }
+    F.seen.set(id, out); return out; };
   ui.occF[key] = F; return F;
 }
-// occupied share of the field for the given per-route progress, as an image and a front line
-function occRender(F, prog, rgb, share){
-  // land kept after a peace: one clean band from the border holding that share of the country
-  let gT = null; if (share != null){ const ds = [...F.dist].filter(isFinite).sort((a, b) => a - b); gT = ds.length ? ds[Math.min(ds.length - 1, Math.floor(ds.length*share))] : 0; }
-  const {gw, gh, inside, dist, own} = F, cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
-  const cx = cv.getContext("2d"), im = cx.createImageData(gw, gh), val = new Float32Array(gw*gh);
-  let any = false;
-  for (let k = 0; k < gw*gh; k++){
-    if (!inside[k]){ val[k] = NaN; continue; }
-    // a direction taken to the end holds all its land; otherwise everything closer to the border than its front
-    const r = own[k]; let v = -50; if (gT != null){ if (isFinite(dist[k])) v = gT - dist[k]; } else if (r >= 0 && isFinite(dist[k])){ const t = F.thr(r, prog[r] || 0); v = t === Infinity ? 50 : t < 0 ? -50 : t - (dist[k] - F.routes[r].base); } val[k] = v;
-    const a = clamp(v/1.5 + 0.5, 0, 1); if (a > 0) any = true;
-    im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = Math.round(a*185);
-  }
-  if (!any) return null;
-  // grow the painted cells one step outward so the clip by the real border leaves no gaps at the edges
-  const alpha = new Uint8Array(gw*gh); for (let k = 0; k < gw*gh; k++) alpha[k] = im.data[k*4 + 3];
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){ const k = j*gw + i; if (inside[k]) continue; let m = 0;
-    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([a, b]) => { const ii = i + a, jj = j + b; if (ii >= 0 && jj >= 0 && ii < gw && jj < gh && inside[jj*gw + ii]) m = Math.max(m, alpha[jj*gw + ii]); });
-    if (m){ im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = m; } }
+// how deep every cell is inside the taken land, in cells (below 0: outside). Each wedge is widest at the border and narrows to the tip;
+// from 70% a direction also spreads over the land it owns, and a direction taken to the end holds all of it
+function occVal(F, prog){
+  const {gw, gh, own, ds, at, routes, cs, span, val} = F, size = gw*gh; let any = false;
+  const live = routes.map((R, r) => { const p = prog[r] || 0; if (p <= 0.05) return null; const q = clamp(p, 0, 100);
+    return {r, p:q, tip:routePoint(R, q), wide:span*(.04 + .11*q/100)*Math.min(1, q/5), more:q > 70 ? span*1.1*((q - 70)/30)**2 : 0, all:p >= 99.9}; }).filter(Boolean);
+  val.fill(-50); if (!live.length) return null;
+  for (let j = 0, k = 0; j < gh; j++){ const y = F.y0 + (j + .5)*cs;
+    for (let i = 0; i < gw; i++, k++){ const x = F.x0 + (i + .5)*cs, mine = own[k]; let best = -50*cs;
+      for (let q = 0; q < live.length; q++){ const L = live[q], r = L.r; if (L.all && mine === r){ best = 50*cs; break; }
+        const t = at[r][k], past = t > L.p, d = past ? Math.hypot(x - L.tip.x, y - L.tip.y) : ds[r][k], v = L.wide*(1 - .55*(past ? 1 : t/L.p)) + (mine === r ? L.more : 0) - d; if (v > best) best = v; }
+      if (best > 0) any = true; val[k] = best/cs; } }
+  return any ? val : null;
+}
+// the same field as an image and a front line, for the map without WebGL
+function occRender(F, prog, rgb){
+  const val = occVal(F, prog); if (!val) return null;
+  const {gw, gh} = F, cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
+  const cx = cv.getContext("2d"), im = cx.createImageData(gw, gh);
+  for (let k = 0; k < gw*gh; k++){ const a = clamp(val[k]/1.5 + 0.5, 0, 1); im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = Math.round(a*185); }
   cx.putImageData(im, 0, 0);
-  // front line: marching squares on the 0 level, only between inside cells
+  // front line: marching squares on the 0 level
   const seg = [], P = (i, j) => F.cell(i, j);
   for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++){
     const a = val[j*gw + i], b = val[j*gw + i + 1], c = val[(j + 1)*gw + i + 1], d = val[(j + 1)*gw + i];
-    if (isNaN(a) || isNaN(b) || isNaN(c) || isNaN(d)) continue;
     const idx = (a > 0 ? 8 : 0) | (b > 0 ? 4 : 0) | (c > 0 ? 2 : 0) | (d > 0 ? 1 : 0); if (idx === 0 || idx === 15) continue;
     const pa = P(i, j), pb = P(i + 1, j), pc = P(i + 1, j + 1), pd = P(i, j + 1);
     const lerp = (p1, p2, v1, v2) => { const t = v1/((v1 - v2) || 1e-9); return {x:p1.x + (p2.x - p1.x)*t, y:p1.y + (p2.y - p1.y)*t}; };
@@ -2905,7 +2871,7 @@ function occRender(F, prog, rgb, share){
     switch (idx){ case 1: case 14: add(L, Bm); break; case 2: case 13: add(Bm, R); break; case 3: case 12: add(L, R); break; case 4: case 11: add(T, R); break;
       case 6: case 9: add(T, Bm); break; case 7: case 8: add(L, T); break; case 5: add(L, T); add(Bm, R); break; case 10: add(T, R); add(L, Bm); break; }
   }
-  return {cv, get img(){ return cv.toDataURL(); }, x:F.x0, y:F.y0, w:gw*F.cs, h:gh*F.cs, line: seg.join("")};
+  return {img:cv.toDataURL(), x:F.x0, y:F.y0, w:gw*F.cs, h:gh*F.cs, line: seg.join("")};
 }
 // what to draw: for every war both countries with per-direction progress there; partly held land after a peace
 function occTargets(){
@@ -2917,7 +2883,7 @@ function occTargets(){
   });
   Object.values(S.occupied||{}).forEach(o => {
     if (o.share >= 1 || S.wars.some(w => w.enemy === o.iso)) return;
-    const F = occField(S.player, o.iso, o.lls || null); if (F) out.push({key:"o" + o.iso, F, p:[o.share*100], share:o.share, cls:"held"});
+    const F = occField(S.player, o.iso, o.lls || null); if (F) out.push({key:"o" + o.iso, F, p:o.fp && o.lls ? o.fp : F.routes.map(() => o.share*100), cls:"held"});
   });
   return out;
 }
@@ -2943,11 +2909,10 @@ function drawOcc(animate){
   const frames = animate ? 8 : 1; let fno = 0, last = 0;
   const paint = e => T.forEach(t => {
     const cur = t.p.map((v, i) => t.from[i] + (v - t.from[i])*e); ui.occShown[t.key] = cur;
-    const r = occRender(t.F, cur, OCC_RGB[t.cls], t.share);
-    t.el.style.display = r ? "" : "none";
     const [img] = t.el.getElementsByTagName("image"), [ha, lu, ln] = t.el.querySelectorAll("g > path");
-    if (mgOn()){ if (r) mgOcc(t.key, t.F.iso, r, ln, lu); else mgOccDrop(t.key); return; }
-    if (!r) return;
+    if (mgOn()){ const v = occVal(t.F, cur); if (v) mgOcc(t.key, t.F, v, OCC_RGB[t.cls], ln, lu); else mgOccDrop(t.key); return; }
+    const r = occRender(t.F, cur, OCC_RGB[t.cls]);
+    t.el.style.display = r ? "" : "none"; if (!r) return;
     img.setAttribute("href", r.img); img.setAttribute("x", r.x.toFixed(2)); img.setAttribute("y", r.y.toFixed(2)); img.setAttribute("width", r.w.toFixed(2)); img.setAttribute("height", r.h.toFixed(2));
     ha.setAttribute("d", ""); lu.setAttribute("d", r.line); ln.setAttribute("d", r.line);
   });
@@ -2959,17 +2924,7 @@ function drawOcc(animate){
 }
 // markers of the war: battle points, offensive arrows, the real cities of every direction (taken / held / lost)
 // where the front of a direction stands on the map, and which way is «deeper» there
-function frontPoint(F, r, p){
-  const {gw, gh, inside, dist, own} = F, R = F.routes[r], t = Math.max(0.5, F.thr(r, p) === Infinity ? R.maxD : F.thr(r, p));
-  let best = -1, bs = Infinity;
-  for (let k = 0; k < gw*gh; k++){ if (own[k] !== r || !isFinite(dist[k])) continue; const dd = Math.abs(dist[k] - R.base - t); if (dd > 1.6) continue;
-    const i = k % gw, c = F.cell(i, (k - i)/gw), s2 = routeAt(R, c.x, c.y).d/F.cs + dd*2; if (s2 < bs){ bs = s2; best = k; } }
-  if (best < 0){ best = F.cellOf(R.pts[0]); }
-  const i = best % gw, j = (best - i)/gw, c = F.cell(i, j);
-  // inward: towards the deeper cells around
-  let gx = 0, gy = 0; for (let jj = Math.max(0, j - 4); jj <= Math.min(gh - 1, j + 4); jj++) for (let ii = Math.max(0, i - 4); ii <= Math.min(gw - 1, i + 4); ii++){ const q = jj*gw + ii; if (!inside[q] || !isFinite(dist[q]) || !isFinite(dist[best])) continue; const w = dist[q] - dist[best]; gx += (ii - i)*w; gy += (jj - j)*w; }
-  return {x:c.x, y:c.y, ang: Math.atan2(gy, gx)};
-}
+function frontPoint(F, r, p){ const q = routePoint(F.routes[r], clamp(p, 0.5, 100)); return {x:q.x, y:q.y, ang:q.ang || 0}; }
 function warFxMarks(w){
   if (!w.fronts) return "";
   const FT = occField(S.player, w.enemy, frontLL(w, false)), FM = occField(w.enemy, S.player, frontLL(w, true)); if (!FT || !FM) return "";
@@ -7808,7 +7763,7 @@ function mgLine(buf, first, n, c, w, dash, masked){
   const gl = MG.gl, L = MG.pL, dpr = MG.dpr;
   gl.uniform4f(L.u.C, c[0], c[1], c[2], c[3]); gl.uniform1f(L.u.W, w*dpr);
   gl.uniform2f(L.u.D, dash ? dash[0]*dpr : 0, dash ? (dash[0]+dash[1])*dpr : 0); gl.uniform1f(L.u.O, dash && dash[2] ? dash[2]*dpr : 0);
-  gl.stencilFunc(gl.EQUAL, MG.clip ? 4 : 0, MG.clip ? 6 : masked ? 3 : 2);
+  gl.stencilFunc(gl.EQUAL, 0, masked ? 3 : 2);
   if (buf !== MG.lb) mgBind(buf);
   gl.drawArrays(gl.TRIANGLES, first, n);
   gl.clear(gl.STENCIL_BUFFER_BIT);   // with the stencil mask at 2 this clears only that bit
@@ -7862,13 +7817,16 @@ function mgFrame(){
    repaints on the main thread and it all moves with the finger. Pieces of text are cut once into one texture. ---- */
 const MG_VS_S = `attribute vec4 a;attribute float o;uniform vec2 S;varying vec2 t;varying float vO;void main(){t=a.zw;vO=o;gl_Position=vec4(a.x*S.x-1.,1.-a.y*S.y,0.,1.);}`;
 const MG_FS_S = `precision mediump float;uniform sampler2D T;varying vec2 t;varying float vO;void main(){gl_FragColor=texture2D(T,t)*vO;}`;
+const MG_FS_O = MG_HP + `uniform sampler2D T;uniform vec3 C;uniform vec4 L,U;uniform vec3 W;varying vec2 t;
+void main(){float d=(texture2D(T,t).r-.50196)*16.*W.z,f=smoothstep(-1.,1.,d)*.725;vec4 o=vec4(C*f,f);
+o=mix(o,vec4(U.rgb*U.a,U.a),(1.-smoothstep(W.y-1.,W.y+1.,abs(d)))*step(.001,U.a));o=mix(o,vec4(L.rgb*L.a,L.a),1.-smoothstep(W.x-1.,W.x+1.,abs(d)));gl_FragColor=o;}`;
 const MA = {size:2048, x:0, y:0, row:0, map:new Map(), flags:new Map(), icons:new Map(), cargo:[], st:new Map(), tex:null, cv:null, cx:null, v:new Float32Array(6000), n:0, lbl:[], marks:[], routes:[]};
 const mgOn = () => !!(MG.ok && MG.gl);
 function maInit(){
   const gl = MG.gl; MA.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, MA.tex); mgTexParams();
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, MA.size, MA.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   MA.cv = document.createElement("canvas"); MA.cx = MA.cv.getContext("2d");
-  MG.pS = mgProg(MG_VS_S, MG_FS_S); MG.pS.la = MG.pS.a("a"); MG.pS.lo = MG.pS.a("o"); MG.bM = gl.createBuffer(); MG.bR = gl.createBuffer(); MG.occ = {};
+  MG.pS = mgProg(MG_VS_S, MG_FS_S); MG.pS.la = MG.pS.a("a"); MG.pS.lo = MG.pS.a("o"); MG.pO = mgProg(MG_VS_S, MG_FS_O); MG.pO.la = MG.pO.a("a"); MG.pO.lo = MG.pO.a("o"); MG.bM = gl.createBuffer(); MG.bR = gl.createBuffer(); MG.occ = {};
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(maReset);   // text cut before the font arrived
 }
 function maReset(){ MA.map.clear(); MA.st.clear(); MA.x = MA.y = MA.row = 0; MG.fxSeen = null; MG.lgSeen = null; if (mgOn()) mgKick(); }
@@ -7973,24 +7931,25 @@ function mgFxRead(fx, lg){
   if (sig !== MG.rSig){ MG.rSig = sig; const all = new Float32Array(v); let o = 0; parts.forEach(q => { all.set(q, o); o += q.length; }); const gl = MG.gl; gl.bindBuffer(gl.ARRAY_BUFFER, MG.bR); gl.bufferData(gl.ARRAY_BUFFER, all, gl.STATIC_DRAW); }
   MA.routes = routes; MG.anim = anim;
 }
-// a land held in a war: the picture of occRender goes to its own texture and is cut by the country's triangles in the stencil
-function mgOcc(key, iso, r, line, under){
-  const gl = MG.gl; let o = MG.occ[key];
-  if (!o){ o = MG.occ[key] = {tex:gl.createTexture(), b:gl.createBuffer(), n:0, line:null}; gl.bindTexture(gl.TEXTURE_2D, o.tex); mgTexParams(); }
-  o.i = MG.idx[iso]; o.x = r.x; o.y = r.y; o.w = r.w; o.h = r.h;
-  gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, r.cv); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-  if (o.line !== r.line){ o.line = r.line; const q = mgRibbon(mgParse(r.line)); o.n = q.length/7; gl.bindBuffer(gl.ARRAY_BUFFER, o.b); gl.bufferData(gl.ARRAY_BUFFER, q, gl.DYNAMIC_DRAW); }
-  const col = el => { const c = mgRGB(getComputedStyle(el).stroke) || [255, 255, 255, 1], s = getComputedStyle(el); return {c:[c[0]/255, c[1]/255, c[2]/255, c[3]*parseFloat(s.strokeOpacity)], w:parseFloat(s.strokeWidth) || 2}; };
+// a land held in a war: the field goes to a small one-channel texture, the shader finds the front line in it and the country's triangles cut it
+function mgOcc(key, F, val, rgb, line, under){
+  const gl = MG.gl, n = F.gw*F.gh; let o = MG.occ[key];
+  if (!o || o.w !== F.gw || o.h !== F.gh){ if (o) gl.deleteTexture(o.tex); o = MG.occ[key] = {tex:gl.createTexture(), w:F.gw, h:F.gh, a:new Uint8Array(n), fresh:true}; gl.bindTexture(gl.TEXTURE_2D, o.tex); mgTexParams(); }
+  for (let k = 0; k < n; k++){ const v = 128 + val[k]*16; o.a[k] = v < 0 ? 0 : v > 255 ? 255 : v; }
+  gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  if (o.fresh){ gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, o.w, o.h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, o.a); o.fresh = false; } else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, o.w, o.h, gl.LUMINANCE, gl.UNSIGNED_BYTE, o.a);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  o.i = MG.idx[F.iso]; o.x = F.x0; o.y = F.y0; o.mw = F.gw*F.cs; o.mh = F.gh*F.cs; o.cs = F.cs; o.c = rgb;
+  const col = el => { const s = getComputedStyle(el), c = mgRGB(s.stroke) || [255, 255, 255, 1]; return {c:[c[0]/255, c[1]/255, c[2]/255, c[3]*parseFloat(s.strokeOpacity)], w:parseFloat(s.strokeWidth) || 2}; };
   o.ln = col(line); o.lu = col(under);
   mgKick();
 }
-function mgOccDrop(key){ const o = MG.occ[key]; if (!o) return; MG.gl.deleteTexture(o.tex); MG.gl.deleteBuffer(o.b); delete MG.occ[key]; mgKick(); }
+function mgOccDrop(key){ const o = MG.occ[key]; if (!o) return; MG.gl.deleteTexture(o.tex); delete MG.occ[key]; mgKick(); }
 function mgOver(a, b, c, d, w, vh, cw, ch){
   const gl = MG.gl, m = ui.map, k = m.k, my = m.y || 0, dx = cw/w, dy = ch/vh, D = MG.dpr, fx = document.getElementById("map-fx"), lg = document.getElementById("map-labels");
   if (fx && lg && (fx.firstChild !== MG.fxSeen || lg !== MG.lgSeen)) mgFxRead(fx, lg);
   const P = MG.pS, sx = x => (x*k + m.x)*dx, sy = y => (y*k + my)*dy, on = (x, y, pad) => x > -pad && x < cw + pad && y > -pad && y < ch + pad;
-  const bindS = () => { gl.useProgram(P.p); gl.uniform2f(P.u.S, 2/cw, 2/ch); gl.uniform1i(P.u.T, 0); gl.bindBuffer(gl.ARRAY_BUFFER, MG.bM); gl.enableVertexAttribArray(P.la); gl.enableVertexAttribArray(P.lo); gl.vertexAttribPointer(P.la, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribPointer(P.lo, 1, gl.FLOAT, false, 20, 16); };
+  const bindS = (P_ = P) => { gl.useProgram(P_.p); gl.uniform2f(P_.u.S, 2/cw, 2/ch); gl.uniform1i(P_.u.T, 0); gl.bindBuffer(gl.ARRAY_BUFFER, MG.bM); gl.enableVertexAttribArray(P_.la); gl.enableVertexAttribArray(P_.lo); gl.vertexAttribPointer(P_.la, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribPointer(P_.lo, 1, gl.FLOAT, false, 20, 16); };
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   // held land
   const keys = Object.keys(MG.occ), L = MG.pL, F = MG.pF;
@@ -8002,11 +7961,11 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
         gl.bindBuffer(gl.ARRAY_BUFFER, MG.bI); gl.enableVertexAttribArray(fi); gl.vertexAttribPointer(fi, 1, gl.FLOAT, false, 0, 0);
         gl.uniform1f(F.u.M, 2); gl.colorMask(false, false, false, false); gl.stencilMask(4); gl.stencilFunc(gl.ALWAYS, 4, 4); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
         gl.drawElements(gl.TRIANGLES, window.SAT_FILL.n[o.i], gl.UNSIGNED_SHORT, MG.first[o.i]*2); gl.colorMask(true, true, true, true); }
-      const x0 = sx(o.x), y0 = sy(o.y), x1 = sx(o.x + o.w), y1 = sy(o.y + o.h), q = new Float32Array([x0,y0,0,0,1, x1,y0,1,0,1, x0,y1,0,1,1, x0,y1,0,1,1, x1,y0,1,0,1, x1,y1,1,1,1]);
-      bindS(); gl.bufferData(gl.ARRAY_BUFFER, q, gl.DYNAMIC_DRAW); gl.stencilMask(0); gl.stencilFunc(gl.EQUAL, 4, 4); gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.drawArrays(gl.TRIANGLES, 0, 6);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.useProgram(L.p); MG.lb = null; MG.clip = true; gl.stencilMask(2); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
-      mgLine(o.b, 0, o.n, o.lu.c, o.lu.w/2, null, false); mgLine(o.b, 0, o.n, o.ln.c, o.ln.w/2, null, false); MG.clip = false;
-      gl.stencilMask(4); gl.clear(gl.STENCIL_BUFFER_BIT); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); });
+      const x0 = sx(o.x), y0 = sy(o.y), x1 = sx(o.x + o.mw), y1 = sy(o.y + o.mh), q = new Float32Array([x0,y0,0,0,1, x1,y0,1,0,1, x0,y1,0,1,1, x0,y1,0,1,1, x1,y0,1,0,1, x1,y1,1,1,1]), O = MG.pO;
+      bindS(O); gl.bufferData(gl.ARRAY_BUFFER, q, gl.DYNAMIC_DRAW); gl.stencilMask(0); gl.stencilFunc(gl.EQUAL, 4, 4); gl.bindTexture(gl.TEXTURE_2D, o.tex);
+      gl.uniform3f(O.u.C, o.c[0]/255, o.c[1]/255, o.c[2]/255); gl.uniform4f(O.u.L, ...o.ln.c); gl.uniform4f(O.u.U, ...o.lu.c); gl.uniform3f(O.u.W, o.ln.w*D/2, o.lu.w*D/2, o.cs*k*dx);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.stencilMask(4); gl.clear(gl.STENCIL_BUFFER_BIT); });
     gl.stencilMask(255); gl.disable(gl.STENCIL_TEST);
   }
   // route lines, each one once per pixel
