@@ -4884,7 +4884,20 @@ function coinsMonthly(){ const n = objCount("goldmine"); return n ? 3*(1 - Math.
 function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0]; return b.out[r]*outMult(r)*Math.pow(b.decay||1, buildN(id)); }
 function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1; return b.out[r]*outMult(r)*(d < 1 ? (1 - Math.pow(d, n))/(1 - d) : n); }
 function prodGross(r){ let v = baseOut(r); Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.out && b.out[r]) v += objOutTotal(id); }); return v*(1 + lawSum("res")); }
-function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v - oilCiv()) : v; }
+function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v - oilCiv()) : EXP_R.has(r) ? Math.max(0, v - civOf(r)) : v; }
+/* The country itself eats wood and steel before the player sees them: a superpower almost all of its output, a small country a fifth.
+   Fixed once (S.civ0) from the output at the start, it grows with the economy, so a growing country has to keep building. A shortfall comes
+   out of the stock; an empty stock costs approval and stability. New buildings go entirely to the free part. */
+const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03;
+function civShare(){ return clamp(0.2 + 0.65*Math.log((S.gdp0 || me().gdp)/100)/Math.log(270), 0.2, 0.85); }
+function civOf(r){ if (!EXP_R.has(r)) return 0; if (!S.civ0){ const k = civShare(); S.civ0 = {wood:k*prodGross("wood"), steel:k*prodGross("steel")}; } return S.civ0[r]*Math.sqrt(demandK()); }
+function civMonth(){ EXP_R.forEach(r => { const lack = civOf(r) - prodGross(r); if (lack <= 0) return; S.stock[r] -= lack; if (S.stock[r] >= 0) return; S.stock[r] = 0;
+  S.mods.push({stat:"approval", v:-1.5, left:2}, {stat:"stability", v:-1, left:2});
+  if (!S.civWarn || S.turn - S.civWarn >= 6){ S.civWarn = S.turn || 1; advise("econ", `Стране не хватает ${COMMOD[r].gen}: люди недовольны. Постройте новые мощности или закупите на рынке.`, {tab:"build"}); } }); }
+// wood and steel for sale: 3% of GDP a year, spread by the month, across sales and contracts. The country is built, not sold off.
+function expLeft(){ const k = S.year*12 + S.month; if (S.expKey !== k){ S.expKey = k; S.expUsed = 0; } return Math.max(0, me().gdp*EXPORT_K/12 - S.expUsed); }
+const expRoom = (r, price) => EXP_R.has(r) ? expLeft()/(price ?? commodPrice(r)) : Infinity;
+function expUse(r, v){ if (EXP_R.has(r)){ expLeft(); S.expUsed += v; } }
 /* Oil for the war: every country starts with an empty stock and burns almost all its base output itself. The rest (S.oilK fixes it once)
    covers OIL_SPARE of the whole army attacking; the market sells at most OIL_SPOT a day (OIL_BOTH together for a country with no oil).
    Stock grows in peace (auto-sale leaves OIL_KEEP days of full war) and through wells, imports and contracts. */
@@ -4933,12 +4946,12 @@ function allContracts(){ return Object.entries(S.contracts).filter(([k,q])=>q>0)
 function hasContract(iso){ return allContracts().some(c=>c.iso===iso); }
 // projected monthly revenue from contracts + auto-sales (shown in the budget; real sales happen in tradeTurn)
 function commodProjection(){
-  let rev = 0;
+  let rev = 0, el = expLeft();
   Object.keys(COMMOD).forEach(r => {
     if (!commodOpen(r)) return;
     const civ = r === "oil" ? oilCiv() : 0, prod = prodOf(r) + civ; let avail = S.stock[r] + prod;
-    allContracts().filter(c=>c.r===r && canContract(c.iso).ok).forEach(c => { const s = Math.min(c.q, avail); avail -= s; rev += s*contractPrice(c.iso, r); });
-    if (S.autoSell[r]){ const sold = Math.max(0, Math.min(avail - COMMOD[r].reserve, prod)); rev += sold*commodPrice(r); }
+    allContracts().filter(c=>c.r===r && canContract(c.iso).ok).forEach(c => { const pr = contractPrice(c.iso, r), s = Math.min(c.q, avail, EXP_R.has(r) ? el/pr : Infinity); avail -= s; rev += s*pr; if (EXP_R.has(r)) el -= s*pr; });
+    if (S.autoSell[r]){ const sold = Math.max(0, Math.min(avail - COMMOD[r].reserve, prod, EXP_R.has(r) ? el/commodPrice(r) : Infinity)); rev += sold*commodPrice(r); if (EXP_R.has(r)) el -= sold*commodPrice(r); }
   });
   return rev;
 }
@@ -5016,14 +5029,14 @@ function tradeTurn(){
   allContracts().forEach(({iso, r, q}) => {
     const chk = canContract(iso);
     if (!chk.ok || !commodOpen(r)){ delete S.contracts[iso+":"+r]; addLog(`Контракт на поставку ${COMMOD[r].gen} в страну ${partnerName(iso)} расторгнут: ${chk.why||"нет доступа"}.`); return; }
-    const flow = r === "oil" ? Math.min(q, civ) : 0, ship = Math.max(0, Math.min(q, S.stock[r] + flow, IMPORTABLE.includes(r) ? prodOf(r) + flow : Infinity));
-    if (ship < q) short[r] = true;
+    const flow = r === "oil" ? Math.min(q, civ) : 0, ship = Math.max(0, Math.min(q, S.stock[r] + flow, IMPORTABLE.includes(r) ? prodOf(r) + flow : Infinity, expRoom(r, contractPrice(iso, r))));
+    if (ship < q) short[r] = true; expUse(r, ship*contractPrice(iso, r));
     civ -= flow; S.stock[r] = Math.max(0, S.stock[r] - (ship - flow));
     if (ship > 0){ const d = travelDays(iso); S.shipments = S.shipments || []; S.shipments.push({id:shipId(), from:S.player, to:iso, r, qty:ship, left:d, total:d, dir:"out", value:ship*contractPrice(iso, r)}); }
     if (ship > 0){ const x = C()[iso]; if (x) x.rel = Math.min(100, x.rel + 0.3); else partner(iso).rel = Math.min(100, partner(iso).rel + 0.3); }
   });
-  Object.keys(short).forEach(r => addLog(`Не хватило ${COMMOD[r].gen} для всех экспортных контрактов: по контрактам уходит только своя продукция, не больше месячной добычи.`));
-  Object.keys(COMMOD).forEach(r => { if (!S.autoSell[r] || !commodOpen(r)) return; const extra = S.stock[r] - (r === "oil" ? armyOil()*OIL_KEEP : COMMOD[r].reserve); if (extra > 0){ S.stock[r] -= extra; rev += extra*commodPrice(r); } });
+  Object.keys(short).forEach(r => addLog(`Не хватило ${COMMOD[r].gen} для всех экспортных контрактов: по контрактам уходит только своя продукция, не больше месячной добычи и предела экспорта.`));
+  Object.keys(COMMOD).forEach(r => { if (!S.autoSell[r] || !commodOpen(r)) return; const extra = Math.min(S.stock[r] - (r === "oil" ? armyOil()*OIL_KEEP : COMMOD[r].reserve), expRoom(r)); if (extra > 0){ S.stock[r] -= extra; rev += extra*commodPrice(r); expUse(r, extra*commodPrice(r)); } });
   return rev + Math.max(0, civ)*commodPrice("oil");
 }
 function marketTurn(){
@@ -5245,7 +5258,7 @@ function nextMonth(){
   if (S.council.propCd>0) S.council.propCd--;
 
   // 8. date
-  S.turn++; S.month++; if (S.month>11){ S.month=0; S.year++; }
+  civMonth(); S.turn++; S.month++; if (S.month>11){ S.month=0; S.year++; }
 
   // 9. elections
   if (!ideo("auth")) S.electionIn--;
@@ -6165,9 +6178,10 @@ function act(name, arg){
       addLog(`Начато строительство железной дороги в страну ${x.name}.`); break;
     }
     case "sell": {
-      const [r, frac] = arg.split(":"), q = Math.min(S.stock[r], niceQ(S.stock[r]*(+frac)));
-      if (q < 1) return toast("На складе почти ничего нет.");
-      const sum = q*commodPrice(r); S.stock[r] -= q; S.treasury += sum;
+      const [r, frac] = arg.split(":"), want = Math.min(S.stock[r], niceQ(S.stock[r]*(+frac))), q = Math.min(want, expRoom(r));
+      if (want < 1) return toast("На складе почти ничего нет.");
+      if (q < 1) return toast("Предел экспорта на этот месяц исчерпан.");
+      const sum = q*commodPrice(r); S.stock[r] -= q; S.treasury += sum; expUse(r, sum);
       toast(`Продано: ${COMMOD[r].name.toLowerCase()} ${fmtQ(q)} ${COMMOD[r].unit} за ${money(sum)}`); break;
     }
     case "buy": {
@@ -8437,10 +8451,10 @@ function viewTrade(){
       ${spark(h.length>1?h:[h[0],h[0]], chg>=0?"var(--good)":"var(--bad)")}</div>`; };
   const stockRow = (r,d) => {
     if (!commodOpen(r)) return `<div class="stock"><div class="row"><b class="bname">${ic(r,"lg")}${d.name}</b><span class="label">закрыто</span></div><small class="muted">Откройте «${TECH.find(t=>t.id===d.tech).name}» во вкладке «Наука» → «Недра и сырьё». После этого появится добыча и продажа.</small></div>`;
-    const prod = prodGross(r), civ = r === "oil" ? oilCiv() : 0, contr = allContracts().filter(c=>c.r===r).reduce((a,c)=>a+c.q,0);
+    const prod = prodGross(r), civ = r === "oil" ? oilCiv() : civOf(r), contr = allContracts().filter(c=>c.r===r).reduce((a,c)=>a+c.q,0);
     return `<div class="stock">
       <div class="row"><b class="bname">${ic(r,"lg")}${d.name}</b><span class="num">${fmtQ(S.stock[r])} ${d.unit}</span></div>
-      <div class="bstats"><span>Добыча <b class="up num">+${fmtQ(prod)}</b>/мес</span>${civ?`<span>Страна потребляет <b class="down num">−${fmtQ(civ)}</b>/мес</span><span>Остаток <b class="num">${fmtQ(prodOf(r))}</b>/мес</span>`:""}${contr?`<span>По контрактам <b class="down num">−${contr}</b>/мес</span>`:""}<span>Стоимость склада <b class="num">${money(S.stock[r]*commodPrice(r))}</b></span></div>
+      <div class="bstats"><span>Добыча <b class="up num">+${fmtQ(prod)}</b>/мес</span>${EXP_R.has(r) ? `<span>Продать можно ещё <b class="num">${fmtQ(expRoom(r))}</b> в этом месяце</span>` : ""}${civ?`<span>Страна потребляет <b class="down num">−${fmtQ(civ)}</b>/мес</span><span>Остаток <b class="num">${fmtQ(prodOf(r))}</b>/мес</span>`:""}${contr?`<span>По контрактам <b class="down num">−${contr}</b>/мес</span>`:""}<span>Стоимость склада <b class="num">${money(S.stock[r]*commodPrice(r))}</b></span></div>
       <div class="row"><span class="btns">
         <button class="btn" data-act="sell" data-arg="${r}:0.5" ${S.stock[r] <= 0.0005?"disabled":""}>Продать половину</button>
         <button class="btn" data-act="sell" data-arg="${r}:1" ${S.stock[r] <= 0.0005?"disabled":""}>Продать всё</button>
