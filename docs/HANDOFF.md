@@ -28,7 +28,12 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- Encirclement is done, see its section at the end. Not played by a person on a phone yet: ask the user for feedback.
+- **NEXT STAGE, decided by the user (02.11.2026): remove pockets, make one solid fan-shaped offensive.** He finds pockets unrealistic and opposite-end directions illogical. Do this first, no further discussion needed except new details.
+  - Remove all of encirclement (section at the end): `pocket*`, `ring*`, `wedgeOut`, `wedgeLine`, `PK`, the «Котлы» panel, `data-pk`, `w.pk*`, `w.pockets*`, `o.cells`, `F.fallen`, the `warSync` and `warFight` additions, `tools/sim/pockets.js`. The random «котёл» event does not come back. Old saves may hold these fields: ignore them. Keep `warFight` and `warSync` as they were before.
+  - All directions start from one section of the border, the one nearest the enemy's capital (by sea: one landing point). They fan out into the country: left, centre at the capital, right; real place names stay. Change `frontRoutes`, and the `froms`/`near` start in `occField`.
+  - Land behind the front is solid: no gaps between directions. Each direction keeps its percentage; the front between them is a smooth curve. Idea to try in `occVal`: from the entry point, a cell is taken when its distance is under a radius interpolated by angle between directions. Check concave and long thin countries (Chile, Russia, Indonesia), and give the entry section some width so the start is not a dot.
+  - Same for the AI attacking us, and for land kept after a peace (`o.fp`). Running wars of old saves keep their `f.ll` routes, drawn the new way.
+  - Delete the encirclement section from this doc when done.
 - Battle, balance and victory stages are finished, see their sections. Ask the user what comes next: feedback from play, the preview, the peaceful path (alliances, influence, referendums), or delivery ideas.
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
