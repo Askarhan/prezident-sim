@@ -28,7 +28,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- Next stage to discuss with the user: variety part 2 (city battle, enemy doctrine, mid-battle events, rewards), then the BALANCE STAGE below. Infantry is done (see its section).
+- Next stage to discuss with the user: variety part 2 (city battle, enemy doctrine, mid-battle events, rewards), then the BALANCE STAGE below. Infantry is done (see its section). User's request, do it with the next stage: 3 infantry figures per squad on every graphics level (`INF.figs` in `bf3d.js`, now 8/5/3).
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
