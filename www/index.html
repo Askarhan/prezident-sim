@@ -861,6 +861,13 @@ use.cu{fill:#000;stroke:none}
 .map-wrap.sat-on{background:#041330!important}
 .map-wrap.sat-on #worldmap{position:relative}
 .sat-on #countries-g{filter:none}
+#map-gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.map-gl #worldmap{transform-origin:0 0;will-change:transform}
+.map-gl #countries-g{visibility:hidden}
+.map-gl #worldmap #countries-g path{pointer-events:fill;animation:none;transition:none;filter:none}
+.map-gl #map-borders,.map-gl #map-grid,.map-gl .bloc-fill,.map-gl #bloc-g{display:none}
+.map-gl #worldmap #map-fx .fx-war{filter:none}
+.map-moving #worldmap *{animation-play-state:paused}
 .sat-on #worldmap path{stroke:#FFFFFF;stroke-opacity:.72;stroke-width:.75}
 .sat-on #worldmap path:hover{filter:none;stroke-opacity:1}
 .sat-on .m-minor,.sat-on .m-neutral{fill:#FFFFFF;fill-opacity:0}
@@ -7600,7 +7607,7 @@ function viewMap(){
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
   const legend = [["m-player","Вы и присоединённые земли"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
-      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}${WORLD ? `<canvas id="battle-cv" aria-hidden="true"></canvas>` : ""}
+      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}${mgReady() ? " map-gl" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}${WORLD ? `<canvas id="battle-cv" aria-hidden="true"></canvas>` : ""}
         ${S && S.countries ? mapSideHTML() : ""}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
@@ -7622,15 +7629,235 @@ function mapClamp(){
   else m.y = m.y == null ? (vh - h*m.k)/2 : clamp(m.y, vh - h*m.k, 0);
 }
 
+/* ---- world map on WebGL: a canvas under the SVG draws the satellite tiles, country fills, borders and outlines, all
+   in the video card, and only when something changed. The SVG keeps its hidden paths for taps and geometry, and for now
+   the labels, flags and fronts; during a gesture it moves as one finished layer and catches up when the finger rests. ---- */
+const MG = {ok:null, req:false, cv:null, gl:null, raf:0, tex:new Map(), q:[], z:0, n:0, pal:new Uint8Array(1024*2), sig:"", pulse:false, strokes:[], bloc:[]};
+const MG_VS_T = `attribute vec2 p;uniform vec4 R,V;varying vec2 t;void main(){t=p;vec2 u=R.xy+p*R.zw;gl_Position=vec4(u.x*V.x+V.y,u.y*V.z+V.w,0.,1.);}`;
+const MG_FS_T = `precision mediump float;uniform sampler2D T;varying vec2 t;void main(){gl_FragColor=vec4(texture2D(T,t).rgb,1.);}`;
+const MG_VS_F = `attribute vec2 p;attribute float i;uniform vec4 V;varying float vI;varying vec2 vU;void main(){vI=i;vU=p;gl_Position=vec4(p.x*V.x+V.y,p.y*V.z+V.w,0.,1.);}`;
+const MG_HP = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+`;
+const MG_FS_F = MG_HP + `uniform sampler2D P;uniform float Z,M;varying float vI;varying vec2 vU;
+void main(){vec4 c=texture2D(P,vec2((vI+.5)/256.,.25)),e=texture2D(P,vec2((vI+.5)/256.,.75));
+if(M>.5){if(e.b<.5)discard;gl_FragColor=vec4(0.);return;}
+float a=c.a*mix(1.,Z,e.g);vec3 r=c.rgb;
+if(e.r>0.){float s=step(fract((vU.x+vU.y)*.4419),.3125)*e.r;r=mix(r,vec3(1.,.541,.361),s/max(s+a*(1.-s),.001));a=s+a*(1.-s);}
+if(a<.004)discard;gl_FragColor=vec4(r,a);}`;
+const MG_VS_L = `attribute vec4 a;attribute vec3 b;uniform vec4 V;uniform vec2 S;uniform float W,K;varying float vD;
+void main(){vec2 c=vec2(a.x*V.x+V.y,a.y*V.z+V.w);vec2 n=vec2(-a.w,a.z);gl_Position=vec4(c+(n*b.x+a.zw*b.y)*W*S,0.,1.);vD=b.z*K;}`;
+const MG_FS_L = MG_HP + `uniform vec4 C;uniform vec2 D;varying float vD;void main(){if(D.y>0.&&mod(vD,D.y)>D.x)discard;gl_FragColor=C;}`;
+function mgProg(vs, fs){
+  const gl = MG.gl, p = gl.createProgram();
+  [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].forEach(([t, src]) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); gl.attachShader(p, s); });
+  gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++){ const a = gl.getActiveUniform(p, i); u[a.name] = gl.getUniformLocation(p, a.name); }
+  return {p, u, a:k => gl.getAttribLocation(p, k)};
+}
+// the same point order as tools/sat/build_fill.mjs
+function mgParse(d){
+  const out = []; let c = "", x = 0, y = 0, r = null, n = null;
+  for (const t of d.match(/[MmLlZz]|-?\d*\.?\d+(?:e-?\d+)?/g)){
+    const ch = t.charCodeAt(0);
+    if (ch > 64){ c = t; if (c === "z" || c === "Z"){ if (r) out.push(r); r = null; } continue; }
+    if (n === null){ n = +t; continue; }
+    const a = n, b = +t; n = null;
+    if (c === "M" || c === "m"){ if (r) out.push(r); r = []; x = c === "m" ? x + a : a; y = c === "m" ? y + b : b; c = c === "m" ? "l" : "L"; }
+    else if (c === "l"){ x += a; y += b; } else { x = a; y = b; }
+    if (!r) r = [];
+    r.push(x, y);
+  }
+  if (r) out.push(r);
+  out.forEach(q => { if (q.length > 4 && q[0] === q[q.length-2] && q[1] === q[q.length-1]) q.length -= 2; });
+  return out;
+}
+// a line as six vertices per segment: x, y, dir x, dir y, side, end, distance
+function mgRibbon(rings, closed){
+  let n = 0; rings.forEach(r => { n += r.length/2 - (closed ? 0 : 1); });
+  const o = new Float32Array(n*42); let v = 0;
+  const put = (x, y, dx, dy, s, e, d) => { o[v++] = x; o[v++] = y; o[v++] = dx; o[v++] = dy; o[v++] = s; o[v++] = e; o[v++] = d; };
+  rings.forEach(r => { const m = r.length/2; let d = 0;
+    for (let i = 0; i < m - (closed ? 0 : 1); i++){
+      const j = (i+1)%m, ax = r[i*2], ay = r[i*2+1], bx = r[j*2], by = r[j*2+1], l = Math.hypot(bx-ax, by-ay); if (l < 1e-6) continue;
+      const dx = (bx-ax)/l, dy = (by-ay)/l, d2 = d + l;
+      put(ax,ay,dx,dy,-1,-.5,d); put(ax,ay,dx,dy,1,-.5,d); put(bx,by,dx,dy,-1,.5,d2);
+      put(bx,by,dx,dy,-1,.5,d2); put(ax,ay,dx,dy,1,-.5,d); put(bx,by,dx,dy,1,.5,d2);
+      d = d2; } });
+  return o.subarray(0, v);
+}
+function mgLoad(){
+  if (MG.req) return; MG.req = true;
+  let left = 2; const done = () => { if (--left) return; if (!window.SAT_FILL || !window.SAT_BORDERS){ MG.ok = false; return; } if (WORLD && S && S.countries){ ui.mapHtml = null; render(); } };
+  [["SAT_BORDERS","sat/borders.js"],["SAT_FILL","sat/fill.js"]].forEach(([k, src]) => { if (window[k]) return done(); const sc = document.createElement("script"); sc.src = src; sc.onload = done; sc.onerror = done; document.head.appendChild(sc); });
+}
+function mgReady(){
+  if (MG.ok !== null) return MG.ok;
+  if (!WORLD || !SAT_OK) return false;
+  if (!window.SAT_FILL || !window.SAT_BORDERS){ mgLoad(); return false; }
+  MG.ok = false;
+  try {
+    const cv = document.createElement("canvas"); cv.id = "map-gl"; cv.setAttribute("aria-hidden", "true");
+    const gl = cv.getContext("webgl", {alpha:false, antialias:true, stencil:true, depth:false, powerPreference:"high-performance"});
+    if (!gl) return false;
+    MG.cv = cv; MG.gl = gl;
+    MG.pT = mgProg(MG_VS_T, MG_FS_T); MG.pF = mgProg(MG_VS_F, MG_FS_F); MG.pL = mgProg(MG_VS_L, MG_FS_L); MG.pL.la = MG.pL.a("a"); MG.pL.lb = MG.pL.a("b");
+    const F = window.SAT_FILL, rings = {}, pos = new Float32Array(F.v*2), ids = new Float32Array(F.v); let v = 0;
+    F.k.forEach((code, i) => { const rs = rings[code.toLowerCase()] = mgParse(WORLD.paths[code].path);
+      rs.forEach(r => { for (let j = 0; j < r.length; j += 2){ pos[v*2] = r[j]; pos[v*2+1] = r[j+1]; ids[v++] = i; } }); });
+    if (v !== F.v){ console.warn("map mesh mismatch", v, F.v); return false; }
+    MG.rings = rings; MG.idx = {}; F.k.forEach((c, i) => { MG.idx[c.toLowerCase()] = i; });
+    MG.first = []; let f = 0; F.n.forEach((c, i) => { MG.first[i] = f; f += c; }); MG.nI = f;
+    const raw = atob(F.i), b = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i++) b[i] = raw.charCodeAt(i);
+    const mk = (t, d) => { const q = gl.createBuffer(); gl.bindBuffer(t, q); gl.bufferData(t, d, gl.STATIC_DRAW); return q; };
+    MG.bP = mk(gl.ARRAY_BUFFER, pos); MG.bI = mk(gl.ARRAY_BUFFER, ids); MG.bT = mk(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(b.buffer));
+    MG.bQ = mk(gl.ARRAY_BUFFER, new Float32Array([0,0,1,0,0,1,1,1]));
+    const solid = mgRibbon(mgParse(window.SAT_BORDERS.solid)), dis = mgRibbon(mgParse(window.SAT_BORDERS.disputed));
+    MG.bS = mk(gl.ARRAY_BUFFER, solid); MG.nS = solid.length/7; MG.bD = mk(gl.ARRAY_BUFFER, dis); MG.nD = dis.length/7;
+    MG.bO = gl.createBuffer();
+    MG.tP = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, MG.tP); mgTexParams(); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    mgImg("sat/world.webp", im => { MG.t0 = mgTex(im); mgKick(); }, satFail);
+    cv.addEventListener("webglcontextlost", e => { e.preventDefault(); MG.ok = false; MG.gl = null; ui.mapHtml = null; setTimeout(render, 0); });
+    MG.ok = true;
+  } catch(e){ console.error(e); MG.ok = false; MG.gl = null; }
+  return MG.ok;
+}
+function mgTexParams(){ const gl = MG.gl; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); }
+function mgTex(im){ const gl = MG.gl, t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); mgTexParams(); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im); return t; }
+function mgImg(src, ok, bad){ const im = new Image(); im.onerror = () => bad && bad(); im.onload = () => { const go = () => ok(im); im.decode ? im.decode().then(go, go) : go(); }; im.src = src; }
+function mgLive(){ return MG.ok && MG.gl && MG.cv.isConnected; }
+function mgKick(){ if (!MG.raf) MG.raf = requestAnimationFrame(mgFrame); }
+function mgAttach(){
+  const slot = document.getElementById("mg-slot"); if (!slot || !MG.ok) return;
+  slot.replaceWith(MG.cv);
+  const wr = document.getElementById("map-wrap").getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cw = Math.round(wr.width*dpr), ch = Math.round(wr.height*dpr);
+  if (cw && (MG.cv.width !== cw || MG.cv.height !== ch)){ MG.cv.width = cw; MG.cv.height = ch; }
+  MG.dpr = dpr; mgSync(); mgTiles();
+}
+const mgRGB = s => { const m = /rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[,/ ]+([\d.]+))?/.exec(s); return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null; };
+// colours come from the same CSS classes as before, so every map mode and state works without a second set of rules
+function mgSync(){
+  const pal = MG.pal, sig = [], strokes = []; pal.fill(0);
+  const bl = document.querySelector("#worldmap .bloc-out"), bloc = bl ? blocIsos() : [];
+  let pulse = false;
+  document.querySelectorAll("#countries-g path[data-iso]").forEach(el => {
+    const iso = el.dataset.iso, i = MG.idx[iso]; if (i === undefined) return;
+    const cs = getComputedStyle(el), inB = bl && bloc.includes(iso);
+    let c = mgRGB(cs.fill), a = c ? c[3]*parseFloat(cs.fillOpacity) : 0, h = 0;
+    if (cs.fill.includes("url")){ const pa = document.querySelector(`#occh-${iso} rect[fill-opacity]`); h = pa ? +pa.getAttribute("fill-opacity") : .3; c = [46,155,255]; a = .16; }
+    if (inB && a < .01){ c = [46,155,255]; a = .16; }
+    const war = el.classList.contains("m-war"); if (war){ pulse = true; a = .38; }
+    if (c){ pal[i*4] = c[0]; pal[i*4+1] = c[1]; pal[i*4+2] = c[2]; pal[i*4+3] = Math.round(a*255); }
+    pal[1024+i*4] = Math.round(h*255); pal[1024+i*4+1] = war ? 255 : 0; pal[1024+i*4+2] = inB ? 255 : 0;
+    const st = cs.stroke !== "none" && mgRGB(cs.stroke);
+    if (st){ const sa = parseFloat(cs.strokeOpacity), w = parseFloat(cs.strokeWidth) || 1, dash = cs.strokeDasharray !== "none"; if (sa > 0 && w > 0){ strokes.push({iso, c:[st[0]/255, st[1]/255, st[2]/255, sa], w, dash, glow:el.classList.contains("m-player") && !dash}); sig.push(iso, st.join(), sa, w, dash); } }
+  });
+  const gl = MG.gl; gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, MG.tP);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 256, 2, 0, gl.RGBA, gl.UNSIGNED_BYTE, pal); gl.activeTexture(gl.TEXTURE0);
+  MG.pulse = pulse;
+  const bs = bl ? getComputedStyle(bl) : null, bc = bs && mgRGB(bs.stroke);
+  MG.blocLine = bc ? {c:[bc[0]/255, bc[1]/255, bc[2]/255, 1], w:parseFloat(bs.strokeWidth) || 7.8} : null;
+  sig.push("|", bloc.join());
+  const s = sig.join();
+  if (s === MG.sig) strokes.forEach((t, i) => { t.first = MG.strokes[i].first; t.count = MG.strokes[i].count; });
+  else { MG.sig = s; MG.bloc = bloc.filter(i => MG.rings[i]);
+    let n = 0; const parts = strokes.map(t => { const q = mgRibbon(MG.rings[t.iso], true); t.first = n; t.count = q.length/7; n += q.length; return q; });
+    const bq = MG.bloc.length > 1 ? mgRibbon(MG.bloc.flatMap(i => MG.rings[i]), true) : null;
+    if (bq){ MG.bF = n/7; MG.bN = bq.length/7; n += bq.length; }
+    const all = new Float32Array(n); let o = 0; parts.forEach(q => { all.set(q, o); o += q.length; }); if (bq) all.set(bq, o);
+    gl.bindBuffer(gl.ARRAY_BUFFER, MG.bO); gl.bufferData(gl.ARRAY_BUFFER, all, gl.STATIC_DRAW);
+  }
+  MG.strokes = strokes;
+  mgKick();
+}
+function mgTiles(){
+  const wrap = document.getElementById("map-wrap"); if (!wrap || !mgLive()) return;
+  const r = wrap.getBoundingClientRect(); if (!r.width) return;
+  const [w, h] = mapSize(), m = ui.map, vh = mapVH();
+  const need = r.width * m.k * Math.min(window.devicePixelRatio || 1, 3);
+  let z = 0; for (let i = 1; i < SAT_LEVELS.length; i++) if (need > SAT_LEVELS[i-1] * 1.2) z = i;
+  MG.z = z; if (!z) return;
+  const u0 = -m.x/m.k, u1 = (w - m.x)/m.k, v0 = -(m.y||0)/m.k, v1 = (vh - (m.y||0))/m.k;
+  const LW = SAT_LEVELS[z], LH = Math.ceil(LW*h/w), tu = SAT_TILE*w/LW, nx = LW/SAT_TILE, ny = Math.ceil(LH/SAT_TILE);
+  MG.n++;
+  for (let ty = Math.max(0, Math.floor(v0/tu)); ty <= Math.min(ny-1, Math.floor(v1/tu)); ty++)
+    for (let tx = Math.max(0, Math.floor(u0/tu)); tx <= Math.min(nx-1, Math.floor(u1/tu)); tx++){
+      const id = `${z}_${tx}_${ty}`, have = MG.tex.get(id); if (have){ have.n = MG.n; continue; }
+      const ph = Math.min(SAT_TILE, LH - ty*SAT_TILE), t = {z, n:MG.n, x:tx*tu, y:ty*tu, w:tu, h:ph*w/LW, t:null};
+      MG.tex.set(id, t);
+      mgImg(`sat/${z}/${tx}_${ty}.webp`, im => { MG.q.push([t, im]); mgKick(); }, () => MG.tex.delete(id));
+    }
+  if (MG.tex.size > 90){ const old = [...MG.tex.entries()].filter(([, t]) => t.t && t.n < MG.n).sort((a, b) => a[1].n - b[1].n);
+    old.slice(0, MG.tex.size - 90).forEach(([id, t]) => { MG.gl.deleteTexture(t.t); MG.tex.delete(id); }); }
+}
+function mgBind(buf){ const gl = MG.gl, L = MG.pL; MG.lb = buf; gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(L.la); gl.enableVertexAttribArray(L.lb); gl.vertexAttribPointer(L.la, 4, gl.FLOAT, false, 28, 0); gl.vertexAttribPointer(L.lb, 3, gl.FLOAT, false, 28, 16); }
+function mgLine(buf, first, n, c, w, dash, masked){
+  if (!n) return;
+  const gl = MG.gl, L = MG.pL, dpr = MG.dpr;
+  gl.uniform4f(L.u.C, c[0], c[1], c[2], c[3]); gl.uniform1f(L.u.W, w*dpr);
+  gl.uniform2f(L.u.D, dash ? dash[0]*dpr : 0, dash ? (dash[0]+dash[1])*dpr : 0);
+  gl.stencilFunc(gl.EQUAL, 0, masked ? 3 : 2);
+  if (buf !== MG.lb) mgBind(buf);
+  gl.drawArrays(gl.TRIANGLES, first, n);
+  gl.clear(gl.STENCIL_BUFFER_BIT);   // with the stencil mask at 2 this clears only that bit
+}
+function mgFrame(){
+  MG.raf = 0; if (!mgLive() || !MG.t0) return;
+  const gl = MG.gl, q = MG.q.splice(0, ui.mapMv ? 1 : 2);
+  q.forEach(([t, im]) => { t.t = mgTex(im); });
+  const [w, mh] = mapSize(), vh = mapVH(), m = ui.map, cw = MG.cv.width, ch = MG.cv.height, mw = w;
+  const a = m.k/w*2, b = m.x/w*2 - 1, c = -m.k/vh*2, d = 1 - (m.y||0)/vh*2;
+  gl.viewport(0, 0, cw, ch); gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST); gl.clearColor(.016, .075, .188, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+  // satellite
+  const T = MG.pT, aP = T.a("p"); gl.useProgram(T.p); gl.bindBuffer(gl.ARRAY_BUFFER, MG.bQ); gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform4f(T.u.V, a, b, c, d); gl.uniform1i(T.u.T, 0);
+  gl.bindTexture(gl.TEXTURE_2D, MG.t0); gl.uniform4f(T.u.R, 0, 0, mw, mh); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  const u0 = -m.x/m.k, u1 = (w - m.x)/m.k, v0 = -(m.y||0)/m.k, v1 = (vh - (m.y||0))/m.k;
+  for (let z = 1; z <= MG.z; z++) MG.tex.forEach(t => { if (t.z !== z || !t.t || t.x > u1 || t.x + t.w < u0 || t.y > v1 || t.y + t.h < v0) return;
+    gl.bindTexture(gl.TEXTURE_2D, t.t); gl.uniform4f(T.u.R, t.x, t.y, t.w, t.h); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
+  // country fills, then the bloc as a stencil mask
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  const F = MG.pF, fp = F.a("p"), fi = F.a("i"); gl.useProgram(F.p);
+  gl.bindBuffer(gl.ARRAY_BUFFER, MG.bP); gl.enableVertexAttribArray(fp); gl.vertexAttribPointer(fp, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, MG.bI); gl.enableVertexAttribArray(fi); gl.vertexAttribPointer(fi, 1, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, MG.bT);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, MG.tP); gl.activeTexture(gl.TEXTURE0);
+  gl.uniform4f(F.u.V, a, b, c, d); gl.uniform1i(F.u.P, 1); gl.uniform1f(F.u.M, 0);
+  gl.uniform1f(F.u.Z, .42 + .58*(.5 + .5*Math.cos(performance.now()/1600*6.2832)));
+  gl.drawElements(gl.TRIANGLES, MG.nI, gl.UNSIGNED_SHORT, 0);
+  const merged = MG.bloc.length > 1 && MG.blocLine;
+  gl.enable(gl.STENCIL_TEST);
+  if (merged){ gl.colorMask(false, false, false, false); gl.stencilFunc(gl.ALWAYS, 1, 255); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); gl.uniform1f(F.u.M, 1); gl.drawElements(gl.TRIANGLES, MG.nI, gl.UNSIGNED_SHORT, 0); }
+  // lines: bit 1 of the stencil is the bloc mask, bit 2 marks pixels the current line already covered
+  const L = MG.pL; gl.useProgram(L.p); MG.lb = null;
+  gl.uniform4f(L.u.V, a, b, c, d); gl.uniform2f(L.u.S, 2/cw, -2/ch); gl.uniform1f(L.u.K, m.k*cw/w);
+  if (merged){ mgBind(MG.bO); gl.uniform1f(L.u.W, 1.5*MG.dpr); gl.uniform2f(L.u.D, 0, 0); gl.drawArrays(gl.TRIANGLES, MG.bF, MG.bN); gl.colorMask(true, true, true, true); }
+  gl.stencilMask(2); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INVERT);
+  MG.strokes.forEach(t => { if (t.glow) mgLine(MG.bO, t.first, t.count, [.16, .59, 1, .24], t.w/2 + 3, null, false);
+    mgLine(MG.bO, t.first, t.count, t.c, t.w/2, t.dash ? [5, 4] : null, false); });
+  mgLine(MG.bS, 0, MG.nS, [.04, .08, .15, .38], 1.3, null, merged);
+  mgLine(MG.bS, 0, MG.nS, [1, 1, 1, .85], .5, null, merged);
+  mgLine(MG.bD, 0, MG.nD, [.04, .08, .15, .38], 1.3, null, merged);
+  mgLine(MG.bD, 0, MG.nD, [1, 1, 1, .7], .5, [3, 4], merged);
+  if (merged){ const B = MG.blocLine, u = B.c; mgLine(MG.bO, MG.bF, MG.bN, [u[0], u[1], u[2], .24], B.w/2 + 3, null, true); mgLine(MG.bO, MG.bF, MG.bN, u, B.w/2, null, true); }
+  gl.stencilMask(255); gl.disable(gl.STENCIL_TEST);
+  if (MG.q.length) mgKick();
+  else if (MG.pulse && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, 110);
+}
 /* satellite base map: one 2048 px world image plus 512 px tiles at 4096 / 8192 px, loaded for the visible area */
 const SAT_LEVELS = [2048, 4096, 8192], SAT_TILE = 512;
 let SAT_OK = true;
-function satFail(){ if (!SAT_OK) return; SAT_OK = false; const w = document.getElementById("map-wrap"); if (w) w.classList.remove("sat-on"); const el = document.getElementById("sat"); if (el) el.remove(); }
+function satFail(){ if (!SAT_OK) return; SAT_OK = false; if (MG.ok){ MG.ok = false; ui.mapHtml = null; setTimeout(render, 0); } const w = document.getElementById("map-wrap"); if (w) w.classList.remove("sat-on"); const el = document.getElementById("sat"); if (el) el.remove(); }
 window.__satFail = satFail;
-function satHTML(){ return `<div id="sat" class="sat" aria-hidden="true"><img class="sat0" src="sat/world.webp" alt="" draggable="false" onerror="__satFail()"></div>`; }
+function satHTML(){ if (MG.ok) return `<div id="mg-slot"></div>`; return `<div id="sat" class="sat" aria-hidden="true"><img class="sat0" src="sat/world.webp" alt="" draggable="false" onerror="__satFail()"></div>`; }
 let satT = 0;
 function satBordersAttach(){
-  if (!SAT_OK) return;
+  if (!SAT_OK || MG.ok) return;
   if (!window.SAT_BORDERS){
     if (!satBordersAttach.req){ satBordersAttach.req = true; const sc = document.createElement("script"); sc.src = "sat/borders.js"; sc.onload = satBordersAttach; document.head.appendChild(sc); }
     return;
@@ -7642,6 +7869,7 @@ function satBordersAttach(){
   cg.after(g);
 }
 function satApply(){
+  if (mgLive()){ mgKick(); clearTimeout(satT); satT = setTimeout(mgTiles, 90); return; }
   const el = document.getElementById("sat"), svg = document.getElementById("worldmap"); if (!el || !svg) return;
   const r = svg.getBoundingClientRect(); if (!r.width) return;
   const [w, h] = mapSize(), s = r.width / w, m = ui.map;
@@ -7676,7 +7904,18 @@ function satTiles(){
   const tiles = [...el.querySelectorAll("img[data-z]")];
   tiles.forEach(im => { if (!want.has(im.id) && (+im.dataset.z > z || tiles.length > 60)) im.remove(); });
 }
-function mapApply(){ const g = document.getElementById("map-g"); if (g){ mapClamp(); g.setAttribute("transform", `translate(${ui.map.x} ${ui.map.y}) scale(${ui.map.k})`); satApply(); scheduleLabels(); } }
+function mapApply(){ const g = document.getElementById("map-g"); if (!g) return; mapClamp();
+  if (ui.mapMv) mapMvLayer(); else { g.setAttribute("transform", `translate(${ui.map.x} ${ui.map.y}) scale(${ui.map.k})`); scheduleLabels(); }
+  satApply(); }
+/* during a gesture the SVG overlay stays one finished layer moved by the video card; it is redrawn when the map rests */
+let mapMvT = 0;
+function mapMvMark(){
+  if (!mgLive()) return;
+  if (!ui.mapMv){ const wrap = document.getElementById("map-wrap"); ui.mapMv = {k:ui.map.k, x:ui.map.x, y:ui.map.y||0, s:wrap.getBoundingClientRect().width / mapSize()[0]}; wrap.classList.add("map-moving"); }
+  clearTimeout(mapMvT); mapMvT = setTimeout(mapMvEnd, 160);
+}
+function mapMvLayer(){ const o = ui.mapMv, m = ui.map, q = m.k/o.k, svg = document.getElementById("worldmap"); if (svg) svg.style.transform = `translate(${((m.x - o.x*q)*o.s).toFixed(1)}px,${(((m.y||0) - o.y*q)*o.s).toFixed(1)}px) scale(${q.toFixed(4)})`; }
+function mapMvEnd(){ clearTimeout(mapMvT); if (!ui.mapMv) return; ui.mapMv = null; const svg = document.getElementById("worldmap"), wrap = document.getElementById("map-wrap"); if (svg) svg.style.transform = ""; if (wrap) wrap.classList.remove("map-moving"); mapApply(); }
 
 /* country name labels: centre of each country's largest outline, shown when it fits and doesn't overlap */
 let LABELS = null, lblRaf = 0;
@@ -7836,6 +8075,7 @@ function fxMarkup(){
 }
 function scheduleLabels(){ if (lblRaf) return; lblRaf = requestAnimationFrame(() => { lblRaf = 0; updateLabels(); }); }
 function updateLabels(){
+  if (ui.mapMv) return;
   const svg = document.getElementById("worldmap"), lg = document.getElementById("map-labels");
   if (!svg || !lg || !LABELS) return;
   const r = svg.getBoundingClientRect(); if (!r.width) return;
@@ -7959,8 +8199,9 @@ function viewTrade(){
     <div class="panel"><h3>Лучшие покупатели</h3>${buyers || `<p class="muted" style="margin:0">Нечего продавать.</p>`}<div class="label">Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div></div>
   </div>`;
 }
-function mapZoomAt(vx, vy, factor){ const m = ui.map, nk = clamp(m.k*factor, 1, 10); const px = (vx - m.x)/m.k, py = (vy - m.y)/m.k; m.k = nk; m.x = vx - px*nk; m.y = vy - py*nk; mapApply(); }
+function mapZoomAt(vx, vy, factor){ mapMvMark(); const m = ui.map, nk = clamp(m.k*factor, 1, 10); const px = (vx - m.x)/m.k, py = (vy - m.y)/m.k; m.k = nk; m.x = vx - px*nk; m.y = vy - py*nk; mapApply(); }
 function attachMap(){
+  clearTimeout(mapMvT); ui.mapMv = null;
   const svg = document.getElementById("worldmap"); if (!svg) return;
   const [w, h] = mapSize(), wrap = document.getElementById("map-wrap"), wr = wrap.getBoundingClientRect();
   ui.mapVH = wr.width > 0 && wr.height > 0 ? w * wr.height / wr.width : h;
@@ -7973,10 +8214,11 @@ function attachMap(){
     ui.map = {k, x: w*0.36 - L.x*k, y: ui.mapVH/2 - L.y*k};
   }
   ui.mapFocus = null;
+  mgAttach();
   mapApply();
   satBordersAttach();
   attachLabels();
-  const toView = (cx, cy) => { const r = svg.getBoundingClientRect(); return [(cx - r.left)/r.width*w, (cy - r.top)/r.height*mapVH()]; };
+  const toView = (cx, cy) => { const r = wrap.getBoundingClientRect(); return [(cx - r.left)/r.width*w, (cy - r.top)/r.height*mapVH()]; };
   const pts = new Map(); let moved = false, start = null, pinch = null;
   svg.addEventListener("pointerdown", e => { svg.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); moved = false; start = [e.clientX, e.clientY];
     if (pts.size === 2){ const [a,b] = [...pts.values()]; pinch = {d: Math.hypot(a[0]-b[0], a[1]-b[1]), k: ui.map.k}; } });
@@ -7984,7 +8226,8 @@ function attachMap(){
     if (!pts.has(e.pointerId)) return;
     const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 1){
-      const r = svg.getBoundingClientRect(), s = w / r.width;
+      const r = wrap.getBoundingClientRect(), s = w / r.width;
+      mapMvMark();
       ui.map.x += (e.clientX - prev[0])*s; ui.map.y += (e.clientY - prev[1])*s;
       if (Math.hypot(e.clientX-start[0], e.clientY-start[1]) > 4) moved = true;
       mapApply();
