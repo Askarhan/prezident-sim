@@ -129,7 +129,17 @@ User's goal: smooth like a native game (he measured 30–35 FPS on the map, a na
 - No WebGL, a lost context or a missing `sat/world.webp` falls back to the old `#sat` + SVG map.
 - `MainActivity` (written by a step in `android.yml`) asks for the screen's highest refresh rate.
 - Test: `tools/sim/mapgl.js <dir>` (t.html as in Testing). Headless fine: fills, war pulse, hatch, bloc outline, taps, pan, wheel. FPS in headless means nothing. Stop the test server by port, not with `pkill -f`: it kills the shell running it.
-- Next: 2) flags, labels, fronts and dash lines into GL or a batched layer (their SVG and CSS dash animation still repaint on the main thread); 3) picture: NASA Blue Marble 21600×10800 `world.topo.bathy` must come from the user (the shell cannot reach NASA), new level 16384 in `SAT_LEVELS` and `build_sat.py`, no ocean tiles, colour grade, then relief, cities, mountains, climate, landmarks (discuss first).
+- Next: stage 3, picture: NASA Blue Marble 21600×10800 `world.topo.bathy` must come from the user (the shell cannot reach NASA), new level 16384 in `SAT_LEVELS` and `build_sat.py`, no ocean tiles, colour grade, then relief, cities, mountains, climate, landmarks (discuss first).
+
+## World map on WebGL, stage 2 done (02.11.2026)
+Only the existing items moved (user's choice), no new objects. FPS on a phone not measured yet: ask the user.
+- Block `/* ---- world map, stage 2` right after `mgFrame`, state in `MA`; `mgOver` is the end of every frame. Now in GL: country names, flags, capitals, ocean names, route lines with moving dashes, city dots and names of a war, battle discs, arrows, held land. They follow the finger, labels no longer lag at the edge.
+- The SVG stays the source: those elements are hidden by the `.map-gl … {display:none}` rule, `mgFxRead` reads text, class and computed colours from them (runs only when `#map-labels` or the first child of `#map-fx` is new, so any `fx.innerHTML = fxMarkup()` is picked up). No second list of colours or texts. Placement rules in `mgOver` mirror `updateLabels`, change both.
+- Text pieces go to one 2048×2048 texture (`maDraw`, shelf packing, premultiplied alpha, each piece uploaded from a scratch canvas with `texSubImage2D`). Full texture → `maReset`, everything is cut again on the next frame. `document.fonts.ready` also resets it.
+- Held land: `occRender` returns `cv` (`img` is a lazy getter now, no `toDataURL` in GL), `mgOcc` keeps a texture and a line ribbon per key in `MG.occ`; the country's triangles go to stencil bit 4 (`M = 2` in the fill shader), `MG.clip` makes `mgLine` respect it.
+- `MG.anim` (dashes or battles on the map) redraws at ~15 fps. Battle taps stay on the invisible SVG `.fx-hit`.
+- Still SVG (few, not moved): cargo, building pins, deposits, capital buttons, ripples. If a shipment on the map costs FPS, cargo is next.
+- Test: `tools/sim/mapover.js <dir>` (fake flags, war, routes, tap on a battle, fallback without WebGL); `tools/sim/mapgl.js` still passes. The tap's `bf3d.js` import error in the test only means three is not in `www/lib`. Flags are not in git (`npm run flags` needs `npm install`, done by CI).
 
 ## Victories and the ending done (02.11.2026)
 User's choices: more kinds of victory, the world united as the real ending, satellites count, a congratulation banner with a main menu button. Names are the assistant's.
