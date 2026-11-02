@@ -861,7 +861,7 @@ use.cu{fill:#000;stroke:none}
 .map-gl #worldmap #countries-g path{pointer-events:fill;animation:none;transition:none;filter:none}
 .map-gl #map-borders,.map-gl #map-grid,.map-gl .bloc-fill,.map-gl #bloc-g{display:none}
 .map-gl #worldmap #map-fx .fx-war{filter:none}
-.map-gl #occ-layer,.map-gl #map-labels,.map-gl #map-fx .fx-lines,.map-gl #map-fx .fx-ocean,.map-gl #map-fx .fx-cap,.map-gl #map-fx .fx-city,.map-gl #map-fx .fx-front,.map-gl #map-fx .fx-swords,.map-gl #map-fx .fx-arrow{display:none}
+.map-gl #occ-layer,.map-gl #map-labels,.map-gl #map-fx .fx-lines,.map-gl #map-fx .fx-ocean,.map-gl #map-fx .fx-cap,.map-gl #map-fx .fx-city,.map-gl #map-fx .fx-front,.map-gl #map-fx .fx-swords,.map-gl #map-fx .fx-arrow,.map-gl #map-fx .fx-cargo{display:none}
 .map-moving #worldmap *{animation-play-state:paused}
 .sat-on #worldmap path{stroke:#FFFFFF;stroke-opacity:.72;stroke-width:.75}
 .sat-on #worldmap path:hover{filter:none;stroke-opacity:1}
@@ -7853,7 +7853,7 @@ function mgFrame(){
    repaints on the main thread and it all moves with the finger. Pieces of text are cut once into one texture. ---- */
 const MG_VS_S = `attribute vec4 a;attribute float o;uniform vec2 S;varying vec2 t;varying float vO;void main(){t=a.zw;vO=o;gl_Position=vec4(a.x*S.x-1.,1.-a.y*S.y,0.,1.);}`;
 const MG_FS_S = `precision mediump float;uniform sampler2D T;varying vec2 t;varying float vO;void main(){gl_FragColor=texture2D(T,t)*vO;}`;
-const MA = {size:2048, x:0, y:0, row:0, map:new Map(), flags:new Map(), st:new Map(), tex:null, cv:null, cx:null, v:new Float32Array(6000), n:0, lbl:[], marks:[], routes:[]};
+const MA = {size:2048, x:0, y:0, row:0, map:new Map(), flags:new Map(), icons:new Map(), cargo:[], st:new Map(), tex:null, cv:null, cx:null, v:new Float32Array(6000), n:0, lbl:[], marks:[], routes:[]};
 const mgOn = () => !!(MG.ok && MG.gl);
 function maInit(){
   const gl = MG.gl; MA.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, MA.tex); mgTexParams();
@@ -7905,6 +7905,18 @@ function maFlag(iso, w, h){
     im.onload = () => { MA.flags.set(u, me); mgKick(); }; im.onerror = () => window.__flagFail(u); im.src = u; return null; }
   return im ? maDraw(key, w, h, w, h/2, c => c.drawImage(im, 0, 0, w, h)) : null;
 }
+// an icon of the sprite sheet as a picture of its own: gradients come along, plain line icons get the old gold stroke
+function maIcon(id){
+  const key = "i" + id, had = MA.map.get(key); if (had) return had;
+  const im = MA.icons.get(id);
+  if (im === undefined){ MA.icons.set(id, null); const sym = document.getElementById(id); if (!sym) return null;
+    const inner = sym.innerHTML, defs = [...new Set([...inner.matchAll(/url\(#([\w-]+)\)/g)].map(m => m[1]))].map(i => { const e = document.getElementById(i); return e ? e.outerHTML : ""; }).join("");
+    const line = id.startsWith("i-") ? ' fill="none" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' : "", me = new Image();
+    me.onload = () => { MA.icons.set(id, me); mgKick(); };
+    me.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${sym.getAttribute("viewBox") || "0 0 24 24"}" width="48" height="48"><defs>${defs}</defs><g${line}>${inner}</g></svg>`);
+    return null; }
+  return im ? maDraw(key, 12, 12, 6, 6, c => c.drawImage(im, 0, 0, 12, 12)) : null;
+}
 function maQuad(s, x, y, o, rot){
   if (!s) return;
   if (MA.n + 30 > MA.v.length){ const v = new Float32Array(MA.v.length*2); v.set(MA.v); MA.v = v; }
@@ -7932,8 +7944,15 @@ function mgFxRead(fx, lg){
     else marks.push({kind:"arrow", x, y, el, rot:(+g.dataset.r || 0)*Math.PI/180, n:3});
   });
   MA.marks = marks.sort((a, b) => a.n - b.n);
+  const ships = new Map((S.shipments || []).map(x => [String(x.id), x]));
+  MA.cargo = [...fx.querySelectorAll(".fx-cargo")].map(el => { const x = ships.get(el.dataset.sid), A = x && LABELS[x.from], B = x && LABELS[x.to]; return A && B ? {x, g:fxGeom(A, B), ring:el.querySelector(".fx-cg"), icon:el.querySelector("use").getAttribute("href").slice(1)} : null; }).filter(Boolean);
+  // several shipments from one country share a line
+  const paths = new Map(); fx.querySelectorAll(".fx-lines path").forEach(el => paths.set(el.getAttribute("class") + el.getAttribute("d"), el));
+  const rkey = [...paths.keys()].join("|");
+  if (rkey === MG.rKey){ MG.anim = anim || MA.routes.some(r => r.speed); return; }
+  MG.rKey = rkey;
   const seen = [], parts = []; let v = 0;
-  const routes = [...fx.querySelectorAll(".fx-lines path")].map(el => {
+  const routes = [...paths.values()].map(el => {
     const q = (el.getAttribute("d").match(/-?\d+(?:\.\d+)?/g) || []).map(Number); if (q.length < 6) return null;
     const pts = []; for (let i = 0; i <= 24; i++){ const t = i/24, u = 1 - t; pts.push(u*u*q[0] + 2*u*t*q[2] + t*t*q[4], u*u*q[1] + 2*u*t*q[3] + t*t*q[5]); }
     const cs = getComputedStyle(el), c = mgRGB(cs.stroke), rb = mgRibbon([pts]), ds = cs.strokeDasharray === "none" ? null : cs.strokeDasharray.split(/[ ,]+/).map(parseFloat), dur = parseFloat(cs.animationDuration) || 0;
@@ -7999,6 +8018,10 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
     maQuad(maShape("d" + st.k + rgb.join(), -13, -13, 26, 26, c => { c.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; c.fill(maCircle(11)); }), x, y, o);
     maQuad(maShape("r" + st.k + rgb.join(), -13, -13, 26, 26, c => { c.strokeStyle = st.stroke; c.lineWidth = st.sw; c.stroke(maCircle(11)); maPath(c, Object.assign({}, sw, {fill:"none"}), new Path2D("M-5,-5L5,5M5,-5L-5,5")); }), x, y, 1);
   });
+  // cargo: only the texture is touched, the way along the route comes from the game's numbers
+  const step = MA.cargo.length ? acc/SPEED_MS[ui.speed||1] : 0;
+  MA.cargo.forEach(q => { const t = q.x, u = clamp(1 - (t.left - step)/t.total, 0, 1); if (t.left <= 0) return; const p = qbez(q.g, u), x = sx(p.x), y = sy(p.y); if (!on(x, y, 20*D)) return;
+    const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -11, -11, 22, 22, c => maPath(c, st, maCircle(8.5))), x, y, 1); maQuad(maIcon(q.icon), x, y, 1); });
   const placed = [];
   MA.lbl.forEach(it => { const px = sx(it.L.x)/D, py = sy(it.L.y)/D, sw = it.L.w*k/upp, st = maStyle(it.el), s = maText(it.text, st, PX, 3, {mid:true}); if (!s) return;
     const tw = s.W/D - 8, fits = it.pri >= 3 || sw >= tw*(it.pri === 2 ? .55 : .95);
@@ -8166,6 +8189,7 @@ function fxGeom(a, b){ const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, d
 function qbez(g, t){ const u = 1 - t; return {x: u*u*g.a.x + 2*u*t*g.c.x + t*t*g.b.x, y: u*u*g.a.y + 2*u*t*g.c.y + t*t*g.b.y}; }
 function moveCargo(){
   if (!LABELS || !S || !S.shipments) return;
+  if (mgOn()){ const t = performance.now(); if (MA.cargo.length && t - (MG.ct||0) >= 200){ MG.ct = t; mgKick(); } return; }   // a day lasts seconds, 5 redraws a second are plenty
   const s = ui.fxScale || 1;
   document.querySelectorAll("#map-fx .fx-cargo").forEach(el => {
     const x = S.shipments.find(q => q.id == el.dataset.sid); if (!x){ el.remove(); return; }
@@ -8267,7 +8291,7 @@ function updateLabels(){
   }
   const s = (upp/k).toFixed(4); ui.fxScale = s;
   const mk = document.querySelector("#bloc-mask .bloc-mk"); if (mk) mk.style.strokeWidth = (3*upp/k).toFixed(4);   // ~3 px on screen at any zoom
-  document.querySelectorAll(gl ? "#map-fx .fx-mark:not(.fx-ocean):not(.fx-cap):not(.fx-city)" : "#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
+  document.querySelectorAll(gl ? "#map-fx .fx-mark:not(.fx-ocean):not(.fx-cap):not(.fx-city):not(.fx-cargo)" : "#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
   if (!gl) document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
   document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fc-name").forEach(el => { el.style.display = k >= 1.8 ? "" : "none"; });
