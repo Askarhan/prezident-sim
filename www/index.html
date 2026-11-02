@@ -1002,6 +1002,7 @@ use.cu{fill:#000;stroke:none}
 .org-badge{flex:none;filter:drop-shadow(0 3px 4px rgb(0 0 0 / .25))}
 .org-flags{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .org small{font-size:12px;line-height:1.35}
+.cb-inf{display:flex;align-items:center;gap:8px;margin-top:8px;font:700 11px var(--f-body)}.cb-inf>i{position:relative;flex:1;height:7px;border-radius:99px;background:rgb(255 255 255 / .18)}.cb-inf>i>b{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:#B58CFF}.cb-inf>i>u{position:absolute;top:-2px;bottom:-2px;width:2px;margin-left:-1px;background:#fff}.cb-infw{display:block;margin-top:3px;font:400 10.5px/1.3 var(--f-body);opacity:.82;text-align:left}
 .cb-orgs{display:flex;justify-content:center;flex-wrap:wrap;gap:4px;margin-top:6px}
 .cb-orgs span{font:700 10px var(--f-body);letter-spacing:.04em;padding:2px 7px;border-radius:99px;background:rgb(255 255 255 / .15);border:1px solid rgb(255 255 255 / .3)}
 .cb-orgs span.mine{background:#FFD24A;color:#3A2400;border-color:#FFD24A}
@@ -4756,7 +4757,7 @@ const CAPITALS = {ru:["Москва",55.75,37.62],kz:["Астана",51.17,71.43
   ua:["Киев",50.45,30.52],tj:["Душанбе",38.56,68.77],tm:["Ашхабад",37.96,58.33],mn:["Улан-Батор",47.89,106.91],af:["Кабул",34.53,69.17],ge:["Тбилиси",41.72,44.79],am:["Ереван",40.18,44.51],iq:["Багдад",33.31,44.36],il:["Иерусалим",31.78,35.22],ae:["Абу-Даби",24.45,54.38],no:["Осло",59.91,10.75],se:["Стокгольм",59.33,18.07],fi:["Хельсинки",60.17,24.94],nl:["Амстердам",52.37,4.90],ch:["Берн",46.95,7.45],gr:["Афины",37.98,23.73],pt:["Лиссабон",38.72,-9.14],ro:["Бухарест",44.43,26.10],th:["Бангкок",13.76,100.50],my:["Куала-Лумпур",3.14,101.69],ph:["Манила",14.60,120.98],bd:["Дакка",23.81,90.41],co:["Богота",4.71,-74.07],ve:["Каракас",10.48,-66.90],pe:["Лима",-12.05,-77.04],cl:["Сантьяго",-33.45,-70.67],cu:["Гавана",23.11,-82.37],ma:["Рабат",34.02,-6.84],dz:["Алжир",36.75,3.06],et:["Аддис-Абеба",9.03,38.74],ke:["Найроби",-1.29,36.82],cd:["Киншаса",-4.44,15.27],ao:["Луанда",-8.84,13.23],nz:["Веллингтон",-41.29,174.78],kp:["Пхеньян",39.04,125.76],tw:["Тайбэй",25.03,121.57],sy:["Дамаск",33.51,36.29],ly:["Триполи",32.89,13.19],sd:["Хартум",15.50,32.56],at:["Вена",48.21,16.37],cz:["Прага",50.08,14.44],hu:["Будапешт",47.50,19.04],rs:["Белград",44.79,20.45]};
 const MINOR_OIL = {no:1.6,iq:2.8,kw:3,qa:2.5,ae:2.6,om:2,ve:2.4,ly:2.4,dz:1.8,ao:1.8,ec:1.2,co:1,gq:1.6,ga:1.4,tm:1.6,bh:1.4,ss:1.2,td:0.8,cg:1.2,my:1,bn:1.8,ye:0.8,sy:0.6,gb:0.7};
 const OCEANS = [["Тихий океан",8,-140],["Тихий океан",18,168],["Атлантический океан",28,-42],["Атлантический океан",-22,-16],["Индийский океан",-22,78],["Северный Ледовитый океан",80,30],["Южный океан",-60,60]];
-const MAP_MODES = [["pol","Политика","diplomacy"],["econ","Экономика","gdp"],["res","Ресурсы","oil"],["army","Армия","army"],["rel","Отношения","approval"]];
+const MAP_MODES = [["pol","Политика","diplomacy"],["econ","Экономика","gdp"],["res","Ресурсы","oil"],["army","Армия","army"],["rel","Отношения","approval"],["inf","Влияние","star"]];
 // jsVectorMap "mill" projection (Miller cylindrical, central meridian from the map file)
 function proj(lat, lon){
   const I = WORLD && WORLD.insets && WORLD.insets[0]; if (!I || !I.bbox) return null;
@@ -4782,6 +4783,7 @@ function modeFill(iso){
   if (mode === "econ"){ const g = partnerGdp(iso); return hexMix(lo, "#39D0C3", clamp((Math.log10(g) - 0.4)/4.0, 0, 1)); }
   if (mode === "army"){ if (!x) return "#121D31"; return hexMix(lo, "#FF5D5D", clamp(Math.log10(aiPower(x))/4, 0, 1)); }
   if (mode === "rel"){ const r = relOf(iso); return r >= 0 ? hexMix("#22385C", "#2BD9A8", r/100) : hexMix("#22385C", "#FF4D5E", -r/100); }
+  if (mode === "inf") return x ? hexMix("#1A2A48", "#B58CFF", infOf(x)/100) : "#121D31";
   const v = resProfile(iso, ui.resMode || "oil"); return hexMix(lo, RES_COLOR[ui.resMode || "oil"], clamp(v/2.4, 0, 1));
 }
 function modeLegend(){
@@ -4790,6 +4792,7 @@ function modeLegend(){
   if (mode === "econ") return bar("#132440", "#39D0C3", "малый ВВП", "крупный ВВП");
   if (mode === "army") return bar("#132440", "#FF5D5D", "слабая армия", "сильная армия") + `<small class="muted">Малые страны: нет данных</small>`;
   if (mode === "rel") return bar("#FF4D5E", "#2BD9A8", "враги −100", "друзья +100");
+  if (mode === "inf") return bar("#1A2A48", "#B58CFF", "нет влияния", "сильное влияние");
   if (mode === "res") return bar("#132440", RES_COLOR[ui.resMode||"oil"], "нет", "много: " + COMMOD[ui.resMode||"oil"].gen);
   return "";
 }
@@ -5241,6 +5244,22 @@ function nextMonth(){
   else { const d = S.last.d; floatText(S.player, `${d.treasury>=0?"+":"−"}${money(Math.abs(d.treasury))}`, d.treasury >= 0 ? "cash big" : "loss big"); toast(`${MONTHS[(S.month+11)%12]}: бюджет ${d.treasury>=0?"+":""}${money(d.treasury)}, рейтинг ${d.approval>=0?"+":""}${d.approval.toFixed(1).replace(".",",")}`); if (d.treasury > 0) sfx("coin"); }
 }
 
+/* ---- influence: the slow, peaceful hold on a country. What ties it to us sets a target, the value creeps towards it; one-off gestures push it and fade */
+const INF_UP = 0.04, INF_DOWN = 0.03, INF_BUMP = {visit:1.5, cult:1, aid:2, milaid:1.5, invest:1, improve:1, op:4};
+function infParts(x){ const P = []; const add = (n, v) => { if (v) P.push([n, v]); };
+  add("посольство", x.emb ? 5 : 0); add("пакт", x.nap ? 5 : 0); add("торговля", x.trade ? 10 : 0); add("наука", x.sci ? 5 : 0); add("союз", x.ally ? 15 : 0);
+  add("инвестиции", S.invest && S.invest[x.id] ? Math.round(Math.min(10, 2 + 8*S.invest[x.id]/(x.gdp*0.03))) : 0); add("кредит", S.loans && S.loans[x.id] ? 3 : 0); add("наши войска", S.abroad && S.abroad[x.id] ? 5 : 0);
+  add("организации", Math.min(8, 4*orgsOf(x.id).filter(o => inOrg(o.id)).length)); add("отношения", Math.round(Math.max(0, x.rel)*0.25));
+  add("другой блок", blocOf(x.id) !== blocOf(S.player) ? -5 : 0); add("репутация", -Math.round((S.infamy || 0)*0.3)); add("санкции", x.sanction || x.sanctionsUs ? -10 : 0);
+  add("война рядом", S.wars.some(w => w.byUs && C()[w.enemy] && C()[w.enemy].region === x.region) ? -8 : 0);
+  return P; }
+function infTarget(x){ if (S.wars.some(w => w.enemy === x.id)) return 0; return clamp(infParts(x).reduce((a, q) => a + q[1], 0), 0, 100); }
+const infOf = x => x.inf ?? infTarget(x)*0.6;
+function infAdd(x, v){ x.inf = clamp(infOf(x) + v, 0, 100); }
+function infMonth(x){ const v = infOf(x), g = infTarget(x); x.inf = clamp(v + (g - v)*(g > v ? INF_UP*clamp(me().gdp/x.gdp, 0.5, 1.25) : INF_DOWN), 0, 100); }
+function infRow(x){ const v = Math.round(infOf(x)), g = Math.round(infTarget(x)), P = infParts(x);
+  return `<div class="cb-inf"><span>Влияние</span><i><b style="width:${v}%"></b><u style="left:${g}%"></u></i><b class="num">${v}%</b></div><small class="cb-infw">${g > v ? `растёт к ${g}%` : g < v ? `падает к ${g}%` : "держится"}${P.length ? `: ${P.map(([n, q]) => `${n} ${q > 0 ? "+" : "−"}${Math.abs(q)}`).join(", ")}` : ""}</small>`; }
+
 function aiTurn(){
   const meC = me();
   Object.values(C()).forEach(c => {
@@ -5250,7 +5269,7 @@ function aiTurn(){
     const base = c.ally ? 60 : c.trade ? 25 : 0;
     c.rel += (base - c.rel) * 0.02 + rnd(-1.2,1.2) + 0.15*minDelta("foreign") + lawSum("rel") + orgRelBonus(c.id) + (relig("dialog") ? 0.1 : 0) + (c.emb ? 0.3 : 0) + (S.abroad && S.abroad[c.id] ? 0.6 : 0);
     if (S.wars.some(w=>w.enemy===c.id)) c.rel = -100;
-    c.rel = clamp(c.rel,-100,100);
+    c.rel = clamp(c.rel,-100,100); infMonth(c);
     if (c.trade && c.rel < 0){ c.trade = false; addLog(`${c.name} разорвала торговое соглашение.`); }
     if (c.ally && c.rel < 30){ c.ally = false; addLog(`${c.name} вышла из союза с вами.`); }
     // sanctions against us
@@ -5365,7 +5384,7 @@ function runOp(opId, targetId){
   S.intel.pts -= op.pts; S.treasury -= improveCost();
   if (Math.random() < opChance(op.id, x)){
     S.intel.ok++;
-    if (op.id==="influence"){ x.rel = clamp(x.rel + 6, -100, 100); addLog(`Информационная кампания в стране ${x.name}: наш образ улучшился.`); }
+    if (op.id==="influence"){ x.rel = clamp(x.rel + 6, -100, 100); infAdd(x, INF_BUMP.op); addLog(`Информационная кампания в стране ${x.name}: наш образ улучшился.`); }
     if (op.id==="spy"){ const v = 15 + x.tech*8; S.rp += v; addLog(`Агенты добыли разработки в стране ${x.name}: +${v} очков исследований.`); }
     if (op.id==="sabotage"){ x.gdp *= 0.98; x.army *= 0.97; addLog(`Диверсия в стране ${x.name} удалась.`); }
     if (op.id==="opposition"){ x.gdp *= 0.99; if (Math.random()<0.25){ x.rel = Math.max(x.rel, 40); addLog(`В стране ${x.name} к власти пришла дружественная вам оппозиция.`); } else addLog(`Оппозиция в стране ${x.name} усилилась.`); }
@@ -6021,7 +6040,7 @@ function act(name, arg){
     case "improve": {
       const t = C()[arg], cost = improveCost();
       if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
-      S.treasury -= cost; t.rel = clamp(t.rel + 12, -100, 100); t.improveCd = 3; toast(`Отношения с ${t.name} улучшены.`); break;
+      S.treasury -= cost; t.rel = clamp(t.rel + 12, -100, 100); t.improveCd = 3; infAdd(t, INF_BUMP.improve); toast(`Отношения с ${t.name} улучшены.`); break;
     }
     case "trade": { const t=C()[arg]; t.trade = !t.trade; if (t.trade) flashMap(t.id, "good"); addLog(t.trade ? `Подписано торговое соглашение с ${t.name}.` : `Торговое соглашение с ${t.name} расторгнуто.`); if(!t.trade) t.rel -= 10; break; }
     case "ally": { const t=C()[arg]; t.ally = !t.ally; addLog(t.ally ? `Заключён военный союз с ${t.name}.` : `Союз с ${t.name} расторгнут.`); if(!t.ally) t.rel -= 20; break; }
@@ -7090,7 +7109,7 @@ function viewScience(){
 }
 
 /* ================= Intelligence service: networks, reports, operations, counter-intelligence ================= */
-OPS.push({id:"influence", name:"Информационная кампания", pts:2, desc:"улучшает образ вашей страны: отношения +6"});
+OPS.push({id:"influence", name:"Информационная кампания", pts:2, desc:"улучшает образ вашей страны: отношения +6, влияние +4"});
 function netLvl(iso){ return (S.net && S.net[iso]) || 0; }
 function ciLevel(){ return clamp(S.intel.level*0.22 + 0.03*minDelta("security") + ((S.ciBoost||0) > 0 ? 0.2 : 0), 0, 0.9); }
 function netCost(){ return improveCost()*0.5; }
@@ -8459,6 +8478,7 @@ function dipAct(a, id){
       if (Math.random() < p){ w.joined.push(id); x.ally = true; const e = C()[w.enemy]; if (e) e.rel = Math.min(e.rel, -60); addLog(`${x.name} откликнулась на призыв и вступила в войну на вашей стороне.`); advise("gen", `${x.name} с нами! Их армия усиливает наш фронт.`, {tab:"hq"}); }
       else { x.rel -= 10; addLog(`${x.name} отказалась вступать в войну.`); toast(`${x.name} отказалась`); } break; }
   }
+  if (INF_BUMP[a]) infAdd(x, INF_BUMP[a]);
   save(); render();
 }
 // at a glance: what is signed with this country
@@ -8515,7 +8535,7 @@ function countryBanner(id){
   return `<div class="cbanner">${fl("l")}<div class="cb-mid">
       <h2>${esc(partnerName(id))}${cap ? ` <span class="cap">• ${esc(cap[0])}</span>` : ""}</h2>
       <div class="cb-stats"><span>${hic("chart")}<b class="num">${money(partnerGdp(id))}</b><small>Экономика</small></span>${x ? `<span>${hic("shield")}<b class="num">${Math.round(aiPower(x)).toLocaleString("ru-RU")}</b><small>Военная мощь</small></span><span>${hic("users")}<b class="num">${people(x.pop)}</b><small>Население</small></span>` : ""}<span class="cb-rel"><i class="cb-face">${face}</i><b class="num">${word[0].toUpperCase() + word.slice(1)} (${rel > 0 ? "+" : ""}${Math.round(rel)})</b><small>Отношение</small></span></div>
-      ${x && orgsOf(id).length ? `<div class="cb-orgs">${orgsOf(id).map(o => `<span class="${inOrg(o.id) ? "mine" : ""}" title="${esc(o.full)}">${esc(o.name)}</span>`).join("")}</div>` : ""}
+      ${x && !x.owner && !S.wars.some(w => w.enemy === id) ? infRow(x) : ""}${x && orgsOf(id).length ? `<div class="cb-orgs">${orgsOf(id).map(o => `<span class="${inOrg(o.id) ? "mine" : ""}" title="${esc(o.full)}">${esc(o.name)}</span>`).join("")}</div>` : ""}
       ${tags.length ? `<div class="cb-tags">${tags.map(t => `<span class="pill ${/против нас|Наши санкции/.test(t) ? "bad" : "good"}">${t}</span>`).join("")}</div>` : ""}
     </div>${fl("r")}</div>`;
 }
