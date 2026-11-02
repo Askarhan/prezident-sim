@@ -633,7 +633,7 @@ export async function start(el, ctx){
   function bFace(t, x, z){ const dx = x - t.x, dz = z - t.z, L = Math.hypot(dx, dz) || 1; return (Math.cos(t.h)*dx - Math.sin(t.h)*dz)/L; }
   // fighting distance by class: tanks duel from afar, IFVs and APCs a bit closer; fog and night pull it in; the end of the battle closes it
   function bBand(u){ const k = (B.stats[u.id] || {}).kind, cl = bClose(u);
-    let b = k === "tank" ? [44, 62, 88] : k === "ifv" || k === "inf" ? [34, 48, 66] : k === "atgm" ? [48, 66, 95] : [28, 40, 56]; if (cl) b = [18, 28, 44];
+    let b = k === "tank" ? [44, 62, 88] : k === "ifv" || k === "inf" ? [34, 48, 66] : k === "atgm" ? [48, 66, 95] : [28, 40, 56]; if (cl) b = [18, 28, 44]; else if (B.doc === "arty" && u.side === 1) b = b.map(x => x*1.15);
     if (B.vis){ const v = B.vis*(B.lit ? 1.5 : 1)*0.85; b = b.map(x => Math.min(x, v)); } if (B.city) b = [Math.min(b[0], 22), Math.min(b[1], 36), Math.min(b[2], 56)]; return b; }
   // a city: machines and men go round the blocks: along the cross street to a lane, through it, then on to the point
   function bRoute(u){
@@ -643,7 +643,8 @@ export async function start(el, ctx){
     const m = band ? u.x : (u.x + tx)/2, sx = B.lanes.reduce((a, l) => Math.abs(l - m) < Math.abs(a - m) ? l : a, B.lanes[0]);
     u.route = [[sx, tz], [tx, tz]]; u.wp = [sx, u.z]; }
   // the attacker closes in once the enemy is breaking or time is running out
-  function bClose(u){ if (u.side !== B.atkSide) return false; const f = 1 - u.side, lim = B.type === "def" ? B.hold : B.limit || 300;
+  const bRush = u => B.doc === "tank" && u.side === 1 && B.t < 70 && ["tank", "ifv"].includes((B.stats[u.id] || {}).kind);   // a tank doctrine opens with a rush whichever side attacks
+  function bClose(u){ if (bRush(u)) return true; if (u.side !== B.atkSide) return false; const f = 1 - u.side, lim = B.type === "def" ? B.hold : B.limit || 300;
     return B.t > lim*0.62 || B.lost[f] > B.total[f]*0.45; }
   // bounding overwatch: the attacker's two groups take turns, one moves while the other stands and covers it
   const BOUND = 9;
@@ -661,7 +662,7 @@ export async function start(el, ctx){
     if (!hurt && !bMayMove(u)){ u.next = BOUND - B.t % BOUND + Math.random()*1.5; return; }   // the other group is moving: keep covering it
     if (hurt){ u.hurtDone = true; floats.push({u, text:"отходит в укрытие", t:0}); }
     if (u.spot && u.spot.by === u) u.spot.by = null; u.spot = null;
-    const s = u.side ? -1 : 1, atk = u.side === B.atkSide, [bMin, bIdeal, bMax] = bBand(u);
+    const s = u.side ? -1 : 1, atk = u.side === B.atkSide || bRush(u), [bMin, bIdeal, bMax] = bBand(u);
     const lane = u.flank ? clamp(u.lane + u.flank*40, -FIELD*0.45, FIELD*0.45) : u.lane;
     const near = (x, z) => { let nf = foe[0], nd = 1e9; for (const v of foe){ const d = Math.hypot(v.x - x, v.z - z); if (d < nd){ nd = d; nf = v; } } return [nf, nd]; };
     const [nf0, nd0] = near(u.x, u.z), mates = units.filter(v => v !== u && v.alive && v.side === u.side && !v.air && v.role === "front");
@@ -703,7 +704,7 @@ export async function start(el, ctx){
     // waves of the attacker in a defence battle
     for (let j = B.reserve.length - 1; j >= 0; j--){ const r = B.reserve[j]; if (r.at != null && B.t >= r.at){ B.reserve.splice(j, 1); bSpawn(r.side, r.id, r.n); } }
     // mines: the attacker's moving squads in the first minute and a half
-    if (B.t < 90 && B.type !== "amb") for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*0.012){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
+    if (B.t < 90 && B.type !== "amb") for (const u of units){ if (u.alive && u.obj && u.side === B.atkSide && u.role === "front" && u.state === "move" && Math.random() < dt*(B.doc === "inf" && B.atkSide === 0 ? 0.03 : 0.012)){ explosion(u.x, u.z, true); floats.push({u, text:"мина!", t:0}); u.lastBy = null; damage(u, u.hpPer*1.05); } }
     if (B.mark && B.markT > 0){ B.markT -= dt; B.mark.material.opacity = clamp(B.markT, 0, 1); }
     if (B.chk > 0) return; B.chk = 0.5;
     const alive = s => units.some(u => u.alive && u.side === s && !u.air) || B.coming[s] > 0 || B.reserve.some(r => r.side === s);
@@ -1150,6 +1151,7 @@ export async function start(el, ctx){
   }
   // artillery fires from the rear, rockets in salvoes, ballistic missiles rise before launch; air defence turns its radar and shoots down rockets
   function supportThink(u, dt){
+    if (B && B.doc === "arty" && u.side === 1 && u.role === "arty") u.reload -= dt*0.4;
     if (B && B.type === "amb" && !B.alert) return;   // the guns keep quiet until the ambush opens
     const k = ctx.kindOf[u.id];
     if (!u.target || !u.target.alive || Math.random() < dt*0.08){ const es = enemiesOf(u).filter(v => v.role === "front" && !v.nofuel), pool = es.length ? es : enemiesOf(u); const pend = pool.filter(v => v.pend >= 1); const L = pend.length ? pend : pool; u.target = L.length ? L[Math.floor(Math.random()*L.length)] : null; }
