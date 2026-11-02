@@ -507,7 +507,7 @@ body.bf-open #app,body.bf-open #adv-root,body.bf-open #float-root{display:none!i
 #occ-layer .us .occ-hatch{fill:url(#hatch-us)}#occ-layer .them .occ-hatch{fill:url(#hatch-them)}#occ-layer .held .occ-hatch{fill:url(#hatch-held);opacity:.3}
 #occ-layer .occ-line-u{fill:none;stroke:rgb(8 14 28 / .9);stroke-width:5.5;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 #occ-layer .occ-line{fill:none;stroke-width:2.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:8 5;animation:fxDash 1.2s linear infinite}
-#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{stroke:#FF8A5C;animation:none}
+#occ-layer .us .occ-line{stroke:#FFF1C2}#occ-layer .them .occ-line{stroke:#FF8A8A}#occ-layer .held .occ-line{stroke:#FF8A5C;animation:none}#occ-layer .pocket .occ-line{stroke:#E9D5FF}
 .fc-dot{stroke:#081224;stroke-width:1.6}.fc-dot.foe{fill:#E8EEF8}.fc-dot.taken{fill:#FFB020}.fc-dot.own{fill:#9FD3FF}.fc-dot.lost{fill:#FF5D5D}
 .fc-name{font:600 9.5px var(--f-data);fill:#F2F5FA;paint-order:stroke;stroke:#081224;stroke-width:3}.fc-name.taken{fill:#FFD27A}.fc-name.lost{fill:#FF9A9A}
 #worldmap #map-fx .fx-front{fill:rgb(255 93 93 / .2);stroke:#FF5D5D;stroke-width:1.5;animation:fxPulse 1.4s ease-in-out infinite}
@@ -2782,7 +2782,7 @@ function updateWarMap(){
 }
 /* ---------- front on the map: every direction is a route border → 1st line → 2nd line → key city over real places;
    the land of each direction is painted from the border inward along its route, clipped by the real outline ---------- */
-const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[46,155,255]};   // held after a peace: our colour
+const OCC_RGB = {us:[245,165,36], them:[229,72,77], held:[46,155,255], pocket:[168,85,247]};   // held after a peace: our colour
 function capPoint(iso){ const c = CAPITALS[iso]; const q = c && proj(c[1], c[2]); return q ? {x:q.x, y:q.y} : (LABELS && LABELS[iso]); }
 function countryPath(iso){ return document.querySelector(`#worldmap path[data-iso="${iso}"]`); }
 function inCountry(path, x, y){ try { return path.isPointInFill(new DOMPoint(x, y)); } catch(e){ return true; } }
@@ -2852,9 +2852,71 @@ function occVal(F, prog){
       if (best > 0) any = true; val[k] = best/cs; } }
   return any ? val : null;
 }
+// Pockets: land of the country's main body cut off from its capital by the attacker's wedges. Islands and exclaves are not pockets.
+const PK = {min:0.03, every:4, reach:4};   // reach: wedges this many cells from each other already seal the gap (fire control), so a pocket closes before the colours touch
+function cellFlood(gw, gh, ok, seed, mark, id){
+  const st = [seed], out = []; mark[seed] = id;
+  while (st.length){ const k = st.pop(), i = k % gw, j = (k - i)/gw; out.push(k);
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++){ const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= gw || b >= gh) continue;
+      const q = b*gw + a; if (!mark[q] && ok(q)){ mark[q] = id; st.push(q); } } }
+  return out;
+}
+// the country on the grid: `base` holds the cells joined to the capital by land, `root` is the capital's cell
+function occLand(F){
+  if (F.base) return F;
+  const {gw, gh, cs, x0, y0} = F, n = gw*gh, land = new Uint8Array(n), path = countryPath(F.iso), cap = capPoint(F.iso), cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
+  const c = cv.getContext("2d", {willReadFrequently:true}); c.setTransform(1/cs, 0, 0, 1/cs, -x0/cs, -y0/cs); c.fill(new Path2D(path.getAttribute("d")));
+  const d = c.getImageData(0, 0, gw, gh).data; let root = -1, bd = Infinity;
+  for (let k = 0; k < n; k++){ if (d[k*4 + 3] < 110) continue; land[k] = 1; const i = k % gw, j = (k - i)/gw, q = Math.hypot(x0 + (i + .5)*cs - cap.x, y0 + (j + .5)*cs - cap.y); if (q < bd){ bd = q; root = k; } }
+  F.base = new Uint8Array(n); F.root = root; F.nBase = root < 0 ? 0 : cellFlood(gw, gh, q => land[q], root, F.base, 1).length;
+  return F;
+}
+// the cut-off pieces at this progress: [{cells, share of the main body, x, y}]
+function pocketCells(F, prog){
+  occLand(F); const {gw, gh, base, root, nBase, cs} = F; if (!nBase) return [];
+  const val = occVal(F, prog); if (!val) return [];
+  const n = gw*gh, free = q => base[q] && val[q] <= -PK.reach, mark = new Int16Array(n), parts = []; let id = 0;
+  for (let k = 0; k < n; k++) if (!mark[k] && free(k)) parts.push({cells:cellFlood(gw, gh, free, k, mark, ++id), id});
+  if (parts.length < 2) return [];
+  // the body is what holds the capital; if the capital has fallen, the biggest piece
+  const main = mark[root] ? parts.find(p => p.id === mark[root]) : parts.reduce((a, b) => b.cells.length > a.cells.length ? b : a);
+  return parts.filter(p => p !== main && p.cells.length >= Math.max(3, nBase*PK.min)).map(p => { let sx = 0, sy = 0;
+    // the pocket also takes the strip under fire around it, up to the wedges
+    for (let r = 0, edge = p.cells; r < PK.reach; r++){ const add = [];
+      edge.forEach(k => { const i = k % gw; for (const q of [i ? k - 1 : -1, i < gw - 1 ? k + 1 : -1, k - gw, k + gw]) if (q >= 0 && q < n && base[q] && !mark[q] && val[q] <= 0){ mark[q] = p.id; add.push(q); } });
+      p.cells = p.cells.concat(add); edge = add; }
+    p.cells.forEach(k => { const i = k % gw; sx += i; sy += (k - i)/gw; });
+    return {cells:p.cells, share:p.cells.length/nBase, x:F.x0 + (sx/p.cells.length + .5)*cs, y:F.y0 + (sy/p.cells.length + .5)*cs}; });
+}
+function pocketName(iso, x, y){ let best = null, bd = Infinity;
+  placePool(iso).forEach(p => { const q = p.ll && proj(p.ll[0], p.ll[1]); if (!q) return; const d = Math.hypot(q.x - x, q.y - y); if (d < bd){ bd = d; best = p; } });
+  return best ? best.name : ""; }
+// finds the pockets of a war and keeps each one's identity between scans (the nearest old pocket is the same pocket); cells stay out of the save
+function pocketScan(w){
+  const F = occField(S.player, w.enemy, frontLL(w, false)); if (!F) return;
+  const found = pocketCells(F, w.fronts.map(f => Math.max(0, f.p))), old = (w.pockets || []).slice(), far = F.span*.18;
+  w.pockets = found.map(c => { let m = null, bd = far;
+    old.forEach(o => { const d = Math.hypot(o.x - c.x, o.y - c.y); if (d < bd){ bd = d; m = o; } });
+    if (m) old.splice(old.indexOf(m), 1); else { w.pkN = (w.pkN || 0) + 1; m = {id:w.pkN, days:0, name:pocketName(w.enemy, c.x, c.y), fresh:true}; }
+    m.share = c.share; m.x = c.x; m.y = c.y; return m; });
+  w.pockets.forEach(p => { if (p.fresh){ delete p.fresh; addLog(`Котёл${p.name ? ` у «${p.name}»` : ""}: ${Math.round(p.share*100)}% земли противника отрезано от столицы.`); } });
+  ui.pkC = ui.pkC || {}; ui.pkC[w.enemy] = {F, cells:found.flatMap(c => c.cells)};
+}
+function pocketTick(w){ if (!w.fronts) return; w.pkT = (w.pkT || 0) + 1; if (w.pkT % PK.every === 0) pocketScan(w); }
+// the pockets of a war as a field for the map (the same units as occVal), softened one step so the edge is not a staircase
+function pocketVal(w){
+  if (!ui.pkC || !ui.pkC[w.enemy]) pocketScan(w);
+  const P = ui.pkC && ui.pkC[w.enemy]; if (!P || !P.cells.length) return null;
+  if (P.val) return P;
+  const {gw, gh} = P.F, n = gw*gh, a = new Float32Array(n).fill(-2), v = new Float32Array(n); P.cells.forEach(k => { a[k] = 2; });
+  for (let j = 0, k = 0; j < gh; j++) for (let i = 0; i < gw; i++, k++){ let s = 0, c = 0;
+    for (let b = Math.max(0, j - 1); b <= Math.min(gh - 1, j + 1); b++) for (let q = Math.max(0, i - 1); q <= Math.min(gw - 1, i + 1); q++){ s += a[b*gw + q]; c++; }
+    v[k] = s/c; }
+  P.val = v; return P;
+}
 // the same field as an image and a front line, for the map without WebGL
-function occRender(F, prog, rgb){
-  const val = occVal(F, prog); if (!val) return null;
+function occRender(F, prog, rgb, given){
+  const val = given || occVal(F, prog); if (!val) return null;
   const {gw, gh} = F, cv = document.createElement("canvas"); cv.width = gw; cv.height = gh;
   const cx = cv.getContext("2d"), im = cx.createImageData(gw, gh);
   for (let k = 0; k < gw*gh; k++){ const a = clamp(val[k]/1.5 + 0.5, 0, 1); im.data[k*4] = rgb[0]; im.data[k*4 + 1] = rgb[1]; im.data[k*4 + 2] = rgb[2]; im.data[k*4 + 3] = Math.round(a*185); }
@@ -2880,6 +2942,7 @@ function occTargets(){
     if (!w.fronts) return;
     const FT = occField(S.player, w.enemy, frontLL(w, false)), FM = occField(w.enemy, S.player, frontLL(w, true)); if (!FT || !FM) return;
     out.push({key:"w" + w.enemy, F:FT, p:w.fronts.map(f => Math.max(0, f.p)), cls:"us"}, {key:"m" + w.enemy, F:FM, p:w.fronts.map(f => Math.max(0, -f.p)), cls:"them"});
+    const PK = pocketVal(w); if (PK) out.push({key:"k" + w.enemy, F:PK.F, p:[1], val:PK.val, cls:"pocket"});
   });
   Object.values(S.occupied||{}).forEach(o => {
     if (o.share >= 1 || S.wars.some(w => w.enemy === o.iso)) return;
@@ -2910,8 +2973,8 @@ function drawOcc(animate){
   const paint = e => T.forEach(t => {
     const cur = t.p.map((v, i) => t.from[i] + (v - t.from[i])*e); ui.occShown[t.key] = cur;
     const [img] = t.el.getElementsByTagName("image"), [ha, lu, ln] = t.el.querySelectorAll("g > path");
-    if (mgOn()){ const v = occVal(t.F, cur); if (v) mgOcc(t.key, t.F, v, OCC_RGB[t.cls], ln, lu); else mgOccDrop(t.key); return; }
-    const r = occRender(t.F, cur, OCC_RGB[t.cls]);
+    if (mgOn()){ const v = t.val || occVal(t.F, cur); if (v) mgOcc(t.key, t.F, v, OCC_RGB[t.cls], ln, lu); else mgOccDrop(t.key); return; }
+    const r = occRender(t.F, cur, OCC_RGB[t.cls], t.val);
     t.el.style.display = r ? "" : "none"; if (!r) return;
     img.setAttribute("href", r.img); img.setAttribute("x", r.x.toFixed(2)); img.setAttribute("y", r.y.toFixed(2)); img.setAttribute("width", r.w.toFixed(2)); img.setAttribute("height", r.h.toFixed(2));
     ha.setAttribute("d", ""); lu.setAttribute("d", r.line); ln.setAttribute("d", r.line);
@@ -6099,7 +6162,7 @@ function dayTick(){
   shipTick();
   wearyDay();
   if ((S.day||1) % 3 === 0){ goalsTick(); lessonsTick(); }
-  if (S.wars.length){ S.wars.forEach(warDay); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map" && !BF.open) updateWarMap(); }
+  if (S.wars.length){ S.wars.forEach(w => { warDay(w); pocketTick(w); }); warOutcomes(); if (ui.tab === "hq") dirty = true; else if (ui.tab === "map" && !BF.open) updateWarMap(); }
   const speed = (selfSuff("metal") < 60 ? 0.5 : 1) * (1 + 0.015*minDelta("housing"));
   S.queue.forEach(q => q.left -= speed);
   const done = S.queue.filter(q=>q.left<=0);
