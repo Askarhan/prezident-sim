@@ -28,12 +28,22 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- **Peaceful path done, see its section. Smallest countries: no change (user's decision, 02.11.2026): the 60% rule stays with no exception, a person develops the economy first, which the bots do not. Next: UI and polish stage, screen by screen.**
+- **NEXT STAGE, user's choice (02.11.2026): delivery, see «Delivery plan» below. The plan was sent to the user; he asked to record it and start in a new chat, so he has not confirmed it yet: show it in a few lines and ask before building.**
+- Peaceful path done, see its section. Smallest countries: no change (user's decision): the 60% rule stays with no exception, a person develops the economy first. Kyrgyzstan's slow start (ladder at ~year 21, ~10 hours of play at 2×) can be looked at after the user plays it.
+- Order after delivery (assistant's proposal): phone test by the user, then UI and polish, models, preview, map, final test and release. Real speed: `SPEED_MS` 15 / 5 / 2 s per game day.
+- **Map upgrade waits for a file from the user:** the chat shrinks images (his Blue Marble came as 2576×1288, worse than the current 5400×2700 source; a January one, with snow; the assistant advised July). Needs the original 21600×10800 from https://visibleearth.nasa.gov/images/73751/july-blue-marble-next-generation-w-topography-and-bathymetry/73765l , the shell cannot reach NASA. Ways: a GitHub release `map-source` on this repo (`gh release download`, not tested through the proxy), or `D:\Projects\kabinet_units` with this chat open in the desktop app. Then: level 16384 in `SAT_LEVELS` and `build_sat.py` (colour source there is `bmng.jpg`), no ocean tiles at that level, colour grade. APK about 15–25 MB bigger (rough guess).
 - **User's decision (02.11.2026), corrected: no brand-new ideas for now, but everything already planned stays and must be finished, and existing features can be improved.** Planned list: delivery ideas (strikes on columns, railway), the next model batches, the web preview. **UI and polish stage (user's plan, 02.11.2026):** finish what is in the game rather than rebuild it: too much information on screen, high mental load; simplify the settings; finish the design across the game. Discuss screen by screen with the user first. Then a phone test, bugs, release. Ask the user the order.
 - Battle, balance and victory stages are finished, see their sections. Ask the user what comes next: feedback from play, the preview, or delivery ideas.
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
+
+## Delivery plan (02.11.2026, not built, not confirmed by the user)
+The existing delivery is in `docs/HISTORY.md` (`w.road`, `w.eroad`, `roadDays`, `roadDay`, `roadSend`, `roadRecall`).
+- Railway: `S.rails[iso].done` so far gives income and +25 supply (`supplySupport`), no effect on time. New: ground machines and troops travel 40% faster in `roadDays` when the ribbon goes to the country of that war; aircraft and airlift unchanged; no transit, no new buildings; the send card shows «по ж/д N дн.».
+- Enemy strikes our columns: only the last 40% of a trip (`r.left/r.tot < .4`), not `r.air`. Chance a day small, by the enemy's air superiority and drones against our AD in this war, 2–8% of a column, real losses, a `warEvent` line «Удар по колонне: потеряно N». Recall already exists.
+- We strike its columns: a button «Удар по колоннам» in «Удары и решения» while `w.eroad` holds anything, spends ammunition and aircraft like a normal strike, with a cooldown, aircraft can be lost to its AD. Strength equal on both sides.
+- Check: `tools/sim/warsim.js` before and after on a near and a far war; road losses visible, outcome of a war changed by at most about 10%.
 
 ## NEXT STAGE (agreed 02.11.2026): commanded field battle
 The user found the field boring: it only shows what the map already decided, and ~30 s after opening a banner says the position fell. New rule: while a commanded battle is open, the field decides the outcome. Build it in stages, discuss details with the user before each.
