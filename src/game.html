@@ -1581,7 +1581,7 @@ const BUILDINGS = {
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,roi:0.035,desc:"нужна «Автоматизация»",use:{power:6,metal:8},req:{tech:"automation"}},
   chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"нужны «Финтех» и образование 60",use:{power:10},req:{tech:"fintech",cap:{edu:60}}},
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, экспорт +3%",trade:0.03},
-  highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"рост ВВП +0,2% в год",growth:0.00017},
+  highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
   airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от торговых договоров +10%; максимум 3",deal:0.1,max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"экспорт +5%; максимум 2",trade:0.05,max:2},
@@ -5111,7 +5111,6 @@ function growthMonthly(){
   g += (K.edu-33)*0.00005 + (K.infra-33)*0.00005 + (K.health-33)*0.00002;
   g -= 0.00025*Math.max(0, taxBurden()-15.8);
   { const pb = powerBalance(); if (pb < 0) g -= Math.min(0.003, -pb*0.00002); }
-  g += BUILDINGS.highway.growth*objCount("highway");
   g += 0.00125*tech("ai") + 0.0004*tech("fusion") + 0.00025*tech("gene");
   g += ideo("tech") ? 0.00033 : ideo("soc") ? -0.00033 : 0;
   if (S.climatePact) g -= 0.0002;
