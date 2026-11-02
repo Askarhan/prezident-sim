@@ -28,7 +28,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- **Delivery done, see its section. The user wants to discuss what comes next: ask him, do not start on your own.**
+- **Now: resource balance, see «Resource balance, part 1». Ask the user about base output, stock limit, money, coins, factories. The order of later stages is still to be discussed.**
 - Peaceful path done, see its section. Smallest countries: no change (user's decision): the 60% rule stays with no exception, a person develops the economy first. Kyrgyzstan's slow start (ladder at ~year 21, ~10 hours of play at 2×) can be looked at after the user plays it.
 - Order after delivery (assistant's proposal, the user said it still has to be discussed): phone test by the user, then UI and polish, models, preview, map, final test and release. Real speed: `SPEED_MS` 15 / 5 / 2 s per game day.
 - **Map upgrade waits for a file from the user:** the chat shrinks images (his Blue Marble came as 2576×1288, worse than the current 5400×2700 source; a January one, with snow; the assistant advised July). Needs the original 21600×10800 from https://visibleearth.nasa.gov/images/73751/july-blue-marble-next-generation-w-topography-and-bathymetry/73765l , the shell cannot reach NASA. Ways: a GitHub release `map-source` on this repo (`gh release download`, not tested through the proxy), or `D:\Projects\kabinet_units` with this chat open in the desktop app. Then: level 16384 in `SAT_LEVELS` and `build_sat.py` (colour source there is `bmng.jpg`), no ocean tiles at that level, colour grade. APK about 15–25 MB bigger (rough guess).
@@ -45,6 +45,12 @@ The base delivery is in `docs/HISTORY.md` (`w.road`, `w.eroad`, `roadDays`, `roa
 - Machines only, on both sides: troop columns are not hit (the enemy's are a share of its army, no clean way to take a loss from them).
 - `tools/sim/warsim.js` now takes `WARS='[["ru","kz","x"]]'` and `RAIL=1` and prints the trip, hits and road losses. 7 runs, median win before/after: RU–KZ 137/137 days, US–IR 343/341. Road losses 0–2 hits near, 0–5 far (17–79 machines). With rail RU–KZ 132 days. RAIL on US–IR (343 → 251) is not a real case, far countries have no railway. Button checked headless, no page errors. The bot does not press it, so its effect on a war is not measured.
 - Web preview still needs republishing (see Build and ship).
+
+## Resource balance, part 1 done (02.11.2026)
+User's complaint: oil, money, coins, steel and wood are not balanced. His idea: a resource building costs a lot and gives little, by country size. His choices: option B (volumes stay scaled by `S.uq`, only the payback changes), 12 months for a mid-size country, factories to be worked out separately.
+- Costs already scale with the country (`U(r)`, set once at the start). `resTierK()` from `S.gdp0`: ≥1500 ×1.4, ≥300 ×1, below ×0.6. It multiplies materials and money of buildings with `out` (sawmill, steelworks, oilrig, raremine, uranmine); the goldmine has no `out` and is unchanged.
+- Payback in units of materials over units of output, unit of wood = unit of steel (his way of counting): sawmill `out` 20 → 5.8 (3.5 months → 12), steelworks stays 15 (12.5 already). Oil counted by market value: oilrig 6 → 4.56 (9 → 12 months). Rare and uranium mines stay (34 and 20 months by value). Result: big 16.7 months, small ~7 (checked on the US, France, Kazakhstan, Kyrgyzstan; a resource-rich country is faster through `outMult`). Sold on the market a sawmill pays back far slower (about 25 months).
+- Not solved yet: base output without buildings still fills an unlimited stock (idle 5 years: US wood 270 thousand → 1.7 million), money grows with no action, coins are 0 without a goldmine or goals. Ask the user before touching these; factories separately. The economy bots do not build these buildings, so no effect is measured.
 
 ## Balance stage done (02.11.2026)
 User's answers: conquest must be fairly hard, not extreme, because a small country must be able to do it too; a coalition may fall apart, with small consequences; the nuclear answer is predictable; fuel amounts stay, but production only covers the country.

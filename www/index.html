@@ -1577,7 +1577,7 @@ const BUILDINGS = {
   hydro:{cat:"energy",name:"Гидроэлектростанция",days:240,cost:0.0024,desc:"+8 ед. электроэнергии; число ГЭС ограничено реками страны",maxFn:"hydroMax"},
   solar:{cat:"energy",name:"Солнечная и ветровая станция",days:60,cost:0.0009,desc:"+2 ед. электроэнергии, рейтинг +0,2; каждая следующая дороже",scale:0.05,dscale:2},
   // material & commodity producers: unlimited, every next one costs more and takes longer
-  sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу",out:{wood:20},scale:0.2,dscale:6,decay:0.96},
+  sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу",out:{wood:5.8},scale:0.2,dscale:6,decay:0.96},
   steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь; при нехватке руды — вдвое меньше",out:{steel:15},scale:0.2,dscale:8,decay:0.96,use:{power:2}},
   oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:6},scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
   raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
@@ -1739,6 +1739,8 @@ const AMMO = {
    Every country's volumes are scaled once at the start (S.uq) so that one tonne costs the same everywhere. */
 const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.075, rare:0.0005, uran:0.00033};   // $180/t, $700/t, $75/bbl, $500k/t refined rare-earth metals, $330k/t U3O8
 function U(r){ return (S && S.uq && S.uq[r]) || 1; }
+// buildings that produce a resource: a mid-size country pays one back in about 12 months, a big one pays more, a small one less
+function resTierK(){ const g = (S && S.gdp0) || 0; return !g ? 1 : g >= 1500 ? 1.4 : g >= 300 ? 1 : 0.6; }
 function niceQ(v){ if (v >= 1000) return Math.round(v/10)*10; if (v >= 100) return Math.round(v); if (v >= 10) return Math.round(v*10)/10; if (v >= 1) return Math.round(v*100)/100; return Math.round(v*1000)/1000; }
 function fmtQ(v){ const a = Math.abs(v); return (a >= 100 ? Math.floor(v).toLocaleString("ru-RU") : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(".", ","); }
 Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st = d.steps, buy = d.buy, res = d.reserve;
@@ -1746,7 +1748,7 @@ Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st
   Object.defineProperty(d, "buy", {get: () => buy ? niceQ(buy*U(r)) : buy});
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
 Object.values(BUILDINGS).forEach(b => {
-  const m = b.mat; if (m) Object.defineProperty(b, "mat", {get: () => Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*U(r))])), set(){}, configurable:true});
+  const m = b.mat, tk = !!b.out; if (m) Object.defineProperty(b, "mat", {get: () => Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*U(r)*(tk ? resTierK() : 1))])), set(){}, configurable:true});
   const o = b.out; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, v*U(r)])), set(){}, configurable:true}); });
 { const R0 = {wood:RAIL_MAT.wood, steel:RAIL_MAT.steel}; ["wood","steel"].forEach(r => Object.defineProperty(RAIL_MAT, r, {get: () => niceQ(R0[r]*U(r))})); }
 Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*U("steel")}); });
@@ -4776,7 +4778,7 @@ function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
 function maxSlots(){ return 2 + Math.floor(S.capital.infra/34); }
 function buildN(type){ return objCount(type) + queued(type); }
-function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().gdp * b.cost) * (1 + (b.scale||0)*buildN(type)); }
+function buildCost(type){ const b = BUILDINGS[type]; return Math.max(0.03, me().gdp * b.cost) * (1 + (b.scale||0)*buildN(type)) * (b.out ? resTierK() : 1); }
 function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(b.days*2.5, b.days + (b.dscale||0)*buildN(type)) * (1 + lawSum("build"))); }
 function matShort(mat){ let cost = 0; const miss = {}; for (const r in mat){ const lack = Math.max(0, mat[r] - S.stock[r]); if (lack > 0){ miss[r] = lack; cost += lack*importPrice(r); } } return {miss, cost}; }
 function takeMat(mat){ for (const r in mat) S.stock[r] = Math.max(0, S.stock[r] - mat[r]); }
