@@ -5262,20 +5262,20 @@ function infRow(x){ const v = Math.round(infOf(x)), g = Math.round(infTarget(x))
   return `<div class="cb-inf"><span>Влияние</span><i><b style="width:${v}%"></b><u style="left:${g}%"></u></i><b class="num">${v}%</b></div><small class="cb-infw">${g > v ? `растёт к ${g}%` : g < v ? `падает к ${g}%` : "держится"}${P.length ? `: ${P.map(([n, q]) => `${n} ${q > 0 ? "+" : "−"}${Math.abs(q)}`).join(", ")}` : ""}</small>${(S.refs && S.refs[x.id]) || refGate(x).ok ? `<small class="cb-infw">Референдум: ${refChance(x)}% за${(S.refs && S.refs[x.id]) ? ` · осталось ${S.refs[x.id].left} мес.` : ""}. ${refParts(x).map(([n, q]) => `${n} ${q > 0 ? "+" : "−"}${Math.abs(q)}`).join(", ")}</small>` : ""}`; }
 
 /* ---- the peaceful ladder: alliance → union state → referendum. A country stronger than us can only stay an ally until we outgrow it */
-const UN_INF = 50, UN_REL = 60, UN_GDP = 0.6, UN_TAX = 0.04, REF_INF = 65, REF_WAIT = 12, REF_MONTHS = 6, REF_CD = 24;
+const UN_INF = 50, UN_REL = 60, UN_GDP = 0.6, UN_TAX = 0.04, REF_INF = 65, REF_WAIT = 12, REF_MONTHS = 6, REF_CD = 24, REF_WARY = 4;   // REF_WARY: each country that joined makes the world warier of the next referendum
 const unionCost = x => x.gdp*0.01, refCost = x => x.gdp*0.02, peaceFit = x => x.gdp <= UN_GDP*me().gdp;
 function unionGate(x){ const no = why => ({ok:false, why});
   if (x.puppet) return no("уже наш сателлит"); if (!x.ally) return no("сначала оборонительный союз");
   if (!peaceFit(x)) return no("их экономика должна быть не больше 60% нашей"); if (infOf(x) < UN_INF) return no(`нужно влияние от ${UN_INF}%`); if (x.rel < UN_REL) return no(`нужны отношения от +${UN_REL}`);
   return {ok:true}; }
 function refGate(x){ const no = why => ({ok:false, why}), since = x.union ? x.unionT : x.puppet && S.puppets && S.puppets[x.id] ? S.puppets[x.id].since : null;
-  if (since == null) return no("сначала союзное государство"); if (S.refs && S.refs[x.id]) return no("кампания уже идёт");
+  if (since == null) return no("сначала союзное государство"); if (S.refs && S.refs[x.id]) return no("кампания уже идёт"); if (Object.keys(S.refs || {}).length) return no("сейчас идёт другой референдум");
   if (!peaceFit(x)) return no("их экономика должна быть не больше 60% нашей"); const w = since + REF_WAIT - S.turn; if (w > 0) return no(`рано: ещё ${w} мес.`);
   if ((x.refT || 0) > S.turn) return no(`после провала ждём ещё ${x.refT - S.turn} мес.`); if (infOf(x) < REF_INF) return no(`нужно влияние от ${REF_INF}%`);
   return {ok:true}; }
 function refParts(x){ const P = [], add = (n, v) => { v = Math.round(v); if (v) P.push([n, v]); }, m = me();
   add("влияние", (infOf(x) - REF_INF)*1.2); add("уровень жизни", clamp(10*Math.log2((m.gdp/m.pop)/(x.gdp/x.pop)), -15, 15)); add("рейтинг", ((S.approval ?? 50) - 50)*0.3); add("отношения", (x.rel - UN_REL)*0.3);
-  add("один блок", blocOf(x.id) === blocOf(S.player) ? 8 : 0); add("репутация", -(S.infamy || 0)*0.5); add("власть сателлита", x.puppet ? -5 : 0); add("кампания против", -((S.refs && S.refs[x.id] && S.refs[x.id].pen) || 0)); return P; }
+  add("один блок", blocOf(x.id) === blocOf(S.player) ? 8 : 0); add("репутация", -(S.infamy || 0)*0.5); add("власть сателлита", x.puppet ? -5 : 0); add("мир насторожен", -REF_WARY*(S.peaceJ || 0)); add("кампания против", -((S.refs && S.refs[x.id] && S.refs[x.id].pen) || 0)); return P; }
 function refChance(x){ return Math.round(clamp(25 + refParts(x).reduce((a, q) => a + q[1], 0), 5, 90)); }
 function peaceJoin(x, yes){ const iso = x.id, o = occupy(iso, 1, null), M = defaultUnits(x, x.tech);
   o.damage = 0; o.res = 0; o.integ = 1; o.referendum = true; o.garrison = 1;
