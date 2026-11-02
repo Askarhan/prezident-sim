@@ -398,11 +398,13 @@ export async function start(el, ctx){
      a shot hits with the strength of all its live machines; every machine lost goes to the game through onLoss ---- */
   const B = ctx.battle ? Object.assign({t:0, lost:[0, 0], coming:[0, 0], cn:[0, 0], feed:[], ended:false, chk:0, shake:0}, ctx.battle) : null;
   // attacker kind → target kind: tank vs tank full, autocannon vs tank weak, artillery in between
-  const CLS = {tank:{tank:1, ifv:1.2, apc:1.3, arty:1.3}, ifv:{tank:0.45, ifv:1, apc:1.2, arty:1.1}, apc:{tank:0.15, ifv:0.5, apc:1, arty:0.9},
-    sph:{tank:0.5, ifv:0.8, apc:1, arty:0.9}, mlrs:{tank:0.4, ifv:0.9, apc:1.2, arty:1}, srbm:{tank:1.5, ifv:1.5, apc:1.5, arty:1.5}};
-  const bCls = k => k === "tank" || k === "ifv" || k === "apc" ? k : "arty";
+  // infantry is cheap to hit only with shells that burst around it: guns aimed at single men do little, ATGM teams are what a tank fears
+  const CLS = {tank:{tank:1, ifv:1.2, apc:1.3, arty:1.3, inf:0.12}, ifv:{tank:0.45, ifv:1, apc:1.2, arty:1.1, inf:0.2}, apc:{tank:0.15, ifv:0.5, apc:1, arty:0.9, inf:0.35},
+    sph:{tank:0.5, ifv:0.8, apc:1, arty:0.9, inf:0.5}, mlrs:{tank:0.4, ifv:0.9, apc:1.2, arty:1, inf:0.5}, srbm:{tank:1.5, ifv:1.5, apc:1.5, arty:1.5, inf:1},
+    inf:{tank:0.06, ifv:0.18, apc:0.35, arty:0.4, inf:0.5}, atgm:{tank:2.2, ifv:1.6, apc:1.2, arty:1, inf:0.06}};
+  const bCls = k => k === "tank" || k === "ifv" || k === "apc" ? k : k === "inf" || k === "atgm" ? "inf" : "arty";
   if (B){ B.vis = night ? (wk === "fog" ? 45 : 75) : wk === "fog" ? 55 : wk === "rain" ? 130 : wk === "snow" ? 110 : 0; B.acc = (night ? 0.75 : 1)*({fog:0.8, rain:0.9, snow:0.9}[wk] || 1); B.lit = 0; }
-  function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.next = Math.random()*3; u.lane = u.x; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; B.gk = B.gk || [0, 0]; u.grp = B.gk[u.side]++ % 2; }
+  function bInit(u){ const st = B.stats[u.id] || {ga:3, df:3, kind:"apc"}; u.next = Math.random()*3; u.lane = u.x; u.cnt = u.n0 = Math.max(1, Math.round(u.hp)); u.hpPer = st.df*(u.side === B.defSide ? B.defK : 1); u.hp = u.hpMax = u.cnt*u.hpPer; u.inf = st.kind === "inf" || st.kind === "atgm"; B.gk = B.gk || [0, 0]; u.grp = B.gk[u.side]++ % 2; }
   if (B){ units.forEach(bInit);
     // the outermost squads of each side try to go round the flank
     [0, 1].forEach(sd => { const fr = units.filter(u => u.side === sd && u.role === "front").sort((a, b) => a.x - b.x); fr.forEach((u, k) => { u.grp = k % 2; }); if (fr.length >= 4){ fr[0].flank = -1; fr[fr.length - 1].flank = 1; } });
@@ -433,7 +435,7 @@ export async function start(el, ctx){
   // load models and place them
   // weak phones load only the light copies; the others load the full models now and the light ones in the background
   const models = {};
-  async function getModel(m, lo){ const k = lo && HAS_LO.has(m) ? m + "_lo" : m;
+  async function getModel(m, lo){ if (m[0] === "_") return null; const k = lo && HAS_LO.has(m) ? m + "_lo" : m;
     if (!(k in models)){ try { models[k] = await loadModel(k); } catch(e){ models[k] = k !== m ? await getModel(m, false) : null; } }
     return models[k]; }
   const airInit = ctx.units.filter(u => AIR_ROLES.has(u.role));
@@ -449,12 +451,38 @@ export async function start(el, ctx){
   }
   function useSet(u, set){ u.turret = set.turret; u.gun = set.gun; u.hull = set.hull; }
   function dress(u){
+    if (u.inf){ u.obj = new THREE.Group(); u.sets = {}; u.gun0 = 0; scene.add(u.obj); return; }   // no model of its own: infDraw puts the men down
     const lo = level === "low" && HAS_LO.has(u.model);
     const src = models[lo ? u.model + "_lo" : u.model] || models[u.model] || models[u.model + "_lo"]; if (!src) { u.alive = false; return; }
     const set = makeSet(u, src), root = new THREE.Group(); root.add(set.obj);
     u.sets = {[lo ? "lo" : "hi"]:set}; u.lod = lo ? "lo" : "hi"; useSet(u, set);
     u.muzzle = (u.hull && u.hull.userData && u.hull.userData.muzzle) || 4.6;
     u.obj = root; u.gun0 = u.gun ? u.gun.position.x : 0; scene.add(root);
+  }
+  /* ---- infantry: low-poly men in one instanced mesh per side and weapon, coloured close to the ground; a squad shows up to 8 figures, fewer as it loses men ---- */
+  const INF = B && (B.stats._inf || B.stats._atgm) ? {mesh:[], cap:72, figs:{high:8, mid:5, low:3}, t:0,
+    off:Array.from({length:8}, (_, j) => [(j - 3.5)*1.8 + (R() - 0.5)*0.7, (j % 2 ? -1.5 : 0) + (R() - 0.5)*0.8])} : null;
+  if (INF){ const RI = rng(ctx.seed + 5), tone = wk === "snow" ? 0xa9aeb0 : ({p:0x565f42, f:0x45503a, d:0x8c7c5c, u:0x5c5c54, m:0x5e5c4a}[ctx.terrain] || 0x565f42);
+    const man = (c, atgm) => { const dk = new THREE.Color(c).multiplyScalar(0.62).getHex(), bx = (w, h, d, x, y, z, col) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return colorize(g, col, 0.04, RI); };
+      return merge([bx(0.26, 0.86, 0.2, 0, 0.43, 0.14, dk), bx(0.26, 0.86, 0.2, 0, 0.43, -0.14, dk), bx(0.32, 0.74, 0.52, 0, 1.22, 0, c), bx(0.26, 0.26, 0.26, 0, 1.72, 0, dk), bx(0.34, 0.14, 0.34, 0, 1.86, 0, c),
+        atgm ? bx(1.25, 0.17, 0.17, 0.1, 1.62, 0.26, dk) : bx(0.85, 0.07, 0.07, 0.38, 1.24, 0.2, dk)]); };
+    [0, 1].forEach(side => { const c = new THREE.Color(tone).lerp(new THREE.Color(side ? 0x5a4634 : 0x3c4e54), 0.22).getHex();
+      [false, true].forEach(at => { const m = new THREE.InstancedMesh(man(c, at), new THREE.MeshLambertMaterial({vertexColors:true}), INF.cap); m.count = 0; m.frustumCulled = false; m.castShadow = level !== "low"; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); INF.mesh.push(m); }); }); }
+  const infM = new THREE.Matrix4();
+  function infDraw(dt){
+    if (!INF) return; INF.t += dt; const n = [0, 0, 0, 0], F = INF.figs[level] || 5, s0 = 1.2;
+    for (const u of units){ if (!u.inf || !u.alive) continue;
+      const key = u.side*2 + (u.id === "_atgm" ? 1 : 0), m = INF.mesh[key], c = Math.cos(u.h), s = Math.sin(u.h), walk = u.state === "move", sy = (walk ? 1 : 0.74)*s0, figs = Math.max(1, Math.ceil(F*u.cnt/u.n0));
+      if ((u.fyT = (u.fyT || 0) - dt) < 0 || !u.fy){ u.fyT = 0.3; u.fy = INF.off.map(([ox, oz]) => G.height(u.x + s*ox + c*oz, u.z + c*ox - s*oz)); }
+      for (let j = 0; j < figs && n[key] < INF.cap; j++){ const [ox, oz] = INF.off[Math.round(j*(8 - 1)/Math.max(1, figs - 1)) || 0], y = u.fy[Math.round(j*(8 - 1)/Math.max(1, figs - 1)) || 0] + (walk ? Math.abs(Math.sin(INF.t*7 + j*1.3))*0.13 : 0);
+        infM.set(c*s0, 0, s*s0, u.x + s*ox + c*oz, 0, sy, 0, y, -s*s0, 0, c*s0, u.z + c*ox - s*oz, 0, 0, 0, 1); m.setMatrixAt(n[key]++, infM); } }
+    INF.mesh.forEach((m, k) => { m.count = n[k]; m.instanceMatrix.needsUpdate = true; });
+  }
+  // an ATGM team's shot: a slow missile with a smoke trail
+  function atgmShot(u, t){
+    const p = launchPoint(u), dmg = t.pend >= 1 ? Math.floor(t.pend) : 0, hit = dmg > 0; t.pend -= dmg; if (hit) t.inbound = (t.inbound || 0) + dmg;
+    const sp = hit ? 1.5 : 14, ex = t.x + (Math.random() - 0.5)*sp, ez = t.z + (Math.random() - 0.5)*sp, ey = G.height(ex, ez) + (hit ? 1.3 : 0.3); snd.play("rocket", p.x, p.y, p.z, {vol:0.45});
+    shells.push({x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:ey, z1:ez, t:0, dur:Math.hypot(ex - p.x, ez - p.z)/110 + 0.2, arc:1.5, side:u.side, kind:"atgm", trail:true, c:[1, 0.8, 0.5], onHit:() => { explosion(ex, ez, false, false, 0.7); if (hit){ t.inbound -= dmg; damage(t, dmg); } }});
   }
   // swap a unit between its full and light model, carrying over where the turret and gun point
   function setLod(u, want){
@@ -527,7 +555,7 @@ export async function start(el, ctx){
   }
   function fireAt(u, t, small){
     if (small){ // autocannon and machine guns: a burst of thin tracers, small hits
-      const p = launchPoint(u); snd.play("autocannon", p.x, p.y, p.z, {vol:0.55});
+      const p = launchPoint(u); snd.play("autocannon", p.x, p.y, p.z, {vol:u.inf ? 0.18 : 0.55});
       const dmg = t.pend >= 1 ? Math.floor(t.pend) : 0; if (dmg){ t.pend -= dmg; t.inbound = (t.inbound || 0) + dmg; }
       for (let i = 0; i < small; i++){ const last = i === small - 1, ex = t.x + (Math.random() - 0.5)*(dmg && last ? 1 : 10), ez = t.z + (Math.random() - 0.5)*(dmg && last ? 1 : 10);
         const sh = {x0:p.x, y0:p.y, z0:p.z, x1:ex, y1:G.height(ex, ez) + 0.8, z1:ez, t:-i*0.09, dur:Math.hypot(ex - p.x, ez - p.z)/700 + 0.05, side:u.side, kind:"bullet", c:u.side ? [1, 0.5, 0.35] : [1, 0.9, 0.55],
@@ -554,12 +582,12 @@ export async function start(el, ctx){
   // a shot decided by the battle: miss, ricochet or a hit carried by the shell as pend (the visuals already turn pend into a hit)
   function bShot(u, t, frac = 1){
     if (!t || !t.alive || B.ended) return; const a = B.stats[u.id], d = B.stats[t.id]; if (!a || !d) return;
-    const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc", dist = Math.hypot(t.x - u.x, t.z - u.z);
-    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
+    const k = a.kind, direct = k === "tank" || k === "ifv" || k === "apc" || k === "inf" || k === "atgm", dist = Math.hypot(t.x - u.x, t.z - u.z);
+    let acc = direct ? clamp(0.92 - dist/350, 0.45, 0.92) : k === "srbm" ? 0.9 : 0.55; if (direct && u.tcov) acc *= 0.55; if (t.inf) acc *= 0.7; acc *= B.lit && night ? Math.min(1, B.acc*1.2) : B.acc; if (u.state === "move") acc *= 0.75; if (Math.random() > acc) return;
     if (direct && (d.kind === "tank" || d.kind === "ifv") && bFace(t, u.x, u.z) > 0.5){ const rc = clamp(0.3*d.df/Math.max(1, a.ga) - 0.1, 0, 0.55);
       if (Math.random() < rc){ floats.push({u:t, text:k === "tank" ? "рикошет" : "не пробил", t:0, dim:true}); return; } }
     let pen = 2*a.ga/(a.ga + d.df);
-    if (direct && t.role === "front" && !t.air){ const ca = bFace(t, u.x, u.z); if (ca < 0.5){ pen *= ca < -0.5 ? 2.2 : 1.6; if (Math.random() < 0.35) floats.push({u:t, text:ca < -0.5 ? "в корму!" : "в борт!", t:0}); } }
+    if (direct && t.role === "front" && !t.air && !t.inf){ const ca = bFace(t, u.x, u.z); if (ca < 0.5){ pen *= ca < -0.5 ? 2.2 : 1.6; if (Math.random() < 0.35) floats.push({u:t, text:ca < -0.5 ? "в корму!" : "в борт!", t:0}); } }
     t.pend += u.cnt*a.ga*0.13*(CLS[k] || CLS.apc)[bCls(d.kind)]*pen*(0.75 + Math.random()*0.5)*frac; t.lastBy = u;
   }
   // line of fire: 0 blocked (cover or a hill between), 1 clear, 2 clear but the target hugs cover (harder to hit)
@@ -576,7 +604,7 @@ export async function start(el, ctx){
     u.tT = (u.tT || 0) - dt;
     if (u.forced && u.forced.alive){ if (u.tT < 0 || u.target !== u.forced){ u.target = u.forced; u.tT = 0.4; const l = bLos(u, u.target); u.los = l > 0; u.tcov = l === 2; } return; }
     u.forced = null; if (u.target && u.target.alive && u.tT > 0) return; u.tT = 0.5 + Math.random()*0.3;
-    const es = enemiesOf(u).map(v => [v, Math.hypot(v.x - u.x, v.z - u.z)]).sort((a, b) => a[1] - b[1]).slice(0, 4);
+    const at = u.id === "_atgm", es = enemiesOf(u).map(v => [v, Math.hypot(v.x - u.x, v.z - u.z)*(at && v.inf ? 2 : 1)]).sort((a, b) => a[1] - b[1]).slice(0, 4);   // ATGM teams look for armour first
     let pick = null; for (const [v] of es){ const l = bLos(u, v); if (l){ pick = [v, l]; break; } }
     if (pick){ u.target = pick[0]; u.los = true; u.tcov = pick[1] === 2; u.blind = 0; }
     else { u.target = es.length ? es[0][0] : null; u.los = u.tcov = false; if (u.state === "hold" && !u.order && (u.blind = (u.blind || 0) + 0.6) > 5){ u.blind = 0; u.next = Math.min(u.next, 0); } }
@@ -585,7 +613,7 @@ export async function start(el, ctx){
   function bFace(t, x, z){ const dx = x - t.x, dz = z - t.z, L = Math.hypot(dx, dz) || 1; return (Math.cos(t.h)*dx - Math.sin(t.h)*dz)/L; }
   // fighting distance by class: tanks duel from afar, IFVs and APCs a bit closer; fog and night pull it in; the end of the battle closes it
   function bBand(u){ const k = (B.stats[u.id] || {}).kind, cl = bClose(u);
-    let b = k === "tank" ? [44, 62, 88] : k === "ifv" ? [34, 48, 66] : [28, 40, 56]; if (cl) b = [18, 28, 44];
+    let b = k === "tank" ? [44, 62, 88] : k === "ifv" || k === "inf" ? [34, 48, 66] : k === "atgm" ? [48, 66, 95] : [28, 40, 56]; if (cl) b = [18, 28, 44];
     if (B.vis){ const v = B.vis*(B.lit ? 1.5 : 1)*0.85; b = b.map(x => Math.min(x, v)); } return b; }
   // the attacker closes in once the enemy is breaking or time is running out
   function bClose(u){ if (u.side !== B.atkSide) return false; const f = 1 - u.side, lim = B.type === "def" ? B.hold : B.limit || 300;
@@ -670,7 +698,9 @@ export async function start(el, ctx){
   }
   const wrecks = [];
   function destroy(u){
-    if (!u.alive) return; u.alive = false; u.pend = 0; wrecks.push(u);
+    if (!u.alive) return;
+    if (u.inf){ u.alive = false; u.pend = 0; explosion(u.x, u.z, false, false, 0.4); if (u.obj){ scene.remove(u.obj); u.obj = null; } return; }
+    u.alive = false; u.pend = 0; wrecks.push(u);
     // only the last wrecks stay on the field so the scene stays light
     while (wrecks.length > 10){ const w = wrecks.shift(); if (w.obj){ scene.remove(w.obj); w.obj = null; } }
     explosion(u.obj.position.x, u.obj.position.z, true);
@@ -680,7 +710,7 @@ export async function start(el, ctx){
   }
   // a new squad drives in from our (or their) edge of the map to the front
   async function reinforce(side, id, hp){
-    const model = (ctx.modelOf && ctx.modelOf[id]) || "t72"; if (!models[model]){ try { models[model] = await loadModel(model); } catch(e){ return; } }
+    const model = (ctx.modelOf && ctx.modelOf[id]) || "t72"; if (model[0] !== "_" && !models[model]){ try { models[model] = await loadModel(model); } catch(e){ return; } }
     const role = (ctx.roleOf && ctx.roleOf[id]) || "front", d = DEPTH[role] || DEPTH.front;
     const s = side ? -1 : 1, x = (Math.random() - 0.5)*FIELD*0.7, z = s*(FIELD/2 - 6), hz = s*(d[0] + Math.random()*(d[1] - d[0]));
     const u = {id, model, side, role, x, z, h:side ? -Math.PI/2 : Math.PI/2, home:[x, hz], hp, hpMax:hp, pend:0, alive:true, reload:4, state:"move", wp:[x, hz], next:20};
@@ -1068,9 +1098,9 @@ export async function start(el, ctx){
     if (u.state === "move"){
       const dx = u.wp[0] - u.x, dz = u.wp[1] - u.z, d = Math.hypot(dx, dz), want = Math.atan2(-dz, dx);
       // short moves away from the enemy go in reverse, front still toward it
-      const back = B && !B.ended && u.next < 900 && d < 45 && Math.abs(angDiff(u.h, want)) > 2.1, turn = angDiff(u.h, back ? want + Math.PI : want); u.h += clamp(turn, -0.7*dt, 0.7*dt);
-      if (Math.abs(turn) < 0.5){ const v = Math.min(d, (u.next > 900 ? 9 : back ? 3 : 5)*dt)*(back ? -1 : 1); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
-        if (Math.random() < dt*8) fxSmoke.emit({x:u.x - Math.cos(u.h)*3.5 + (Math.random() - 0.5)*2, y:G.height(u.x, u.z) + 0.3, z:u.z + Math.sin(u.h)*3.5 + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5), vy:0.6, vz:(Math.random() - 0.5), life:2 + Math.random(), s0:1.4, s1:5, c:ctx.terrain === "d" ? [0.72, 0.6, 0.42] : [0.52, 0.45, 0.34], a:0.35, drag:0.8, fadeIn:0.1}); }
+      const back = B && !B.ended && !u.inf && u.next < 900 && d < 45 && Math.abs(angDiff(u.h, want)) > 2.1, turn = angDiff(u.h, back ? want + Math.PI : want); u.h += clamp(turn, -(u.inf ? 3 : 0.7)*dt, (u.inf ? 3 : 0.7)*dt);
+      if (Math.abs(turn) < 0.5){ const v = Math.min(d, (u.inf ? (u.next > 900 ? 4 : 2.6) : u.next > 900 ? 9 : back ? 3 : 5)*dt)*(back ? -1 : 1); u.x += Math.cos(u.h)*v; u.z -= Math.sin(u.h)*v;
+        if (!u.inf && Math.random() < dt*8) fxSmoke.emit({x:u.x - Math.cos(u.h)*3.5 + (Math.random() - 0.5)*2, y:G.height(u.x, u.z) + 0.3, z:u.z + Math.sin(u.h)*3.5 + (Math.random() - 0.5)*2, vx:(Math.random() - 0.5), vy:0.6, vz:(Math.random() - 0.5), life:2 + Math.random(), s0:1.4, s1:5, c:ctx.terrain === "d" ? [0.72, 0.6, 0.42] : [0.52, 0.45, 0.34], a:0.35, drag:0.8, fadeIn:0.1}); }
       if (d < 1.5){ u.state = "hold"; u.next = B ? (u.order ? 25 : u.side === B.atkSide ? (B.type === "brk" && u.side === 0 ? 3 + Math.random()*2 : 2 + Math.random()*2) : 10 + Math.random()*8) : 10 + Math.random()*16; if (B) u.order = null; }
     } else if (B && u.target && !B.ended){ const tw = Math.atan2(-(u.target.z - u.z), u.target.x - u.x), td = angDiff(u.h, tw); if (Math.abs(td) > 0.25) u.h += clamp(td, -0.4*dt, 0.4*dt); }
     if (u.state !== "move" && u.next < 0){
@@ -1079,6 +1109,7 @@ export async function start(el, ctx){
     }
     // target and turret
     if (B){ if (B.type === "amb" && !B.alert && !u.forced){ u.target = null; u.los = false; } else bTarget(u, dt); } else if (!u.target || !u.target.alive || Math.random() < dt*0.05 || (!(u.target.pend >= 1) && Math.random() < dt*0.6)){ let best = null, bd = 1e9; for (const v of enemiesOf(u)){ const d = Math.hypot(v.x - u.x, v.z - u.z) - (v.pend >= 1 ? 400 : 0) + (v.nofuel ? 150 : 0); if (d < bd){ bd = d; best = v; } } u.target = best; }
+    if (u.inf && u.target && u.los && u.reload < 0 && !B.ended && (u.state !== "move" || u.id !== "_atgm")){ const at = u.id === "_atgm"; bShot(u, u.target); if (at) atgmShot(u, u.target); else fireAt(u, u.target, 2); u.reload = (u.side ? ctx.rofThem : ctx.rofUs)*(at ? 1.8 : 0.7)*(0.7 + Math.random()*0.6); }
     if (u.turret){
       const want = u.target ? Math.atan2(-(u.target.z - u.z), u.target.x - u.x) - u.h : 0;
       const cur = u.turret.rotation.y, diff = angDiff(cur, want); u.turret.rotation.y = cur + clamp(diff, -0.9*dt, 0.9*dt);
@@ -1193,7 +1224,7 @@ export async function start(el, ctx){
     if (document.hidden) { last = now; snd.sleep(); return; }
     let t0 = performance.now(); snd.wake(true); soundStep(Math.min(0.1, (now - last)/1000)); const t1 = performance.now(); fps.acc.sound += t1 - t0;
     const raw = now - last, dt = clamp(raw/1000, 0, 0.1); last = now; measure(now, raw); fpsTick(raw);
-    if (dt > 0.05){ step(dt/2); step(dt/2); } else step(dt); lodPass(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
+    if (dt > 0.05){ step(dt/2); step(dt/2); } else step(dt); lodPass(dt); infDraw(dt); fxSmoke.mat.uniforms.scale.value = fxFire.mat.uniforms.scale.value = el.clientHeight*renderer.getPixelRatio()/(2*Math.tan(camera.fov*Math.PI/360));
     const t2 = performance.now(); fps.acc.step += t2 - t1; let sx = 0, sy = 0; if (B && B.shake > 0.02){ sx = (Math.random() - 0.5)*B.shake*1.6; sy = (Math.random() - 0.5)*B.shake*1.2; camera.position.x += sx; camera.position.y += sy; B.shake = Math.max(0, B.shake - dt*1.8); }
     renderer.render(scene, camera); camera.position.x -= sx; camera.position.y -= sy; const t3 = performance.now(); fps.acc.render += t3 - t2; drawHud(dt); fps.acc.hud += performance.now() - t3;
   }
@@ -1207,6 +1238,7 @@ export async function start(el, ctx){
     raid(type, o){ raid(type, o); },
     strike(side, type, o){ return cstrike(side, type, o); },
     aim(fn){ if (B) B.aim = fn || null; },
+    peek(id, dist){ const u = units.find(v => v.id === id && v.alive); if (u){ cam.x = u.x; cam.z = u.z; cam.dist = dist; } return !!u; },   // test hook
     ff(sec){ for (let k = 0; k < sec*20 && running; k++) step(0.05); },   // test hook: run the field ahead without drawing
     battle(){ return B ? {t:B.t, lost:B.lost.slice(), total:B.total, ended:B.ended, win:B.win, inZone:B.zone ? B.inZone : null, need:B.need, esc:B.esc || 0, alert:B.alert} : null; },
     // share of a side's ground squads that has fuel; the rest stands still with a «нет топлива» label

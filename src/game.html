@@ -3790,6 +3790,17 @@ function bf3dBattle(st, w, i){
     // the attacker in a defence battle comes in two waves: 60% at once, the next 45 s later
     let acc = 0; chunks.forEach(c => { if (waves){ c.at = acc < cap ? 45 : null; acc += c.n; } reserve.push(c); });
   }));
+  // infantry: a few squads spaced between the machines of the front, the rest of the men in reserve (the defender's waves as with the machines)
+  [[cb.ig, 0], [cb.ie, 1]].forEach(([grp, side]) => {
+    const ids = Object.keys(grp || {}).filter(id => grp[id] > 0); if (!ids.length) return;
+    const sl = {high:5, mid:4, low:3}[gfxLevel()] || 4, tot = ids.reduce((a, id) => a + grp[id], 0), waves = cb.type === "def" && side === 1, add = []; total[side] += tot;
+    ids.forEach(id => { stats[id] = {ga:CB_INF[id].ga, df:CB_INF[id].df, kind:CB_INF[id].kind};
+      const q = id === "_atgm" ? 1 + (sl > 3 ? 1 : 0) : Math.max(1, sl - 1 - (sl > 3 ? 1 : 0)), on = Math.min(grp[id], waves ? Math.ceil(grp[id]*0.6) : Math.ceil(W/2)), n = Math.max(1, Math.ceil(on/q));
+      let used = 0; for (let j = 0; j < q && used < on; j++){ const c = Math.min(n, on - used); add.push({id, model:id, side, role:"front", hp:c}); used += c; }
+      for (let r = grp[id] - used, first = true; r > 0; r -= n, first = false) reserve.push({side, id, n:Math.min(r, n), at:waves && first ? 45 : null}); });
+    const fr = units.filter(u => u.side === side && u.role === "front"), gap = fr.length/(add.length + 1);
+    add.forEach((u, k) => { const a = fr[Math.max(0, Math.round((k + 1)*gap) - 1)], at = a ? units.indexOf(a) + 1 : units.length; units.splice(at, 0, u); });
+  });
   const defSide = cbDefThem(cb.type) ? 1 : 0;
   const battle = {type:cb.type, stats, reserve, total, defSide, atkSide:1 - defSide, defK:cb.type === "amb" ? 1 : CB_DEFK, limit:CB_TYPES[cb.type].lim, hold:CB_HOLD,
     onLoss:(side, id, n) => { const ww = S.wars.find(x => x.enemy === st.enemy); if (ww && ww.cb === cb) cbLoss(ww, side, id, n); },
@@ -3813,7 +3824,8 @@ function bf3dOpen(st, w, i){
   const ctx = {sound:!!settings.sound, audio:settings.sound ? AC : null, terrain:bfTerrain(f), phase:w.phase, seed:bfHash(w.enemy + ":" + i + ":" + (w.bfSeed || 0)), units, quality:gfxLevel(), auto:(settings.gfx || "auto") === "auto", onQuality:lv => { settings.gfxAuto = lv; settingsSave(); },
     hitUs:0.22 + 0.4*edge, hitThem:0.22 + 0.4*(1 - edge), rofUs:7 - 2.5*edge, rofThem:4.5 + 2.5*edge, artyUs:arty(w.dep[i], 1), artyThem:arty(w.eu, 1),
     accentUs:0x2f6bff, accentThem:0xe03030, names:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.name])), modelOf:Object.fromEntries(Object.keys(MODELS).map(id => [id, bf3dModel(id)])), kindOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, m.kind])), roleOf:Object.fromEntries(Object.values(MODELS).map(m => [m.id, BF3D_ROLE[m.kind] || "front"]))};
-  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; ctx.wx = st.cb.wx; }
+  if (cbB){ ctx.battle = cbB.battle; ctx.rofUs = ctx.rofThem = 6; ctx.wx = st.cb.wx;
+    for (const id in CB_INF){ ctx.names[id] = CB_INF[id].name; ctx.modelOf[id] = id; ctx.kindOf[id] = CB_INF[id].kind; ctx.roleOf[id] = "front"; } }
   st.root.querySelector("#bf-cv").style.display = "none";
   const box = document.createElement("div"); box.className = "bf3d"; st.root.insertBefore(box, st.root.firstChild);
   st.lost0 = [Object.assign({}, (w.lossF || [])[i] || {}), Object.assign({}, w.lossTh)]; st.arrDay = ((w.arrD || [])[i] || {}).day ?? -1;

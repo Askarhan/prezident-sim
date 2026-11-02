@@ -28,7 +28,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 ## Next
-- Next stage to discuss with the user: infantry from `w.men` (phone load), or variety part 2 (city battle, enemy doctrine, mid-battle events, rewards), then the BALANCE STAGE below.
+- Next stage to discuss with the user: variety part 2 (city battle, enemy doctrine, mid-battle events, rewards), then the BALANCE STAGE below. Infantry is done (see its section).
 - Possible next model batches (≤3 at a time, ask the user first): Switchblade 600, HQ-16 (none found on Sketchfab 01.11), EC-37B Compass Call; check whether transports and ships are drawn on the field before modelling them. The A-10 keeps small low-visibility US markings (grey on grey): they could not be separated from panel lines automatically.
 - Before each big new feature, discuss the plan with the user first.
 - Delivery ideas not built: losses on the road (strikes on columns), a railway (`S.rails`) speeding up the trip.
@@ -98,6 +98,13 @@ Rules agreed with the user:
 ### Force ratio cap (02.11.2026, user's report: our 33% = ~1000 tanks vs the enemy's 103)
 - `cbGroups`: outnumbered by more than 1.3×, the enemy raises its share (up to 100% of the direction when it defends, 60% otherwise); then each side brings at most `CB_RATIO` 3× the other's group (floor 12); the rest hold the front. The card adds «Больше брать нет смысла…» when our group is capped (`G.capped`).
 - Check: RU–KZ 27 vs 9, US–MX assault 742 vs 372 (Mexico all in), KZ–RU 3 vs 10, FR–DE unchanged 105 vs 115.
+
+### Infantry done (02.11.2026)
+- User's choices: low-poly figures in muted colours, no second slider (infantry follows the same % as the machines).
+- Rules (`game.html`): `CB_SQ` 10 men in a squad, `CB_INF` pseudo-models `_inf` (ga 1.5, df 1.2) and `_atgm` (ga 5, df 1), every fifth squad an ATGM team. `cbGroups` returns `ig`/`ie` (squads): `w.men` (thousands) × the same share, at most one squad per machine (`CB_INFK`). Breakthrough: no infantry of ours (raid of machines); ambush: none in the enemy column. Kept apart from `cb.g`/`cb.e`, so `cbCount`, `depPower`, `depTake` stay machine-only: `cb.ai`/`cb.aie` tally losses, `cb.LI`/`cb.LIE` are the plan, `cbInfPower` adds to `myP`/`enP`. `cbLoss` with id `_…` takes real men (`me().army`, `w.men`, `troopsLost`, weariness; enemy `e.army`).
+- Field: `bf3dBattle` spaces infantry squads between the machines (slots 5/4/3 by graphics), the rest as `reserve` chunks; defence waves 60% + the rest at 45 s. In `bf3d.js`: `u.inf`, `u.obj` is an empty group, `dress`/`destroy`/`getModel`/`reinforce` skip models for `_` ids; `INF` + `infDraw` = 4 InstancedMesh (side × rifle/ATGM, 72 per mesh), figures 8/5/3 per squad and fewer as it loses men, crouched when holding, colour from terrain (grey-white in snow), called from `frame` only. `CLS` got an `inf` column and `inf`/`atgm` rows (guns weak against men, ATGM 2.2 against tanks), acc ×0.7 on infantry, ATGM teams prefer armour (`bTarget`), do not fire on the move, `atgmShot` = slow missile with a trail. Walk speed 2.6 m/s.
+- Test (one run each): FR–DE assault lost, machines 46/66 vs 24/74, infantry 43/66 vs 28/74, 117 s; FR–DE defence won 124 s; DE–PL assault lost 96 s; RU–KZ won 57 s. No page errors; losses mostly 0.3–0.7 of a group. Not measured: FPS on a real mid-range phone (headless is software rendering), ask the user to check.
+- `api.peek(id, dist)` is a test hook: moves the camera to a squad. `www/t.html` is not ignored by git: delete it before committing.
 
 ### Testing the field headless
 - three: `git fetch --depth 1 origin apk:refs/remotes/origin/apk`, `git show origin/apk:kabinet-prezidenta-debug.apk > k.apk`, unzip `assets/public/lib/three/*` into `www/lib/three` (ignored by git).
