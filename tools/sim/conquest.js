@@ -19,7 +19,7 @@ const server = http.createServer((req, res) => {
         S().pendingEvent = null; document.querySelectorAll(".modal").forEach(m => m.remove());
         if (S().pendingVictory){ X.settleVictory(S().pendingVictory.iso, "annex"); won++; if (first == null) first = day; cool = 20; document.querySelectorAll(".modal").forEach(m => m.remove()); }
         if (!S().wars.length && --cool <= 0){ const f = free().sort((a, b) => a.gdp - b.gdp)[0]; if (!f) break; const w = X.startWar(f.id, true); if (w) w.mode = "attack"; }
-        S().wars.forEach(w => { w.offer = false; }); S().approval = Math.max(S().approval, 55); S().stability = Math.max(S().stability, 50);   // the bot plays only the war: home politics stays out of this test
+        S().wars.forEach(w => { w.offer = false; }); S().approval = Math.max(S().approval, 55); S().stability = Math.max(S().stability, 50); S().electionIn = 48;   // the bot plays only the war: home politics stays out of this test
         S().day = (S().day||1) + 1; X.dayTick(); if (S().day > X.daysIn(S().month, S().year)) X.nextMonth();
         if (day === 45 && S().wars[0]) fuel0 = +(S().wars[0].fuel ?? 1).toFixed(2);
       }

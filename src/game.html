@@ -2487,7 +2487,10 @@ function fuelDay(w){
   else if (w.fuel >= 0.98 && was < 0.98) warEvent(w, "Топливо снова есть: вся техника на фронте воюет.", "good");
 }
 // what really fights today: deployed machines times the fuelled share, plus the fleet's share
-function warFight(w){ const U = warUnits(w), k = w.fuel ?? 1; if (k < 1) for (const id in U) if (depOk(id)) U[id] *= k; return U; }
+// the empire ties up its own strength: garrisons and patrols keep some machines away from the fight, partisans grow with its size
+function occCount(){ return Object.values(S.occupied||{}).filter(o => !o.referendum).length; }
+function empireK(){ return 1 - Math.min(0.25, 0.02*occCount()); }
+function warFight(w){ const U = warUnits(w), k = (w.fuel ?? 1)*empireK(); if (k < 1) for (const id in U) if (depOk(id)) U[id] *= k; return U; }
 // the enemy under the same rules: its oil is its production plus what its economy can buy; the rest waits in reserve (w.er)
 function enemyFuelDay(w){
   const e = C()[w.enemy]; w.er = w.er || {};
@@ -2616,7 +2619,7 @@ function warDay(w){
   if (w.offerCd > 0) w.offerCd--;
 }
 function warMonth(w){
-  llMonth(w);
+  llMonth(w); nukeMonth(w); conquestMood(w);
   initWar(w); const e = C()[w.enemy];
   w.months++;
   // the enemy reinforces and restocks
@@ -4031,7 +4034,7 @@ function viewHQ(){
     w.far ? (w.carriers ? `Далёкая война: авианосцы (${w.carriers}) дают авиации аэродромы рядом с фронтом` : `<span class="down">Далёкая война: авианосцев не осталось, авиация работает на 45%</span>`) : "",
     w.sea ? `Удары с моря крылатыми ракетами: <span class="up num">+${w.sea.toFixed(2).replace(".",",")}% в день</span>` : "",
     w.blockade ? (w.blockade > 0 ? `<span class="up">Морская блокада противника: его экономика сжимается</span>` : `<span class="down">Флот противника блокирует наши порты</span>`) : "",
-    `Топливо: ${(w.fuel ?? 1) < 0.98 ? `<span class="down">не хватает — воюет ${Math.round((w.fuel ?? 1)*100)}% техники</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}${w.frontCost ? ` · содержание фронта ${money(w.frontCost)}` : ""}${(() => { const n = Object.values(w.er||{}).reduce((x, y) => x + y, 0); return n >= 1 ? ` · у противника без топлива стоит ${Math.round(n).toLocaleString("ru-RU")} машин` : ""; })()}`,
+    `${nukeLine(w)}Топливо: ${(w.fuel ?? 1) < 0.98 ? `<span class="down">не хватает — воюет ${Math.round((w.fuel ?? 1)*100)}% техники</span>` : (S.stock.oil||0) > 0 ? `своя нефть, ${fmtQ(S.stock.oil)} ${COMMOD.oil.unit} на складе` : `покупаем на рынке${w.fuelBought ? `, потрачено ${money(w.fuelBought)}` : ""}`}${w.frontCost ? ` · содержание фронта ${money(w.frontCost)}` : ""}${(() => { const n = Object.values(w.er||{}).reduce((x, y) => x + y, 0); return n >= 1 ? ` · у противника без топлива стоит ${Math.round(n).toLocaleString("ru-RU")} машин` : ""; })()}`,
     w.droneLog ? `Последний удар дронов: ${w.droneLog.n} шт · РЭБ ${w.droneLog.jammed} · ПВО ${w.droneLog.down} · прорвалось ${w.droneLog.hits}` : "",
     airliftCap() ? `Транспортная авиация: ${airliftCap()} · воздушный мост и десант доступны` : ""
   ].filter(Boolean).map(x => `<div class="row"><small>${x}</small></div>`).join("");
@@ -4090,7 +4093,24 @@ const GARRISON_LV = [[0.5,"Мало"],[1,"Норма"],[2,"Много"]];
 /* The world's answer to conquest, measured by S.infamy. Scaled to the player so a small country can still conquer the world:
    lend-lease is a share of OUR machines at this war, a coalition is picked to fit under COAL_K × our power. */
 const LL_MIN = 30, COAL_MIN = 50, COAL_END = 35, COAL_CD = 18, COAL_K = 1.2, FLOOR_MAX = 15;
-function llRate(){ const i = S.infamy||0; return i < LL_MIN ? 0 : 0.01 + 0.05*(i - LL_MIN)/70; }
+/* Nuclear deterrence is predictable: nothing until the army is deep in the country, then a monthly chance that grows and is shown on the war card. */
+const NUKE_POWERS = new Set(["us","ru","cn","gb","fr","in","pk","il","kp"]), NUKE_LINE = 45, NUKE_CD = 12;
+function nukeRisk(w){ if (!NUKE_POWERS.has(w.enemy) || S.turn < (w.nukeT||0) || !w.fronts) return 0;
+  const p = Math.max(w.progress, ...w.fronts.map(f => f.p*0.8)); return p < NUKE_LINE ? 0 : clamp(Math.pow((p - NUKE_LINE)/50, 2), 0.04, 1)*(deterrence() ? 0.7 : 1); }
+function nukeLine(w){ const r = nukeRisk(w); return r ? `<span class="down">☢ Ядерный ответ: ${Math.round(r*100)}% в месяц, дальше риск выше</span><br>` : NUKE_POWERS.has(w.enemy) ? `☢ Ядерная держава: не заходите глубоко<br>` : ""; }
+function nukeMonth(w){ const r = nukeRisk(w), e = C()[w.enemy]; if (!r) return;
+  if (!w.nukeSaid){ w.nukeSaid = true; warEvent(w, `${e.name}: наша армия перешла красную линию. Чем глубже зайдём, тем выше риск ядерного ответа.`, "bad"); advise("gen", `Мы глубоко в стране ${e.name}. Это ядерная держава: риск удара теперь ${Math.round(r*100)}% в месяц и будет расти. Можно остановиться и заключить мир.`, {mood:"alert"}); }
+  if (Math.random() >= r) return;
+  w.nukeT = S.turn + NUKE_CD;
+  w.dep.forEach(d => { for (const id in d){ const q = Math.floor(d[id]*0.35); if (q > 0){ d[id] -= q; S.units[id] = Math.max(0, (S.units[id]||0) - q); } } });
+  w.men = (w.men||0)*0.65; w.fronts.forEach(f => { f.p = Math.max(-20, f.p - 30); }); S.approval = clamp(S.approval - 20, 0, 100); S.stability = clamp(S.stability - 15, 0, 100); me().gdp *= 0.94;
+  me().worldSanctions = Math.max(me().worldSanctions||0, 36); infamyAdd(10); sfx("alarm");
+  addLog(`☢ ${e.name} нанесла ядерный удар по нашей армии. Огромные потери, мир ввёл санкции.`); warEvent(w, `☢ Ядерный удар! Потеряна треть войск на фронте.`, "bad"); advise("gen", `Ядерный удар! ${e.name} ответила, как и предупреждала. Следующий возможен через год, если мы снова пойдём вперёд.`, {mood:"alert"}); }
+/* A long war of conquest wears the country out faster the bigger the empire is; at the bottom the generals act. */
+function conquestMood(w){ if (!w.byUs || w.days < 90) return; wearyAdd(0.4 + Math.min(1.6, 0.15*occCount()));
+  if ((S.weary||0) >= 85 && S.approval < 30){ if (!S.coupSaid){ S.coupSaid = true; advise("sec", "Генералы недовольны бесконечной войной. Если рейтинг не поднимется, будет переворот.", {mood:"alert"}); }
+    else if (Math.random() < 0.06) endGame(false, "Военный переворот", "Страна устала от завоеваний, армия отстранила вас от власти."); } else S.coupSaid = false; }
+function llRate(){ const i = S.infamy||0; return i < LL_MIN ? 0 : (0.01 + 0.05*(i - LL_MIN)/70)*(settings.worldHard ? 1.3 : 1); }
 function worldDonors(skip){ return Object.values(C()).filter(x => !x.owner && !x.ally && !x.puppet && x.id !== skip && x.rel < 30 && !S.wars.some(w => w.enemy === x.id)).sort((a, b) => aiPower(b) - aiPower(a)); }
 function llMonth(w){ const r = llRate(); if (!r || !w.dep) return;
   let ours = 0; w.dep.forEach(d => { for (const id in d) if (depOk(id)) ours += d[id]; });
@@ -4117,8 +4137,8 @@ function occFree(iso){ const o = S.occupied && S.occupied[iso], e = C()[iso]; if
   if (e){ e.owner = null; e.rel = -35; e.army = Math.max(e.army, 10); if (o.share >= 1) e.gdp = o.gdpFull/0.9*0.7; }
   infamyAdd(-(8 + 8*o.share)); S.infamyFloor = Math.min(FLOOR_MAX, (S.infamyFloor||0) + 1); S.mods.push({stat:"approval", v:-3, left:6}); wearyAdd(-5);
   flashMap(iso, "good"); addLog(`${partnerName(iso)}: независимость восстановлена. Мир это заметил, но дома многие недовольны.`); }
-function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1), 0, 100); }
-function garrisonNeed(o){ const e = C()[o.iso]; if (o.referendum) return 0; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2); }
+function infamyAdd(v){ S.infamy = clamp((S.infamy||0) + v*(ideo("nat") ? 1.4 : 1)*(v > 0 && settings.worldHard ? 1.35 : 1), 0, 100); }
+function garrisonNeed(o){ const e = C()[o.iso]; if (o.referendum) return 0; return Math.max(1, (o.pop || (e ? e.pop : 5))*o.share*1.2*(1 + Math.min(0.5, 0.04*occCount()))); }
 function garrisonOf(o){ return garrisonNeed(o)*(o.garrison || 1); }
 function garrisonTotal(){ return Object.values(S.occupied||{}).reduce((a,o) => a + garrisonOf(o), 0); }
 function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal() - abroadTotal()); }
@@ -4240,7 +4260,7 @@ function occupationTurn(){
       return;
     }
     const gr = o.garrison || 1, pol = o.policy;
-    let d = 1.2 - (gr - 1)*3.2 - (gr < 1 ? -3 : 0) + o.damage*4 + (S.infamy||0)*0.02 - (ideo("nat") ? 1.2 : 0);
+    let d = 1.2 - (gr - 1)*3.2 - (gr < 1 ? -3 : 0) + o.damage*4 + (S.infamy||0)*0.02 + Math.min(3, 0.25*Math.max(0, occCount() - 2)) - (ideo("nat") ? 1.2 : 0);
     if (pol === "rebuild") d -= 1.6*(ideo("dem") ? 1.5 : 1);
     if (pol === "self") d -= 2.8;
     if (pol === "iron"){ d -= 5.5; infamyAdd(0.8); if (!ideo("auth")) S.mods.push({stat:"approval", v: ideo("dem") ? -2 : -1, left:1}); }
@@ -5681,6 +5701,7 @@ function viewSettings(){
       <div class="seg gfx-seg" role="group" aria-label="Графика поля боя">${Object.entries(GFX_NAMES).map(([k, n]) => `<button aria-pressed="${(settings.gfx || "auto") === k}" data-gfx="${k}">${n}</button>`).join("")}</div>
       <small class="muted">${(settings.gfx || "auto") === "auto" ? `Игра сама подбирает качество под телефон. Сейчас: ${GFX_NAMES[gfxLevel()].toLowerCase()}.` : "Низкая: упрощённые модели, без теней, меньше дыма — для слабых телефонов."}</small></div>
     <div class="panel"><h3>Игра</h3>
+      <div class="row"><span>Мир сопротивляется<br><small class="muted">Слава агрессора копится быстрее, врагам шлют больше техники</small></span><button class="btn" data-worldhard aria-pressed="${!!settings.worldHard}">${settings.worldHard ? "Включено" : "Выключено"}</button></div>
       <div class="row"><span>Первые шаги<br><small class="muted">Обучение с подсветкой кнопок</small></span><button class="btn" data-tut="restart">Пройти снова</button></div>
       <div class="row"><span>Как устроено<br><small class="muted">Все уроки: война, оккупация, бюджет…</small></span><button class="btn" data-guide>Открыть</button></div>
       <div class="row"><span>Главное меню<br><small class="muted">Партия сохранится</small></span><button class="btn" data-act="mainmenu">Выйти в меню</button></div>
@@ -8420,6 +8441,7 @@ document.addEventListener("click", e => {
   if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
   if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
+  if (t.hasAttribute("data-worldhard")){ settings.worldHard = !settings.worldHard; settingsSave(); sfx("tap"); render(); return; }
   if (t.dataset.gfx){ settings.gfx = t.dataset.gfx; if (t.dataset.gfx === "auto") settings.gfxAuto = null; settingsSave(); sfx("tap"); render(); return; }
   if (t.dataset.setting){ settings[t.dataset.setting] = !settings[t.dataset.setting]; settingsSave(); sfx("tap"); if (t.dataset.setting === "music"){ if (settings.music) musicStart(); else musicStop(); } render(); return; }
   if (t.dataset.tut){ const v = t.dataset.tut; if (v === "skip"){ tutDone(); tutStop(); } else if (v === "go"){ tutDone(); tutStart(); } else if (v === "restart"){ closeModal(); tutStart(true); } return; }
