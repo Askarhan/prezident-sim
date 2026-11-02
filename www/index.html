@@ -1997,17 +1997,18 @@ function frontRoutes(att, tgt, n){
   if (!aPts.length) return null;
   const A = aPts.reduce((b, p) => llDist(p, capLL) < llDist(b, capLL) ? p : b, aPts[0]);
   const capP = pool.find(p => p.name === cap[0]) || {name:cap[0], ll:capLL, dir:0, t:fr[0][1], dname:fr[0][0]};
-  // the directions spread over the country: each next target stands as far as possible from those already taken, not right on the border
-  const nearA = ll => aPts.reduce((b, p) => llDist(p, ll) < llDist(b, ll) ? p : b, aPts[0]), far = 0.35*llDist(A, capLL), keys = [capP];
-  const rest = pool.filter(p => p !== capP && p.name !== cap[0] && p.ll), deep = rest.filter(p => llDist(nearA(p.ll), p.ll) >= far), cand = deep.length >= n - 1 ? deep : rest;
+  // the fan: all directions start from one point V near the border on the way to the capital. Capital in the centre; each next target stands at the widest angle from those taken, deep enough in the country
+  const dCap = llDist(A, capLL), V = (k => [A[0] + (capLL[0] - A[0])*k, A[1] + (capLL[1] - A[1])*k])(clamp(0.9*Math.min(...pool.filter(p => p.ll).map(p => llDist(A, p.ll)))/(dCap || 1), 0, 0.9));
+  const lc = Math.cos(V[0]*Math.PI/180), bear = ll => Math.atan2(ll[0] - V[0], (ll[1] - V[1])*lc), ax = bear(capLL), T = 2*Math.PI, rel = ll => { let a = (bear(ll) - ax) % T; if (a > Math.PI) a -= T; if (a < -Math.PI) a += T; return a; };
+  const keys = [capP], rest = pool.filter(p => p !== capP && p.name !== cap[0] && p.ll), dp = p => llDist(V, p.ll), ref = Math.max(llDist(V, capLL), 0.5*Math.max(0, ...rest.map(dp))), deep = rest.filter(p => dp(p) >= 0.35*ref), cand = deep.length >= n - 1 ? deep : rest;
   while (keys.length < n && keys.length <= cand.length){ let best = null, bs = -1;
-    cand.forEach(p => { if (keys.includes(p)) return; const sc = Math.min(...keys.map(q => llDist(q.ll, p.ll)))*(p.key ? 1.25 : 1); if (sc > bs){ bs = sc; best = p; } });
+    cand.forEach(p => { if (keys.includes(p)) return; const a = rel(p.ll), gap = Math.min(...keys.map(q => { const d = Math.abs(rel(q.ll) - a); return d > Math.PI ? T - d : d; })), sc = gap*(p.key ? 1.25 : 1)*Math.min(1, dp(p)/ref)*(Math.abs(a) > 1.75 ? 0.5 : 1); if (sc > bs){ bs = sc; best = p; } });
     if (!best) break; keys.push(best); }
   const used = new Set(), out = [], names = new Set();
   keys.slice(0, n).forEach(K => used.add(K.name));
   keys.slice(0, n).forEach((K, i) => {
     // the first line lies in the first half of the way, the second one further on; both close to the straight way
-    const Ai = nearA(K.ll), dk = llDist(Ai, K.ll), detour = p => llDist(Ai, p.ll) + llDist(p.ll, K.ll) - dk;
+    const Ai = V, dk = llDist(Ai, K.ll), detour = p => llDist(Ai, p.ll) + llDist(p.ll, K.ll) - dk;
     const pick = (lo, hi, after, lim) => { const c = pool.filter(p => !used.has(p.name) && !(p.key && lim < 0.9) && llDist(Ai, p.ll) > Math.max(lo*dk, after) && llDist(Ai, p.ll) <= hi*dk && detour(p) < lim*dk).sort((a, b) => detour(a) - detour(b))[0];
       if (c) used.add(c.name); return c; };
     // a few places in a country: a looser second look, so the lines keep real names
@@ -2792,8 +2793,8 @@ function frontLL(w, mine){
   return w.fronts.map(f => { const own = mine ? f.myLL : f.ll; if (own) return own; const names = mine ? f.myPlaces : f.places;
     const L = names.map(nm => { const p = pool.find(q => q.name === nm); return p ? p.ll : null; }); return L; });
 }
-// field of an attack from `att` into `tgt`: every direction is a route from its own entry on the border through its places.
-// The land taken grows as a wedge along the taken part of each route, so a quiet part of the country stays clean.
+const OCC_BINS = 360, OCC_FLANK = 70*Math.PI/180;
+// field of an attack from `att` into `tgt`: all directions fan out from one entry on the border, each is a route through its places.
 // The grid is coarse and needs no test against the border: the country's real shape cuts the picture when it is drawn.
 function occField(att, tgt, lls){
   lls = lls || [null]; const n = lls.length;
@@ -2802,49 +2803,60 @@ function occField(att, tgt, lls){
   const B = LABELS && LABELS[tgt], path = countryPath(tgt), cen0 = capPoint(att); if (!B || !path || !cen0) return null;
   const pad = 0.04, x0 = B.x - B.w*(0.5 + pad), y0 = B.y - B.h*(0.5 + pad), W0 = B.w*(1 + 2*pad), H0 = B.h*(1 + 2*pad);
   const N = 64, cs = Math.max(W0, H0)/N, gw = Math.max(8, Math.ceil(W0/cs)), gh = Math.max(8, Math.ceil(H0/cs));
-  const cell = (i, j) => ({x: x0 + (i + 0.5)*cs, y: y0 + (j + 0.5)*cs}), cen = {x:B.x, y:B.y};
-  // every direction starts from the attacker's place nearest to it, and enters where that way crosses the border
+  const cell = (i, j) => ({x: x0 + (i + 0.5)*cs, y: y0 + (j + 0.5)*cs});
   const froms = [cen0]; (att === S.player ? landIsos() : [att]).forEach(a => { placePool(a).forEach(p => { const q = p.ll && proj(p.ll[0], p.ll[1]); if (q) froms.push(q); }); const c = capPoint(a); if (c) froms.push(c); });
   const near = (p, L) => L.reduce((b, q) => Math.hypot(q.x - p.x, q.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? q : b, L[0]);
   const lp = (a, b, t) => ({x:a.x + (b.x - a.x)*t, y:a.y + (b.y - a.y)*t});
+  // one entry for all directions: where the way from the attacker's place nearest to the capital crosses the border (by sea: the landing point)
+  const capP0 = capPoint(tgt), A = near(capP0, froms); let E = capP0;
+  for (let s = 0; s <= 48; s++){ const q = lp(A, capP0, s/48); if (inCountry(path, q.x, q.y)){ E = q; break; } }
+  const span = Math.max(B.w, B.h), h = span*.05, ax = capP0.x - E.x, ay = capP0.y - E.y, al = Math.hypot(ax, ay), ux = al > cs ? ax/al : (B.x - E.x)/(Math.hypot(B.x - E.x, B.y - E.y) || 1) || 1, uy = al > cs ? ay/al : (B.y - E.y)/(Math.hypot(B.x - E.x, B.y - E.y) || 1);
+  // polar position around the entry: `rho` from the entry section (width 2h), `th` from a point just behind it, 0 = towards the capital
+  const polar = (x, y) => { const dx = x - E.x, dy = y - E.y, t = dx*ux + dy*uy, s = dy*ux - dx*uy; return {rho:Math.hypot(Math.max(0, Math.abs(s) - h), t), th:Math.atan2(s, t + h)}; };
   const routes = [];
   for (let r = 0; r < n; r++){
     const L = lls[r]; let P = L ? L.map(q => q ? proj(q[0], q[1]) : null) : [null, null, null];
-    if (!P[2]) P[2] = capPoint(tgt);
-    const t1 = P[0] || P[1] || P[2], A = near(t1, froms); let E = t1;
-    for (let s = 0; s <= 48; s++){ const q = lp(A, t1, s/48); if (inCountry(path, q.x, q.y)){ E = q; break; } }
+    if (!P[2]) P[2] = capP0;
     if (!P[0] && !P[1]){ P[0] = lp(E, P[2], 0.25); P[1] = lp(E, P[2], 0.6); }
     else if (!P[0]) P[0] = lp(E, P[1], 25/60);
     else if (!P[1]) P[1] = lp(P[0], P[2], 35/75);
     const pts = [E, ...P], len = pts.slice(1).reduce((a, p, k) => a + Math.hypot(p.x - pts[k].x, p.y - pts[k].y), 0) || 1;
     routes.push({pts, ts:[0, ...LINES], len});
   }
-  // for every cell, per route: distance to it and how far along it the nearest point is (0–100); the nearest route owns the cell
-  const size = gw*gh, own = new Int8Array(size), ds = routes.map(() => new Float32Array(size)), at = routes.map(() => new Float32Array(size));
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++){ const k = j*gw + i, c = cell(i, j); let bd = Infinity;
-    routes.forEach((R, r) => { let d0 = Infinity, t0 = 0;
-      for (let s = 0; s < R.pts.length - 1; s++){ const a = R.pts[s], b = R.pts[s + 1], vx = b.x - a.x, vy = b.y - a.y, l2 = vx*vx + vy*vy || 1, u = clamp(((c.x - a.x)*vx + (c.y - a.y)*vy)/l2, 0, 1), d = Math.hypot(c.x - a.x - vx*u, c.y - a.y - vy*u);
-        if (d < d0){ d0 = d; t0 = R.ts[s] + (R.ts[s + 1] - R.ts[s])*u; } }
-      ds[r][k] = d0; at[r][k] = t0; if (d0 < bd){ bd = d0; own[k] = r; } }); }
-  const F = {key, iso:tgt, x0, y0, cs, gw, gh, own, ds, at, routes, cell, span:Math.max(B.w, B.h), val:new Float32Array(size), seen:new Map()};
+  const size = gw*gh, rho = new Float32Array(size), bin = new Float32Array(size);
+  for (let j = 0, k = 0; j < gh; j++) for (let i = 0; i < gw; i++, k++){ const c = cell(i, j), q = polar(c.x, c.y); rho[k] = q.rho; bin[k] = (q.th + Math.PI)/(2*Math.PI)*OCC_BINS - .5; }
+  const F = {key, iso:tgt, x0, y0, cs, gw, gh, rho, bin, polar, h, routes, cell, span, val:new Float32Array(size), R:new Float32Array(OCC_BINS), seen:new Map()};
   // a point inside the country nearest to (x, y)
   F.snap = (x, y) => { const id = x.toFixed(1) + "," + y.toFixed(1), had = F.seen.get(id); if (had) return had; let out = {x, y};
     if (!inCountry(path, x, y)) search: for (let q = 1; q <= 12; q++) for (let a = 0; a < 8; a++){ const px = x + Math.cos(a*.7854)*q*cs, py = y + Math.sin(a*.7854)*q*cs; if (inCountry(path, px, py)){ out = {x:px, y:py}; break search; } }
     F.seen.set(id, out); return out; };
   ui.occF[key] = F; return F;
 }
-// how deep every cell is inside the taken land, in cells (below 0: outside). Each wedge is widest at the border and narrows to the tip;
-// from 70% a direction also spreads over the land it owns, and a direction taken to the end holds all of it
+// the radius of the taken land for every angle around the entry. It runs through the tip of each direction and bends smoothly between them, so the land behind the front is solid;
+// beyond the outermost directions it falls away over OCC_FLANK. From 70% a direction spreads out to the far edge; all at 100% is the whole country
+function occRadius(F, prog){
+  const {routes, span, polar, h, R} = F, T = 2*Math.PI, pts = []; let any = false;
+  routes.forEach((Q, r) => { const p = clamp(prog[r] || 0, 0, 100), tip = routePoint(Q, Math.max(p, .5)), o = polar(tip.x, tip.y); let far = o.rho;
+    for (let t = 5; t < p; t += 5){ const q = routePoint(Q, t); far = Math.max(far, polar(q.x, q.y).rho); }   // land once taken stays taken when a route bends back
+    const m = p > 70 ? ((p - 70)/30)**2 : 0; if (p > .05) any = true;
+    pts.push({a:o.th, m, R:p > .05 ? Math.max(far, h*1.2*Math.min(1, p/5)) + span*1.5*m : 0}); });
+  if (!any) return false;
+  pts.sort((a, b) => a.a - b.a);
+  const circ = d => { d = Math.abs(d) % T; return d > Math.PI ? T - d : d; }, step = u => u*u*(3 - 2*u);
+  const flank = (e, d) => { const f = 1 - step(clamp(d/OCC_FLANK, 0, 1)); return e.R*(f + (1 - f)*e.m); }, first = pts[0], last = pts[pts.length - 1];
+  for (let b = 0; b < OCC_BINS; b++){ const a = (b + .5)/OCC_BINS*T - Math.PI, i = pts.findIndex(q => q.a >= a);
+    if (i > 0){ const u = pts[i - 1], w = pts[i]; R[b] = u.R + (w.R - u.R)*step((a - u.a)/Math.max(w.a - u.a, 1e-3)); }
+    else R[b] = Math.max(flank(first, circ(a - first.a)), flank(last, circ(a - last.a))); }
+  // a little smoothing, so close directions do not leave a notch
+  const t = new Float32Array(OCC_BINS);
+  for (let pass = 0; pass < 2; pass++){ t.set(R); for (let b = 0; b < OCC_BINS; b++){ let s = 0; for (let d = -3; d <= 3; d++) s += t[(b + d + OCC_BINS) % OCC_BINS]; R[b] = s/7; } }
+  return true;
+}
+// how deep every cell is inside the taken land, in cells (below 0: outside)
 function occVal(F, prog){
-  const {gw, gh, own, ds, at, routes, cs, span, val} = F, size = gw*gh; let any = false;
-  const live = routes.map((R, r) => { const p = prog[r] || 0; if (p <= 0.05) return null; const q = clamp(p, 0, 100);
-    return {r, p:q, tip:routePoint(R, q), wide:span*(.04 + .11*q/100)*Math.min(1, q/5), more:q > 70 ? span*1.1*((q - 70)/30)**2 : 0, all:p >= 99.9}; }).filter(Boolean);
-  val.fill(-50); if (!live.length) return null;
-  for (let j = 0, k = 0; j < gh; j++){ const y = F.y0 + (j + .5)*cs;
-    for (let i = 0; i < gw; i++, k++){ const x = F.x0 + (i + .5)*cs, mine = own[k]; let best = -50*cs;
-      for (let q = 0; q < live.length; q++){ const L = live[q], r = L.r; if (L.all && mine === r){ best = 50*cs; break; }
-        const t = at[r][k], past = t > L.p, d = past ? Math.hypot(x - L.tip.x, y - L.tip.y) : ds[r][k], v = L.wide*(1 - .55*(past ? 1 : t/L.p)) + (mine === r ? L.more : 0) - d; if (v > best) best = v; }
-      if (best > 0) any = true; val[k] = best/cs; } }
+  if (!occRadius(F, prog)) return null;
+  const {gw, gh, rho, bin, R, cs, val} = F, n = gw*gh; let any = false;
+  for (let k = 0; k < n; k++){ const q = (bin[k] + OCC_BINS) % OCC_BINS, b = Math.floor(q), f = q - b, v = (R[b % OCC_BINS]*(1 - f) + R[(b + 1) % OCC_BINS]*f - rho[k])/cs; val[k] = v; if (v > 0) any = true; }
   return any ? val : null;
 }
 function warField(w){ return occField(S.player, w.enemy, frontLL(w, false)); }
