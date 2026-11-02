@@ -1889,6 +1889,7 @@ const STRIKES = {
   infra:{name:"Удар по инфраструктуре", desc:"20 ракет по электростанциям и заводам: их экономика падает, мир осуждает", cd:14, ammo:{missile:20}},
   airborne:{name:"Воздушный десант", desc:"высадка в тылу врага с транспортных самолётов: нужно 2+ транспортника и господство в воздухе от 50%", cd:25},
   landing:{name:"Морской десант", desc:"высадка с моря: нужен флот сильнее вражеского", cd:30, need:"navy"},
+  convoy:{name:"Удар по колоннам", desc:"самолёты бьют по вражеской технике на марше: 2–8% колонны. Над сильной ПВО можно потерять машины", cd:7, ammo:{bomb:100}},
   mobilize:{name:"Мобилизация", desc:"+10% личного состава; рейтинг −4, стабильность −3", cd:60}
 };
 const GROUND_K = new Set(["tank","ifv","apc","sph","mlrs","srbm"]), STRIKE_K = new Set(["attack","bomber","heli","drone","loiter"]);
@@ -2356,7 +2357,7 @@ function depFuelLine(w, i){
 }
 function roadLine(w, i){
   const t = warTrip(w), rd = roadTo(w, i), men = roadTo(w, null, MEN), dn = n => plural(n, "день", "дня", "дней");
-  return `<div class="label" style="margin:0 0 8px">Дорога сюда: ${t} ${dn(t)} по земле${airliftCap() ? `, транспортниками ${airTrip(t)} (свободно самолётов: ${planesFree()}; берут войска и лёгкую технику)` : `; транспортная авиация довезла бы войска и лёгкую технику за ${airTrip(t)}`}; самолёты и вертолёты долетят за ${flyTrip(t)}. В пути техника тратит половину фронтового топлива.${rd.n ? ` <b>Едет сюда: ${rd.n.toLocaleString("ru-RU")} ед., первые прибудут ${dateIn(rd.next)}.</b>` : ""}</div>
+  return `<div class="label" style="margin:0 0 8px">Дорога сюда: ${hasRail(w) ? `по ж/д ${railTrip(w, "", t)} ${dn(railTrip(w, "", t))}` : `${t} ${dn(t)} по земле`}${airliftCap() ? `, транспортниками ${airTrip(t)} (свободно самолётов: ${planesFree()}; берут войска и лёгкую технику)` : `; транспортная авиация довезла бы войска и лёгкую технику за ${airTrip(t)}`}; самолёты и вертолёты долетят за ${flyTrip(t)}. В пути техника тратит половину фронтового топлива.${rd.n ? ` <b>Едет сюда: ${rd.n.toLocaleString("ru-RU")} ед., первые прибудут ${dateIn(rd.next)}.</b>` : ""}</div>
     ${rd.n || men.n > 0.05 ? `<div class="dep-btns" style="margin:0 0 8px">${rd.n ? `<button class="btn sm" data-deprecall="dir">Вернуть технику с дороги</button>` : ""}${men.n > 0.05 ? `<button class="btn sm" data-deprecall="men">Вернуть войска с дороги</button>` : ""}</div>` : ""}`;
 }
 function menRow(w){
@@ -2412,6 +2413,9 @@ function roadDays(iso){
   return Math.round(far ? clamp(20 + d*0.32, 30, 180) : clamp(5 + d*0.15, 5, 30));
 }
 const warTrip = w => w.trip || (w.trip = roadDays(w.enemy));
+// a finished railway to the country of this war: ground machines and troops go 40% faster; aircraft and airlift do not use it
+const RAIL_K = 0.6, hasRail = w => !!(S.rails && S.rails[w.enemy] && S.rails[w.enemy].done);
+const railTrip = (w, id, t) => hasRail(w) && !(MODELS[id] && SELF_FLY.includes(MODELS[id].kind)) ? Math.max(2, Math.round(t*RAIL_K)) : t;
 const shiftDays = w => Math.max(3, Math.round(warTrip(w)/4));
 const airTrip = days => Math.max(2, Math.round(days/3.5));
 const flyTrip = days => clamp(Math.round(2 + days/60), 2, 5);
@@ -2424,7 +2428,7 @@ function roadSend(w, id, n, i, days, back){
   w.road = w.road || []; const full = days ?? warTrip(w); let left = n;
   if (liftable(id)){ const per = id === MEN ? 1 : 10, q = Math.min(left, planesFree()*per);
     if (q > 0){ const t = airTrip(full); w.road.push({i, id, n:q, left:t, tot:t, air:true, planes:Math.ceil(q/per), back:!!back}); left -= q; } }
-  if (left > 0){ const t = tripOf(id, full); w.road.push({i, id, n:left, left:t, tot:t, back:!!back}); }
+  if (left > 0){ const t0 = tripOf(id, full), t = days == null || back ? railTrip(w, id, t0) : t0; w.road.push({i, id, n:left, left:t, tot:t, back:!!back}); }
   return n;
 }
 function roadSplit(w, id, n, idx, days){
@@ -2479,7 +2483,7 @@ function roadDay(w){
 function eroadSend(w, id, n, days){
   if (!(n > 0)) return; w.eroad = w.eroad || []; const full = days ?? warTrip(w); let left = n;
   if (liftable(id)){ const T = unitsOf(["transport"], w.eu), q = id === MEN ? Math.min(left, T/Math.max(1, C()[w.enemy].army)) : Math.min(left, Math.floor(T*10));
-    if (q > 0){ w.eroad.push({id, n:q, left:airTrip(full)}); left -= q; } }
+    if (q > 0){ w.eroad.push({id, n:q, left:airTrip(full), air:true}); left -= q; } }
   if (left > 0) w.eroad.push({id, n:left, left:tripOf(id, full)});
 }
 function eroadDay(w){
@@ -2489,6 +2493,22 @@ function eroadDay(w){
 const eroadOf = (w, id) => (w.eroad||[]).reduce((a, r) => a + (r.id === id ? r.n : 0), 0);
 const eroadCount = w => (w.eroad||[]).reduce((a, r) => a + (r.id === MEN ? 0 : r.n), 0);
 function eroadOil(w){ const e = C()[w.enemy]; return (w.eroad||[]).reduce((a, r) => { const m = MODELS[r.id]; return a + (r.id === MEN ? r.n*(e ? e.army : 0)*MEN_BBL : m ? (FUEL_BBL[m.kind]||0)*r.n*(SELF_FLY.includes(m.kind) ? 1 : ROAD_K) : 0); }, 0)/1e6; }
+/* strikes on columns: same damage both ways, 2–8% of one column on the road. Machines only, never aircraft or airlift.
+   The enemy hits ours by chance, only on the last 40% of a trip; we order a strike from «Удары и решения» (STRIKES.convoy). */
+const COL_TAIL = 0.4, COL_DAY = 0.15, COL_MIN = 0.02, COL_MAX = 0.08;
+const colOk = r => !r.air && !r.back && r.id !== MEN && !!MODELS[r.id] && !SELF_FLY.includes(MODELS[r.id].kind);
+const eCols = w => (w.eroad||[]).filter(colOk);
+function colPick(list){ let x = Math.random()*list.reduce((a, r) => a + r.n, 0); return list.find(r => (x -= r.n) <= 0) || list[list.length - 1]; }
+const colLoss = n => Math.min(n, Math.floor(n*rnd(COL_MIN, COL_MAX) + Math.random()));
+// the enemy's chance today: its share of the sky, and its strike aircraft and drones against our air defence
+const colChance = (w, my, th) => COL_DAY*(1 - w.air)*th.airG/(th.airG + my.ad + 20);
+function colHitDay(w, my, th){
+  const list = (w.road||[]).filter(r => colOk(r) && r.left/r.tot < COL_TAIL); if (!list.length || Math.random() >= colChance(w, my, th)) return;
+  const r = colPick(list), n = Math.min(colLoss(r.n), S.units[r.id]||0); if (n <= 0) return;
+  r.n -= n; S.units[r.id] -= n; w.lossMy[r.id] = (w.lossMy[r.id]||0) + n; w.colLost = (w.colLost||0) + n; w.colHits = (w.colHits||0) + 1;
+  if (r.n <= 0) w.road = w.road.filter(x => x !== r);
+  warEvent(w, `Удар по колонне: потеряно ${n.toLocaleString("ru-RU")} ед. ${MODELS[r.id].name}.`, "bad");
+}
 // a date n days ahead, for the arrival
 function dateIn(n){ const d = new Date(S.year, S.month, (S.day||1) + Math.ceil(n)); return `${d.getDate()} ${MONTHS_GEN[d.getMonth()].slice(0,3)} ${d.getFullYear()}`; }
 
@@ -2584,6 +2604,7 @@ function warDay(w){
   const reach = !far ? 1 : carriers > 0 ? 1 : 0.45;
   const aM = my.air*reach + my.ad*0.35 + 1, aT = th.air + th.ad*0.35 + 1;
   w.air += (clamp(aM/(aM+aT), 0.05, 0.95) - w.air)*0.15;
+  colHitDay(w, my, th);
   // 2-3. strikes and ground
   const ewT = clamp(th.ew/(th.ew + 40), 0, 0.6), ewM = clamp(my.ew/(my.ew + 40), 0, 0.6);
   const stab = 0.6 + 0.4*S.stability/100, techM = techMult(me().tech)*(1 + 0.1*tech("comms") + 0.2*tech("drones") + 0.1*tech("cyber"))*(ideo("nat") ? 1.15 : 1);
@@ -2747,6 +2768,16 @@ function doStrike(w, type){
     if (type === "missile"){ Object.keys(w.eu).forEach(id => { const m = MODELS[id]; if (!m) return; const share = KINDS[m.kind].cls === "ad" ? 0.012 : GROUND_K.has(m.kind) ? 0.004 : 0.002; const lost = Math.floor(w.eu[id]*share*hits/10 + (Math.random() < 0.5 ? 1 : 0)*Math.sign(hits)); if (lost > 0){ w.eu[id] = Math.max(0, w.eu[id] - lost); w.lossTh[id] = (w.lossTh[id]||0) + lost; } }); warPush(w, hits*0.25); text = `Ракетный удар: ${fired} ракет, сбито ${down}, поражено целей: ${hits}.`; }
     else { infamyAdd(2); e.gdp *= 1 - 0.0012*hits; warPush(w, hits*0.12); Object.values(C()).forEach(x => { if (!x.owner && x.id !== e.id) x.rel -= 3; }); if (ideo("dem")) S.mods.push({stat:"approval", v:-1, left:3}); text = `Удар по инфраструктуре: ${hits} из ${fired} ракет достигли цели. Экономика противника −${pct(0.12*hits,1)}. Мир осуждает.`; }
     good = hits >= down;
+  } else if (type === "convoy"){
+    const cols = eCols(w), jets = Object.entries(warUnits(w)).filter(([id, n]) => MODELS[id] && ["attack","bomber","fighter"].includes(MODELS[id].kind) && n > 0), tot = jets.reduce((a, [, n]) => a + n, 0);
+    if (!cols.length) return toast("Колонн противника на дорогах нет.");
+    if (tot < 2) return toast("Нужно хотя бы 2 самолёта на этой войне.");
+    if (tot*(w.fuel ?? 1) < 2) return toast("Самолётам не хватает топлива.");
+    S.ammo.bomb -= st.ammo.bomb;
+    const r = colPick(cols), n = colLoss(r.n), risk = (w.air < 0.4 ? 0.06 : 0.012)*clamp(th.ad/(th.ad + 60), 0, 0.8); let nl = 0;
+    if (n > 0){ r.n -= n; w.lossTh[r.id] = (w.lossTh[r.id]||0) + n; if (r.n <= 0) w.eroad = w.eroad.filter(x => x !== r); }
+    jets.forEach(([id, q]) => { const l = depTake(w, id, Math.floor(q*risk + Math.random())); if (l){ w.lossMy[id] = (w.lossMy[id]||0) + l; nl += l; } });
+    good = n > 0; text = `Удар по колонне ${MODELS[r.id].name}: уничтожено ${n.toLocaleString("ru-RU")} ед.${nl ? ` Потеряно ${nl} ${plural(nl, "самолёт", "самолёта", "самолётов")}.` : ""}`;
   } else if (type === "airborne"){
     if (airliftCap() < 2) return toast("Нужно хотя бы 2 транспортных самолёта.");
     if (w.air < 0.5) return toast("Без господства в воздухе десант собьют на подлёте.");
@@ -4061,7 +4092,7 @@ function viewHQ(){
   </div>
   <div class="panel" style="margin-top:12px"><h3>Удары и решения</h3>
     ${tlv("nuc_bomb") ? `<div class="row strike nuke"><span><b>☢ Ядерный удар</b><br><small class="muted">боеголовок: ${S.nukes||0}. Противник капитулирует, но весь мир разорвёт с вами отношения на годы</small></span><button class="btn danger sm" data-nuke="${w.enemy}" ${(S.nukes||0) > 0 && nukeReach(w.enemy) ? "" : "disabled"}>${ui.nukeArm === w.enemy ? "ПОДТВЕРДИТЬ" : (S.nukes||0) > 0 ? (nukeReach(w.enemy) ? "Приказ" : "не достаёт") : "нет боеголовок"}</button></div>` : ""}
-    ${Object.entries(STRIKES).map(([id, st]) => { const cd = w.cd[id]||0; return `<div class="row strike"><span><b>${st.name}</b><br><small class="muted">${st.desc}</small></span><button class="btn ${cd ? "" : "primary"} sm" data-strike="${id}" ${cd ? "disabled" : ""}>${cd ? `через ${cd} дн.` : "Приказ"}</button></div>`; }).join("")}
+    ${Object.entries(STRIKES).filter(([id]) => id !== "convoy" || eCols(w).length).map(([id, st]) => { const cd = w.cd[id]||0; return `<div class="row strike"><span><b>${st.name}</b><br><small class="muted">${st.desc}</small></span><button class="btn ${cd ? "" : "primary"} sm" data-strike="${id}" ${cd ? "disabled" : ""}>${cd ? `через ${cd} дн.` : "Приказ"}</button></div>`; }).join("")}
   </div>
   <div class="panel" style="margin-top:12px"><h3>Сводки с фронта</h3><ul class="news">${(w.events||[]).slice(0, ui.hqMore ? 30 : 4).map(ev => `<li><span class="when">${esc(ev.d)}</span><span class="${ev.kind==="bad"?"down":ev.kind==="good"?"up":""}">${esc(ev.text)}</span></li>`).join("") || `<li><span class="muted">Пока тихо.</span></li>`}</ul>
     <div class="row"><button class="btn" data-hqmore="1">${ui.hqMore ? "Скрыть подробности" : "Подробности: силы, боеприпасы, потери"}</button><button class="btn primary" data-act="peace" data-arg="${e.id}">Мирные переговоры</button></div></div>
@@ -7574,7 +7605,7 @@ function dipRow(x){
         <button class="btn" data-act="ally" data-arg="${x.id}" ${!x.ally && x.rel<60?"disabled":""}>${x.ally?"Выйти из союза":"Союз (от +60)"}</button>
         <button class="btn" data-act="sanction" data-arg="${x.id}">${x.sanction?"Снять санкции":"Санкции"}</button>
         ${S.rails[x.id] ? (S.rails[x.id].done ? `<span class="pill good">Ж/д: +${money(railIncome(x.id))}/мес</span>` : `<span class="pill state">Ж/д строится: ${Math.ceil(S.rails[x.id].left)} дн.</span>`)
-          : canReach(x) ? `<button class="btn" data-act="rail" data-arg="${x.id}" ${x.rel<40||S.treasury<railTotal()||!railMatOk()?"disabled":""} title="Доход ~${money(railIncome(x.id))} в месяц">Железная дорога (от +40) · ${money(railTotal())} + ${fmtQ(RAIL_MAT.steel)} тыс. т стали, ${fmtQ(RAIL_MAT.wood)} тыс. т древесины</button>` : ""}
+          : canReach(x) ? `<button class="btn" data-act="rail" data-arg="${x.id}" ${x.rel<40||S.treasury<railTotal()||!railMatOk()?"disabled":""} title="Доход ~${money(railIncome(x.id))} в месяц. В войне с этой страной техника и войска едут на 40% быстрее">Железная дорога (от +40) · ${money(railTotal())} + ${fmtQ(RAIL_MAT.steel)} тыс. т стали, ${fmtQ(RAIL_MAT.wood)} тыс. т древесины</button>` : ""}
         ${canReach(x) && !x.ally ? `<button class="btn danger" data-act="war" data-arg="${x.id}">${S.council.banned[x.id]?"Война (нарушит резолюцию)":"Объявить войну"}</button>` : ""}
       </div>`}
     </div>`;
