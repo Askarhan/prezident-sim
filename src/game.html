@@ -5121,7 +5121,7 @@ function growthMonthly(){
   g -= 0.0008*Object.values(C()).filter(x=>x.sanctionsUs).length;
   g -= 0.002*S.wars.length;
   g -= 0.00025*deficits();   // shortages are already paid for as imports in the budget; this is only the extra drag
-  g += lawSum("growth") + facFx("growth") + orgGrowth() + (relig("secular") ? 0.00008 : relig("trad") ? -0.00008 : 0);
+  g += popGdp() + lawSum("growth") + facFx("growth") + orgGrowth() + (relig("secular") ? 0.00008 : relig("trad") ? -0.00008 : 0);
   g += modSum("growth");
   if (S.debt > me().gdp) g -= 0.001;
   return g;
@@ -5202,7 +5202,7 @@ function nextMonth(){
 
   // 3. growth
   const g = growthMonthly() + rnd(-0.0008, 0.0008);
-  c.gdp *= (1+g); c.pop *= LAWS.some(l=>l.popFix && lawOn(l.id)) ? 1 + Math.min(0, lawSum("pop")) : 1.0006 + (S.capital.health-33)*0.00001 + 0.0001*tech("vaccines") + 0.0002*tech("longevity") + 0.000004*minDelta("sport") + lawSum("pop") + facFx("pop");
+  c.gdp *= (1+g); c.pop *= popRate();
   SECTORS.forEach(s => { S.capital[s.id] += (S.sectors[s.id]*33.3 - S.capital[s.id]) * s.rate; });
   facMonth();
   dipMonth();
@@ -6124,6 +6124,7 @@ function act(name, arg){
     }
     case "recruit": {
       const cost = recruitCost();
+      if (c.army >= draftCap()) return toast("Призывной резерв исчерпан: армии не хватает людей.");
       if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
       S.treasury -= cost; c.army += recruitAmount(); toast("Войска набраны."); break;
     }
@@ -6659,7 +6660,7 @@ function inflTarget(b){
 }
 function unempTarget(){
   return clamp(baseUnemp() + 0.4*(S.cb - neutralRate()) - 0.04*(S.wages - 100) - 0.02*Math.min(60, objCount("factory") + objCount("chem") + objCount("auto") + objCount("chips"))*5
-    - (S.progs || []).length*0.15 + (deficits() > 1 ? 1 : 0), 1, 40);
+    - (S.progs || []).length*0.15 + (deficits() > 1 ? 1 : 0) + popJobs(), 1, 40);
 }
 function macroApproval(){ return -Math.max(0, S.infl - 5)*0.35 - Math.max(0, S.unemp - baseUnemp())*0.6 + Math.max(0, baseUnemp() - S.unemp)*0.3 + (S.pens - 100)*0.08 + (S.wages - 100)*0.04; }
 function macroStab(){ return -Math.max(0, S.infl - 15)*0.3 - Math.max(0, S.unemp - 10)*0.5; }
@@ -6845,8 +6846,8 @@ const FAC = {
   univ:    {cat:"edu", name:"Университет", perM:2.5, cost:40, days:360, fx:{rp:8, growth:0.0002}, look:"univ"},
   clinic:  {cat:"health", name:"Поликлиника", perM:60, cost:1.2, days:120, fx:{appr:1.5}, look:"clinic"},
   social:  {cat:"health", name:"Социальный центр", perM:20, cost:0.8, days:90, fx:{appr:1, stab:1}, look:"social"},
-  diag:    {cat:"health", name:"Диагностический центр", perM:5, cost:6, days:200, fx:{appr:1, pop:0.00005}, look:"diag"},
-  hospital:{cat:"health", name:"Больница", perM:12, cost:20, days:300, fx:{appr:2.5, pop:0.0001}, look:"hospital"},
+  diag:    {cat:"health", name:"Диагностический центр", perM:5, cost:6, days:200, fx:{appr:1, pop:0.0001}, look:"diag"},
+  hospital:{cat:"health", name:"Больница", perM:12, cost:20, days:300, fx:{appr:2.5, pop:0.0002}, look:"hospital"},
   rink:    {cat:"sport", name:"Ледовая арена", perM:2, cost:8, days:180, fx:{appr:0.8}, look:"rink"},
   pool:    {cat:"sport", name:"Бассейн", perM:5, cost:4, days:150, fx:{appr:0.8}, look:"pool"},
   track:   {cat:"sport", name:"Автодром", perM:0.15, cost:60, days:300, fx:{appr:0.5, tour:0.15}, look:"track"},
@@ -6859,8 +6860,8 @@ const FAC = {
   station: {cat:"police", name:"Полицейский участок", perM:12, cost:1.5, days:90, fx:{stab:2}, look:"station"},
   rehab:   {cat:"police", name:"Реабилитационный центр", perM:1.5, cost:6, days:150, fx:{stab:1, appr:0.8}, look:"rehab"},
   academy: {cat:"police", name:"Полицейская академия", perM:0.3, cost:30, days:300, fx:{stab:1, tax:0.01}, look:"academy"},
-  house:   {cat:"housing", name:"Жилой дом", perM:900, cost:0.4, days:120, fx:{appr:2.5, pop:0.0001}, look:"house", housing:true},
-  apart:   {cat:"housing", name:"Многоквартирный дом", perM:120, cost:6, days:240, fx:{appr:2, pop:0.0001}, look:"apart"},
+  house:   {cat:"housing", name:"Жилой дом", perM:900, cost:0.4, days:120, fx:{appr:2.5, pop:0.0002}, look:"house", housing:true},
+  apart:   {cat:"housing", name:"Многоквартирный дом", perM:120, cost:6, days:240, fx:{appr:2, pop:0.0002}, look:"apart"},
   parking: {cat:"housing", name:"Многоуровневый паркинг", perM:25, cost:3, days:120, fx:{appr:0.8}, look:"parking"},
   bike:    {cat:"infra", name:"Велодорожка", perM:10, cost:0.3, days:45, fx:{appr:0.6}, look:"bike"},
   rail:    {cat:"infra", name:"Участок ЖД-магистрали", perM:60, cost:4, days:180, fx:{growth:0.0004}, look:"rail"},
@@ -6886,8 +6887,19 @@ function facNeed(id){
   if (F.mil){ if (!MIL_CAP[F.mil]) return 0; return milLoad(F.mil)/MIL_CAP[F.mil]; }
   return F.perM * me().pop;
 }
+/* people and needs: six groups of objects, each measured against a norm that grows with the country's wealth */
+const NEEDS = [["housing","Жильё",["housing"]],["health","Здоровье",["health"]],["edu","Образование",["edu"]],["order","Порядок",["justice","police"]],["leisure","Досуг",["sport"]],["roads","Дороги",["infra"]]];
+const POP_BASE = 0.0006, POP_GDP_K = 0.25, DRAFT_K = 20;
+function needNorm(pc){ return 0.55 + 0.45*Math.min(2, pc/30); }
+function wealthK(){ const n = needNorm(gdppc()); if (!S.norm0) S.norm0 = n; return n/S.norm0; }
+function facNorm(id){ return ((S.facBase && S.facBase[id]) || 1)*wealthK(); }
+function needCov(key){ const cats = NEEDS.find(n => n[0] === key)[2], ids = Object.keys(FAC).filter(id => cats.includes(FAC[id].cat)); return ids.reduce((a,id) => a + Math.min(1.5, facCov(id)/facNorm(id)), 0)/ids.length; }
+function popRate(){ return LAWS.some(l=>l.popFix && lawOn(l.id)) ? 1 + Math.min(0, lawSum("pop")) : 1.0006 + (S.capital.health-33)*0.00001 + 0.0001*tech("vaccines") + 0.0002*tech("longevity") + 0.000004*minDelta("sport") + lawSum("pop") + facFx("pop"); }
+function popGdp(){ const d = popRate() - 1 - POP_BASE; return POP_GDP_K*d*(d > 0 ? Math.min(1, needCov("edu"))*(S.unemp > baseUnemp() + 4 ? 0.5 : 1) : 1); }
+function popJobs(){ const pc = gdppc(); if (!S.jobs0) S.jobs0 = pc; return clamp(8*(S.jobs0/pc - 1), 0, 6); }
+function draftCap(){ const c = me(); if (!S.draft0) S.draft0 = c.army; return Math.max(S.draft0*1.2, c.pop*DRAFT_K*(lawOn("conscription") ? 1.5 : 1)); }
 function facCov(id){ const n = facNeed(id); return n > 0 ? facGood(id)/n : 1; }
-function facR(id){ const b = (S.facBase && S.facBase[id]) || 1; return clamp(facCov(id)/b - 1, -0.6, 0.6); }
+function facR(id){ return clamp(facCov(id)/facNorm(id) - 1, -0.6, 0.6); }
 function facFx(stat){ let v = 0; for (const id in FAC){ const f = FAC[id].fx; if (f && f[stat]) v += f[stat]*facR(id)*2; } if (stat === "appr" && S.facBad !== undefined){ const share = (S.facBad||0)/Math.max(1, facCount("house")); v -= Math.max(0, share - (S.facBad0||0))*20; } return v; }
 function milFactor(kind){ const n = milLoad(kind), cap = facCount({troops:"barracks",ground:"hangar",air:"airbase"}[kind])*MIL_CAP[kind]; return n > 0 ? Math.min(1, cap/n) : 1; }
 function milBaseMult(){ return (0.85 + 0.15*milFactor("troops")) * (0.9 + 0.1*milFactor("ground")) * (0.9 + 0.1*milFactor("air")) * (1 + 0.015*Math.min(10, facCount("training"))) * (1 + 0.02*Math.min(3, hostCount())); }
@@ -7033,7 +7045,7 @@ function facEffectText(id){
 }
 function facCard(id){
   const F = FAC[id], n = facCount(id), prog = S.progs.find(p => p.id === id), chk = facCanStart(id), need = facNeed(id);
-  const base = F.mil ? 1 : ((S.facBase && S.facBase[id]) || 1), cov = F.mil && !MIL_CAP[F.mil] ? null : facCov(id)/base, normN = need*base;
+  const base = F.mil ? 1 : facNorm(id), cov = F.mil && !MIL_CAP[F.mil] ? null : facCov(id)/base, normN = need*base;
   return `<div class="fcard ${prog ? "busy" : ""}">
     <div class="f-ic">${isoIcon(F.look, 74)}</div>
     <div class="f-body">
@@ -7058,15 +7070,16 @@ function viewFacilities(){
   return `<div class="panel fac-head">
       <div class="row"><h3>Объекты по стране</h3><span class="num muted">Госпрограмм: ${S.progs.length} / ${maxProgs()}</span></div>
       ${S.progs.length ? `<div class="bstats">${S.progs.map(p => `<span>${p.id === "renov" ? "Расселение" : FAC[p.id].name} +${fmtN(p.n)} <b class="num">${Math.ceil(p.left)} дн.</b></span>`).join("")}</div>` : ""}
-      <div class="label">Норма растёт вместе с населением, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: целая партия сразу. Больше программ одновременно — выше финансирование Минстроя.</div>
+      <div class="label">Норма растёт вместе с населением и богатством страны, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: целая партия сразу. Больше программ одновременно — выше финансирование Минстроя.</div>
     </div>
-    <div class="filters fac-cats">${FAC_CATS.map(([id,n,icn]) => `<button class="chip" data-faccat="${id}" aria-pressed="${cat===id}">${ic(icn,"sm")}${n}</button>`).join("")}</div>
-    <div class="fac-grid">${renov}${Object.keys(FAC).filter(id => FAC[id].cat === cat).map(facCard).join("")}</div>`;
+    <div class="row"><span>Население <b class="num">${people(me().pop)}</b></span><span class="num ${popRate() < 1 ? "down" : ""}">${((popRate() - 1)*1200).toFixed(1).replace(".",",")}% в год</span></div>
+    <div class="filters fac-cats">${NEEDS.map(([id,n,cs]) => { const v = needCov(id); return `<button class="chip" data-faccat="${cs[0]}" aria-pressed="${cs.includes(cat)}">${n} <b class="num ${v<0.9?"down":v>1.05?"up":""}">${Math.round(v*100)}%</b></button>`; }).join("")}</div>
+    <div class="fac-grid">${renov}${Object.keys(FAC).filter(id => (NEEDS.find(n => n[2].includes(cat)) || [0,0,[cat]])[2].includes(FAC[id].cat)).map(facCard).join("")}</div>`;
 }
 
 function facCatCov(cat){
   if (cat === "defense") return (milFactor("troops") + milFactor("ground") + milFactor("air"))/3;
-  const ids = Object.keys(FAC).filter(id => FAC[id].cat === cat); return ids.reduce((a,id)=>a + Math.min(1.5, facCov(id)/((S.facBase && S.facBase[id]) || 1)), 0)/ids.length;
+  const ids = Object.keys(FAC).filter(id => FAC[id].cat === cat); return ids.reduce((a,id)=>a + Math.min(1.5, facCov(id)/facNorm(id)), 0)/ids.length;
 }
 
 /* ================= HUD glyphs: one solid monochrome set for the chrome (top bar, dock, window heads, tabs) ================= */
@@ -7562,7 +7575,7 @@ function viewArmy(){
   const head = `<div class="panel army-head">
       <div class="row"><h3>Вооружённые силы</h3><span class="num">Мощь ${Math.round(myPower()).toLocaleString("ru-RU")}</span></div>
       <div class="bstats"><span>Личный состав <b class="num">${troops(c.army)}</b></span><span>Техники <b class="num">${Object.values(S.units).reduce((a,b)=>a+b,0).toLocaleString("ru-RU")}</b></span><span>Содержание <b class="down num">−${money(armyUpkeepMonthly())}</b>/мес</span><span>Модернизация <b class="num">${c.tech}/5</b></span></div>
-      <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button><button class="btn" data-tab="hq">${ic("army","sm")} Штаб и оккупация</button></div>
+      <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()||me().army>=draftCap()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button><button class="btn" data-tab="hq">${ic("army","sm")} Штаб и оккупация</button></div>
       ${garrisonTotal() ? `<div class="label">В гарнизонах: ${troops(garrisonTotal())}. На фронтах доступно: ${troops(freeArmy())}.</div>` : ""}
     </div>`;
   const tabs = `<div class="filters armytabs">${UCLS.map(([id,l]) => `<button class="chip" data-armytab="${id}" aria-pressed="${tab===id}">${pic("cls_" + id, "sm")}${l}</button>`).join("")}</div>`;
