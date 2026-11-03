@@ -1767,7 +1767,7 @@ function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return
 function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
 function canBuyModel(id){
   const m = MODELS[id];
-  if (m.req && me().gdp < m.req) return {ok:false, why:`только для стран с ВВП от ${money(m.req)}`};
+  if (m.req && me().gdp < m.req) return {ok:false, why:`только для стран с доходом от ${money(m.req/365)} в день`};
   if (KINDS[m.kind].cls === "navy" && !hasCoast()) return {ok:false, why:"нет выхода к морю"};
   const o = C()[m.origin];
   if (m.origin === S.player || (o && o.owner === "player")) return {ok:false, own:true, why:"ваша разработка: только своё производство"};
@@ -1780,7 +1780,7 @@ function canProduceModel(id){
   const m = MODELS[id], k = KINDS[m.kind];
   if (!objCount(k.plant)) return {ok:false, why:`нужен завод: ${BUILDINGS[k.plant].name}`};
   if (k.cls === "navy" && !hasCoast()) return {ok:false, why:"нет выхода к морю"};
-  if (m.req && me().gdp < m.req) return {ok:false, why:`ВВП от ${money(m.req)}`};
+  if (m.req && me().gdp < m.req) return {ok:false, why:`доход от ${money(m.req/365)} в день`};
   const t = genTech(m); if (t && tlv(t) < m.gen) return {ok:false, why:`нужно «${TECH_BY[t].name} ${roman(m.gen)}»`};
   const ob = ORIGIN_BLOC(m.origin), o = C()[m.origin];
   if (!(m.origin === S.player || (o && o.owner === "player") || ob === blocOf(S.player) || relOf(m.origin) >= 50)) return {ok:false, why:`лицензия: отношения от +50 с ${partnerName(m.origin)}`};
@@ -4241,7 +4241,7 @@ function showVictory(){
     <h2 id="vic-title">${flag(e.id)} ${esc(e.name)} капитулировала</h2>
     <blockquote>«Противник подписал капитуляцию, господин президент. Решайте, что будет с этой страной.»</blockquote>
     <div class="choices settle-grid">
-      ${opt("annex","Аннексия", `вся экономика (${money(e.gdp)}), население, ресурсы, трофеи`, "гарнизон, сопротивление, интеграция годами, сильный удар по репутации")}
+      ${opt("annex","Аннексия", `вся экономика (доход ${money(e.gdp/365)} в день), население, ресурсы, трофеи`, "гарнизон, сопротивление, интеграция годами, сильный удар по репутации")}
       ${opt("puppet","Марионеточное правительство", `дань ${money(e.gdp*0.1/12)}/мес, союзник, голос в совете`, "может взбунтоваться, если ослабнете; репутация хуже")}
       ${opt("contrib","Контрибуция", `сразу ${money(e.gdp*0.15)} и выгодная торговля 5 лет`, "страна остаётся врагом")}
       ${opt("mercy","Великодушный мир", "репутация в мире растёт, отношения со всеми лучше", "ничего не получаете")}
@@ -4251,7 +4251,7 @@ function showVictory(){
 }
 function peaceTerms(w){
   const p = w.progress, e = C()[w.enemy], t = [];
-  if (p >= 25) t.push({id:"land", title:`Забрать ${Math.round(Math.min(100, p))}% территории`, desc:`${money(e.gdp*p/100)} экономики и население этих земель; нужен гарнизон`, chance: clamp(0.15 + p/110, 0, 0.95)});
+  if (p >= 25) t.push({id:"land", title:`Забрать ${Math.round(Math.min(100, p))}% территории`, desc:`${money(e.gdp*p/100/365)} дохода в день и население этих земель; нужен гарнизон`, chance: clamp(0.15 + p/110, 0, 0.95)});
   if (p >= 10) t.push({id:"pay", title:"Контрибуция", desc:`${money(e.gdp*0.05*(p/50))} сразу`, chance: clamp(0.35 + p/140, 0, 0.95)});
   t.push({id:"white", title:"Белый мир", desc:"все остаются при своём", chance: clamp(0.45 + p/200, 0.05, 0.95)});
   if (p < 0) t.push({id:"concede", title:"Уступить", desc:`заплатить ${money(me().gdp*0.03*(-p/50))} и выйти из войны`, chance: 0.9});
@@ -4345,7 +4345,7 @@ function occCard(o){
   const e = C()[o.iso], need = garrisonNeed(o);
   return `<div class="occ"><div class="row"><b>${flag(o.iso)} ${esc(partnerName(o.iso))}${o.share < 1 ? ` · ${Math.round(o.share*100)}% территории` : ""}</b><span class="pill ${o.res > 70 ? "bad" : o.res > 40 ? "warn" : "good"}">сопротивление ${Math.round(o.res)}%</span></div>
     <div class="row"><small>Сопротивление</small><small class="num">${o.unrest ? `<span class="down">восстание через ${3 - o.unrest} мес.!</span>` : ""}</small></div><div class="bar ${o.res > 70 ? "low" : o.res > 40 ? "mid" : "high"}"><i style="width:${o.res}%"></i></div>
-    <div class="row"><small>Интеграция</small><small class="num">${Math.round(o.integ*100)}% · доход ${money(o.added/12)}/мес из ${money(o.gdpFull/12)}</small></div><div class="bar high"><i style="width:${o.integ*100}%"></i></div>
+    <div class="row"><small>Интеграция</small><small class="num">${Math.round(o.integ*100)}% · доход ${money(o.added/365)}/день из ${money(o.gdpFull/365)}</small></div><div class="bar high"><i style="width:${o.integ*100}%"></i></div>
     <div class="row"><small>Разрушения</small><small class="num">${Math.round(o.damage*100)}%</small></div>
     <button class="btn sm" data-occfree="${o.iso}">Вернуть независимость</button><small class="muted"> репутация лучше, рейтинг −3</small>
     <div class="row"><span>Гарнизон <small class="muted">${troops(garrisonOf(o))} из армии</small></span><span class="seg">${GARRISON_LV.map(([v,l]) => `<button data-garrison="${o.iso}:${v}" aria-pressed="${(o.garrison||1)===v}">${l}</button>`).join("")}</span></div>
@@ -4364,30 +4364,30 @@ function viewOccupation(){
 
 const SECTORS = [
   {id:"health",name:"Здравоохранение",hint:"рейтинг и население",pay:"~1 год",rate:0.08},
-  {id:"edu",name:"Образование",hint:"рост ВВП и сбор налогов",pay:"~1,5 года",rate:0.06},
-  {id:"infra",name:"Инфраструктура",hint:"рост ВВП и экспорт",pay:"~2 года",rate:0.045},
+  {id:"edu",name:"Образование",hint:"рост дохода и сбор налогов",pay:"~1,5 года",rate:0.06},
+  {id:"infra",name:"Инфраструктура",hint:"рост дохода и экспорт",pay:"~2 года",rate:0.045},
   {id:"police",name:"Полиция",hint:"стабильность и сбор налогов",pay:"~6 мес.",rate:0.12}
 ];
 const LAWS = [
-  {id:"freeHealth",name:"Бесплатная медицина",pros:["рейтинг +6"],cons:["расходы +1% ВВП в год"],appr:6,cost:0.01},
-  {id:"minWage",name:"Высокая минимальная зарплата",pros:["рейтинг +4"],cons:["рост ВВП −0,5% в год"],appr:4,growth:-0.0004},
+  {id:"freeHealth",name:"Бесплатная медицина",pros:["рейтинг +6"],cons:["расходы +1% дохода в год"],appr:6,cost:0.01},
+  {id:"minWage",name:"Высокая минимальная зарплата",pros:["рейтинг +4"],cons:["рост дохода −0,5% в год"],appr:4,growth:-0.0004},
   {id:"conscription",name:"Обязательный призыв",pros:["набор войск вдвое дешевле"],cons:["рейтинг −4"],appr:-4},
-  {id:"press",name:"Свобода прессы",pros:["рейтинг +3","рост ВВП +0,2% в год"],cons:["стабильность −3"],appr:3,stab:-3,growth:0.0002},
-  {id:"anticorr",name:"Антикоррупционная программа",pros:["собираемость налогов +6%","рейтинг +2"],cons:["расходы +0,3% ВВП в год"],appr:2,cost:0.003},
-  {id:"green",name:"Зелёная энергетика",pros:["электроэнергия +15","рейтинг +2"],cons:["расходы +0,5% ВВП в год"],appr:2,cost:0.005},
-  {id:"pension",name:"Повышение пенсионного возраста",pros:["расходы −1% ВВП в год"],cons:["рейтинг −7"],appr:-7,cost:-0.01},
-  {id:"curfew",name:"Комендантский час",pros:["стабильность +12"],cons:["рейтинг −8","рост ВВП −0,7% в год"],appr:-8,stab:12,growth:-0.0006},
-  {id:"repress",name:"Пропаганда и жёсткая цензура",pros:["рейтинг +8","стабильность +10"],cons:["эмиграция: население −0,2% в месяц","рост ВВП −0,3% в год"],appr:8,stab:10,pop:-0.002,growth:-0.00025},
+  {id:"press",name:"Свобода прессы",pros:["рейтинг +3","рост дохода +0,2% в год"],cons:["стабильность −3"],appr:3,stab:-3,growth:0.0002},
+  {id:"anticorr",name:"Антикоррупционная программа",pros:["собираемость налогов +6%","рейтинг +2"],cons:["расходы +0,3% дохода в год"],appr:2,cost:0.003},
+  {id:"green",name:"Зелёная энергетика",pros:["электроэнергия +15","рейтинг +2"],cons:["расходы +0,5% дохода в год"],appr:2,cost:0.005},
+  {id:"pension",name:"Повышение пенсионного возраста",pros:["расходы −1% дохода в год"],cons:["рейтинг −7"],appr:-7,cost:-0.01},
+  {id:"curfew",name:"Комендантский час",pros:["стабильность +12"],cons:["рейтинг −8","рост дохода −0,7% в год"],appr:-8,stab:12,growth:-0.0006},
+  {id:"repress",name:"Пропаганда и жёсткая цензура",pros:["рейтинг +8","стабильность +10"],cons:["эмиграция: население −0,2% в месяц","рост дохода −0,3% в год"],appr:8,stab:10,pop:-0.002,growth:-0.00025},
   {id:"openDoors",name:"Политика открытых дверей",pros:["отношения со всеми странами +0,5 в месяц"],cons:["риск, что на вас нападут, +25%"],rel:0.5,aggro:0.25},
   {id:"fastBuild",name:"Ускоренное строительство",pros:["стройки идут на 15% быстрее"],cons:["военное производство −30%"],build:-0.15,mil:-0.3},
   {id:"mob1",grp:"mob",name:"Оборонный заказ",pros:["военное производство +15%"],cons:["ресурсы и продовольствие −10%"],mil:0.15,res:-0.1},
   {id:"mob2",grp:"mob",name:"Военная экономика",pros:["военное производство +30%"],cons:["ресурсы и продовольствие −20%","рейтинг −2"],mil:0.3,res:-0.2,appr:-2},
   {id:"mob3",grp:"mob",name:"Мобилизация промышленности",pros:["военное производство +50%"],cons:["ресурсы и продовольствие −35%","рейтинг −4"],mil:0.5,res:-0.35,appr:-4},
-  {id:"mob4",grp:"mob",name:"Всё для фронта",pros:["военное производство +75%","стабильность +5"],cons:["ресурсы и продовольствие −50%","рейтинг −8","рост ВВП −1% в год"],mil:0.75,res:-0.5,appr:-8,stab:5,growth:-0.0008},
+  {id:"mob4",grp:"mob",name:"Всё для фронта",pros:["военное производство +75%","стабильность +5"],cons:["ресурсы и продовольствие −50%","рейтинг −8","рост дохода −1% в год"],mil:0.75,res:-0.5,appr:-8,stab:5,growth:-0.0008},
   {id:"peaceEco",grp:"mob",name:"Мирная экономика",pros:["ресурсы и продовольствие +15%"],cons:["военное производство −20%"],res:0.15,mil:-0.2},
   {id:"protect",grp:"trade",name:"Протекционизм",pros:["сырьё продаётся на 20% дороже"],cons:["закупки на 20% дороже"],sell:0.2,buy:0.2},
   {id:"freeTrade",grp:"trade",name:"Свободная торговля",pros:["закупки на 20% дешевле"],cons:["сырьё продаётся на 10% дешевле"],buy:-0.2,sell:-0.1},
-  {id:"birthAid",grp:"demo",name:"Материнский капитал",pros:["население растёт быстрее: +0,05% в месяц","рейтинг +2"],cons:["расходы +0,4% ВВП в год"],pop:0.0005,appr:2,cost:0.004},
+  {id:"birthAid",grp:"demo",name:"Материнский капитал",pros:["население растёт быстрее: +0,05% в месяц","рейтинг +2"],cons:["расходы +0,4% дохода в год"],pop:0.0005,appr:2,cost:0.004},
   {id:"birthCtrl",grp:"demo",name:"Контроль рождаемости",pros:["расходы министерств −10%"],cons:["население не растёт"],soc:-0.1,popFix:true}
 ];
 LAWS.forEach(l => { l.desc = [...l.pros, ...l.cons].join(", "); });
@@ -4398,14 +4398,14 @@ const TECH = [
   {id:"egov",br:"econ",tier:1,max:5,cost:60,days:90,name:"Цифровые госуслуги",fx:"сбор налогов +#%",v:5},
   {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"военные заводы быстрее на #%",v:50},
   {id:"fintech",br:"econ",tier:3,max:5,cost:220,days:200,name:"Финтех и электронные платежи",fx:"торговля +#1%, налоги +#2%",v:[20,5]},
-  {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост ВВП +#% в год",v:1.5},
+  {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост дохода +#% в год",v:1.5},
   {id:"smartgrid",br:"res",tier:1,max:5,cost:60,days:90,name:"Умные энергосети",fx:"электроэнергия +#%",v:10},
   {id:"agro",br:"res",tier:2,max:5,cost:120,days:140,name:"Точное земледелие",fx:"продовольствие +#%",v:20},
   {id:"deep",br:"res",tier:3,max:5,cost:220,days:200,name:"Глубокая добыча",fx:"нефть, газ и руда +#%",v:20},
-  {id:"fusion",br:"res",tier:4,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"электроэнергия +#1%, рост ВВП +#2% в год",v:[40,0.5],req:{nuc_reactor:2}},
+  {id:"fusion",br:"res",tier:4,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"электроэнергия +#1%, рост дохода +#2% в год",v:[40,0.5],req:{nuc_reactor:2}},
   {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"рейтинг +#",v:2},
   {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"рейтинг +#, прирост населения",v:2},
-  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"рейтинг +#1, рост ВВП +#2% в год",v:[3,0.3]},
+  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"рейтинг +#1, рост дохода +#2% в год",v:[3,0.3]},
   {id:"longevity",br:"soc",tier:4,max:5,cost:380,days:280,name:"Продление жизни",fx:"рейтинг +#, прирост населения",v:5},
   {id:"comms",br:"def",tier:1,max:5,cost:70,days:100,name:"Цифровая связь войск",fx:"боевая мощь +#%",v:10},
   {id:"drones",br:"def",tier:2,max:3,cost:140,days:150,name:"Беспилотники",fx:"мощь +#%; ур. 2–3 — дроны 2–3 поколения",v:20},
@@ -4548,37 +4548,37 @@ function nuclearStrike(w){
 }
 const IDEOLOGIES = [
   {id:"dem",name:"Демократия",party:"Демократический союз",desc:"рейтинг +5, стабильность −5, торговые договоры дают на 25% больше"},
-  {id:"tech",name:"Технократия",party:"Партия прогресса",desc:"наука +30%, рост ВВП +0,4% в год, рейтинг −3"},
-  {id:"soc",name:"Социализм",party:"Социалистическая партия",desc:"рейтинг +6, рост ВВП −0,4% в год, расходы на отрасли −20%"},
+  {id:"tech",name:"Технократия",party:"Партия прогресса",desc:"наука +30%, рост дохода +0,4% в год, рейтинг −3"},
+  {id:"soc",name:"Социализм",party:"Социалистическая партия",desc:"рейтинг +6, рост дохода −0,4% в год, расходы на отрасли −20%"},
   {id:"nat",name:"Национализм",party:"Национальный фронт",desc:"армия +20%, набор дешевле, война бьёт по рейтингу вдвое слабее, отношения со всеми −10"},
   {id:"auth",name:"Авторитаризм",party:"Партия порядка",desc:"выборов нет, стабильность +15, рейтинг −8, победа «4 срока» недоступна"}
 ];
 const OTHER_PARTIES = [["Центристы",0.4],["Левые",0.35],["Правые",0.25]];
 const SCENARIOS = [
   {id:"normal",name:"Обычная игра",desc:"Стандартный старт."},
-  {id:"zero",name:"Начать с нуля",desc:"Пустая казна, долг 90% ВВП, рейтинг 40%."},
+  {id:"zero",name:"Начать с нуля",desc:"Пустая казна, долг 90% годового дохода, рейтинг 40%."},
   {id:"crisis",name:"Мировой кризис",desc:"Экономики всего мира проседают на 10%, рост первый год отрицательный."},
   {id:"coldwar",name:"Холодная война",desc:"Мир разделён на два лагеря, соседи нападают втрое чаще."},
-  {id:"lastchance",name:"Последний шанс",desc:"Долг 140% ВВП, выборы через год, рейтинг 42%."}
+  {id:"lastchance",name:"Последний шанс",desc:"Долг 140% годового дохода, выборы через год, рейтинг 42%."}
 ];
 const OPS = [
   {id:"spy",name:"Промышленный шпионаж",pts:2,desc:"крадёт очки исследований: чем развитее цель, тем больше"},
-  {id:"sabotage",name:"Диверсия на производстве",pts:4,desc:"ВВП цели −2%, армия −3%"},
-  {id:"opposition",name:"Поддержка оппозиции",pts:5,desc:"ВВП цели −1%, шанс 25% на смену власти в вашу пользу"},
-  {id:"coup",name:"Государственный переворот",pts:10,desc:"только соседи с ВВП вдвое меньше вашего: страна станет союзником"}
+  {id:"sabotage",name:"Диверсия на производстве",pts:4,desc:"доход цели −2%, армия −3%"},
+  {id:"opposition",name:"Поддержка оппозиции",pts:5,desc:"доход цели −1%, шанс 25% на смену власти в вашу пользу"},
+  {id:"coup",name:"Государственный переворот",pts:10,desc:"только соседи с доходом вдвое меньше вашего: страна станет союзником"}
 ];
 const RES_TYPES = {
   sanctions:{name:"Санкции против {X}",desc:"Если примут: все страны совета вводят санкции против {X} на 2 года."},
   warban:{name:"Запрет нападения на {X}",desc:"Если примут: война против {X} стоит −15 рейтинга и −20 отношений со всеми."},
-  climate:{name:"Климатический пакт",desc:"Если примут: рост ВВП у всех −0,25% в год, рейтинг +3 на год."},
-  aid:{name:"Фонд помощи развивающимся странам",desc:"Если примут: богатые страны платят 0,3% ВВП, бедные получают 0,5% ВВП."}
+  climate:{name:"Климатический пакт",desc:"Если примут: рост дохода у всех −0,25% в год, рейтинг +3 на год."},
+  aid:{name:"Фонд помощи развивающимся странам",desc:"Если примут: богатые страны платят 0,3% годового дохода, бедные получают 0,5%."}
 };
 const ACHIEVEMENTS = [
   {id:"first_law",name:"Законотворец",desc:"Принять первый закон"},
   {id:"tech8",name:"Технократ",desc:"Открыть 8 технологий"},
   {id:"tech16",name:"Учёный мира",desc:"Открыть все технологии"},
   {id:"edu",name:"Страна знаний",desc:"Накопить образование до 95"},
-  {id:"rich",name:"Подушка безопасности",desc:"Бюджет больше 20% ВВП"},
+  {id:"rich",name:"Подушка безопасности",desc:"Бюджет больше 20% годового дохода"},
   {id:"beloved",name:"Народный любимец",desc:"Рейтинг 80% и выше"},
   {id:"iron",name:"Железный порядок",desc:"Стабильность 90% и выше"},
   {id:"conqueror",name:"Завоеватель",desc:"Захватить первую страну"},
@@ -4591,7 +4591,7 @@ const ACHIEVEMENTS = [
   {id:"veteran",name:"Ветеран",desc:"Выиграть двое выборов"},
   {id:"winner",name:"Победитель",desc:"Победить в любой партии"},
   {id:"hard",name:"Против всех шансов",desc:"Победить в сценарии «Начать с нуля» или «Последний шанс»"},
-  {id:"trader",name:"Сырьевая держава",desc:"Продать сырья за месяц больше чем на 1% ВВП"},
+  {id:"trader",name:"Сырьевая держава",desc:"Продать сырья за месяц больше чем на 1% годового дохода"},
   {id:"partners",name:"Торговая сеть",desc:"Экспортные контракты с 8 странами"}
 ];
 const ACH_KEY = "president-ach-v1";
@@ -4832,7 +4832,7 @@ function modeFill(iso){
 function modeLegend(){
   const mode = ui.mapMode || "pol";
   const bar = (a, b, l, r) => `<span class="mleg"><i style="background:linear-gradient(90deg,${a},${b})"></i><small>${l}</small><small>${r}</small></span>`;
-  if (mode === "econ") return bar("#132440", "#39D0C3", "малый ВВП", "крупный ВВП");
+  if (mode === "econ") return bar("#132440", "#39D0C3", "малый доход", "крупный доход");
   if (mode === "army") return bar("#132440", "#FF5D5D", "слабая армия", "сильная армия") + `<small class="muted">Малые страны: нет данных</small>`;
   if (mode === "rel") return bar("#FF4D5E", "#2BD9A8", "враги −100", "друзья +100");
   if (mode === "inf") return bar("#1A2A48", "#B58CFF", "нет влияния", "сильное влияние");
@@ -5231,7 +5231,7 @@ function nextMonth(){
     if (x.owner || x.rel > -40) return;
     if (Math.random() < 0.012*S.aggr){
       if (Math.random() < ciLevel() || (x.expelled||0) > 0) addLog(`Контрразведка сорвала диверсию агентов страны ${x.name}.`);
-      else { c.gdp *= 0.995; addLog(`Агенты страны ${x.name} устроили диверсию: ВВП −0,5%.`); flashMap(S.player, "bad"); advise("intel", `Диверсия! Агенты страны ${x.name} ударили по нашей промышленности. Усильте контрразведку.`, {tab:"intel", mood:"alert", key:"sabot", cd:3}); }
+      else { c.gdp *= 0.995; addLog(`Агенты страны ${x.name} устроили диверсию: доход −0,5%.`); flashMap(S.player, "bad"); advise("intel", `Диверсия! Агенты страны ${x.name} ударили по нашей промышленности. Усильте контрразведку.`, {tab:"intel", mood:"alert", key:"sabot", cd:3}); }
     }
     if (x.worldSanctions > 0) x.worldSanctions--;
   });
@@ -5260,7 +5260,7 @@ function nextMonth(){
   // 10. defeat checks
   S.lowStab = S.stability < 15 ? S.lowStab+1 : 0;
   if (S.lowStab >= 3) return endGame(false, "Революция", "Стабильность три месяца подряд была ниже 15%. Правительство свергнуто.");
-  if (S.debt > c.gdp*1.6) return endGame(false, "Дефолт", "Госдолг превысил 160% ВВП. Страна объявила банкротство.");
+  if (S.debt > c.gdp*1.6) return endGame(false, "Дефолт", "Госдолг превысил 160% годового дохода. Страна объявила банкротство.");
 
   // 11. victory checks
   const rivals = Object.values(C()).filter(x=>!x.owner);
@@ -5403,7 +5403,7 @@ function warOutcomes(){
       S.mods.push({stat:"approval",v:-15,left:12});
       e.rel = -60;
       S.lostWarT = S.turn;
-      addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −15% ВВП.`); advise("gen", `Мы проиграли войну с ${e.name}. Подписан тяжёлый мир.`, {mood:"alert"}); dirty = true;
+      addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −15% дохода.`); advise("gen", `Мы проиграли войну с ${e.name}. Подписан тяжёлый мир.`, {mood:"alert"}); dirty = true;
     }
   });
 }
@@ -5536,7 +5536,7 @@ function randomBig(){ return pick(Object.values(C()).filter(c=>!c.owner).sort((a
 const EVENTS = [
   {id:"drought", title:"Засуха", text:"Аномальная жара уничтожает часть урожая. Аграрии просят помощи.",
    options:[
-     {label:"Закупить зерно за границей", hint:"−0,3% ВВП из бюджета", apply(){ S.treasury -= me().gdp*0.003; }},
+     {label:"Закупить зерно за границей", hint:"−0,3% годового дохода из бюджета", apply(){ S.treasury -= me().gdp*0.003; }},
      {label:"Справимся сами", hint:"продовольствие −30% на 6 месяцев, рейтинг −5", apply(){ S.mods.push({stat:"food",v:-30,left:6},{stat:"approval",v:-5,left:6}); }}
    ]},
   {id:"scandal", title:"Скандал в министерстве", text:"Журналисты опубликовали расследование о взятках в министерстве транспорта.",
@@ -5546,12 +5546,12 @@ const EVENTS = [
    ]},
   {id:"investor", title:"Иностранный инвестор", text:null, dyn(){ const b = randomBig(); this._b = b ? b.id : null; return `Корпорация из страны ${b ? b.name : "-"} готова построить у вас химкомбинат в обмен на налоговые льготы.`; },
    options:[
-     {label:"Принять предложение", hint:"+1 химкомбинат сразу, отношения +10, налоги −0,1% ВВП разово", apply(){ S.buildings.chem = (S.buildings.chem||0) + 1; S.treasury -= me().gdp*0.001; const b = C()[EVENTS[2]._b]; if (b) b.rel += 10; }},
+     {label:"Принять предложение", hint:"+1 химкомбинат сразу, отношения +10, налоги −0,1% годового дохода разово", apply(){ S.buildings.chem = (S.buildings.chem||0) + 1; S.treasury -= me().gdp*0.001; const b = C()[EVENTS[2]._b]; if (b) b.rel += 10; }},
      {label:"Отказать", hint:"ничего не меняется", apply(){}}
    ]},
   {id:"strike", title:"Забастовка профсоюзов", text:"Рабочие крупнейших предприятий требуют повышения зарплат.",
    options:[
-     {label:"Поднять зарплаты бюджетникам", hint:"−0,2% ВВП, рейтинг +4", apply(){ S.treasury -= me().gdp*0.002; S.mods.push({stat:"approval",v:4,left:6}); }},
+     {label:"Поднять зарплаты бюджетникам", hint:"−0,2% годового дохода, рейтинг +4", apply(){ S.treasury -= me().gdp*0.002; S.mods.push({stat:"approval",v:4,left:6}); }},
      {label:"Разогнать полицией", hint:"стабильность +3, рейтинг −7", apply(){ S.mods.push({stat:"stability",v:3,left:4},{stat:"approval",v:-7,left:8}); }},
      {label:"Долгие переговоры", hint:"рост −0,1% в месяц на 2 месяца", apply(){ S.mods.push({stat:"growth",v:-0.001,left:2}); }}
    ]},
@@ -5562,28 +5562,28 @@ const EVENTS = [
    ]},
   {id:"nobel", title:"Нобелевская премия", text:"Наш физик получил Нобелевскую премию. Университеты получают волну заявок со всего мира.",
    options:[
-     {label:"Создать фонд имени лауреата", hint:"−0,2% ВВП, +60 очков исследований", apply(){ S.treasury -= me().gdp*0.002; S.rp += 60; }},
+     {label:"Создать фонд имени лауреата", hint:"−0,2% годового дохода, +60 очков исследований", apply(){ S.treasury -= me().gdp*0.002; S.rp += 60; }},
      {label:"Просто поздравить", hint:"+20 очков исследований, рейтинг +1", apply(){ S.rp += 20; S.mods.push({stat:"approval",v:1,left:6}); }}
    ]},
   {id:"braindrain", title:"Утечка мозгов", text:"Учёные уезжают за границу: там платят втрое больше. Академия наук просит поднять зарплаты.", cond(){ return S.rp > 40; },
    options:[
-     {label:"Поднять зарплаты учёным", hint:"−0,3% ВВП из бюджета", apply(){ S.treasury -= me().gdp*0.003; }},
+     {label:"Поднять зарплаты учёным", hint:"−0,3% годового дохода из бюджета", apply(){ S.treasury -= me().gdp*0.003; }},
      {label:"Ничего не делать", hint:"−30 очков исследований, образование −3", apply(){ S.rp = Math.max(0, S.rp - 30); S.capital.edu = Math.max(0, S.capital.edu - 3); }}
    ]},
   {id:"it", title:"IT-бум", text:"Местные стартапы привлекают инвесторов. Отрасль просит налоговых льгот.",
    options:[
-     {label:"Дать льготы IT", hint:"−0,1% ВВП, рост +1% в год на 12 месяцев", apply(){ S.treasury -= me().gdp*0.001; S.mods.push({stat:"growth",v:0.0008,left:12}); }},
+     {label:"Дать льготы IT", hint:"−0,1% годового дохода, рост +1% в год на 12 месяцев", apply(){ S.treasury -= me().gdp*0.001; S.mods.push({stat:"growth",v:0.0008,left:12}); }},
      {label:"Без льгот", hint:"рост +0,4% в год на 6 месяцев", apply(){ S.mods.push({stat:"growth",v:0.0003,left:6}); }}
    ]},
   {id:"quake", title:"Землетрясение", text:"Сильное землетрясение разрушило несколько городов.",
    options:[
-     {label:"Восстановить за счёт бюджета", hint:"−0,6% ВВП, рейтинг +3", apply(){ S.treasury -= me().gdp*0.006; S.mods.push({stat:"approval",v:3,left:6}); }},
-     {label:"Попросить помощи у союзников", hint:"если есть союзники: +0,3% ВВП, иначе рейтинг −4", apply(){ const al = Object.values(C()).filter(c=>c.ally && !c.owner); if (al.length){ S.treasury += me().gdp*0.003; addLog(`Помощь прислали: ${al.map(a=>a.name).join(", ")}.`); } else S.mods.push({stat:"approval",v:-4,left:6}); }},
+     {label:"Восстановить за счёт бюджета", hint:"−0,6% годового дохода, рейтинг +3", apply(){ S.treasury -= me().gdp*0.006; S.mods.push({stat:"approval",v:3,left:6}); }},
+     {label:"Попросить помощи у союзников", hint:"если есть союзники: +0,3% годового дохода, иначе рейтинг −4", apply(){ const al = Object.values(C()).filter(c=>c.ally && !c.owner); if (al.length){ S.treasury += me().gdp*0.003; addLog(`Помощь прислали: ${al.map(a=>a.name).join(", ")}.`); } else S.mods.push({stat:"approval",v:-4,left:6}); }},
      {label:"Минимальная помощь", hint:"рейтинг −8, рост −0,1% в месяц на полгода", apply(){ S.mods.push({stat:"approval",v:-8,left:8},{stat:"growth",v:-0.001,left:6}); }}
    ]},
   {id:"oilprice", title:"Скачок цен на нефть", text:null, dyn(){ return selfSuff("oil")>110 ? "Мировые цены на нефть взлетели. Экспортёры богатеют." : "Мировые цены на нефть взлетели. Импорт топлива дорожает."; },
    options:[
-     {label:"Принять к сведению", hint:"экспортёр: +0,5% ВВП; импортёр: −0,3% ВВП", apply(){ S.treasury += selfSuff("oil")>110 ? me().gdp*0.005 : -me().gdp*0.003; }}
+     {label:"Принять к сведению", hint:"экспортёр: +0,5% годового дохода; импортёр: −0,3%", apply(){ S.treasury += selfSuff("oil")>110 ? me().gdp*0.005 : -me().gdp*0.003; }}
    ]},
   {id:"flu", title:"Эпидемия гриппа", text:"Больницы переполнены, врачи советуют ввести ограничения.",
    options:[
@@ -5592,7 +5592,7 @@ const EVENTS = [
    ]},
   {id:"imf", title:"Предложение МВФ", text:"Международный валютный фонд предлагает кредит на льготных условиях — в обмен на режим экономии.",
    options:[
-     {label:"Взять кредит", hint:"+2% ВВП в бюджет, долг +2,2% ВВП, рейтинг −3", apply(){ const g=me().gdp; S.treasury += g*0.02; S.debt += g*0.022; S.mods.push({stat:"approval",v:-3,left:6}); }},
+     {label:"Взять кредит", hint:"+2% годового дохода в бюджет, долг +2,2%, рейтинг −3", apply(){ const g=me().gdp; S.treasury += g*0.02; S.debt += g*0.022; S.mods.push({stat:"approval",v:-3,left:6}); }},
      {label:"Отказаться", hint:"ничего не меняется", apply(){}}
    ]},
   {id:"border", title:"Пограничный инцидент", text:null, dyn(){ const n = randomNeighbor(); this._n = n ? n.id : null; return `Военные ${n ? "страны " + n.name : "соседей"} нарушили вашу границу. Общество ждёт реакции.`; },
@@ -5602,7 +5602,7 @@ const EVENTS = [
    ]},
   {id:"olympics", title:"Олимпийские игры", text:"Спортивный комитет предлагает подать заявку на проведение Олимпиады.",
    options:[
-     {label:"Подать заявку", hint:"−0,4% ВВП, рейтинг +6, рост +0,6% в год на 12 месяцев", apply(){ S.treasury -= me().gdp*0.004; S.mods.push({stat:"approval",v:6,left:8},{stat:"growth",v:0.0005,left:12}); }},
+     {label:"Подать заявку", hint:"−0,4% годового дохода, рейтинг +6, рост +0,6% в год на 12 месяцев", apply(){ S.treasury -= me().gdp*0.004; S.mods.push({stat:"approval",v:6,left:8},{stat:"growth",v:0.0005,left:12}); }},
      {label:"Не сейчас", hint:"ничего не меняется", apply(){}}
    ]},
   {id:"migrants", title:"Волна мигрантов", text:"Из-за кризиса в регионе к вашим границам идут тысячи беженцев.",
@@ -5794,7 +5794,7 @@ function advisorsTurn(){
   Object.keys(S.advCd||{}).forEach(k => { if (S.advCd[k] > 0) S.advCd[k]--; });
   if (b.net < 0) advise("econ", `Господин президент, бюджет уходит в минус: ${money(b.net)} в месяц. Поднимите налоги или урежьте расходы.`, {tab:"economy", mood:"alert", key:"deficit", cd:4});
   else if (S.treasury > c.gdp*0.06 && !S.queue.length) advise("econ", `В казне ${money(S.treasury)}, а стройка стоит. Деньги должны работать.`, {tab:"build", key:"idlecash", cd:6});
-  if (S.debt > c.gdp*0.9) advise("econ", `Госдолг уже ${pct(S.debt/c.gdp*100)} ВВП. Ещё немного — и кредиторы перестанут нам верить.`, {tab:"economy", mood:"alert", key:"debt", cd:6});
+  if (S.debt > c.gdp*0.9) advise("econ", `Госдолг уже ${pct(S.debt/c.gdp*100)} годового дохода. Ещё немного — и кредиторы перестанут нам верить.`, {tab:"economy", mood:"alert", key:"debt", cd:6});
   ["oil","rare","uran"].forEach(r => { const h = S.mhist[r]; if (!h) return; if (h.length > 1 && commodOpen(r) && S.stock[r] > 1 && h[h.length-1]/h[h.length-2] > 1.08) advise("econ", `${COMMOD[r].name} подорожала на ${pct((h[h.length-1]/h[h.length-2]-1)*100)}. На складе ${Math.floor(S.stock[r])} ${COMMOD[r].unit} — самое время продать.`, {tab:"trade", key:"price-"+r, cd:3}); });
   const threat = Object.values(C()).filter(x => !x.owner && canReach(x) && x.rel < -40 && !S.wars.some(w=>w.enemy===x.id)).sort((p,q)=>aiPower(q)-aiPower(p))[0];
   if (threat && aiPower(threat) > myPower()*1.2) advise("gen", `${threat.name} стягивает войска к границе. Их армия сильнее нашей в ${(aiPower(threat)/Math.max(1,myPower())).toFixed(1).replace(".",",")} раза. Нужно усиливаться.`, {tab:"army", mood:"alert", key:"threat-"+threat.id, cd:8});
@@ -6088,7 +6088,7 @@ const GOALS = [
   {id:"steel", title:"Свой металлургический завод", reward:3, prog:b => [objCount("steelworks") - b.steel, 1]},
   {id:"trade", title:"Подписать торговый договор", reward:3, prog:b => [Object.values(C()).filter(x => x.trade && !x.owner).length - b.trade, 1]},
   {id:"surplus", title:"3 месяца бюджет в плюсе", reward:5, prog:() => [tutState().surplusM || 0, 3]},
-  {id:"gdp", title:"Рост ВВП на 5%", reward:5, prog:b => [Math.max(0, Math.round((me().gdp/b.gdp - 1)*1000)/10), 5]},
+  {id:"gdp", title:"Рост дохода на 5%", reward:5, prog:b => [Math.max(0, Math.round((me().gdp/b.gdp - 1)*1000)/10), 5]},
   {id:"approval", title:"Поднять рейтинг на 5 пунктов", reward:5, prog:b => [Math.max(0, Math.round(S.approval - b.approval)), 5]},
   {id:"ally", title:"Союзник или научный договор", reward:5, prog:b => [Object.values(C()).filter(x => (x.ally || x.sci) && !x.owner).length - b.ally, 1]}
 ];
@@ -6443,10 +6443,10 @@ function viewSummary(){
   return `<div class="grid2">
     <div class="panel">
       <h3>Динамика</h3>
-      <div><div class="row"><span class="label">ВВП за 3 года</span><span class="num">${money(c.gdp)}</span></div>${spark(S.hist.gdp, "var(--state)")}</div>
+      <div><div class="row"><span class="label">Доход в день</span><span class="num">${money(c.gdp/365)}</span></div>${spark(S.hist.gdp, "var(--state)")}</div>
       <div><div class="row"><span class="label">Рейтинг</span><span class="num">${pct(S.approval)}</span></div>${spark(S.hist.appr, "var(--accent)")}</div>
       <div class="row"><span>Население</span><span class="num">${people(c.pop)}</span></div>
-      <div class="row"><span>Место в мире по ВВП</span><span class="num">№ ${rank}</span></div>
+      <div class="row"><span>Место в мире по доходу</span><span class="num">№ ${rank}</span></div>
       <div class="row"><span>Уровней технологий</span><span class="num">${TECH.reduce((a,t)=>a+tlv(t.id),0)} / ${TECH.reduce((a,t)=>a+t.max,0)}</span></div>
       <div class="row"><span>Сроков отработано</span><span class="num">${S.terms}</span></div>
     </div>
@@ -6459,7 +6459,7 @@ function viewSummary(){
       ${WINS.map(w => { const got = (S.wins||{})[w.id], max = typeof w.max === "function" ? w.max() : w.max; return `<div class="goal"><span>${got ? "🏆 " : ""}${typeof w.goal === "function" ? w.goal() : w.goal}</span><span class="num">${got ? esc(w.rank) : `${w.val()}${w.unit||""} / ${max}${w.unit||""}`}</span></div>`; }).join("")}
       <div class="goal"><span><b>Главная цель: объединить мир</b> (все страны присоединены, союзные или сателлиты)</span><span class="num">${Object.values(C()).filter(x => x.id !== S.player && (x.owner || x.puppet)).length} / ${Object.values(C()).length - 1}</span></div>
       <div class="label" style="margin-top:4px">После каждой победы игру можно продолжить.</div>
-      <div class="label" style="margin-top:4px">Поражение: проигранные выборы, революция (стабильность &lt; 15% три месяца), госдолг &gt; 160% ВВП</div>
+      <div class="label" style="margin-top:4px">Поражение: проигранные выборы, революция (стабильность &lt; 15% три месяца), госдолг &gt; 160% годового дохода</div>
     </div>
     <div class="panel">
       <h3>Помощь МВФ</h3>
@@ -6522,10 +6522,10 @@ const MINISTRIES = [
   {id:"finance", blk:"econ", ic:"budget", rate:0.0002, def:3, name:"Министерство финансов", post:"Министр финансов", fx:"сбор налогов +0,5% и ставка по долгу −2% за уровень"},
   {id:"trade", blk:"econ", ic:"trade", rate:0.0002, def:2, name:"Министерство торговли", post:"Министр торговли", fx:"сырьё продаётся дороже на 1%, закупки дешевле на 1% за уровень"},
   {id:"energy", blk:"econ", ic:"power", rate:0.0002, def:2, name:"Министерство энергетики", post:"Министр энергетики", fx:"+1,5 ед. электроэнергии за уровень"},
-  {id:"infra", blk:"econ", ic:"road", legacy:true, def:3, name:"Министерство инфраструктуры", post:"Министр инфраструктуры", fx:"рост ВВП и экспорт"},
+  {id:"infra", blk:"econ", ic:"road", legacy:true, def:3, name:"Министерство инфраструктуры", post:"Министр инфраструктуры", fx:"рост дохода и экспорт"},
   {id:"tourism", blk:"econ", ic:"plane", rate:0.00015, def:1, name:"Министерство туризма", post:"Министр туризма", fx:"доход от туристов; в войну падает втрое"},
   {id:"health", blk:"soc", ic:"approval", legacy:true, def:3, name:"Министерство здравоохранения", post:"Министр здравоохранения", fx:"рейтинг и рост населения"},
-  {id:"edu", blk:"soc", ic:"summary", legacy:true, def:3, name:"Министерство образования", post:"Министр образования", fx:"рост ВВП, сбор налогов и очки исследований"},
+  {id:"edu", blk:"soc", ic:"summary", legacy:true, def:3, name:"Министерство образования", post:"Министр образования", fx:"рост дохода, сбор налогов и очки исследований"},
   {id:"housing", blk:"soc", ic:"build", rate:0.0002, def:2, name:"Министерство строительства и ЖКХ", post:"Министр строительства", fx:"рейтинг +0,3 и стройки быстрее на 1,5% за уровень"},
   {id:"culture", blk:"soc", ic:"star", rate:0.00015, def:2, name:"Министерство культуры", post:"Министр культуры", fx:"рейтинг +0,35 за уровень"},
   {id:"sport", blk:"soc", ic:"trophy", rate:0.00015, def:2, name:"Министерство спорта", post:"Министр спорта", fx:"рейтинг +0,25 и рост населения"},
@@ -6684,8 +6684,8 @@ function viewFinance(){
   return `<div class="mgauges">
       ${gauge("Инфляция", S.infl, "%", 4, 12, "в год", inflTarget(b))}
       ${gauge("Безработица", S.unemp, "%", baseUnemp(), baseUnemp() + 4, `норма ${pct(baseUnemp(),1)}`, unempTarget())}
-      ${gauge("Рост ВВП", g, "%", 0, 0, `тренд ${pct(trendGrowthYear()*100,1)} в год`, undefined, g < 0 ? "bad" : g >= trendGrowthYear()*80 ? "good" : "")}
-      ${gauge("Госдолг", d*100, "% ВВП", 40, 90, money(S.debt))}
+      ${gauge("Рост дохода", g, "%", 0, 0, `тренд ${pct(trendGrowthYear()*100,1)} в год`, undefined, g < 0 ? "bad" : g >= trendGrowthYear()*80 ? "good" : "")}
+      ${gauge("Госдолг", d*100, "% дохода", 40, 90, money(S.debt))}
     </div>
     <div class="grid2">
     <div class="panel">
@@ -6693,14 +6693,14 @@ function viewFinance(){
       <div class="slider"><label>Ключевая ставка</label><span class="num"><b data-cbv>${S.cb.toFixed(1).replace(".",",")}%</b></span>
         <input type="range" min="0" max="30" step="0.5" value="${S.cb}" data-cb aria-label="Ключевая ставка"></div>
       <div class="label">Нейтральная ставка для вашей страны — ${pct(nr,1)}. Выше — инфляция падает, но тормозит рост, растут безработица и проценты по долгу. Ниже — наоборот.</div>
-      <div class="row"><span>Печатный станок <small class="muted">· +0,5% ВВП в год в бюджет за уровень, инфляция +4%</small></span><span class="seg" role="group" aria-label="Эмиссия">${[0,1,2,3].map(l=>`<button data-print="${l}" aria-pressed="${(S.print||0)===l}">${["Нет","1","2","3"][l]}</button>`).join("")}</span></div>
+      <div class="row"><span>Печатный станок <small class="muted">· +0,5% дохода в год в бюджет за уровень, инфляция +4%</small></span><span class="seg" role="group" aria-label="Эмиссия">${[0,1,2,3].map(l=>`<button data-print="${l}" aria-pressed="${(S.print||0)===l}">${["Нет","1","2","3"][l]}</button>`).join("")}</span></div>
     </div>
     <div class="panel">
       <h3>Госдолг</h3>
-      <div class="bstats"><span>Долг <b class="num">${money(S.debt)}</b></span><span>${pct(d*100)} ВВП</span><span>Ставка <b class="num">${pct(debtRate()*100,1)}</b></span><span>Проценты <b class="down num">−${money(S.debt*debtRate()/12)}</b>/мес</span></div>
+      <div class="bstats"><span>Долг <b class="num">${money(S.debt)}</b></span><span>${pct(d*100)} годового дохода</span><span>Ставка <b class="num">${pct(debtRate()*100,1)}</b></span><span>Проценты <b class="down num">−${money(S.debt*debtRate()/12)}</b>/мес</span></div>
       <div class="bar ${d > 0.9 ? "low" : d > 0.6 ? "mid" : "high"}"><i style="width:${Math.min(100, d/1.6*100)}%"></i></div>
       <div class="btns"><button class="btn" data-repay="part" ${S.treasury <= 0 || S.debt <= 0 ? "disabled" : ""}>Погасить ${money(Math.min(S.treasury, S.debt, c.gdp*0.01))}</button><button class="btn" data-repay="all" ${S.treasury <= 0 || S.debt <= 0 ? "disabled" : ""}>Погасить всё, что можно</button><button class="btn" data-borrow ${d > 1.3 ? "disabled" : ""}>Выпустить облигации · +${money(borrowAmount())}</button></div>
-      <div class="label">Чем больше долг, тем дороже новые займы. Выше 160% ВВП — дефолт и конец игры. Инфляция понемногу «съедает» долг, но бьёт по людям.</div>
+      <div class="label">Чем больше долг, тем дороже новые займы. Выше 160% годового дохода — дефолт и конец игры. Инфляция понемногу «съедает» долг, но бьёт по людям.</div>
     </div>
     <div class="panel">
       <h3>Социальные обязательства</h3>
@@ -7259,7 +7259,7 @@ function intelReport(iso){
   if (!n) return `<p class="muted" style="margin:0">Агентуры в этой стране нет — данные только из открытых источников. Расширьте сеть, чтобы видеть больше.</p>`;
   const err = [0.5, 0.3, 0.2, 0.12, 0.06, 0.02][n], est = v => { const h = (hashIso(iso + S.turn) % 100)/100 - 0.5; return v*(1 + h*err*2); };
   const intent = x.rel < -65 && aiPower(x) > myPower()*1.3 ? ["down","может напасть: настроены враждебно и сильнее нас"] : x.rel < -40 ? ["warn","враждебны, но к войне не готовы"] : x.rel > 40 ? ["up","настроены дружественно"] : ["muted","угрозы не видно"];
-  return `<div class="bstats"><span>Мощь армии ≈ <b class="num">${Math.round(est(aiPower(x))).toLocaleString("ru-RU")}</b></span><span>Личный состав ≈ <b class="num">${troops(est(x.army))}</b></span><span>Технологии <b class="num">${x.tech}/5</b></span><span>ВВП ≈ <b class="num">${money(est(x.gdp))}</b></span></div>
+  return `<div class="bstats"><span>Мощь армии ≈ <b class="num">${Math.round(est(aiPower(x))).toLocaleString("ru-RU")}</b></span><span>Личный состав ≈ <b class="num">${troops(est(x.army))}</b></span><span>Технологии <b class="num">${x.tech}/5</b></span><span>Доход в день ≈ <b class="num">${money(est(x.gdp)/365)}</b></span></div>
     <div class="row"><span>Намерения</span><span class="${intent[0]}">${intent[1]}</span></div>
     ${n >= 3 ? `<div class="row"><span>Отношение их руководства к нам</span><span class="num">${x.rel > 0 ? "+" : ""}${Math.round(x.rel)}</span></div>` : ""}
     ${n >= 4 ? `<div class="row"><span>Их санкции</span><span>${x.sanctionsUs ? "действуют против нас" : "нет"}</span></div>` : ""}
@@ -7491,7 +7491,7 @@ function showUnitInfo(id){
       <span><small>Содержание</small><b class="num">${money(modelUpkeep(m)/12)}/мес</b></span>
       <span><small>В строю</small><b class="num">${n.toLocaleString("ru-RU")}</b></span>
       ${k.ammo ? `<span><small>Боеприпасы</small><b>${AMMO[k.ammo].short}</b></span>` : ""}
-      ${m.req ? `<span><small>Требуется ВВП</small><b class="num">от ${money(m.req)}</b></span>` : ""}
+      ${m.req ? `<span><small>Требуется доход в день</small><b class="num">от ${money(m.req/365)}</b></span>` : ""}
     </div>
     <div class="label">${buy.ok ? `Закупка: ${money(buy.price)} за ед., доставка ${buy.days} дн.` : `Закупка: ${buy.why}`}${prod.ok ? " · можно производить у себя" : prod.why ? ` · своё производство: ${prod.why}` : ""}</div>`; }
   else if (a){ stats = `<div class="ui-stats"><span><small>Цена партии</small><b class="num">${money(a.price*a.batch)}</b></span><span><small>Партия</small><b class="num">${a.batch.toLocaleString("ru-RU")} ${a.unit}</b></span><span><small>На складе</small><b class="num">${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${a.unit}</b></span></div>`; }
@@ -7649,7 +7649,7 @@ function dipRow(x){
     const atWar = S.wars.some(w=>w.enemy===x.id);
     const tags = [x.puppet&&`<span class="pill state">Сателлит · лояльность ${Math.round((S.puppets[x.id]||{loyal:0}).loyal)}%</span>`, x.ally&&!x.puppet&&`<span class="pill good">Союз</span>`, x.trade&&`<span class="pill state">Торговля</span>`, x.sanction&&`<span class="pill warn">Наши санкции</span>`, x.sanctionsUs&&`<span class="pill bad">Санкции против нас</span>`, atWar&&`<span class="pill bad">Война</span>`].filter(Boolean).join("");
     return `<div class="dip-row">
-      <div class="dip-name"><button class="linkbtn" data-ctry="${x.id}"><b>${flag(x.id)} ${esc(x.name)} ›</b></button><span class="muted">${x.region} · ВВП ${money(x.gdp)} · сила ${Math.round(aiPower(x))}</span></div>
+      <div class="dip-name"><button class="linkbtn" data-ctry="${x.id}"><b>${flag(x.id)} ${esc(x.name)} ›</b></button><span class="muted">${x.region} · доход ${money(x.gdp/365)} в день · сила ${Math.round(aiPower(x))}</span></div>
       <div><div class="rel" title="Отношения ${Math.round(x.rel)}"><b style="left:calc(${(x.rel+100)/2}% - 1px)"></b></div><div class="label num" style="margin-top:4px">${x.rel>0?"+":""}${Math.round(x.rel)}</div></div>
       <div class="dip-tags">${tags}</div>
       ${atWar ? "" : `<div class="dip-actions">
@@ -7724,7 +7724,7 @@ function viewMap(){
   if (!sel) card = null;
   else if (!x) card = null;
   else if (x.id === S.player) card = `<div class="panel"><div class="row"><h3>${flag(x.id)} ${esc(x.name)} — ваша страна</h3></div>
-      <div class="bstats"><span>ВВП <b class="num">${money(x.gdp)}</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
+      <div class="bstats"><span>Доход в день <b class="num">${money(x.gdp/365)}</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
       <p class="muted" style="margin:0">Значки над страной — ваши постройки: нажмите, чтобы открыть нужный раздел. «+» — новая стройка.</p></div>`;
   else if (!x.owner) card = null;
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
@@ -8463,7 +8463,7 @@ function partnerCard(iso){
   const p = partner(iso), g = partnerGdp(iso), cost = improveCost()*0.5;
   return `<div class="panel">
     <div class="row"><h3>${flag(iso)} ${esc(shortName(iso))}</h3><span class="pill state">Торговый партнёр</span></div>
-    <div class="bstats"><span>ВВП ~<b class="num">${money(g)}</b></span><span>Отношения <b class="num">${p.rel>0?"+":""}${Math.round(p.rel)}</b></span>${p.trade?`<span class="up">Торговый договор действует</span>`:""}</div>
+    <div class="bstats"><span>Доход в день ~<b class="num">${money(g/365)}</b></span><span>Отношения <b class="num">${p.rel>0?"+":""}${Math.round(p.rel)}</b></span>${p.trade?`<span class="up">Торговый договор действует</span>`:""}</div>
     <div class="rel"><b style="left:calc(${(p.rel+100)/2}% - 1px)"></b></div>
     <div class="dip-actions">
       <button class="btn" data-act="pimprove" data-arg="${iso}" ${p.improveCd>0||S.treasury<cost?"disabled":""}>${p.improveCd>0?`Улучшить (через ${p.improveCd})`:`Улучшить отношения · ${money(cost)}`}</button>
@@ -8685,19 +8685,19 @@ const ORGS = [
   {id:"nato", name:"НАТО", full:"Организация Североатлантического договора", kind:"mil", col:"#1F4E9C", members:["us","ca","gb","fr","de","it","es","pl","tr"], regions:["Европа","Америка"], rival:"csto", minRel:30,
     fx:"на вас нападают в 2 раза реже; при нападении союзники по блоку вступают в войну"},
   {id:"eaeu", name:"ЕАЭС", full:"Евразийский экономический союз", kind:"econ", col:"#2E7D4F", members:["ru","kz","kg","by"], regions:["СНГ"], rival:"eu", minRel:20,
-    fx:"закупки у участников −10%, рост ВВП +0,1% в год"},
+    fx:"закупки у участников −10%, рост дохода +0,1% в год"},
   {id:"eu", name:"Евросоюз", full:"Европейский союз", kind:"econ", col:"#2D6FD0", members:["de","fr","it","es","pl"], regions:["Европа"], rival:"eaeu", minRel:35, ideo:"dem",
-    fx:"закупки у участников −10%, рост ВВП +0,15% в год; нужна демократия"},
+    fx:"закупки у участников −10%, рост дохода +0,15% в год; нужна демократия"},
   {id:"asean", name:"АСЕАН", full:"Ассоциация государств Юго-Восточной Азии", kind:"econ", col:"#F2A93B", members:["id","vn"], only:["id","vn"], minRel:20,
-    fx:"закупки у участников −10%, рост ВВП +0,1% в год"},
+    fx:"закупки у участников −10%, рост дохода +0,1% в год"},
   {id:"cis", name:"СНГ", full:"Содружество Независимых Государств", kind:"pol", col:"#5AA9FF", members:["ru","kz","kg","uz","by","az"], regions:["СНГ"], minRel:0,
     fx:"отношения с участниками +0,3 в месяц"},
   {id:"sco", name:"ШОС", full:"Шанхайская организация сотрудничества", kind:"pol", col:"#39A0D0", members:["cn","ru","kz","kg","uz","in","pk","ir","by"], regions:["СНГ","Азия","Ближний Восток"], minRel:15,
     fx:"отношения с участниками +0,3 в месяц"},
   {id:"brics", name:"БРИКС", full:"Объединение БРИКС", kind:"pol", col:"#E67E22", members:["br","ru","in","cn","za","eg","ir","id"], minRel:20, minGdp:300,
-    fx:"рост ВВП +0,05% в год, отношения с участниками +0,2 в месяц; ВВП от 300 млрд $"},
+    fx:"рост дохода +0,05% в год, отношения с участниками +0,2 в месяц; доход от 822 млн $ в день"},
   {id:"g20", name:"G20", full:"«Большая двадцатка»", kind:"pol", col:"#7A3A9C", members:["ar","au","br","ca","cn","fr","de","in","id","it","jp","kr","mx","ru","sa","za","tr","gb","us"], minRel:0, minGdp:600,
-    fx:"рейтинг +1, отношения с участниками +0,1 в месяц; ВВП от 600 млрд $"},
+    fx:"рейтинг +1, отношения с участниками +0,1 в месяц; доход от 1,6 млрд $ в день"},
   {id:"opec", name:"ОПЕК", full:"Организация стран — экспортёров нефти", kind:"oil", col:"#3A3F2C", members:["sa","ir","ng"], minRel:10, minOil:1.5,
     fx:"нефть продаётся на 12% дороже; нужны большие запасы нефти"},
   {id:"au", name:"Африканский союз", full:"Африканский союз", kind:"pol", col:"#1FB57A", members:["eg","ng","za"], regions:["Африка"], also:["eg"], minRel:0,
@@ -8718,7 +8718,7 @@ function orgCanJoin(o){
   if (o.regions && !o.regions.includes(x.region) && !(o.also||[]).includes(S.player)) return {ok:false, why:`только для региона: ${o.regions.join(", ")}`};
   if (o.rival && inOrg(o.rival)) return {ok:false, why:`несовместимо с членством в ${ORG_BY[o.rival].name}`};
   if (o.ideo && !ideo(o.ideo)) return {ok:false, why:"нужна демократия"};
-  if (o.minGdp && x.gdp < o.minGdp) return {ok:false, why:`нужен ВВП от ${money(o.minGdp)}`};
+  if (o.minGdp && x.gdp < o.minGdp) return {ok:false, why:`нужен доход от ${money(o.minGdp/365)} в день`};
   if (o.minOil && x.prof.oil < o.minOil) return {ok:false, why:"мало нефти"};
   const ms = orgMembers(o);
   if (ms.some(i => S.wars.some(w => w.enemy === i))) return {ok:false, why:"вы воюете с участником"};
@@ -8770,9 +8770,9 @@ function viewOrgs(){
 }
 
 const RELIG = [
-  {id:"secular", name:"Светское государство", desc:"религия отделена от государства: рост ВВП +0,1% в год"},
+  {id:"secular", name:"Светское государство", desc:"религия отделена от государства: рост дохода +0,1% в год"},
   {id:"dialog", name:"Свобода вероисповедания и диалог", desc:"рейтинг +2, отношения со всеми странами +0,1 в месяц"},
-  {id:"trad", name:"Поддержка традиционных конфессий", desc:"стабильность +4, рейтинг +1, рост ВВП −0,1% в год"}
+  {id:"trad", name:"Поддержка традиционных конфессий", desc:"стабильность +4, рейтинг +1, рост дохода −0,1% в год"}
 ];
 function relig(id){ return (S.relig || "secular") === id; }
 function viewReligion(){
@@ -8824,7 +8824,7 @@ function renderStart(){
       <button class="country-card" data-start="${id}">
         <div class="cc-top"><span class="cc-name">${flag(id)} ${esc(name)}</span><span class="code">${id.toUpperCase()}</span></div>
         <span class="muted" style="font-size:12px">${region}</span>
-        <div class="cc-stats"><span><span class="label">ВВП</span><br><span class="num">${money(gdp)}</span></span><span><span class="label">Люди</span><br><span class="num">${people(pop)}</span></span><span><span class="label">Армия</span><br><span class="num">${troops(army)}</span></span></div>
+        <div class="cc-stats"><span><span class="label">Доход в день</span><br><span class="num">${money(gdp/365)}</span></span><span><span class="label">Люди</span><br><span class="num">${people(pop)}</span></span><span><span class="label">Армия</span><br><span class="num">${troops(army)}</span></span></div>
         <span class="diff ${dc}">${dl}</span>
       </button>`; }).join("")}</div>
     <div style="margin-top:16px">${viewAchievements(false)}</div>`;
@@ -8925,7 +8925,7 @@ function showPaper(i){
       <div>${P.others.length ? P.others.map(o => `<article><small class="np-rub">${esc(o.rub)}</small><p>${esc(o.t)}</p></article>`).join("") : `<article><p>Месяц прошёл спокойно: ни скандалов, ни потрясений.</p></article>`}</div>
       <div>
         <article class="np-box"><small class="np-rub">Опрос недели</small><p>Президенту доверяют <b>${P.poll.appr}%</b> граждан (${P.poll.d >= 0 ? "+" : ""}${P.poll.d.toFixed(1).replace(".",",")}). Стабильность — ${P.poll.stab}%.</p></article>
-        <article class="np-box"><small class="np-rub">Казна</small><p>За месяц бюджет ${P.money.net >= 0 ? "пополнился" : "потерял"} на <b>${money(Math.abs(P.money.net))}</b>. ВВП ${P.money.gdp >= 0 ? "+" : ""}${P.money.gdp.toFixed(2).replace(".",",")}% за месяц.</p></article>
+        <article class="np-box"><small class="np-rub">Казна</small><p>За месяц бюджет ${P.money.net >= 0 ? "пополнился" : "потерял"} на <b>${money(Math.abs(P.money.net))}</b>. Доход ${P.money.gdp >= 0 ? "+" : ""}${P.money.gdp.toFixed(2).replace(".",",")}% за месяц.</p></article>
         ${P.world.length ? `<article><small class="np-rub">В мире</small>${P.world.map(w => `<p>${esc(w)}</p>`).join("")}</article>` : ""}
       </div>
     </div>
@@ -8956,13 +8956,13 @@ function showReport(){
       <blockquote>«${esc(S.pendingEvent.text)}»</blockquote>
       <div class="choices">${ev.options.map((o,i)=>`<button class="choice" data-choice="${i}"><b>${esc(o.label)}</b><small>${esc(o.hint)}</small></button>`).join("")}</div>
       <details class="month-sum"><summary>Итоги прошлого месяца</summary><div class="deltas">
-        <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span><span>ВВП</span><span class="num">${sign(d.gdp,money)}</span>
+        <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span><span>Доход в день</span><span class="num">${sign(d.gdp/365,money)}</span>
         <span>Рейтинг</span><span class="num">${sign(d.approval,v=>v.toFixed(1).replace(".",","))}</span><span>Стабильность</span><span class="num">${sign(d.stability,v=>v.toFixed(1).replace(".",","))}</span></div></details>`
     : `<span class="stamp">Доклад · ${MONTHS[(S.month+11)%12]} ${S.month===0?S.year-1:S.year}</span>
       ${advHead("sec", null, 64)}
       <h2 id="rep-title">Итоги месяца</h2>
       <div class="deltas">
-        <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span><span>ВВП</span><span class="num">${sign(d.gdp,money)}</span>
+        <span>Бюджет</span><span class="num">${sign(d.treasury,money)}</span><span>Доход в день</span><span class="num">${sign(d.gdp/365,money)}</span>
         <span>Рейтинг</span><span class="num">${sign(d.approval,v=>v.toFixed(1).replace(".",","))}</span><span>Стабильность</span><span class="num">${sign(d.stability,v=>v.toFixed(1).replace(".",","))}</span></div>
       ${S.last.lines.length ? `<ul class="news">${S.last.lines.map(t=>`<li><span class="when">•</span><span>${esc(t)}</span></li>`).join("")}</ul>` : ""}
       <button class="btn primary" data-close>Продолжить</button>`}
