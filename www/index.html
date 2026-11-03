@@ -1580,8 +1580,8 @@ const BUILDINGS = {
   sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу: 5,5 в день",out:{wood:165},flat:1},
   steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь: 5,5 в день; при нехватке руды вдвое меньше",out:{steel:165},flat:1,use:{power:2}},
   oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
-  raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
-  uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
+  raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
+  uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
   goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
   chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,desc:"удобрения и взрывчатка: +2% продовольствия и боеприпасы быстрее на 4% за комбинат, считаются первые 5; нужна нефть от 80%",use:{power:6,oil:6},req:{res:{oil:80}}},
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,desc:"грузовики и двигатели: колонны быстрее на 3% и бронетехника быстрее на 4% за завод, считаются первые 5; нужна «Автоматизация»",use:{power:6,metal:8},req:{tech:"automation"}},
@@ -1744,8 +1744,9 @@ function U(r){ return (S && S.uq && S.uq[r]) || 1; }
 function resTierK(){ const g = (S && S.gdp0) || 0; return !g ? 1 : g >= 1500 ? 1.4 : g >= 300 ? 1 : 0.6; }
 function niceQ(v){ if (v >= 1000) return Math.round(v/10)*10; if (v >= 100) return Math.round(v); if (v >= 10) return Math.round(v*10)/10; if (v >= 1) return Math.round(v*100)/100; return Math.round(v*1000)/1000; }
 function fmtQ(v){ const a = Math.abs(v); return (a >= 100 ? Math.floor(v).toLocaleString("ru-RU") : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(".", ","); }
+const STEP_K = {oil:30, rare:150, uran:150};   // oil, rare earths and uranium are flat (S.uq = 1), contract steps stay about one to five buildings
 Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st = d.steps, buy = d.buy, res = d.reserve;
-  Object.defineProperty(d, "steps", {get: () => st.map(x => niceQ(x*U(r)))});
+  Object.defineProperty(d, "steps", {get: () => st.map(x => niceQ(x*U(r)*(STEP_K[r]||1)))});
   Object.defineProperty(d, "buy", {get: () => buy ? niceQ(buy*U(r)) : buy});
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
 /* Same price in tonnes for every country. Each next building of a type costs MAT_UP more; only those the player built count, start buildings do not. */
@@ -1762,9 +1763,10 @@ function startMills(x, g){ const k = MILL_US*Math.pow(g/27000, 0.6); return {saw
 const builtN = id => Math.max(0, objCount(id) - ((S.mills0||{})[id]||0));
 Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*STEEL_FLAT}); });
 Object.values(AMMO).forEach(a => { const v = a.steel; Object.defineProperty(a, "steel", {get: () => v*STEEL_FLAT}); });
+const FLAT_R = ["oil","rare","uran"];
 function initUnits(s){
   const g = s.countries[s.player].gdp;
-  s.uq = {}; Object.keys(COMMOD).forEach(r => { s.uq[r] = g*COMMOD[r].price/COMMOD_WORLD[r]; }); s.uq.oil = 1;
+  s.uq = {}; Object.keys(COMMOD).forEach(r => { s.uq[r] = FLAT_R.includes(r) ? 1 : g*COMMOD[r].price/COMMOD_WORLD[r]; });
 }
 const AMMO_SELLERS = ["ru","us","cn","de","fr","tr","ir","in","kr","gb","it","pl"];
 // factory capacity: value of equipment produced per month (bln $), paid at 50 %
@@ -4707,6 +4709,7 @@ function migrate(s){
     Object.keys(s.stock).forEach(r => { if (u[r]) s.stock[r] *= u[r]; });
     [s.contracts, s.imports].forEach(o => Object.keys(o || {}).forEach(k => { const r = k.split(":")[1]; if (u[r]) o[k] = niceQ(o[k]*u[r]); }));
     (s.shipments || []).forEach(x => { if (!x.cat && u[x.r]) x.qty = x.qty*u[x.r]; }); }
+  FLAT_R.forEach(r => { const k = s.uq && s.uq[r]; if (k && k !== 1){ s.stock[r] = (s.stock[r]||0)/k; s.uq[r] = 1; } });
   if (!s.mills0){ const M = startMills(s.countries[s.player], s.gdp0 || s.countries[s.player].gdp); s.mills0 = M;
     Object.keys(M).forEach(id => { s.buildings[id] = (s.buildings[id]||0) + M[id]; });
     if (!s.turn){ s.stock.wood = START_MAT; s.stock.steel = START_MAT; } }
@@ -4869,13 +4872,9 @@ function goldProf(id){ return GOLD_PROF[id] ?? 0.2; }
 /* countries with their own oil fields extract it from the start; the rest need «Геологоразведка» */
 function ownOil(){ return me().prof.oil >= 0.4; }
 function commodOpen(r){ if (r === "oil" && ownOil()) return true; const t = COMMOD[r].tech; return !t || !!tech(t); }
-function outMult(r){
-  if (r==="steel") return selfSuff("metal") < 60 ? 0.5 : 1;
-  if (r==="oil") return Math.max(0.2, me().prof.oil);
-  if (r==="rare") return Math.max(0.1, rareProf(S.player))*(1 + 0.25*(tlv("rareearth")-1));
-  if (r==="uran") return Math.max(0.05, uranProf(S.player))*(1 + 0.25*(tlv("uranium")-1));
-  return 1;
-}
+function depositK(r){ return r === "oil" ? Math.max(0.2, me().prof.oil) : r === "rare" ? Math.max(0.1, rareProf(S.player)) : r === "uran" ? Math.max(0.05, uranProf(S.player)) : 1; }
+function techK(r){ return r === "steel" ? (selfSuff("metal") < 60 ? 0.5 : 1) : r === "rare" ? 1 + 0.25*(tlv("rareearth")-1) : r === "uran" ? 1 + 0.25*(tlv("uranium")-1) : 1; }
+function outMult(r){ return depositK(r)*techK(r); }
 function baseOut(r){ return baseOut0(r)*U(r); }
 function baseOut0(r){
   if (!commodOpen(r)) return 0;
@@ -4889,9 +4888,9 @@ function baseOut0(r){
 function coinsMonthly(){ const n = objCount("goldmine"); return n ? 3*(1 - Math.pow(0.93, n))/(1 - 0.93)*(1 + 0.25*(Math.max(1, tlv("gold"))-1)) : 0; }
 // a bonus works only on the first BONUS_FIRST buildings: rich deposits (b.first, a multiplier above 1) and the giants' plus (giantPlus)
 const BONUS_FIRST = 5;
-function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], m = outMult(r), k = buildN(id); return b.out[r]*(b.first && m > 1 && k >= BONUS_FIRST ? 1 : m)*Math.pow(b.decay||1, k); }
-function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1, m = outMult(r), sum = k => d < 1 ? (1 - Math.pow(d, k))/(1 - d) : k;
-  if (b.first && m > 1){ const a = Math.min(n, BONUS_FIRST); return b.out[r]*(m*sum(a) + sum(n) - sum(a)); } return b.out[r]*m*sum(n); }
+function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], m = depositK(r), k = buildN(id); return b.out[r]*techK(r)*(b.first && m > 1 && k >= BONUS_FIRST ? 1 : m)*Math.pow(b.decay||1, k); }
+function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1, m = depositK(r), sum = k => d < 1 ? (1 - Math.pow(d, k))/(1 - d) : k;
+  if (b.first && m > 1){ const a = Math.min(n, BONUS_FIRST); return b.out[r]*techK(r)*(m*sum(a) + sum(n) - sum(a)); } return b.out[r]*techK(r)*m*sum(n); }
 function prodGross(r){ let v = baseOut(r); Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.out && b.out[r]) v += objOutTotal(id); }); return v*(1 + lawSum("res")); }
 function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v - oilCiv()) : EXP_R.has(r) ? Math.max(0, v - civOf(r)) + giantPlus(r) : v; }
 /* Start buildings (S.mills0, annexed land included) feed the country itself, so free wood and steel come only from buildings the player
@@ -5173,7 +5172,8 @@ const regionReach = (isos, c) => isos.some(i => { const r = (C()[i] || me()).reg
 function viaOccupied(iso){ const c = C()[iso]; return !!c && !regionReach(blocIsos(), c) && regionReach(landIsos(), c); }
 
 /* ---------- Turn ---------- */
-function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*BUILDINGS.npp.cost*me().gdp*0.002/COMMOD_WORLD.uran; }
+// same ratio to a mine as before the flat mines; the energy stage will replace it
+function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*BUILDINGS.npp.cost*0.002/COMMOD.uran.price*165*me().gdp/(S.gdp0 || me().gdp); }
 function uranTurn(){
   const need = uranMonthly(); if (!need){ S.uranOk = true; return; }
   const have = S.stock.uran||0;
