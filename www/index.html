@@ -1579,7 +1579,7 @@ const BUILDINGS = {
   // material & commodity producers: unlimited, every next one costs more and takes longer
   sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу: 5,5 в день",out:{wood:165},flat:1},
   steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь: 5,5 в день; при нехватке руды вдвое меньше",out:{steel:165},flat:1,use:{power:2}},
-  oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:6},scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
+  oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
   raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
   uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:1},scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
   goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
@@ -1764,7 +1764,7 @@ Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Obje
 Object.values(AMMO).forEach(a => { const v = a.steel; Object.defineProperty(a, "steel", {get: () => v*STEEL_FLAT}); });
 function initUnits(s){
   const g = s.countries[s.player].gdp;
-  s.uq = {}; Object.keys(COMMOD).forEach(r => { s.uq[r] = g*COMMOD[r].price/COMMOD_WORLD[r]; });
+  s.uq = {}; Object.keys(COMMOD).forEach(r => { s.uq[r] = g*COMMOD[r].price/COMMOD_WORLD[r]; }); s.uq.oil = 1;
 }
 const AMMO_SELLERS = ["ru","us","cn","de","fr","tr","ir","in","kr","gb","it","pl"];
 // factory capacity: value of equipment produced per month (bln $), paid at 50 %
@@ -4887,16 +4887,20 @@ function baseOut0(r){
 }
 // each next producer yields a bit less (deposits deplete): k-th object gives out * decay^k
 function coinsMonthly(){ const n = objCount("goldmine"); return n ? 3*(1 - Math.pow(0.93, n))/(1 - 0.93)*(1 + 0.25*(Math.max(1, tlv("gold"))-1)) : 0; }
-function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0]; return b.out[r]*outMult(r)*Math.pow(b.decay||1, buildN(id)); }
-function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1; return b.out[r]*outMult(r)*(d < 1 ? (1 - Math.pow(d, n))/(1 - d) : n); }
+// a bonus works only on the first BONUS_FIRST buildings: rich deposits (b.first, a multiplier above 1) and the giants' plus (giantPlus)
+const BONUS_FIRST = 5;
+function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], m = outMult(r), k = buildN(id); return b.out[r]*(b.first && m > 1 && k >= BONUS_FIRST ? 1 : m)*Math.pow(b.decay||1, k); }
+function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1, m = outMult(r), sum = k => d < 1 ? (1 - Math.pow(d, k))/(1 - d) : k;
+  if (b.first && m > 1){ const a = Math.min(n, BONUS_FIRST); return b.out[r]*(m*sum(a) + sum(n) - sum(a)); } return b.out[r]*m*sum(n); }
 function prodGross(r){ let v = baseOut(r); Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.out && b.out[r]) v += objOutTotal(id); }); return v*(1 + lawSum("res")); }
-function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v - oilCiv()) : EXP_R.has(r) ? Math.max(0, v - civOf(r))*giantK() : v; }
+function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v - oilCiv()) : EXP_R.has(r) ? Math.max(0, v - civOf(r)) + giantPlus(r) : v; }
 /* Start buildings (S.mills0, annexed land included) feed the country itself, so free wood and steel come only from buildings the player
-   built. Big countries get GIANT_K of that free flow on top. Lost start buildings leave a shortfall: it comes out of the stock, an empty
+   built. Big countries get GIANT_K more from their first BONUS_FIRST built ones. Lost start buildings leave a shortfall: it comes out of the stock, an empty
    stock costs approval and stability. */
 const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03;
-const GIANT_GDP = 1500, GIANT_K = 1.3, giantK = () => (S.gdp0 || 0) >= GIANT_GDP ? GIANT_K : 1;
-function civOf(r){ if (!EXP_R.has(r)) return 0; const id = r === "wood" ? "sawmill" : "steelworks"; return BUILDINGS[id].out[r]*outMult(r)*(1 + lawSum("res"))*((S.mills0||{})[id]||0); }
+const GIANT_GDP = 1500, GIANT_K = 0.3, MILL_OF = {wood:"sawmill", steel:"steelworks"}, millOut = r => BUILDINGS[MILL_OF[r]].out[r]*outMult(r)*(1 + lawSum("res"));
+function civOf(r){ return EXP_R.has(r) ? millOut(r)*((S.mills0||{})[MILL_OF[r]]||0) : 0; }
+function giantPlus(r){ return (S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*millOut(r)*Math.min(BONUS_FIRST, builtN(MILL_OF[r])) : 0; }
 function civMonth(){ EXP_R.forEach(r => { const lack = civOf(r) - prodGross(r); if (lack <= 0) return; S.stock[r] -= lack; if (S.stock[r] >= 0) return; S.stock[r] = 0;
   S.mods.push({stat:"approval", v:-1.5, left:2}, {stat:"stability", v:-1, left:2});
   if (!S.civWarn || S.turn - S.civWarn >= 6){ S.civWarn = S.turn || 1; advise("econ", `Стране не хватает ${COMMOD[r].gen}: люди недовольны. Постройте новые мощности или закупите на рынке.`, {tab:"build"}); } }); }
