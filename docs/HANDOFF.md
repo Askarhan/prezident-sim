@@ -31,9 +31,10 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 ## Now: flat economy stage (user's decisions, 03.11.2026)
 Replaces prices in percent of GDP. Nothing of this is in the game yet. Go group by group, short and in plain words, one example at a time (he does not read wide tables well), and show him the numbers before building. Discuss the plan first: this is the base of the game.
 - Same start for every country: 15 000 money, wood and steel for 3 buildings. Same building prices in tonnes everywhere. Buildings cost materials only, no money.
-- Sawmill gives 2.5 a day. Other output buildings follow the same idea (his figure: about 2–3 a day), set them with him.
-- Start buildings of big countries only cover that country's own needs and spending. Free materials come only from buildings the player built. Giants get a small plus (example given: +30–50% of the free flow, exact number open). So a conquered land mostly feeds itself and stops being quick profit.
-- Every next building of the same type costs 3% more materials, because buildings that make materials otherwise double about every year. No build limits.
+- Sawmill and steelworks give 5.5 a day (user's decision 04.11, stays as it was). Other output buildings: set them with him, group by group.
+- Start buildings of big countries only cover that country's own needs and spending. Free materials come only from buildings the player built. Giants get +30% of the free flow (`GIANT_K`, user's decision; giants = `S.gdp0` ≥ 1500, the assistant's line, 15 countries). So a conquered land mostly feeds itself and stops being quick profit.
+- Every next building of the same type costs 2% more materials (`MAT_UP`, user's decision, only player-built ones count). No build limits.
+- Done 04.11: the word ВВП is gone from the UI (the number is `gdp/365`, percents read «годового дохода»); start stock 1500 + 1500; free wood and steel only from built ones (`civOf` = output of `S.mills0`, the need no longer grows with the economy, `S.civ0` is unused); `bonusN` counts built ones. The 15 000 money waits for the money step: money is in billions today, so 15 000 would be 15 trillion for Kyrgyzstan.
 - Research: a point raises a building type's daily output by about 2%, counted only for buildings the player built.
 - Money comes from taxes on the population and from selling resources and goods. It goes to the army, research and building upkeep.
 - The word ВВП leaves the UI at once, «Доход в день» replaces it. `gdp` is on 191 code lines, `ВВП` on 72: remove the internal number step by step (taxes, `gdppc` in army upkeep, `buildCost`, `plantOne`, `objUpkeep`, default at 160%, `fearK`, unions, AI).
