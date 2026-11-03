@@ -1750,9 +1750,9 @@ Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st
   Object.defineProperty(d, "buy", {get: () => buy ? niceQ(buy*U(r)) : buy});
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
 /* Same price in tonnes for every country. Each next building of a type costs MAT_UP more; only those the player built count, start buildings do not. */
-const MAT_UP = 1.02, matUp = id => S && S.buildings ? Math.pow(MAT_UP, Math.max(0, buildN(id) - ((S.mills0||{})[id]||0))) : 1;
+const INC_MAT = 1.5, MAT_UP = 1.02, matUp = id => S && S.buildings ? Math.pow(MAT_UP, Math.max(0, buildN(id) - ((S.mills0||{})[id]||0))) : 1;
 Object.entries(BUILDINGS).forEach(([id, b]) => {
-  const m = b.mat; if (m) Object.defineProperty(b, "mat", {get: () => { const k = matUp(id); return Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*(r === "wood" || r === "steel" ? MAT_T : U(r))*k)])); }, set(){}, configurable:true});
+  const m = b.mat, inc = b.roi ? INC_MAT : 1; if (m) Object.defineProperty(b, "mat", {get: () => { const k = matUp(id)*inc; return Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*(r === "wood" || r === "steel" ? MAT_T : U(r))*k)])); }, set(){}, configurable:true});
   const o = b.out, fl = !!b.flat; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, fl ? v : v*U(r)])), set(){}, configurable:true}); });
 /* wood and steel come only from buildings. Sawmills and steelworks give the same 165 a month in every country; a country starts with
    its own number of them (startMills, kept in S.mills0: those need no power or upkeep). They only feed the country itself, see civOf.
@@ -4797,9 +4797,11 @@ function selfSuff(r){
   return Math.max(0, v);
 }
 function deficits(){ return RES.filter(r => selfSuff(r.id) < 60).length; }
-function objIncome(id){ const b = BUILDINGS[id]; if (!b.roi) return 0; let v = mg()*b.cost/(1 - MAT_SHARE)*b.roi; return v; }
+// income of the k-th building of a type: each next one earns INC_DECAY less, the market fills up. What is built keeps its income.
+const INC_K = 0.25, INC_DECAY = 0.93;
+function objIncome(id, k = buildN(id)){ const b = BUILDINGS[id]; if (!b.roi) return 0; return mg()*b.cost/(1 - MAT_SHARE)*b.roi*INC_K*Math.pow(INC_DECAY, k); }
 // income is fixed when a building appears: it stays what the building earned on its own price then, it does not follow GDP
-function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n) r.v += (n - r.n)*objIncome(id); else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v; }
+function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n){ for (let k = r.n; k < n; k++) r.v += objIncome(id, k); } else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v; }
 function objUpkeep(id){ return mg()*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
@@ -5084,7 +5086,7 @@ function myPower(){ return (S.fac ? milBaseMult() : 1) * (1 + 0.015*minDelta("de
 function aiPower(c){ return c.army * 3 * techMult(c.tech); }
 
 function armsBuyers(){ return Object.values(C()).filter(x=>!x.owner && x.rel>=40 && !S.wars.some(w=>w.enemy===x.id)); }
-function railIncome(id){ const x = C()[id]; if (!x || x.owner || x.rel < 0) return 0; return Math.min(mg(), x.gdp)/12*0.004; }
+function railIncome(id){ const x = C()[id]; if (!x || x.owner || x.rel < 0) return 0; return Math.min(mg(), x.gdp)/12*0.001; }
 function railCost(){ return mg()*0.012; }
 function railTotal(){ return railCost(); }
 function railMatOk(){ return S.stock.wood >= RAIL_MAT.wood && S.stock.steel >= RAIL_MAT.steel; }
