@@ -1774,7 +1774,7 @@ const AMMO_SELLERS = ["ru","us","cn","de","fr","tr","ir","in","kr","gb","it","pl
 const PLANT_CAP = {tankplant:0.06, heliplant:0.04, aviaplant:0.12, samplant:0.1, shipyard:0.35};
 function blocOf(iso){ if (["ru","kz","kg","uz","by","az","ir","in","vn","eg","dz","sy","tm","tj","mn"].includes(iso)) return "east"; if (["cn","pk","kp","mm","bd"].includes(iso)) return "china"; return "west"; }
 const ORIGIN_BLOC = iso => iso === "ru" || iso === "ir" ? "east" : iso === "cn" ? "china" : iso === "tr" ? "any" : "west";
-function hasCoast(iso){ return !LANDLOCKED.has(iso || S.player); }
+function hasCoast(iso){ if (!iso && Object.keys(S.occupied||{}).some(i => !LANDLOCKED.has(i))) return true; return !LANDLOCKED.has(iso || S.player); }   // no argument: the player, conquered coast counts
 function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return m.kind === "heli" ? "rotor" : (m.kind === "drone" || m.kind === "loiter") ? "drones" : {ground:"armor", air:"aviation", ad:"missile", navy:"aviation"}[k.cls]; }
 function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
 const MKT_LIM = {tank:120, ifv:200, apc:200, sph:60, mlrs:40, fighter:24, attack:24, heli:24, bomber:6, loiter:300}, MKT_OTHER = 30;   // market limit a year per country (user's decision 04.11), the rest only from own plants; IFV and APC share one limit
