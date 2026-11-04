@@ -4774,7 +4774,7 @@ function fullDate(){ return `${S.day||1} ${MONTHS_GEN[S.month]} ${S.year}`; }
 /* ---------- Economy model ---------- */
 /* Flat money: every country counts its money from the same economy, FLAT_GDP a year, moved only by its own growth. me().gdp stays the real size:
    it is for comparing countries and for their strength. Annexed land does not add to it yet. */
-const FLAT_GDP = 1000, START_MONEY = 1, FREE_MONTH = 0, PAY_PC = 20;
+const FLAT_GDP = 1000, START_MONEY = 1, FREE_MONTH = 0, START_RES = 60, PAY_PC = 20;
 function mg(){ const c = me(), g = c.gdp - Object.values(S.occupied||{}).reduce((a,o) => a + (o.added||0), 0); return FLAT_GDP*Math.max(0.1, g/(S.gdp0 || g || 1)); }
 function gdppc(){ return me().gdp / me().pop; }
 function taxBurden(){ const t=S.taxes; return t.inc*0.35 + t.corp*0.25 + t.vat*0.4 + (t.exc||0)*0.15 + (t.eco||0)*0.1; }
@@ -4824,7 +4824,7 @@ function lawSum(key){ return LAWS.filter(l=>lawOn(l.id) && l[key]).reduce((a,l)=
 function demandK(){ return clamp(me().gdp / (S.gdp0 || me().gdp), 0.6, 6); }
 function selfSuff(r){
   if (r === "power") return Math.max(0, 100 + powerBalance());
-  const c = me(); let v = c.prof[r]*100 + S.annexBonus[r];
+  const c = me(); let v = c.prof[r]*100 + S.annexBonus[r] + ((S.resLift||{})[r]||0);
   const b = RES.find(x=>x.id===r).build; v += objOn(b)*4;
   Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*builtN(id); });
   if (r==="food") v += 20*tech("agro") + 2*bonusN("chem");
@@ -9302,6 +9302,7 @@ function newGame(id){
     annexBonus:{food:0,oil:0,metal:0,power:0}, gdp0:null, resV2:true, capital:{health:33,edu:33,infra:33,police:33}, research:{current:null, done:{}, prog:{}}, science:1, over:null, last:null, pendingEvent:null };
   migrate(S); S.scenario = scen;
   /* equal start: every country begins with the same monthly surplus (0,1% of GDP) */
+  S.resLift = {}; RES.forEach(r => { if (r.id !== "power") S.resLift[r.id] = Math.max(0, START_RES - me().prof[r.id]*100); });   // no country starts under a shortage penalty (user's decision 05.11); prof itself stays: it is also the deposit and the oil rules
   S.budFix = 0; { const m = mg()/12, b = budget(); S.budFix = (FREE_MONTH - b.net)/m; }
   if (scen==="zero"){ S.treasury = 0; S.debt = FLAT_GDP*0.9; S.approval = 40; S.stability = 45; }
   if (scen==="crisis"){ Object.values(countries).forEach(c=>c.gdp*=0.9); S.mods.push({stat:"growth",v:-0.003,left:12},{stat:"approval",v:-5,left:12}); }
