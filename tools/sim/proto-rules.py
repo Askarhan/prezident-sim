@@ -14,12 +14,4 @@ R('c.gdp *= (1+g); c.pop *= popRate();', '(window.__ls = window.__ls||{}).growth
 if 'OBJ' in on:   # new buildings add a fixed sum to GDP (taxed), no direct profit
     R('const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n) r.v += (n - r.n)*objIncome(id); else if',
       'const n = objCount(id); let r = S.objInc[id]; if (!r){ r = S.objInc[id] = {n, v:n*objIncome(id)}; return r.v; } if (n > r.n) me().gdp *= 1 + (n - r.n)*BUILDINGS[id].cost*0.65; else if')
-if 'OCC' in on:   # conquered land integrates in 8-11 years, not 2
-    R('o.integ = Math.min(1, o.integ + (pol === "rebuild" ? 0.065 : 0.045)*(1 - o.damage*0.5));',
-      'o.integ = Math.min(1, o.integ + (pol === "rebuild" ? 0.013 : 0.009)*(1 - o.damage*0.5));')
-    R('return o.gdpFull*(0.3 + 0.7*o.integ)*', 'return o.gdpFull*(0.15 + 0.85*o.integ)*')
-if 'GUARD' in on: # giants keep part of the forces at home
-    R('function freeArmy(){ return Math.max(me().army*0.1, me().army - garrisonTotal() - abroadTotal()); }',
-      'function guardK(){ const all = Object.values(C()).reduce((a, x) => a + (!x.owner || x.id === S.player ? x.gdp : 0), 0); return clamp(me().gdp/Math.max(1, all), 0, 0.4); }\nfunction freeArmy(){ return Math.max(me().army*0.1, me().army*(1 - guardK()) - garrisonTotal() - abroadTotal()); }')
-    R('const U = warUnits(w), k = (w.fuel ?? 1)*empireK();', 'const U = warUnits(w), k = (w.fuel ?? 1)*empireK()*(1 - guardK());')
 open(out, 'w', encoding='utf8').write(s)
