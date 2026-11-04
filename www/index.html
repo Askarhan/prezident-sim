@@ -1590,7 +1590,7 @@ const BUILDINGS = {
   highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
   airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от перевозок; максимум 3",max:3},
-  port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"экспорт +5%; максимум 2",trade:0.05,max:2},
+  port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"только у моря; за порт лимит экспорта древесины и стали +10% и доставка быстрее на 10%, торговля +5%; максимум 2",trade:0.05,max:2,req:{coast:true}},
   tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО",req:{tech:"armor"}},
   heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны",req:{tech:"rotor"}},
   aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"самолёты",req:{tech:"aviation"}},
@@ -1791,7 +1791,7 @@ function canBuyModel(id){
   const need = m.gen >= 3 ? 55 : m.gen === 2 ? 25 : 5;
   if (relOf(m.origin) < need && !(o && o.ally)) return {ok:false, why:`нужны отношения от +${need} с ${partnerName(m.origin)}`};
   if (mktLeft(m.kind) <= 0) return {ok:false, why:`лимит рынка на ${S.year} год исчерпан, дальше своё производство`};
-  return {ok:true, price:m.price*1.15, days:travelDays(m.origin)};
+  return {ok:true, price:m.price*1.15, days:portDays(travelDays(m.origin))};
 }
 function canProduceModel(id){
   const m = MODELS[id], k = KINDS[m.kind];
@@ -1831,7 +1831,7 @@ function ammoNeedMonth(){ // rough consumption in a month of war, shown as a gui
   const u = S.units, by = k => Object.entries(u).filter(([id]) => MODELS[id] && KINDS[MODELS[id].kind].ammo === k).reduce((a,[id,v]) => a + v*(MODELS[id].kind==="tank"||MODELS[id].kind==="ifv"?0.3:1), 0);
   return {shell: by("shell")*0.02, rocket: by("rocket")*12, atgm: by("atgm")*1.5, bomb: by("bomb")*8, sam: by("sam")*2, missile: by("missile")*1.5};
 }
-function ammoSellers(){ return AMMO_SELLERS.filter(i => i !== S.player && C()[i] && canContract(i).ok && relOf(i) >= 10).map(i => ({iso:i, days:travelDays(i), price:1.2 + travelDays(i)*0.003})).sort((a,b)=>a.price-b.price); }
+function ammoSellers(){ return AMMO_SELLERS.filter(i => i !== S.player && C()[i] && canContract(i).ok && relOf(i) >= 10).map(i => ({iso:i, days:portDays(travelDays(i)), price:1.2 + travelDays(i)*0.003})).sort((a,b)=>a.price-b.price); }
 
 /* ---------- roles of transport aircraft and the navy ---------- */
 const unitsOf = (kinds, units = S.units) => Object.entries(units||{}).reduce((a,[id,n]) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) ? n : 0), 0);
@@ -1845,7 +1845,7 @@ function orderUnits(id, qty){
   qty = Math.min(qty, mktLeft(m.kind));
   const cost = chk.price*qty; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
   S.treasury -= cost; S.mkt[mktKey(m.kind)] = (S.mkt[mktKey(m.kind)]||0) + qty; S.shipments = S.shipments || [];
-  const ad = KINDS[m.kind].cls === "navy" ? 0 : airDays(chk.days), days = ad || chk.days;
+  const ad = KINDS[m.kind].cls === "navy" ? 0 : airDays(travelDays(m.origin)), days = ad || chk.days;
   S.shipments.push({id:shipId(), from:m.origin, to:S.player, r:id, qty, left:days, total:days, dir:"in", cat:"unit", air:!!ad});
   addLog(`Закуплено: ${m.name} ×${qty} в стране ${partnerName(m.origin)} за ${money(cost)}. Доставка ~${days} дн.${ad ? " воздушным мостом" : ""}`);
   toast(ad ? `${m.name} ×${qty}: воздушный мост, ~${days} дн.` : `${m.name} ×${qty} в пути, ~${days} дн.`); flashMap(m.origin, "info");
@@ -1858,7 +1858,7 @@ function orderAmmo(type, qty){
   const best = ammoSellers()[0]; if (!best) return toast("Никто сейчас не продаёт боеприпасы: нужны отношения от +10 с производителями.");
   const cost = AMMO[type].price*qty*best.price; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
   S.treasury -= cost; S.shipments = S.shipments || [];
-  const ad = airDays(best.days), days = ad || best.days;
+  const ad = airDays(travelDays(best.iso)), days = ad || best.days;
   S.shipments.push({id:shipId(), from:best.iso, to:S.player, r:type, qty, left:days, total:days, dir:"in", cat:"ammo", air:!!ad});
   addLog(`Заказано: ${AMMO[type].short} ${qty} ${AMMO[type].unit} в стране ${partnerName(best.iso)} за ${money(cost)}.${ad ? " Доставка воздушным мостом." : ""}`);
   toast(ad ? `Боеприпасы летят воздушным мостом, ~${days} дн.` : `Боеприпасы в пути из страны ${partnerName(best.iso)}, ~${days} дн.`); flashMap(best.iso, "info");
@@ -4934,7 +4934,7 @@ function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v -
 /* Start buildings (S.mills0, annexed land included) feed the country itself, so free wood and steel come only from buildings the player
    built. Big countries get GIANT_K more from their first BONUS_FIRST built ones. Lost start buildings leave a shortfall: it comes out of the stock, an empty
    stock costs approval and stability. */
-const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03;
+const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03, PORT_K = 0.1, portN = () => Math.min(2, objOn("port")), portDays = d => Math.max(2, Math.round(d*(1 - PORT_K*portN())));   // a port: +10% export limit, deliveries 10% faster; air deliveries do not count
 const GIANT_GDP = 1500, GIANT_K = 0.3, MILL_OF = {wood:"sawmill", steel:"steelworks"}, millOut = r => BUILDINGS[MILL_OF[r]].out[r]*outMult(r)*(1 + lawSum("res"));
 function civOf(r){ return EXP_R.has(r) ? millOut(r)*((S.mills0||{})[MILL_OF[r]]||0) : 0; }
 function giantPlus(r){ return (S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*millOut(r)*Math.min(BONUS_FIRST, builtOn(MILL_OF[r])) : 0; }
@@ -4942,7 +4942,7 @@ function civMonth(){ EXP_R.forEach(r => { const lack = civOf(r) - prodGross(r); 
   S.mods.push({stat:"approval", v:-1.5, left:2}, {stat:"stability", v:-1, left:2});
   if (!S.civWarn || S.turn - S.civWarn >= 6){ S.civWarn = S.turn || 1; advise("econ", `Стране не хватает ${COMMOD[r].gen}: люди недовольны. Постройте новые мощности или закупите на рынке.`, {tab:"build"}); } }); }
 // wood and steel for sale: 3% of GDP a year, spread by the month, across sales and contracts. The country is built, not sold off.
-function expLeft(){ const k = S.year*12 + S.month; if (S.expKey !== k){ S.expKey = k; S.expUsed = 0; } return Math.max(0, mg()*EXPORT_K/12 - S.expUsed); }
+function expLeft(){ const k = S.year*12 + S.month; if (S.expKey !== k){ S.expKey = k; S.expUsed = 0; } return Math.max(0, mg()*EXPORT_K*(1 + PORT_K*portN())/12 - S.expUsed); }
 const expRoom = (r, price) => EXP_R.has(r) ? expLeft()/(price ?? commodPrice(r)) : Infinity;
 function expUse(r, v){ if (EXP_R.has(r)){ expLeft(); S.expUsed += v; } }
 /* Oil for the war: every country starts with an empty stock and burns almost all its base output itself. The rest (S.oilK fixes it once)
@@ -5010,7 +5010,7 @@ function travelDays(iso){ const a = LABELS && LABELS[S.player], b = LABELS && LA
 function importPriceFrom(iso, r){ return commodPrice(r) / sellAdj() * buyAdj() * orgImportAdj(iso) * (1.3 - clamp((supplyProf(iso, r)-1)*0.2, -0.1, 0.2)) * (1 + travelDays(iso)*0.003) / priceMult(r); }
 function suppliers(r){
   const pool = [...Object.keys(C()), ...Object.keys(MINOR_GDP).filter(i => MINOR_GDP[i] >= 20 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
-  return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:travelDays(i)})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
+  return pool.filter(i => i !== S.player && sells(i, r) && canContract(i).ok).map(i => ({iso:i, price:importPriceFrom(i, r), days:portDays(travelDays(i))})).sort((a,b) => a.price*(1+a.days/150) - b.price*(1+b.days/150));
 }
 function inTransit(r){ return (S.shipments||[]).filter(x=>x.dir==="in" && x.r===r && !x.cat).reduce((a,x)=>a+x.qty, 0); }
 // the same realistic pictures as the interface; a name without one keeps its drawn icon
@@ -5023,7 +5023,7 @@ function sellerCap(iso, r){ return Math.max(0, partnerGdp(iso)*COMMOD[r].price*s
 function sellerLeft(iso, r){ return Math.max(0, sellerCap(iso, r) - ((S.importUsed||{})[iso+":"+r] || 0)); }
 function orderGoods(iso, r, qty, quiet){
   qty = Math.min(Math.ceil(qty), Math.floor(sellerLeft(iso, r))); if (qty <= 0){ if (!quiet) toast(`${partnerName(iso)}: лимит поставок на этот месяц исчерпан.`); return false; }
-  const cost = qty*importPriceFrom(iso, r), days = travelDays(iso);
+  const cost = qty*importPriceFrom(iso, r), days = portDays(travelDays(iso));
   if (S.treasury < cost){ if (!quiet) toast("Не хватает денег на закупку."); return false; }
   S.treasury -= cost;
   S.shipments = S.shipments || [];
@@ -8509,7 +8509,7 @@ window.addEventListener("resize", () => {
 });
 
 function tradeBlock(iso){
-  const chk = canContract(iso), cap = partnerCap(iso), days = travelDays(iso);
+  const chk = canContract(iso), cap = partnerCap(iso), days = portDays(travelDays(iso));
   const rows = Object.entries(COMMOD).map(([r,d]) => {
     if (!commodOpen(r)) return `<div class="trow locked"><span class="tname"><span>${ic(r)}${d.name}</span><small class="muted">нужна технология «${TECH.find(t=>t.id===d.tech).name}»</small></span></div>`;
     const pr = premium_(iso, r), q = contractQty(iso, r), canBuy = sells(iso, r), qi = importQty(iso, r);
