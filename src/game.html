@@ -1567,7 +1567,7 @@ const BUILDINGS = {
   farm:{cat:"res",name:"Агрокомплекс",days:60,cost:0.0011,desc:"+4% продовольствия; ниже 60% падают рост и рейтинг"},
   oil:{cat:"res",name:"Нефтегазовое месторождение",days:90,cost:0.0014,desc:"+4% топлива для экономики; на склад нефть не даёт, для этого есть нефтяная вышка"},
   mine:{cat:"res",name:"Рудник",days:75,cost:0.0012,desc:"+4% руды; ниже 60% сталь и стройки идут вдвое медленнее"},
-  power:{cat:"energy",name:"Тепловая электростанция",days:90,cost:0.0014,desc:"+4 ед. электроэнергии; сжигает 13 нефти в месяц: нет на складе — докупается дороже биржи, нет денег — стоит"},
+  power:{cat:"energy",name:"Тепловая электростанция",days:90,cost:0.0014,desc:"+6 ед. электроэнергии; сжигает 13 нефти в месяц: нет на складе — докупается дороже биржи, нет денег — стоит"},
   hydro:{cat:"energy",name:"Гидроэлектростанция",days:240,cost:0.0024,desc:"+8 ед. электроэнергии; число ГЭС ограничено реками страны",maxFn:"hydroMax"},
   solar:{cat:"energy",name:"Солнечная и ветровая станция",days:60,cost:0.0009,desc:"+2 ед. электроэнергии, рейтинг +0,3, считаются первые 10",dscale:2},
   // material & commodity producers: unlimited, every next one costs more and takes longer
@@ -6566,11 +6566,11 @@ const HYDRO = {kg:6,tj:6,no:6,ca:6,br:6,cn:6,ru:5,us:4,ch:4,at:4,se:4,tr:4,co:4,
 function hydroMax(){ return HYDRO[S.player] ?? 2; }
 // energy (user's decisions 04.11): every building of the build screen takes power, the start grid covers the start buildings plus the same reserve for everyone. Short of power a whole building stops, the hungriest built one first, and starts again POWER_RESTART days after power returns. No money, growth or approval effects: the stopped building is the penalty
 const POWER_USE = {sawmill:1, farm:1, bridge:1, highway:1, oil:2, oilrig:2, mine:2, goldmine:2, raremine:3, uranmine:3, institute:3, ammoplant:3, port:3, auto:4, heliplant:4, airport:4, tankplant:5, samplant:5, steelworks:6, chem:6, aviaplant:6, shipyard:6, metro:6, chips:10, enrich:12};
-const POWER_RESERVE = 10, POWER_RESTART = 30, TPP_OIL = 13, NPP_URAN = 13;
+const POWER_RESERVE = 10, POWER_RESTART = 30, TPP_OIL = 13, NPP_URAN = 13, TPP_OUT = 6;   // thermal plant +6 (user's decision 05.11): cheaper to build than solar, but it burns oil
 function gridBase(){ return POWER_RESERVE + Object.entries(S.mills0||{}).reduce((a, [id, n]) => a + (POWER_USE[id]||0)*n, 0); }
 function powerSupply(){
   const out = [["grid","Действующие станции и сети", gridBase()]];
-  const tn = Math.max(0, objCount("power") - (S.tppOff||0)), t = tn*4; if (objCount("power")) out.push(["tpp","Тепловые электростанции ×"+tn, t]);
+  const tn = Math.max(0, objCount("power") - (S.tppOff||0)), t = tn*TPP_OUT; if (objCount("power")) out.push(["tpp","Тепловые электростанции ×"+tn, t]);
   const h = objCount("hydro")*8; if (h) out.push(["hpp","ГЭС ×"+objCount("hydro"), h]);
   const s = objCount("solar")*2*(1 + 0.05*minEff("ecology")); if (s) out.push(["solar","Солнце и ветер ×"+objCount("solar"), s]);
   const n = S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
@@ -7266,7 +7266,7 @@ function viewBuildObj(){
           <div class="bstats">
             ${outR ? `<span>Выпуск <b class="num">+${fmtQ(outQ)}</b>/мес</span>` : ""}
             ${outR && inc ? `<span>На бирже ≈ <b class="up num">+${money(inc)}</b>/мес</span>` : ""}
-            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?4:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : POWER_USE[id] ? `<span>${ic("power","sm")} <b class="num down">−${POWER_USE[id]}</b> ед.</span>` : ""}
+            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?TPP_OUT:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : POWER_USE[id] ? `<span>${ic("power","sm")} <b class="num down">−${POWER_USE[id]}</b> ед.</span>` : ""}
             ${!outR && inc ? `<span>Доход <b class="up num">+${money(inc)}</b>/мес</span>` : ""}
             ${resPct ? `<span>${ic(id === "farm" ? "food" : id === "oil" ? "oil" : "metal","sm")} <b class="num up">+${resPct.toFixed(1).replace(".",",")}%</b> ${id === "farm" ? "продовольствия" : id === "oil" ? "топлива" : "руды"}</span>` : ""}
             ${milOut ? `<span>${id === "ammoplant" ? "Выпускает боеприпасы" : "Производит технику"} на <b class="num">${money(milOut)}</b>/мес</span>` : ""}
