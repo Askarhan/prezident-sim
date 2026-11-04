@@ -52,7 +52,7 @@ Replaces prices in percent of GDP. Done and pushed 04.11: word ВВП, flat star
 
 ## War rules that stay (equal money does not fix conquest: the US army starts 370× stronger than Kyrgyzstan's)
 Proposed order: 2–3, then 4–6, then 7. He accepted the set in discussion and chose the soft pretext; restate them in the first plan. Rules 2–6 left `tools/sim/proto-rules.py`.
-- 2. Done 04.11 (user's decision): market limit a calendar year per country, all sellers together (`MKT_LIM`, `mktLeft`, `S.mkt`): 120 tanks, 200 IFV and APC together, 60 SPH, 40 MLRS, 24 each of fighters, attack aircraft, helicopters, 6 bombers, 30 of every other kind. The rest only from own plants. Open: kamikaze drones sell in batches of 50, so the limit of 30 cuts one batch.
+- 2. Done 04.11 (user's decision): market limit a calendar year per country, all sellers together (`MKT_LIM`, `mktLeft`, `S.mkt`): 120 tanks, 200 IFV and APC together, 60 SPH, 40 MLRS, 24 each of fighters, attack aircraft, helicopters, 6 bombers, 300 kamikaze drones (they sell in batches of 50), 30 of every other kind. The rest only from own plants.
 - 3. Done 04.11 (user's decision): `warCostMonthly` in `budget`, on top of upkeep: 2 × (`w.men` × 0.004 × `PAY_PC` + `unitsUpkeepYear(warUnits(w))`)/12 instead of the flat 33 million a day per war. A new war takes all free machines (`depInit`), so they all count. All forces in one war: Kyrgyzstan 5 a day, US 649 against income 377. 5-year runs, PAR=1: US 3 countries in 2.3 years, default at 3.3 (`mg()` halved, rule 7); Kazakhstan 1 in 4.4.
 - 4. Done 04.11: `integ` +0.013 a month (rebuild) or +0.009, about 8–11 years with damage. Income 15% + 85% × `integ`.
 - 5. Done 04.11: soft pretext (`S.pretext`, `S.pretextReady`, `pretextMonths`, `pretextHtml`, act `pretext`): 12 months + 6 per not integrated land, one at a time, a new target resets it. Without it infamy ×3 and approval −15 for 12 months. The bot calls `startWar` directly: `GATE=1` only imitates the wait, so the bot never pays the penalty.
@@ -60,7 +60,12 @@ Proposed order: 2–3, then 4–6, then 7. He accepted the set in discussion and
 - 7. Done 04.11 (user's decisions): `warCut` takes every war loss of the player's economy (missiles, blockade, defeat, partisans, sabotage, war-time negative growth) and stops at 50% of the start economy (`WAR_FLOOR`, own land only). Missile −0.15% of the start economy (`MIS_PC`), at most −3% a year (`MIS_CAP`, `S.misY`). Lost war −10% of the start economy (`LOST_PC`) and −5 billion (`LOST_CASH`).
 - 8. Closed 04.11 without changes (user's decision): at the start Saudi Arabia earns 33 a day from oil, Russia 25, Japan and Kyrgyzstan 0, and `S.budFix` levels everyone to +10 a day, so the real edge comes only from rigs the player builds. Japan pays nothing for oil at the start.
 
-## Measured on build ee778fe (one run each, approval forced unless noted)
+## Measured 04.11 with all war rules (one run each, approval forced, `PAR=1`)
+- 10 years with the wait (`GATE=1`), before rule 7: US 4 countries in 8.8 years, Russia 4 in 8.5, no default. Slightly faster than the target of one in 3 years, and the bot never pays the pretext penalty.
+- 8 years without the wait: US 5 in 6.5 years, Kyrgyzstan 0, no default (before rule 7: US defaulted at 2.9–3.3 years, Kyrgyzstan at 4.8).
+- Peace, Kyrgyzstan 10 years: treasury 15 → 160, surplus about 1.7% a year, inside the target.
+
+## Measured on build ee778fe, before the flat economy (one run each, approval forced unless noted)
 Tools: `tools/sim/speedrun.js` (flags in its first line), `tools/sim/proto-rules.py`, `tools/sim/budget.js`. Use one country per process. With several wars at once the bot does not split machines, so `PAR=1`.
 - Peace, 15 years, now: objects 33–37% of GDP against taxes 15.5%, surplus 20–25%, treasury 61–96% of GDP (Kyrgyzstan 4%, 6.5%, 21%). With buildings adding GDP (cancelled) surplus was 1.3–3.5%: use that as the target for the flat economy, money must stay scarce.
 - Speed now: Russia 5 countries in 2.6 years, US 3 in 1.5; both lost the election in year 4 with approval not forced. Forced, 5 years: US 6, Russia 5, France 2–4.

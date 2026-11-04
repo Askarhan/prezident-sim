@@ -1770,7 +1770,7 @@ const ORIGIN_BLOC = iso => iso === "ru" || iso === "ir" ? "east" : iso === "cn" 
 function hasCoast(iso){ return !LANDLOCKED.has(iso || S.player); }
 function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return m.kind === "heli" ? "rotor" : (m.kind === "drone" || m.kind === "loiter") ? "drones" : {ground:"armor", air:"aviation", ad:"missile", navy:"aviation"}[k.cls]; }
 function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
-const MKT_LIM = {tank:120, ifv:200, apc:200, sph:60, mlrs:40, fighter:24, attack:24, heli:24, bomber:6}, MKT_OTHER = 30;   // market limit a year per country (user's decision 04.11), the rest only from own plants; IFV and APC share one limit
+const MKT_LIM = {tank:120, ifv:200, apc:200, sph:60, mlrs:40, fighter:24, attack:24, heli:24, bomber:6, loiter:300}, MKT_OTHER = 30;   // market limit a year per country (user's decision 04.11), the rest only from own plants; IFV and APC share one limit
 function mktKey(kind){ return kind === "apc" ? "ifv" : kind; }
 function mktLim(kind){ return MKT_LIM[kind] || MKT_OTHER; }
 function mktLeft(kind){ if (!S.mkt || S.mkt.y !== S.year) S.mkt = {y:S.year}; return Math.max(0, mktLim(kind) - (S.mkt[mktKey(kind)]||0)); }
