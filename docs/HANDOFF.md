@@ -38,11 +38,11 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 
 - Done 04.11 (user's report: the treasury jumped to −5, then +5, then 0): event choices, the aid fund, the unrest payment and the daily gifts were sums of 0.1–1% of the economy, 1–10 billion, unchecked against a treasury of about 1. They are fixed sums now, 10× smaller (100–600 million, gifts 0.3–1 billion, event loan +2 / debt +2.2). `settleCash` turns any minus into debt at once, in `dayTick`, `chooseEvent` and `nextMonth`, so the treasury never shows a minus. Still heavy, not touched: relations 2 billion, spy network 1, rail 12.
 
-## Next (order agreed 04.11)
-1. The user's phone test: the economy, start money and paid buildings have never been played by a human. The 04.11 builds also test updating over the old app. Ask him what he noticed, above all when money starts to pile up with nothing to buy.
+## Next (order changed 04.11: the user dropped the phone test for now, do not wait for it or ask about it)
+1. Heavy sums: relations 2 billion, spy network 1, rail 12. Also why Kyrgyzstan ends richer than Germany in peace.
 2. «Окно исследований»: asked twice, he has not described what should change yet.
 3. Stock limit and coins, the rest of the resource step.
-4. Conquest speed re-measure, after his test. Bots now spend all their money on paid buildings, so re-check `tools/sim/speedrun.js`.
+4. Conquest speed re-measure. Bots now spend all their money on paid buildings, so re-check `tools/sim/speedrun.js`.
 Then the old list: UI and polish, models, map, release.
 
 ## Now: flat economy stage (user's decisions, 03.11.2026)
