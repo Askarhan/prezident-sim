@@ -1587,7 +1587,7 @@ const BUILDINGS = {
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,desc:"грузовики и двигатели: колонны быстрее на 3% и бронетехника быстрее на 4% за завод, считаются первые 5; нужна «Автоматизация»",use:{metal:8},req:{tech:"automation"}},
   chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"микросхемы и приборы: самолёты, вертолёты и ПВО выпускаются быстрее на 4%, исследования быстрее на 3% за завод, считаются первые 5; нужны «Финтех» и образование 60",req:{tech:"fintech",cap:{edu:60}}},
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, экспорт +3%",trade:0.03},
-  highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
+  highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок; снабжение на войне +2; за шоссе колонны быстрее на 3% и лимит экспорта древесины и стали +2%, считаются первые 5"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
   airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от перевозок; за аэропорт туризм +25% и 2 места для доставки техники и боеприпасов самолётом, даже без своих транспортников; максимум 3",max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"только у моря; за порт лимит экспорта древесины и стали +10% и доставка быстрее на 10%, торговля +5%; максимум 2",trade:0.05,max:2,req:{coast:true}},
@@ -2437,7 +2437,7 @@ function roadDays(iso){
 const warTrip = w => w.trip || (w.trip = roadDays(w.enemy));
 // a finished railway to the country of this war: ground machines and troops go 40% faster; aircraft and airlift do not use it
 const RAIL_K = 0.6, hasRail = w => !!(S.rails && S.rails[w.enemy] && S.rails[w.enemy].done);
-const railTrip = (w, id, t) => MODELS[id] && SELF_FLY.includes(MODELS[id].kind) ? t : Math.max(2, Math.round(t*(hasRail(w) ? RAIL_K : 1)*(1 - 0.03*bonusN("auto"))));
+const railTrip = (w, id, t) => MODELS[id] && SELF_FLY.includes(MODELS[id].kind) ? t : Math.max(2, Math.round(t*(hasRail(w) ? RAIL_K : 1)*(1 - 0.03*bonusN("auto") - 0.03*bonusN("highway"))));
 const shiftDays = w => Math.max(3, Math.round(warTrip(w)/4));
 const airTrip = days => Math.max(2, Math.round(days/3.5));
 const flyTrip = days => clamp(Math.round(2 + days/60), 2, 5);
@@ -4837,8 +4837,8 @@ function objUpkeep(id){ return mg()*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
 function buildN(type){ return objCount(type) + queued(type); }
-const MIL_PRICE = {ammoplant:0.8, tankplant:1.2, heliplant:1.4, samplant:1.6, aviaplant:2.2, shipyard:3};   // civil buildings cost materials only; a military plant also costs money, +2% each next, like its materials
-function buildCost(type){ return (MIL_PRICE[type] || 0)*matUp(type); }
+const BUILD_PRICE = {ammoplant:0.8, tankplant:1.2, heliplant:1.4, samplant:1.6, aviaplant:2.2, shipyard:3, bridge:0.7, highway:1, metro:2, airport:2.4, port:3, chem:1, auto:1.4, chips:4};   // money on top of materials, +2% each next, like the materials; sawmills, steelworks, rigs, mines and the like cost materials only
+function buildCost(type){ return (BUILD_PRICE[type] || 0)*matUp(type); }
 function buildDays(type){ const b = BUILDINGS[type]; return Math.round(Math.min(b.days*2.5, b.days + (b.dscale||0)*buildN(type)) * (1 + lawSum("build"))); }
 function matShort(mat){ let cost = 0; const miss = {}; for (const r in mat){ const lack = Math.max(0, mat[r] - S.stock[r]); if (lack > 0){ miss[r] = lack; cost += lack*importPrice(r); } } return {miss, cost}; }
 function takeMat(mat){ for (const r in mat) S.stock[r] = Math.max(0, S.stock[r] - mat[r]); }
@@ -4943,7 +4943,7 @@ function civMonth(){ EXP_R.forEach(r => { const lack = civOf(r) - prodGross(r); 
   S.mods.push({stat:"approval", v:-1.5, left:2}, {stat:"stability", v:-1, left:2});
   if (!S.civWarn || S.turn - S.civWarn >= 6){ S.civWarn = S.turn || 1; advise("econ", `Стране не хватает ${COMMOD[r].gen}: люди недовольны. Постройте новые мощности или закупите на рынке.`, {tab:"build"}); } }); }
 // wood and steel for sale: 3% of GDP a year, spread by the month, across sales and contracts. The country is built, not sold off.
-function expLeft(){ const k = S.year*12 + S.month; if (S.expKey !== k){ S.expKey = k; S.expUsed = 0; } return Math.max(0, mg()*EXPORT_K*(1 + PORT_K*portN())/12 - S.expUsed); }
+function expLeft(){ const k = S.year*12 + S.month; if (S.expKey !== k){ S.expKey = k; S.expUsed = 0; } return Math.max(0, mg()*EXPORT_K*(1 + PORT_K*portN() + 0.02*bonusN("highway"))/12 - S.expUsed); }
 const expRoom = (r, price) => EXP_R.has(r) ? expLeft()/(price ?? commodPrice(r)) : Infinity;
 function expUse(r, v){ if (EXP_R.has(r)){ expLeft(); S.expUsed += v; } }
 /* Oil for the war: every country starts with an empty stock and burns almost all its base output itself. The rest (S.oilK fixes it once)
