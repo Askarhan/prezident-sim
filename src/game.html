@@ -1583,7 +1583,7 @@ const BUILDINGS = {
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, экспорт +3%",trade:0.03},
   highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
-  airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от перевозок; максимум 3",max:3},
+  airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от перевозок; за аэропорт туризм +25% и 2 места для доставки техники и боеприпасов самолётом, даже без своих транспортников; максимум 3",max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"только у моря; за порт лимит экспорта древесины и стали +10% и доставка быстрее на 10%, торговля +5%; максимум 2",trade:0.05,max:2,req:{coast:true}},
   tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО",req:{tech:"armor"}},
   heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны",req:{tech:"rotor"}},
@@ -1831,7 +1831,8 @@ function ammoSellers(){ return AMMO_SELLERS.filter(i => i !== S.player && C()[i]
 const unitsOf = (kinds, units = S.units) => Object.entries(units||{}).reduce((a,[id,n]) => a + (MODELS[id] && kinds.includes(MODELS[id].kind) ? n : 0), 0);
 const airliftCap = () => unitsOf(["transport"]);
 const airBusy = () => (S.shipments||[]).filter(x => x.air && x.left > 0).length;
-function airDays(days){ return airliftCap() > airBusy() ? Math.max(2, Math.round(days/3.5)) : 0; }
+const AIR_SLOTS = 2, airportN = () => Math.min(3, objOn("airport"));   // each airport: 2 air deliveries at once, with or without own transports; it does not replace them in war
+function airDays(days){ return airliftCap() + AIR_SLOTS*airportN() > airBusy() ? Math.max(2, Math.round(days/3.5)) : 0; }
 function seaPower(units, share){ return Object.entries(units||{}).reduce((a,[id,n]) => { const m = MODELS[id]; return a + (m && ["frigate","destroyer","sub"].includes(m.kind) ? m.ga*n : 0); }, 0)*share; }
 function farWar(iso){ return !nearReach(C()[iso]); }
 function orderUnits(id, qty){
@@ -2436,7 +2437,7 @@ const airTrip = days => Math.max(2, Math.round(days/3.5));
 const flyTrip = days => clamp(Math.round(2 + days/60), 2, 5);
 const tripOf = (id, days) => MODELS[id] && SELF_FLY.includes(MODELS[id].kind) ? flyTrip(days) : days;
 const liftable = id => id === MEN || !!(MODELS[id] && AIRLIFT_KINDS.includes(MODELS[id].kind));
-function planesBusy(){ return airBusy() + S.wars.reduce((a, w) => a + (w.road||[]).reduce((b, r) => b + (r.air ? r.planes||0 : 0), 0), 0); }
+function planesBusy(){ return Math.max(0, airBusy() - AIR_SLOTS*airportN()) + S.wars.reduce((a, w) => a + (w.road||[]).reduce((b, r) => b + (r.air ? r.planes||0 : 0), 0), 0); }
 const planesFree = () => Math.max(0, airliftCap() - planesBusy());
 function roadSend(w, id, n, i, days, back){
   n = id === MEN ? n : Math.floor(n); if (!(n > 0)) return 0;
@@ -6615,7 +6616,7 @@ function minSalary(id){ return mg()/12 * TIER_SAL[minTier(id)]; }
 function minBaseCost(id){ const M = MIN_BY[id], m = mg()/12; return M.legacy === "science" ? m*0.005*minLvl(id)/3 : M.legacy ? m*0.01*minLvl(id)/3 : m*M.rate*minLvl(id); }
 function minCostOf(id){ return (minBaseCost(id) + minSalary(id)) * (id === "science" ? 1 : (ideo("soc") ? 0.8 : 1) * (1 + lawSum("soc"))); }
 function ministriesCost(){ return MINISTRIES.filter(m=>m.id!=="science").reduce((a,m) => a + minCostOf(m.id), 0); }
-function tourismIncome(){ const e = minEff("tourism"); if (!e) return 0; return mg()/12 * 0.0004*Math.pow(e, 0.8) * (S.wars.length ? 0.33 : 1) * (0.5 + S.approval/100) * (1 + facFx("tour")); }
+function tourismIncome(){ const e = minEff("tourism"); if (!e) return 0; return mg()/12 * 0.0004*Math.pow(e, 0.8) * (S.wars.length ? 0.33 : 1) * (0.5 + S.approval/100) * (1 + facFx("tour")) * (1 + 0.25*airportN()); }
 function syncMin(){
   if (!S || !S.min) return;
   ["health","edu","infra","police"].forEach(id => { S.sectors[id] = Math.min(5, minEff(id)/3); });
