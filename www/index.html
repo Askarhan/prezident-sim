@@ -2642,7 +2642,7 @@ function warDay(w){
     if (sp > 0 && (S.ammo.missile||0) >= 1){ w.sea = clamp(sp/(sp + 120), 0, 0.6)*0.5*(1 - clamp(th.ad/(th.ad + 400), 0, 0.5)); warPush(w, w.sea); S.ammo.missile = Math.max(0, S.ammo.missile - Math.max(0.2, sp/400)); }
     if (hasCoast(e.id)){
       if (my.navy > th.navy*1.3 + 10){ w.blockade = 1; e.gdp *= 0.9996; }
-      else if (th.navy > my.navy*1.3 + 10){ w.blockade = -1; me().gdp *= 0.9997; }
+      else if (th.navy > my.navy*1.3 + 10){ w.blockade = -1; warCut(me().gdp*0.0003); }
     }
   }
   if (w.blockade !== w.lastBlock){ if (w.blockade === 1) warEvent(w, `Наш флот блокировал побережье: экспорт и импорт ${e.name} остановлены.`, "good"); else if (w.blockade === -1) warEvent(w, "Флот противника блокирует наши порты: торговля страдает.", "bad"); w.lastBlock = w.blockade; }
@@ -2678,7 +2678,7 @@ function warDay(w){
     const fired = Math.min(Math.floor(w.ea.missile), 6 + Math.floor(Math.random()*8)); w.ea.missile -= fired;
     const p = (S.ammo.sam||0) > fired ? clamp(my.ad/(my.ad + 50), 0, 0.88) : 0.1, down = Math.round(fired*p), hits = fired - down;
     S.ammo.sam = Math.max(0, (S.ammo.sam||0) - down*1.5);
-    me().gdp *= 1 - 0.0015*hits;
+    if (!S.misY || S.misY.y !== S.year) S.misY = {y:S.year, v:0}; { const pc = Math.min(MIS_PC*hits, Math.max(0, MIS_CAP - S.misY.v)); S.misY.v += pc; warCut(S.gdp0*pc); }
     bSplit(bTab(w, false), Object.keys(W3.mis).length ? W3.mis : W3.dr, "i", down);
     battleEvent({kind:"missile", from:w.enemy, to:S.player, n:fired, down, ballistic:!!topModel(w.eu, ["srbm"]), ad:topModel(S.units, ["lrsam","mrsam"])});
     warEvent(w, `${e.name}: ракетный удар — ${fired} ракет, сбито ${down}.`, hits > down ? "bad" : "good");
@@ -4152,7 +4152,7 @@ function nukeMonth(w){ const r = nukeRisk(w), e = C()[w.enemy]; if (!r) return;
   if (Math.random() >= r) return;
   w.nukeT = S.turn + NUKE_CD;
   w.dep.forEach(d => { for (const id in d){ const q = Math.floor(d[id]*0.35); if (q > 0){ d[id] -= q; S.units[id] = Math.max(0, (S.units[id]||0) - q); } } });
-  w.men = (w.men||0)*0.65; w.fronts.forEach(f => { f.p = Math.max(-20, f.p - 30); }); S.approval = clamp(S.approval - 20, 0, 100); S.stability = clamp(S.stability - 15, 0, 100); me().gdp *= 0.94;
+  w.men = (w.men||0)*0.65; w.fronts.forEach(f => { f.p = Math.max(-20, f.p - 30); }); S.approval = clamp(S.approval - 20, 0, 100); S.stability = clamp(S.stability - 15, 0, 100); warCut(me().gdp*0.06);
   me().worldSanctions = Math.max(me().worldSanctions||0, 36); infamyAdd(10); sfx("alarm");
   addLog(`☢ ${e.name} нанесла ядерный удар по нашей армии. Огромные потери, мир ввёл санкции.`); warEvent(w, `☢ Ядерный удар! Потеряна треть войск на фронте.`, "bad"); advise("gen", `Ядерный удар! ${e.name} ответила, как и предупреждала. Следующий возможен через год, если мы снова пойдём вперёд.`, {mood:"alert"}); }
 /* A long war of conquest wears the country out faster the bigger the empire is; at the bottom the generals act. */
@@ -4204,6 +4204,9 @@ function pretextHtml(id){
   if (S.pretextReady === id) return `<small class="up">Повод к войне готов</small>`;
   if (S.pretext && S.pretext.iso === id) return `<small class="muted">Повод готовится: ещё ${S.pretext.left} мес.</small>`;
   return `<button class="btn" data-act="pretext" data-arg="${id}">Готовить повод · ${pretextMonths()} мес.</button>${S.pretext ? `<small class="muted">Сбросит подготовку против ${esc(partnerName(S.pretext.iso))}</small>` : ""}`; }
+// war damage is capped (user's decisions 04.11): sums count from the start economy, and war cannot push the country's own economy under half of it
+const WAR_FLOOR = 0.5, MIS_PC = 0.0015, MIS_CAP = 0.03, LOST_PC = 0.1, LOST_CASH = 5;
+function warCut(v){ const c = me(), core = c.gdp - Object.values(S.occupied||{}).reduce((a, o) => a + (o.added||0), 0), cut = Math.min(v, Math.max(0, core - S.gdp0*WAR_FLOOR)); c.gdp -= cut; return cut; }
 function guardK(){ const all = Object.values(C()).reduce((a, x) => a + (!x.owner || x.id === S.player ? x.gdp : 0), 0); return clamp(me().gdp/Math.max(1, all), 0, 0.4); }   // a giant keeps this share of its forces at home
 function freeArmy(){ return Math.max(me().army*0.1, me().army*(1 - guardK()) - garrisonTotal() - abroadTotal()); }
 function occIncomeTarget(o){ return o.gdpFull*(0.15 + 0.85*o.integ)*(o.policy === "self" ? 0.7 : 1)*(1 - 0.4*o.damage); }   // real size only, for comparing countries; money comes from landMonth
@@ -4313,7 +4316,7 @@ function tryPeace(iso, id){
   sfx("success"); closeModal(); resumeAfter("peace"); save(); render();
 }
 const OCC_EVENTS = [
-  [o => o.res > 55, o => { me().gdp *= 0.996; return `Партизаны взорвали железнодорожный мост на территории ${partnerName(o.iso)}: экономика −0,4%.`; }, "intel"],
+  [o => o.res > 55, o => { warCut(me().gdp*0.004); return `Партизаны взорвали железнодорожный мост на территории ${partnerName(o.iso)}: экономика −0,4%.`; }, "intel"],
   [o => o.res > 65, o => { const ids = Object.keys(S.units).filter(id => MODELS[id] && GROUND_K.has(MODELS[id].kind)); let lost = 0; ids.slice(0,3).forEach(id => { const l = Math.min(S.units[id], 1 + Math.floor(S.units[id]*0.004)); S.units[id] -= l; lost += l; }); return `Нападение на гарнизон в ${partnerName(o.iso)}: потеряно ${lost} единиц техники.`; }, "gen"],
   [o => o.res < 45 && o.integ < 0.8, o => { o.res = Math.max(0, o.res - 10); return `Местный политик в ${partnerName(o.iso)} предложил сотрудничество: сопротивление −10.`; }, "sec"],
   [o => (S.infamy||0) > 50, o => { S.mods.push({stat:"approval", v:-3, left:4}); Object.values(C()).forEach(x => { if (!x.owner) x.rel -= 3; }); return `Международный трибунал рассматривает дело об оккупации ${partnerName(o.iso)}: отношения со всеми −3.`; }, "dipl"],
@@ -5249,7 +5252,7 @@ function nextMonth(){
 
   // 3. growth
   const g = growthMonthly() + rnd(-0.0008, 0.0008);
-  c.gdp *= (1+g); c.pop *= popRate();
+  if (g < 0 && S.wars.length) warCut(c.gdp*-g); else c.gdp *= 1+g; c.pop *= popRate();
   SECTORS.forEach(s => { S.capital[s.id] += (S.sectors[s.id]*33.3 - S.capital[s.id]) * s.rate; });
   facMonth();
   dipMonth();
@@ -5282,7 +5285,7 @@ function nextMonth(){
     if (x.owner || x.rel > -40) return;
     if (Math.random() < 0.012*S.aggr){
       if (Math.random() < ciLevel() || (x.expelled||0) > 0) addLog(`Контрразведка сорвала диверсию агентов страны ${x.name}.`);
-      else { c.gdp *= 0.995; addLog(`Агенты страны ${x.name} устроили диверсию: экономика −0,5%.`); flashMap(S.player, "bad"); advise("intel", `Диверсия! Агенты страны ${x.name} ударили по нашей промышленности. Усильте контрразведку.`, {tab:"intel", mood:"alert", key:"sabot", cd:3}); }
+      else { warCut(c.gdp*0.005); addLog(`Агенты страны ${x.name} устроили диверсию: экономика −0,5%.`); flashMap(S.player, "bad"); advise("intel", `Диверсия! Агенты страны ${x.name} ударили по нашей промышленности. Усильте контрразведку.`, {tab:"intel", mood:"alert", key:"sabot", cd:3}); }
     }
     if (x.worldSanctions > 0) x.worldSanctions--;
   });
@@ -5449,11 +5452,11 @@ function warOutcomes(){
       setTimeout(() => { if (!document.querySelector(".modal")) showPeace(w.enemy); }, 60);
     } else if (w.progress <= -100){
       S.wars = S.wars.filter(x=>x!==w);
-      meC.gdp *= 0.85; S.treasury = Math.max(0, S.treasury - meC.gdp*0.02);
+      warCut(S.gdp0*LOST_PC); S.treasury = Math.max(0, S.treasury - LOST_CASH);
       S.mods.push({stat:"approval",v:-15,left:12});
       e.rel = -60;
       S.lostWarT = S.turn;
-      addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −15% экономики.`); advise("gen", `Мы проиграли войну с ${e.name}. Подписан тяжёлый мир.`, {mood:"alert"}); dirty = true;
+      addLog(`Поражение в войне с ${e.name}. Подписан унизительный мир: −10% экономики и 5 млрд из казны.`); advise("gen", `Мы проиграли войну с ${e.name}. Подписан тяжёлый мир.`, {mood:"alert"}); dirty = true;
     }
   });
 }
