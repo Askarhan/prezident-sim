@@ -4683,7 +4683,7 @@ function migrate(s){
   if (!s.ammo) s.ammo = defaultAmmo(s.units);
   if (!s.prod) s.prod = {}; if (!s.prodAcc) s.prodAcc = {}; if (!s.prodExport) s.prodExport = {};
   if (!s.armyTab) s.armyTab = "ground";
-  if (!s.rlv){ s.rlv = {}; Object.keys((s.research && s.research.done) || {}).forEach(id => { if (TECH_BY[id]) s.rlv[id] = Math.min(2, TECH_BY[id].max); }); s.rp = 120 + Object.values((s.research && s.research.prog) || {}).reduce((a,v)=>a+v,0)*0.5; s.rq = []; }
+  if (!s.rlv){ s.rlv = {}; Object.keys((s.research && s.research.done) || {}).forEach(id => { if (TECH_BY[id]) s.rlv[id] = Math.min(2, TECH_BY[id].max); }); s.rp = 200 + Object.values((s.research && s.research.prog) || {}).reduce((a,v)=>a+v,0)*0.5; s.rq = []; }
   if (s.rp === undefined) s.rp = 200; if (!s.rq) s.rq = [];
   if (!s.occupied){ s.occupied = {}; Object.values(s.countries).forEach(x => { if (x.owner === "player" && x.id !== s.player) s.occupied[x.id] = {iso:x.id, share:1, res:25, integ:0.6, damage:0.1, garrison:1, policy:"normal", gdpFull:x.gdp*0.6, added:x.gdp*0.6, pop:x.pop, since:0, unrest:0}; }); }
   if (s.infamy === undefined) s.infamy = Object.keys(s.occupied).length*15;
