@@ -45,10 +45,10 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Done 04.11 (user's decisions): inflation no longer eats debt, debt falls only by repaying (cash in the treasury still loses to inflation). Rail is a fixed 3.4 billion (`RAIL_PRICE`), materials unchanged, income at most 1 billion a year. One run each, 10 years. Bot: Kyrgyzstan treasury 44, Germany 37, economy ×1.1 both, no game over. Idle: −16…−20 a day, debt 400 → about 445. The Kyrgyzstan and Germany gap of item 1 is closed.
 
 ## Next (order changed 04.11: the user dropped the phone test for now, do not wait for it or ask about it)
-1. «Окно исследований»: asked twice, he has not described what should change yet.
-2. Stock limit and coins, the rest of the resource step: no details here, discuss with him first.
-3. Conquest speed re-measure with `tools/sim/speedrun.js`: free income, automatic growth and debt erosion are gone, and bots spend all their money on paid buildings, so the old numbers are stale.
-4. `econ-bot.js` does not sell stock and barely builds income buildings, so it does not show a real player's path yet: teach it to sell before judging the balance of money.
+1. Stock limit and coins, the rest of the resource step: no details here, discuss with him first.
+2. Conquest speed re-measure with `tools/sim/speedrun.js`: free income, automatic growth and debt erosion are gone, and bots spend all their money on paid buildings, so the old numbers are stale.
+3. `econ-bot.js` does not sell stock and barely builds income buildings, so it does not show a real player's path yet: teach it to sell before judging the balance of money.
+«Окно исследований» is put off (user's decision 05.11): do not ask about it until he brings it up.
 Then the old list: UI and polish, models, map, release.
 
 ## Now: flat economy stage (user's decisions, 03.11.2026)
