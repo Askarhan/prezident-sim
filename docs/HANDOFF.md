@@ -29,7 +29,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 
 
 ## Now: flat economy stage (user's decisions, 03.11.2026)
-Replaces prices in percent of GDP. Nothing of this is in the game yet. Go group by group, short and in plain words, one example at a time (he does not read wide tables well), and show him the numbers before building. Discuss the plan first: this is the base of the game.
+Replaces prices in percent of GDP. Done and pushed 04.11: word ВВП, flat start, materials, oil and mines, flat money, income buildings, research for buildings (see the lines below). Next: ask the user what he wants changed in how research points are earned, then the war rules below (2–3, 4–6, 7) with the money of conquest; energy is a separate stage after. Nothing is checked by a human player yet: the balance of real play is unknown. Go group by group, short and in plain words, one example at a time (he does not read wide tables well), and show him the numbers before building. Discuss the plan first: this is the base of the game.
 - Same start for every country: 15 000 money, wood and steel for 3 buildings. Same building prices in tonnes everywhere. Buildings cost materials only, no money.
 - Sawmill and steelworks give 5.5 a day (user's decision 04.11, stays as it was). Other output buildings: set them with him, group by group.
 - Start buildings of big countries only cover that country's own needs and spending. Free materials come only from buildings the player built. Giants get +30% of the free flow (`GIANT_K`, user's decision; giants = `S.gdp0` ≥ 1500, the assistant's line, 15 countries). So a conquered land mostly feeds itself and stops being quick profit.
