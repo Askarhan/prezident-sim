@@ -1570,22 +1570,22 @@ const RES = [
 ];
 // cost = share of GDP; roi = monthly income as share of cost; upkeep = 0,4% of cost per month
 const BUILDINGS = {
-  farm:{cat:"res",name:"Агрокомплекс",days:60,cost:0.0011,desc:"+4% продовольствия",use:{power:0.5}},
+  farm:{cat:"res",name:"Агрокомплекс",days:60,cost:0.0011,desc:"+4% продовольствия"},
   oil:{cat:"res",name:"Нефтегазовое месторождение",days:90,cost:0.0014,desc:"+4% топлива для экономики"},
-  mine:{cat:"res",name:"Рудник",days:75,cost:0.0012,desc:"+4% руды (нужна металлургии)",use:{power:0.5}},
-  power:{cat:"energy",name:"Тепловая электростанция",days:90,cost:0.0014,desc:"+4 ед. электроэнергии; тратит топливо",use:{oil:1}},
+  mine:{cat:"res",name:"Рудник",days:75,cost:0.0012,desc:"+4% руды (нужна металлургии)"},
+  power:{cat:"energy",name:"Тепловая электростанция",days:90,cost:0.0014,desc:"+4 ед. электроэнергии; сжигает 13 нефти в месяц, без нефти стоит"},
   hydro:{cat:"energy",name:"Гидроэлектростанция",days:240,cost:0.0024,desc:"+8 ед. электроэнергии; число ГЭС ограничено реками страны",maxFn:"hydroMax"},
   solar:{cat:"energy",name:"Солнечная и ветровая станция",days:60,cost:0.0009,desc:"+2 ед. электроэнергии, рейтинг +0,2; каждая следующая дороже",scale:0.05,dscale:2},
   // material & commodity producers: unlimited, every next one costs more and takes longer
   sawmill:{cat:"mat",name:"Лесопилка",days:60,cost:0.003,desc:"древесина для строек и на продажу: 5,5 в день",out:{wood:165},flat:1},
-  steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь: 5,5 в день; при нехватке руды вдвое меньше",out:{steel:165},flat:1,use:{power:2}},
+  steelworks:{cat:"mat",name:"Металлургический завод",days:90,cost:0.005,desc:"сталь: 5,5 в день; при нехватке руды вдвое меньше",out:{steel:165},flat:1},
   oilrig:{cat:"mat",name:"Нефтяная вышка",days:120,cost:0.006,desc:"нефть на продажу; выход зависит от запасов страны",out:{oil:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"geo"}},
-  raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"},use:{power:2}},
-  uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"},use:{power:1}},
+  raremine:{cat:"mat",name:"Рудник редкоземельных металлов",days:150,cost:0.005,desc:"РЗМ для электроники, ракет и техники 3-го поколения; выход зависит от месторождений",out:{rare:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"rareearth"}},
+  uranmine:{cat:"mat",name:"Урановый рудник",days:180,cost:0.006,desc:"уран для АЭС и ядерной программы; выход зависит от месторождений",out:{uran:165},flat:1,first:1,scale:0.25,dscale:10,decay:0.93,req:{tech:"uranium"}},
   goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
-  chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,desc:"удобрения и взрывчатка: +2% продовольствия и боеприпасы быстрее на 4% за комбинат, считаются первые 5; нужна нефть от 80%",use:{power:6,oil:6},req:{res:{oil:80}}},
-  auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,desc:"грузовики и двигатели: колонны быстрее на 3% и бронетехника быстрее на 4% за завод, считаются первые 5; нужна «Автоматизация»",use:{power:6,metal:8},req:{tech:"automation"}},
-  chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"нужны «Финтех» и образование 60",use:{power:10},req:{tech:"fintech",cap:{edu:60}}},
+  chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,desc:"удобрения и взрывчатка: +2% продовольствия и боеприпасы быстрее на 4% за комбинат, считаются первые 5; нужна нефть от 80%",use:{oil:6},req:{res:{oil:80}}},
+  auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,desc:"грузовики и двигатели: колонны быстрее на 3% и бронетехника быстрее на 4% за завод, считаются первые 5; нужна «Автоматизация»",use:{metal:8},req:{tech:"automation"}},
+  chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"нужны «Финтех» и образование 60",req:{tech:"fintech",cap:{edu:60}}},
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, экспорт +3%",trade:0.03},
   highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
@@ -1761,6 +1761,7 @@ const MILL_PRICE = 500, MILL_US = 300, STEEL_FLAT = 90;
 ["sawmill","steelworks","institute"].forEach(id => Object.defineProperty(BUILDINGS[id], "mat", {get: () => { const q = niceQ(MILL_PRICE*matUp(id)); return {wood:q, steel:q}; }, set(){}, configurable:true}));
 function startMills(x, g){ const k = MILL_US*Math.pow(g/27000, 0.6); return {sawmill:Math.max(1, Math.round(k*woodProf(x.id)/1.3)), steelworks:Math.max(1, Math.round(k*x.prof.metal/0.9))}; }
 const builtN = id => Math.max(0, objCount(id) - ((S.mills0||{})[id]||0));
+const pwOff = id => (S.pwOff||{})[id]||0, objOn = id => Math.max(0, objCount(id) - pwOff(id)), builtOn = id => Math.max(0, builtN(id) - pwOff(id));   // buildings stopped for lack of power give nothing
 Object.values(KINDS).forEach(k => { const v = k.steel; if (v !== undefined) Object.defineProperty(k, "steel", {get: () => v*STEEL_FLAT}); });
 Object.values(AMMO).forEach(a => { const v = a.steel; Object.defineProperty(a, "steel", {get: () => v*STEEL_FLAT}); });
 const FLAT_R = ["oil","rare","uran"];
@@ -1864,15 +1865,15 @@ function orderAmmo(type, qty){
 }
 function milMult(){ return Math.max(0.2, 1 + lawSum("mil")); }
 function plantOne(pid){ return (mg()*BUILDINGS[pid].cost/(1 - MAT_SHARE))*0.025; }
-function plantCap(pid){ return plantOne(pid)*objCount(pid)*(1 + 0.5*tech("automation"))*milMult(); }
+function plantCap(pid){ return plantOne(pid)*objOn(pid)*(1 + 0.5*tech("automation"))*milMult(); }
 function prodChoices(pid){ return MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => KINDS[m.kind].plant === pid); }
-function prodSpendMonthly(){ return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && objCount(pid) ? plantCap(pid)*0.5 : 0), 0) + (objCount("ammoplant") ? ammoPlantCost() : 0); }
-const BONUS_MAX = 5, bonusN = id => Math.min(BONUS_MAX, builtN(id)), fasterK = id => 1/(1 - 0.04*bonusN(id));   // industry gives a bonus only: no penalty without it, the first 5 count; each cuts production time by 4%
-function ammoPlantOut(paid){ const n = objCount("ammoplant")*(1 + 0.5*tech("automation"))*milMult()*plantOne("ammoplant")/0.0712*(paid ? 1 : fasterK("chem")); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
+function prodSpendMonthly(){ return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && objOn(pid) ? plantCap(pid)*0.5 : 0), 0) + (objCount("ammoplant") ? ammoPlantCost() : 0); }
+const BONUS_MAX = 5, bonusN = id => Math.min(BONUS_MAX, builtOn(id)), fasterK = id => 1/(1 - 0.04*bonusN(id));   // industry gives a bonus only: no penalty without it, the first 5 count; each cuts production time by 4%
+function ammoPlantOut(paid){ const n = objOn("ammoplant")*(1 + 0.5*tech("automation"))*milMult()*plantOne("ammoplant")/0.0712*(paid ? 1 : fasterK("chem")); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
 function ammoPlantCost(){ const o = ammoPlantOut(true); return Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].price*0.5, 0); }
 function armsExportIncome(){
   if (!armsBuyers().length) return 0;
-  return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && S.prodExport[pid] && objCount(pid) ? plantCap(pid)*0.9*(1 + 0.5*tech("armsexport")) : 0), 0);
+  return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && S.prodExport[pid] && objOn(pid) ? plantCap(pid)*0.9*(1 + 0.5*tech("armsexport")) : 0), 0);
 }
 const RARE_KINDS = new Set(["shorad","mrsam","lrsam","ew","srbm","drone","loiter","fighter"]);
 function unitRare(m){ const sh = (RARE_KINDS.has(m.kind) ? 0.08 : 0) + (m.gen >= 3 ? 0.06 : 0); return sh ? m.price*sh/COMMOD_WORLD.rare : 0; }
@@ -1880,7 +1881,7 @@ const AMMO_RARE = {atgm:0.08, sam:0.1, missile:0.08};
 function ammoRare(k){ return AMMO_RARE[k] ? AMMO[k].price*AMMO_RARE[k]/COMMOD_WORLD.rare : 0; }
 function militaryProduction(){
   Object.keys(PLANT_CAP).forEach(pid => {
-    const id = S.prod[pid]; if (!id || !objCount(pid)) return;
+    const id = S.prod[pid]; if (!id || !objOn(pid)) return;
     if (id.startsWith("ammo:")){ const t = id.slice(5); if (t === "missile" && !tlv("am_missile")) return; const q = Math.floor(plantCap(pid)/AMMO[t].price); if ((S.stock.rare||0) < q*ammoRare(t)){ addLog(`${BUILDINGS[pid].name}: не хватает редкоземельных металлов для боеприпасов.`); return; } if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.stock.rare = (S.stock.rare||0) - q*ammoRare(t); S.ammo[t] = (S.ammo[t]||0) + q; return; }
     const m = MODELS[id]; if (!m || !canProduceModel(id).ok) return;
     S.prodAcc[pid] = (S.prodAcc[pid]||0) + plantCap(pid)*(pid === "tankplant" ? fasterK("auto") : 1);
@@ -1892,7 +1893,7 @@ function militaryProduction(){
     }
     if (made && !(S.prodExport[pid] && armsBuyers().length)){ S.units[id] = (S.units[id]||0) + made; }
   });
-  if (objCount("ammoplant")){ const o = ammoPlantOut(), steel = Object.entries(ammoPlantOut(true)).reduce((a,[k,q]) => a + q*AMMO[k].steel, 0);
+  if (objOn("ammoplant")){ const o = ammoPlantOut(), steel = Object.entries(ammoPlantOut(true)).reduce((a,[k,q]) => a + q*AMMO[k].steel, 0);
     if ((S.stock.rare||0) < o.atgm*ammoRare("atgm")){ addLog("Завод боеприпасов: ПТУР не выпущены — не хватает редкоземельных металлов."); o.atgm = 0; } else S.stock.rare = (S.stock.rare||0) - o.atgm*ammoRare("atgm");
     if (S.stock.steel >= steel){ S.stock.steel -= steel; Object.entries(o).forEach(([k,q]) => S.ammo[k] = (S.ammo[k]||0) + q); } else addLog("Завод боеприпасов простаивает: не хватает стали."); }
 }
@@ -2099,7 +2100,7 @@ function phaseTick(w){
   else if (w.phase === "pos" && w.track.length > 10 && !(w.phaseCd > 0) && moved(10) >= 3){ w.phase = "man"; w.phaseCd = 30; warEvent(w, "Прорыв! Фронт снова пришёл в движение.", "good"); }
 }
 /* supply of a direction: the deeper the army goes, the worse; depots, a railway to the enemy, highways and transport aircraft hold it up */
-function supplySupport(w){ return (viaOccupied(w.enemy) ? -15 : 0) + Math.min(40, 4*facCount("depot")) + (S.rails && S.rails[w.enemy] && S.rails[w.enemy].done ? 25 : 0) + Math.min(10, 2*objCount("highway")) + Math.min(20, 4*airliftCap()); }
+function supplySupport(w){ return (viaOccupied(w.enemy) ? -15 : 0) + Math.min(40, 4*facCount("depot")) + (S.rails && S.rails[w.enemy] && S.rails[w.enemy].done ? 25 : 0) + Math.min(10, 2*objOn("highway")) + Math.min(20, 4*airliftCap()); }
 function supplyTarget(w, f){ return f.p <= 0 ? 100 : clamp(100 - Math.max(0, f.p - 15)*0.9 + supplySupport(w), 10, 100); }
 function supplyK(f){ const v = f.sup ?? 100; return v >= 70 ? 1 : 0.45 + v/127; }
 function frontsDay(w, base){
@@ -4482,7 +4483,7 @@ function tech(id){ return TECH_EFF[Math.min(5, tlv(id))]; }
 function techCostLv(t, lv){ if (t.up) return t.cost + 20*(lv-1); return Math.round(t.cost*Math.pow(1.8, lv-1)); }
 function techDaysLv(t, lv){ if (t.up) return t.days; return Math.round(t.days*(1 + 0.45*(lv-1))); }
 function researching(id){ return (S.rq||[]).find(q => q.id === id); }
-function researchSlots(){ const n = objCount("institute"); return 1 + (n >= 3 ? 1 : 0) + (n >= 8 ? 1 : 0); }
+function researchSlots(){ const n = objOn("institute"); return 1 + (n >= 3 ? 1 : 0) + (n >= 8 ? 1 : 0); }
 function techReqFail(t, lv){
   if (lv > t.max) return "максимальный уровень";
   if (t.req && lv === 1) for (const [id, l] of Object.entries(t.req)) if (tlv(id) < l) return `нужно: ${TECH_BY[id].name} ${roman(l)}`;
@@ -4513,7 +4514,7 @@ function rpMonthly(){ return rpIncome().total; }
 // education multiplies all research: level 33 is ×1, 66 is ×1.5, 99 and above ×2
 function eduRpK(){ return clamp(1 + (S.capital.edu - 33)/66, 0.5, 2); }
 // the main source of points, by the rule of all buildings: each next gives 7% less, giants get GIANT_K more from the first BONUS_FIRST
-function institutePoints(){ const n = objCount("institute"), d = 0.93, sum = k => (1 - Math.pow(d, k))/(1 - d); return 10*(sum(n) + ((S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*sum(Math.min(n, BONUS_FIRST)) : 0)); }
+function institutePoints(){ const n = objOn("institute"), d = 0.93, sum = k => (1 - Math.pow(d, k))/(1 - d); return 10*(sum(n) + ((S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*sum(Math.min(n, BONUS_FIRST)) : 0)); }
 function pactPoints(){ return Object.values(C()).filter(x => x.sci && !x.owner && x.rel >= 30).reduce((a,x) => a + 2 + x.tech, 0); }
 function startResearch(id){
   const t = TECH_BY[id], lv = tlv(id) + 1, cost = techCostLv(t, lv);
@@ -4556,7 +4557,7 @@ function ammoMult(kind, foe){
 // nuclear arsenal
 function nukeTurn(){
   if (!tlv("nuc_bomb") || !objCount("enrich")) return;
-  S.nukeAcc = (S.nukeAcc||0) + objCount("enrich")/6;
+  S.nukeAcc = (S.nukeAcc||0) + objOn("enrich")/6;
   while (S.nukeAcc >= 1){ S.nukeAcc -= 1; S.nukes = (S.nukes||0) + 1; addLog(`Собрана ядерная боеголовка. Всего в арсенале: ${S.nukes}.`); infamyAdd(2); }
 }
 function nukeReach(iso){ const c = tlv("nuc_carrier"); if (!c) return false; if (c >= 3) return true; const x = C()[iso]; return !!x && canReach(x); }
@@ -4816,9 +4817,8 @@ function demandK(){ return clamp(me().gdp / (S.gdp0 || me().gdp), 0.6, 6); }
 function selfSuff(r){
   if (r === "power") return Math.max(0, 100 + powerBalance());
   const c = me(); let v = c.prof[r]*100 + S.annexBonus[r];
-  const b = RES.find(x=>x.id===r).build; v += S.buildings[b]*4;
+  const b = RES.find(x=>x.id===r).build; v += objOn(b)*4;
   Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*builtN(id); });
-  if (r==="power"){ if (lawOn("green")) v += 15; v += 10*tech("smartgrid") + 40*tech("fusion") + (S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor"))); }
   if (r==="food") v += 20*tech("agro") + 2*bonusN("chem");
   if (r==="oil" || r==="metal") v += 20*tech("deep");
   v *= 1 + lawSum("res");
@@ -4826,12 +4826,12 @@ function selfSuff(r){
   v += modSum(r);
   return Math.max(0, v);
 }
-function deficits(){ return RES.filter(r => selfSuff(r.id) < 60).length; }
+function deficits(){ return RES.filter(r => r.id !== "power" && selfSuff(r.id) < 60).length; }
 // income of the k-th building of a type: each next one earns INC_DECAY less, the market fills up. What is built keeps its income.
 const INC_K = 0.25, INC_DECAY = 0.93;
 function objIncome(id, k = buildN(id)){ const b = BUILDINGS[id]; if (!b.roi) return 0; return mg()*b.cost/(1 - MAT_SHARE)*b.roi*INC_K*Math.pow(INC_DECAY, k); }
 // income is fixed when a building appears: it stays what the building earned on its own price then, it does not follow GDP
-function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n){ for (let k = r.n; k < n; k++) r.v += objIncome(id, k); } else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v*upK(id); }
+function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n){ for (let k = r.n; k < n; k++) r.v += objIncome(id, k); } else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v*upK(id)*(n ? objOn(id)/n : 1); }
 function objUpkeep(id){ return mg()*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
@@ -4922,11 +4922,11 @@ function baseOut0(r){
   return 0;
 }
 // each next producer yields a bit less (deposits deplete): k-th object gives out * decay^k
-function coinsMonthly(){ const n = objCount("goldmine"); return n ? 3*(1 - Math.pow(0.93, n))/(1 - 0.93)*(1 + 0.25*(Math.max(1, tlv("gold"))-1)) : 0; }
+function coinsMonthly(){ const n = objOn("goldmine"); return n ? 3*(1 - Math.pow(0.93, n))/(1 - 0.93)*(1 + 0.25*(Math.max(1, tlv("gold"))-1)) : 0; }
 // a bonus works only on the first BONUS_FIRST buildings: rich deposits (b.first, a multiplier above 1) and the giants' plus (giantPlus)
 const BONUS_FIRST = 5;
 function objOut(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], m = depositK(r), k = buildN(id); return b.out[r]*techK(r)*(b.first && m > 1 && k >= BONUS_FIRST ? 1 : m)*Math.pow(b.decay||1, k); }
-function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objCount(id), d = b.decay||1, m = depositK(r), sum = k => d < 1 ? (1 - Math.pow(d, k))/(1 - d) : k;
+function objOutTotal(id){ const b = BUILDINGS[id]; if (!b.out) return 0; const r = Object.keys(b.out)[0], n = objOn(id), d = b.decay||1, m = depositK(r), sum = k => d < 1 ? (1 - Math.pow(d, k))/(1 - d) : k;
   if (b.first && m > 1){ const a = Math.min(n, BONUS_FIRST); return b.out[r]*techK(r)*(m*sum(a) + sum(n) - sum(a)); } return b.out[r]*techK(r)*m*sum(n); }
 function prodGross(r){ let v = baseOut(r); Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.out && b.out[r]) v += objOutTotal(id); }); return v*(1 + lawSum("res")); }
 function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v - oilCiv()) : EXP_R.has(r) ? Math.max(0, v - civOf(r)) + giantPlus(r) : v; }
@@ -4936,7 +4936,7 @@ function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v -
 const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03;
 const GIANT_GDP = 1500, GIANT_K = 0.3, MILL_OF = {wood:"sawmill", steel:"steelworks"}, millOut = r => BUILDINGS[MILL_OF[r]].out[r]*outMult(r)*(1 + lawSum("res"));
 function civOf(r){ return EXP_R.has(r) ? millOut(r)*((S.mills0||{})[MILL_OF[r]]||0) : 0; }
-function giantPlus(r){ return (S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*millOut(r)*Math.min(BONUS_FIRST, builtN(MILL_OF[r])) : 0; }
+function giantPlus(r){ return (S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*millOut(r)*Math.min(BONUS_FIRST, builtOn(MILL_OF[r])) : 0; }
 function civMonth(){ EXP_R.forEach(r => { const lack = civOf(r) - prodGross(r); if (lack <= 0) return; S.stock[r] -= lack; if (S.stock[r] >= 0) return; S.stock[r] = 0;
   S.mods.push({stat:"approval", v:-1.5, left:2}, {stat:"stability", v:-1, left:2});
   if (!S.civWarn || S.turn - S.civWarn >= 6){ S.civWarn = S.turn || 1; advise("econ", `Стране не хватает ${COMMOD[r].gen}: люди недовольны. Постройте новые мощности или закупите на рынке.`, {tab:"build"}); } }); }
@@ -5128,8 +5128,8 @@ function budget(){
   const compliance = taxCompliance();
   const taxes = m * taxBurden()/100 * compliance;
   let trade = 0;
-  const logi = 1 + 0.03*objCount("bridge") + 0.05*objCount("port");
-  RES.forEach(r => {
+  const logi = 1 + 0.03*objOn("bridge") + 0.05*objOn("port");
+  RES.forEach(r => { if (r.id === "power") return;
     const bal = selfSuff(r.id) - 100;
     if (bal > 0) trade += m*0.00006*bal * (S.wars.length ? 0.8 : 1) * (1 + (K.infra-33)/150) * (1 + 0.2*tech("fintech")) * logi;
     else trade += m*0.00009*bal * (Object.values(C()).some(x=>x.sanctionsUs) ? 1.5 : 1);
@@ -5162,7 +5162,6 @@ function growthMonthly(){
   const K = S.capital;
   g += (K.edu-33)*0.00005 + (K.infra-33)*0.00005 + (K.health-33)*0.00002;
   g -= 0.00025*Math.max(0, taxBurden()-15.8);
-  { const pb = powerBalance(); if (pb < 0) g -= Math.min(0.003, -pb*0.00002); }
   g += 0.00125*tech("ai") + 0.0004*tech("fusion") + 0.00025*tech("gene");
   g += ideo("tech") ? 0.00033 : ideo("soc") ? -0.00033 : 0;
   if (S.climatePact) g -= 0.0002;
@@ -5177,13 +5176,12 @@ function growthMonthly(){
 }
 function approvalTarget(){
   let t = 60 - taxPain() + (S.cb !== undefined ? macroApproval() : 0);
-  { const pb = powerBalance(); if (pb < 0) t -= Math.min(10, -pb*0.08); }
   t += (inOrg("g20") ? 1 : 0) + (relig("dialog") ? 2 : relig("trad") ? 1 : 0) + facFx("appr") + unrestAppr() + 0.3*minDelta("housing") + 0.35*minDelta("culture") + 0.25*minDelta("sport") + 0.3*minDelta("ecology") + 0.2*minDelta("emergency") + 0.3*Math.min(10, objCount("solar"));
   const K = S.capital;
   t += (K.health-33)*0.12 + (K.edu-33)*0.03 + (K.infra-33)*0.03 + (S.sectors.health-1)*1.5 - (S.sectors.police-1)*1;
   t -= S.wars.length*(ideo("nat")?5:10) + deficits()*3 + (S.weary||0)*0.15;
   t += ideo("dem")?5 : ideo("tech")?-3 : ideo("soc")?6 : ideo("auth")?-8 : 0;
-  t += lawSum("appr") + modSum("approval") + objCount("metro") + 2*tech("telemed") + 2*tech("vaccines") + 3*tech("gene") + 5*tech("longevity");
+  t += lawSum("appr") + modSum("approval") + objOn("metro") + 2*tech("telemed") + 2*tech("vaccines") + 3*tech("gene") + 5*tech("longevity");
   if (S.debt > mg()*0.9) t -= 5;
   return clamp(t, 0, 100);
 }
@@ -5214,7 +5212,13 @@ function viaOccupied(iso){ const c = C()[iso]; return !!c && !regionReach(blocIs
 
 /* ---------- Turn ---------- */
 // same ratio to a mine as before the flat mines; the energy stage will replace it
-function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*BUILDINGS.npp.cost*0.002/COMMOD.uran.price*165*me().gdp/(S.gdp0 || me().gdp); }
+function uranMonthly(){ return (objCount("npp") + objCount("enrich")*0.5)*NPP_URAN; }
+function oilPlantTurn(){ const n = objCount("power"); if (!n){ S.tppOff = 0; return; }
+  const need = n*TPP_OIL, have = S.stock.oil||0;
+  if (have >= need){ S.stock.oil = have - need; S.tppOff = 0; return; }
+  const cost = (need - have)*importPrice("oil");
+  if (!Object.values(C()).some(x => x.sanctionsUs) && S.treasury > cost){ S.stock.oil = 0; S.treasury -= cost; S.tppOff = 0; return; }
+  const on = Math.floor(have/TPP_OIL); S.stock.oil = have - on*TPP_OIL; if (!S.tppOff) advise("econ", "Нефти нет: тепловые станции останавливаются.", {mood:"alert", tab:"economy"}); S.tppOff = n - on; }
 function uranTurn(){
   const need = uranMonthly(); if (!need){ S.uranOk = true; return; }
   const have = S.stock.uran||0;
@@ -5227,7 +5231,7 @@ function nextMonth(){
   if (S.pendingEvent || S.over) return;
   const c = me();
   S.importUsed = {};
-  uranTurn();
+  uranTurn(); oilPlantTurn();
   const cm = coinsMonthly(); if (cm > 0){ S.coins = (S.coins||0) + cm; }
   const before = {treasury:S.treasury, gdp:c.gdp, approval:S.approval, stability:S.stability};
   const startLog = S.log.length;
@@ -6102,7 +6106,7 @@ const LESSONS = [
   {id:"deficit", who:"econ", title:"Дефицит бюджета", when:() => S.turn > 1 && budget().net < 0, pages:[
     {tab:"economy", sel:"[data-tax]", text:"Бюджет ушёл в минус. Поднимите налоги, урежьте расходы или стройте доходные объекты: долг растёт, проценты съедают казну."}]},
   {id:"shortage", who:"econ", title:"Нехватка ресурсов", when:() => S.turn > 1 && ["power", "food"].some(r => selfSuff(r) < 90), pages:[
-    {tab:"build", sel:'[data-act="build"]:not([disabled])', text:"Не хватает энергии или продовольствия — экономика тормозит. Стройте электростанции и агрокомплексы: каждая постройка закрывает несколько процентов потребности."}]},
+    {tab:"build", sel:'[data-act="build"]:not([disabled])', text:"Не хватает энергии или продовольствия: здания встают, экономика тормозит. Стройте электростанции и агрокомплексы: каждая постройка закрывает несколько процентов потребности."}]},
   {id:"coins", who:"sec", title:"Золотые монеты", when:() => (S.coins||0) >= 10, pages:[
     {tab:"map", sel:".k-coins", text:"Золотые монеты — особая валюта, одинаковая для всех стран. Их дают за обучение, цели, достижения и золотую шахту."}]},
   {id:"sanctions", who:"dipl", title:"Санкции", when:() => Object.values(C()).some(x => x.sanctionsUs && !x.owner), pages:[
@@ -6270,6 +6274,7 @@ function act(name, arg){
 
 /* ---------- Daily progress: research, construction, railways ---------- */
 function dayTick(){
+  powerTick();
   S.rp += rpMonthly()/30;
   researchDay();
   facDay();
@@ -6547,10 +6552,13 @@ function taxIncome(id){ const t = TAXES.find(x=>x.id===id); return mg()/12 * t.w
 /* electricity: abstract units; base demand of homes and services is 90 */
 const HYDRO = {kg:6,tj:6,no:6,ca:6,br:6,cn:6,ru:5,us:4,ch:4,at:4,se:4,tr:4,co:4,ge:4,in:3,vn:3,pk:3,ar:3,fr:3,it:3,es:3,jp:3,id:3,pe:3,ve:3,ir:2,mx:2,kz:2,ng:2,uz:1,az:1,de:1,pl:1,gb:1,eg:1,za:1,au:1,kr:1,by:0,sa:0,ae:0,qa:0,kw:0};
 function hydroMax(){ return HYDRO[S.player] ?? 2; }
+// energy (user's decisions 04.11): every building of the build screen takes power, the start grid covers the start buildings plus the same reserve for everyone. Short of power a whole building stops, the hungriest built one first, and starts again POWER_RESTART days after power returns. No money, growth or approval effects: the stopped building is the penalty
+const POWER_USE = {sawmill:1, farm:1, bridge:1, highway:1, oil:2, oilrig:2, mine:2, goldmine:2, raremine:3, uranmine:3, institute:3, ammoplant:3, port:3, auto:4, heliplant:4, airport:4, tankplant:5, samplant:5, steelworks:6, chem:6, aviaplant:6, shipyard:6, metro:6, chips:10, enrich:12};
+const POWER_RESERVE = 10, POWER_RESTART = 30, TPP_OIL = 13, NPP_URAN = 13;
+function gridBase(){ return POWER_RESERVE + Object.entries(S.mills0||{}).reduce((a, [id, n]) => a + (POWER_USE[id]||0)*n, 0); }
 function powerSupply(){
-  const c = me(), out = [];
-  out.push(["grid","Действующие станции и сети", c.prof.power*100 + (S.annexBonus.power||0)]);
-  const t = objCount("power")*4; if (t) out.push(["tpp","Тепловые электростанции ×"+objCount("power"), t]);
+  const out = [["grid","Действующие станции и сети", gridBase()]];
+  const tn = Math.max(0, objCount("power") - (S.tppOff||0)), t = tn*4; if (objCount("power")) out.push(["tpp","Тепловые электростанции ×"+tn, t]);
   const h = objCount("hydro")*8; if (h) out.push(["hpp","ГЭС ×"+objCount("hydro"), h]);
   const s = objCount("solar")*2*(1 + 0.05*minEff("ecology")); if (s) out.push(["solar","Солнце и ветер ×"+objCount("solar"), s]);
   const n = S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
@@ -6558,15 +6566,20 @@ function powerSupply(){
   if (Math.abs(bonus) > 0.05) out.push(["bonus","Технологии, законы, Минэнерго", bonus]);
   return out;
 }
-function milPlants(){ return ["tankplant","heliplant","aviaplant","samplant","shipyard","ammoplant"].reduce((a,id)=>a+objCount(id),0); }
-function powerUse(){
-  const out = [["home","Население и сфера услуг", 90*demandK()]];
-  let ind = 0; Object.entries(BUILDINGS).forEach(([id,b]) => { if (b.use && b.use.power) ind += b.use.power*builtN(id); });
-  if (ind) out.push(["ind","Промышленность", ind]);
-  out.push(["army","Армия и военные заводы", 3 + 2*milPlants()]);
-  MIN_BLOCKS.forEach(([blk,n]) => { const v = MINISTRIES.filter(m=>m.blk===blk).reduce((a,m)=>a + minLvl(m.id)*0.25, 0); if (v) out.push(["min-"+blk, n, v]); });
-  return out;
-}
+function powerUse(){ const G = {res:"Сырьё и материалы", mat:"Сырьё и материалы", ind:"Промышленность", mil:"Военные заводы", inf:"Инфраструктура", sci:"Наука"}, sum = {};
+  Object.entries(POWER_USE).forEach(([id, u]) => { const v = u*objCount(id), n = G[BUILDINGS[id].cat]; if (v) sum[n] = (sum[n]||0) + v; });
+  return Object.entries(sum).map(([n, v]) => [n, n, v]); }
+function powerTarget(){ const off = {}; let lack = -powerBalance(); if (lack <= 0) return off;
+  Object.keys(POWER_USE).filter(id => builtN(id) > 0).sort((a, b) => POWER_USE[b] - POWER_USE[a]).forEach(id => { if (lack <= 0) return; const n = Math.min(builtN(id), Math.ceil(lack/POWER_USE[id])); off[id] = n; lack -= n*POWER_USE[id]; });
+  return off; }
+function powerTick(){ if (!S || !S.buildings) return; const t = powerTarget(), off = S.pwOff || (S.pwOff = {}), now = []; let lower = false;
+  Object.keys(POWER_USE).forEach(id => { const a = off[id]||0, b = t[id]||0; if (b > a){ off[id] = b; now.push(`${BUILDINGS[id].name} ×${b - a}`); } else if (b < a) lower = true; });
+  if (now.length){ addLog(`Не хватает энергии, остановлено: ${now.join(", ")}.`); advise("econ", `Не хватает энергии, остановлено: ${now.join(", ")}.`, {mood:"alert", tab:"economy"}); }
+  if (!lower){ S.pwWait = 0; return; }
+  if (!S.pwWait){ S.pwWait = POWER_RESTART; return; }
+  if (--S.pwWait > 0) return;
+  Object.keys(off).forEach(id => { const b = t[id]||0; if (b < off[id]) off[id] = b; if (!off[id]) delete off[id]; }); addLog("Энергия вернулась: остановленные здания снова работают."); }
+function powerOffText(){ const a = Object.entries(S.pwOff||{}).filter(([, n]) => n > 0).map(([id, n]) => `${BUILDINGS[id].name} ×${n}`); return a.length ? `Остановлено: ${a.join(", ")}.${S.pwWait ? ` Запуск через ${S.pwWait} дн.` : ""}` : ""; }
 const sumItems = a => a.reduce((s,x)=>s + x[2], 0);
 function powerBalance(){ return sumItems(powerSupply()) - sumItems(powerUse()); }
 const pw = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(Math.abs(v) < 10 ? 1 : 0).replace(".", ",");
@@ -6709,7 +6722,7 @@ function printIncome(){ return mg()/12 * 0.005 * (S.print||0); }
 function inflTarget(b){
   const gdpM = mg()/12, def = b ? Math.max(0, -(b.net)/gdpM*100/12*12) : 0;   // deficit, % of GDP per year
   return clamp(baseInfl() + 0.25*def + 4*(S.print||0) + 3*S.wars.length - 0.9*(S.cb - neutralRate()) + 0.06*(S.pens - 100) + 0.04*(S.wages - 100)
-    + (Object.values(C()).some(x => x.sanctionsUs) ? 1.5 : 0) + (powerBalance() < 0 ? 1 : 0), -1, 120);
+    + (Object.values(C()).some(x => x.sanctionsUs) ? 1.5 : 0), -1, 120);
 }
 function unempTarget(){
   return clamp(baseUnemp() + 0.4*(S.cb - neutralRate()) - 0.04*(S.wages - 100) - 0.02*Math.min(60, objCount("chem") + objCount("auto") + objCount("chips"))*5
@@ -6787,10 +6800,10 @@ function viewEnergy(){
     <div class="panel pw-head ${bal<0?"bad":""}" style="grid-column:1/-1">
       <div class="row"><h3>${ic("power")} ${bal >= 0 ? "Избыток электроэнергии" : "Дефицит электроэнергии"}: <span class="num ${bal>=0?"up":"down"}">${pw(bal)}</span></h3><button class="btn primary" data-tab="build" data-buildcat-go="energy">${ic("build","sm")} Построить станцию</button></div>
       <div class="bstats"><span>Производство <b class="num up">${Math.round(sumItems(sup))}</b></span><span>Потребление <b class="num down">${Math.round(sumItems(use))}</b></span><span>ГЭС <b class="num">${objCount("hydro")} / ${hydroMax()}</b></span></div>
-      <div class="label">${bal >= 0 ? "Излишки продаются соседям и идут в доход от экспорта." : "При дефиците падают рост экономики и рейтинг, а недостающее приходится докупать. Постройте станцию или снизьте нагрузку."}</div>
+      <div class="label">${bal >= 0 ? "Запас не продаётся: он нужен для новых зданий." : "Без энергии стоит целое здание, первым самое прожорливое. Запуск через 30 дней после возврата энергии."}${powerOffText() ? " " + powerOffText() : ""}</div>
     </div>
     <div class="panel"><h3>Производство</h3>${li(sup, 1)}</div>
-    <div class="panel"><h3>Потребление по отраслям</h3>${li(use, -1)}<div class="label">Каждый уровень финансирования министерства потребляет 0,25 ед.</div></div>
+    <div class="panel"><h3>Потребление по отраслям</h3>${li(use, -1)}</div>
   </div>`;
 }
 function viewMinistries(){
@@ -6850,7 +6863,7 @@ function viewEconomy(){
   if (tab === "energy") return tabs + viewEnergy();
   if (tab === "finance") return tabs + viewFinance();
   const b = budget(), pb = powerBalance();
-  const resRow = r => { const v = selfSuff(r.id); return `<div><div class="row"><span>${ic(r.id)} ${r.name}</span><span class="num ${v<60?"down":v>110?"up":""}">${r.id === "power" ? pw(v-100) : Math.round(v)+"%"}</span></div><div class="bar ${v<60?"low":v>110?"high":"mid"}"><i style="width:${clamp(v/2,0,100)}%"></i></div></div>`; };
+  const resRow = r => { const v = selfSuff(r.id), low = r.id === "power" ? v < 100 : v < 60; return `<div><div class="row"><span>${ic(r.id)} ${r.name}</span><span class="num ${low?"down":v>110?"up":""}">${r.id === "power" ? pw(v-100) : Math.round(v)+"%"}</span></div><div class="bar ${low?"low":v>110?"high":"mid"}"><i style="width:${clamp(v/2,0,100)}%"></i></div></div>`; };
   return tabs + `<div class="grid2">
     <div class="panel">
       <h3>Бюджет за месяц</h3>
@@ -7240,7 +7253,7 @@ function viewBuildObj(){
           <small class="muted">${b.desc}</small>
           <div class="bstats">
             ${outR ? `<span>Выпуск <b class="num">+${fmtQ(outQ)}</b> ${COMMOD[outR].unit}/мес</span>` : ""}
-            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?4:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : b.use && b.use.power ? `<span>${ic("power","sm")} <b class="num down">−${String(b.use.power).replace(".",",")}</b> ед.</span>` : ""}
+            ${b.cat === "energy" ? `<span>${ic("power","sm")} <b class="num up">+${id==="power"?4:id==="hydro"?8:id==="solar"?(2*(1+0.05*minEff("ecology"))).toFixed(1).replace(".",","):12+2*tlv("nuc_reactor")}</b> ед.</span>` : POWER_USE[id] ? `<span>${ic("power","sm")} <b class="num down">−${POWER_USE[id]}</b> ед.</span>` : ""}
             ${!outR && inc ? `<span>Доход <b class="up num">+${money(inc)}</b>/мес</span>` : ""}
             ${resPct ? `<span>${ic(id === "farm" ? "food" : id === "oil" ? "oil" : "metal","sm")} <b class="num up">+${resPct.toFixed(1).replace(".",",")}%</b> ${id === "farm" ? "продовольствия" : id === "oil" ? "топлива" : "руды"}</span>` : ""}
             ${milOut ? `<span>Производит техники на <b class="num">${money(milOut)}</b>/мес</span>` : ""}
