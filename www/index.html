@@ -5171,7 +5171,7 @@ function budget(){
   return {lands, other, taxes, tourism, loans, dipl, pens, wages, print, trade, objects, upkeep, rail, arms, commod, imports, milprod, science, intel, sectors, army, laws, interest, war, income, spend, net: income - spend};
 }
 function growthMonthly(){
-  let g = (S.cb !== undefined ? trendGrowthYear()/12 + macroGrowth() : 0.0015);
+  let g = S.cb !== undefined ? macroGrowth() : 0;   // no growth by itself (user's decision 04.11): the economy moves only by what happens in the country
   const K = S.capital;
   g += (K.edu-33)*0.00005 + (K.infra-33)*0.00005 + (K.health-33)*0.00002;
   g -= 0.00025*Math.max(0, taxBurden()-15.8);
@@ -6725,7 +6725,6 @@ function devGap(){ return Math.max(0, 1 - gdppc()/45); }
 function neutralRate(){ return 2 + 6*Math.max(0, 1 - gdppc()/40); }
 function baseInfl(){ return 2 + 5*Math.max(0, 1 - gdppc()/40); }
 function baseUnemp(){ return S.u0 || 6; }
-function trendGrowthYear(){ return 0.014 + 0.04*devGap()*devGap(); }   // KG ~4,9%, RU ~2,3%, DE/US ~1,2%
 function macroInit(s){
   const keep = S; S = s;
   s.cb = Math.round(neutralRate()*2)/2; s.infl = baseInfl(); s.print = 0; s.pens = 100; s.wages = 100;
@@ -6770,7 +6769,7 @@ function viewFinance(){
   return `<div class="mgauges">
       ${gauge("Инфляция", S.infl, "%", 4, 12, "в год", inflTarget(b))}
       ${gauge("Безработица", S.unemp, "%", baseUnemp(), baseUnemp() + 4, `норма ${pct(baseUnemp(),1)}`, unempTarget())}
-      ${gauge("Рост экономики", g, "%", 0, 0, `тренд ${pct(trendGrowthYear()*100,1)} в год`, undefined, g < 0 ? "bad" : g >= trendGrowthYear()*80 ? "good" : "")}
+      ${gauge("Рост экономики", g, "%", 0, 0, "от ваших решений", undefined, g < 0 ? "bad" : g > 0 ? "good" : "")}
       ${gauge("Госдолг", d*100, "% экономики", 40, 90, money(S.debt))}
     </div>
     <div class="grid2">
