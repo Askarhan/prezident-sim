@@ -1626,8 +1626,8 @@ Object.entries(BUILDINGS).forEach(([id, b]) => {
 });
 // stock commodities; price = share of the player's GDP per unit, multiplied by a monthly market index
 const COMMOD = {
-  wood:{name:"Древесина",gen:"древесины",unit:"",price:0.000012,vol:0.03,lo:0.8,hi:1.25,steps:[0,10,25,50],reserve:150,buy:25},
-  steel:{name:"Сталь",gen:"стали",unit:"",price:0.00003,vol:0.035,lo:0.8,hi:1.3,steps:[0,5,15,30],reserve:120,buy:20},
+  wood:{name:"Древесина",gen:"древесины",unit:"",price:0.000012,vol:0.03,lo:0.8,hi:1.25,steps:[0,10,25,50],reserve:500,buy:250},
+  steel:{name:"Сталь",gen:"стали",unit:"",price:0.00003,vol:0.035,lo:0.8,hi:1.3,steps:[0,5,15,30],reserve:500,buy:250},
   oil:{name:"Нефть",gen:"нефти",unit:"",price:0.00007,vol:0.07,lo:0.6,hi:1.6,steps:[0,5,15,30],reserve:0,tech:"geo"},
   rare:{name:"Редкоземельные металлы",gen:"РЗМ",unit:"",price:0.0001,vol:0.05,lo:0.7,hi:1.6,steps:[0,1,3,6],reserve:0,tech:"rareearth"},
   uran:{name:"Уран",gen:"урана",unit:"",price:0.0002,vol:0.04,lo:0.8,hi:1.5,steps:[0,1,2,4],reserve:0,tech:"uranium"}
@@ -1737,22 +1737,29 @@ const AMMO = {
 /* world prices (bln $ per unit) and physical quantities in real units.
    Every country's volumes are scaled once at the start (S.uq) so that one tonne costs the same everywhere. */
 const COMMOD_WORLD = {wood:0.00018, steel:0.0007, oil:0.00055, rare:0.0005, uran:0.00033};   // $180/t, $700/t, $550/t, $500k/t refined rare-earth metals, $330k/t U3O8
-/* wood and steel for any construction are the same tonnes in every country: MAT_T per base unit, FAC_T per unit of an object's price */
-const MAT_T = 4.13, FAC_T = 0.34, START_MAT = 1500;
+/* wood and steel for any construction are the same in every country: FAC_T per unit of a country object's price */
+const FAC_T = 0.34, START_MAT = 1500;
 function U(r){ return (S && S.uq && S.uq[r]) || 1; }
 // buildings that produce a resource: a mid-size country pays one back in about 12 months, a big one pays more, a small one less
 function resTierK(){ const g = (S && S.gdp0) || 0; return !g ? 1 : g >= 1500 ? 1.4 : g >= 300 ? 1 : 0.6; }
 function niceQ(v){ if (v >= 1000) return Math.round(v/10)*10; if (v >= 100) return Math.round(v); if (v >= 10) return Math.round(v*10)/10; if (v >= 1) return Math.round(v*100)/100; return Math.round(v*1000)/1000; }
 function fmtQ(v){ const a = Math.abs(v); if (a === 0) return "0"; return (a >= 100 ? Math.floor(v).toLocaleString("ru-RU") : a >= 10 ? v.toFixed(1) : a >= 1 ? v.toFixed(2) : v.toFixed(3)).replace(".", ","); }
-const STEP_K = {oil:30, rare:150, uran:150};   // oil, rare earths and uranium are flat (S.uq = 1), contract steps stay about one to five buildings
+const STEP_K = {wood:10, steel:10, oil:30, rare:150, uran:150};   // everything is flat (S.uq = 1), contract steps stay about one to five buildings
 Object.entries(COMMOD).forEach(([r, d]) => { d.world = COMMOD_WORLD[r]; const st = d.steps, buy = d.buy, res = d.reserve;
   Object.defineProperty(d, "steps", {get: () => st.map(x => niceQ(x*U(r)*(STEP_K[r]||1)))});
   Object.defineProperty(d, "buy", {get: () => buy ? niceQ(buy*U(r)) : buy});
   Object.defineProperty(d, "reserve", {get: () => niceQ(res*U(r))}); });
-/* Same price in tonnes for every country. Each next building of a type costs MAT_UP more; only those the player built count, start buildings do not. */
-const INC_MAT = 1.5, MAT_UP = 1.02, matUp = id => S && S.buildings ? Math.pow(MAT_UP, Math.max(0, buildN(id) - ((S.mills0||{})[id]||0))) : 1;
+/* Same materials in every country, on the scale of a sawmill (500 + 500, MILL_PRICE). Each next building of a type costs MAT_UP more; only those the player built count, start buildings do not. */
+const MAT_UP = 1.02, matUp = id => S && S.buildings ? Math.pow(MAT_UP, Math.max(0, buildN(id) - ((S.mills0||{})[id]||0))) : 1;
+const MAT_FLAT = {farm:{wood:300,steel:300}, oil:{wood:350,steel:350}, mine:{wood:300,steel:300},
+  power:{wood:300,steel:300}, hydro:{wood:500,steel:500}, solar:{wood:150,steel:150}, npp:{wood:350,steel:1000,uran:7},
+  oilrig:{wood:400,steel:400}, raremine:{wood:350,steel:350}, uranmine:{wood:400,steel:400}, goldmine:{wood:450,steel:450},
+  chem:{wood:300,steel:650}, auto:{wood:400,steel:950}, chips:{wood:550,steel:1350,rare:50},
+  bridge:{wood:550,steel:650}, highway:{wood:700,steel:800}, metro:{wood:1750,steel:2150}, airport:{wood:1300,steel:1550}, port:{wood:1400,steel:1650},
+  tankplant:{wood:300,steel:950,rare:9}, heliplant:{wood:350,steel:1050,rare:10}, aviaplant:{wood:500,steel:1300,rare:35}, samplant:{wood:400,steel:1000,rare:25}, shipyard:{wood:750,steel:2400,rare:20}, ammoplant:{wood:200,steel:650,rare:5},
+  enrich:{wood:500,steel:1500,uran:10}};
 Object.entries(BUILDINGS).forEach(([id, b]) => {
-  const m = b.mat, inc = b.roi ? INC_MAT : 1; if (m) Object.defineProperty(b, "mat", {get: () => { const k = matUp(id)*inc; return Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*(r === "wood" || r === "steel" ? MAT_T : U(r))*k)])); }, set(){}, configurable:true});
+  const m = MAT_FLAT[id]; if (m) Object.defineProperty(b, "mat", {get: () => { const k = matUp(id); return Object.fromEntries(Object.entries(m).map(([r, q]) => [r, niceQ(q*k)])); }, set(){}, configurable:true});
   const o = b.out, fl = !!b.flat; if (o) Object.defineProperty(b, "out", {get: () => Object.fromEntries(Object.entries(o).map(([r, v]) => [r, fl ? v : v*U(r)])), set(){}, configurable:true}); });
 /* wood and steel come only from buildings. Sawmills and steelworks give the same 165 a month in every country; a country starts with
    its own number of them (startMills, kept in S.mills0: those need no power or upkeep). They only feed the country itself, see civOf.
@@ -6948,7 +6955,6 @@ const FAC = {
   depot:   {cat:"defense", name:"Склад снабжения", mil:"supply", cost:20, days:120, look:"depot", desc:"расход боеприпасов на войне −3% каждый, до 10"}
 };
 const MIL_CAP = {troops:5, ground:50, air:24, ammo:0.3};
-function priceLevel(){ return clamp(gdppc()/15, 0.25, 4); }
 function facCount(id){ return (S.fac && S.fac[id]) || 0; }
 function facGood(id){ return id === "house" ? Math.max(0, facCount(id) - (S.facBad||0)) : facCount(id); }
 function groundCount(units){ return Object.entries(units||S.units).reduce((a,[id,n]) => a + (MODELS[id] && KINDS[MODELS[id].kind].cls === "ground" && MODELS[id].kind !== "srbm" ? n : 0), 0); }
@@ -6976,7 +6982,9 @@ function facR(id){ return clamp(facCov(id)/facNorm(id) - 1, -0.6, 0.6); }
 function facFx(stat){ let v = 0; for (const id in FAC){ const f = FAC[id].fx; if (f && f[stat]) v += f[stat]*facR(id)*2; } if (stat === "appr" && S.facBad !== undefined){ const share = (S.facBad||0)/Math.max(1, facCount("house")); v -= Math.max(0, share - (S.facBad0||0))*20; } return v; }
 function milFactor(kind){ const n = milLoad(kind), cap = facCount({troops:"barracks",ground:"hangar",air:"airbase"}[kind])*MIL_CAP[kind]; return n > 0 ? Math.min(1, cap/n) : 1; }
 function milBaseMult(){ return (0.85 + 0.15*milFactor("troops")) * (0.9 + 0.1*milFactor("ground")) * (0.9 + 0.1*milFactor("air")) * (1 + 0.015*Math.min(10, facCount("training"))) * (1 + 0.02*Math.min(3, hostCount())); }
-function facUnitCost(id){ return FAC[id].cost * (FAC[id].mil ? Math.max(0.5, priceLevel()) : priceLevel()) / 1000; } // bln $
+/* One price for a batch in every country: money is flat, so a batch is 5% of the norm whatever the country's size. FAC_REF is the size prices are counted at: 67 million people at average wealth, which is the flat economy of 1000. Military objects stay priced per piece: they serve the army, not the people. */
+const FAC_REF = FLAT_GDP/15, facRefN = id => FAC[id].perM*FAC_REF*0.05;
+function facUnitCost(id){ return FAC[id].mil ? FAC[id].cost/1000 : facRefN(id)*FAC[id].cost/1000/facBatch(id); } // bln $
 function facBatch(id){ const F = FAC[id]; if (F.mil) return F.mil === "train" || F.mil === "supply" ? 1 : Math.max(1, Math.ceil(facNeed(id)*0.12)); return Math.max(1, Math.round(facNeed(id)*0.05)); }
 function facUpkeep(){ let v = 0; for (const id in FAC){ const extra = facCount(id) - ((S.facStart && S.facStart[id]) || 0); if (extra > 0) v += extra*facUnitCost(id)*0.003; } return v; }
 function facMinistry(id){ const c = FAC[id].cat; return c; }
@@ -7049,7 +7057,7 @@ function facCanStart(id){
 function facProgN(id){ return id === "renov" ? Math.max(1, Math.min(Math.ceil(S.facBad||0), Math.round(facCount("house")*0.03))) : facBatch(id); }
 function facProgFull(id){ return id === "renov" ? facProgN(id)*facUnitCost("house")*0.8 : facProgN(id)*facUnitCost(id); }
 function facProgCost(id){ return facProgFull(id)*(1 - MAT_SHARE); }
-function facProgMat(id){ const rec = id !== "renov" && FAC[id].mil ? {wood:0.3, steel:0.7} : {wood:0.6, steel:0.4}, v = facProgN(id)*(id === "renov" ? FAC.house.cost*0.8 : FAC[id].cost)*FAC_T;
+function facProgMat(id){ const mil = id !== "renov" && FAC[id].mil, rec = mil ? {wood:0.3, steel:0.7} : {wood:0.6, steel:0.4}, v = (id === "renov" ? facRefN("house")*facProgN(id)/facBatch("house")*FAC.house.cost*0.8 : (mil ? facProgN(id) : facRefN(id))*FAC[id].cost)*FAC_T;
   return Object.fromEntries(Object.entries(rec).map(([r, sh]) => [r, niceQ(sh*v)])); }
 function facProgDays(id){ return id === "renov" ? 120 : FAC[id].days; }
 function startProg(id){
@@ -7167,7 +7175,7 @@ function viewFacilities(){
   return `<div class="panel fac-head">
       <div class="row"><h3>Объекты по стране</h3><span class="num muted">Госпрограмм: ${S.progs.length}</span></div>
       ${S.progs.length ? `<div class="bstats">${S.progs.map(p => `<span>${p.id === "renov" ? "Расселение" : FAC[p.id].name} +${fmtN(p.n)} <b class="num">${Math.ceil(p.left)} дн.</b></span>`).join("")}</div>` : ""}
-      <div class="label">Норма растёт вместе с населением и богатством страны, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: целая партия сразу.</div>
+      <div class="label">Норма растёт вместе с населением и богатством страны, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: партия — 5% нормы, цена партии одна во всех странах.</div>
     </div>
     <div class="row"><span>Население <b class="num">${people(me().pop)}</b></span><span class="num ${popRate() < 1 ? "down" : ""}">${((popRate() - 1)*1200).toFixed(1).replace(".",",")}% в год</span></div>
     <div class="row"><span>Настроение людей</span><span class="num ${unrestStage() >= 2 ? "down" : ""}">${UNREST_NAME[unrestStage()]} · ${Math.round(S.unrest || 0)}</span></div>
