@@ -4448,12 +4448,17 @@ const TECH = [
   {id:"nuc_bomb",br:"nuc",tier:3,max:1,cost:1600,days:420,name:"Ядерная боеголовка",fx:"центры обогащения собирают боеголовки",v:0,req:{nuc_enrich:3, nuc_reactor:1},nuke:true},
   {id:"nuc_carrier",br:"nuc",tier:4,max:3,cost:500,days:300,name:"Носители ядерного оружия",fx:"ур. 1 — тактические, 2 — средней дальности, 3 — МБР (любая точка мира)",v:0,req:{am_missile:2},nuke:true}
 ];
-const BRANCHES = [["geo","Недра и сырьё"],["econ","Экономика"],["res","Ресурсы и энергия"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["ammo","Боеприпасы и ракеты"],["nuc","Ядерная программа"]];
+/* Building upgrades: one line per type, no top level, +2% a level. Output of start buildings is eaten by the country, so only built ones gain. */
+const UP_OUT = {wood:"sawmill", steel:"steelworks", oil:"oilrig", rare:"raremine", uran:"uranmine"}, UP_STEP = 0.02;
+[["sawmill","Лесопилки"],["steelworks","Металлургические заводы"],["oilrig","Нефтяные вышки"],["raremine","Рудники РЗМ"],["uranmine","Урановые рудники"],["chips","Заводы электроники"],["bridge","Мосты"],["highway","Автомагистрали"],["metro","Метро"],["airport","Аэропорты"],["port","Порты"]].forEach(([id, name]) =>
+  TECH.push({id:"up_"+id, br:"up", tier:1, max:99, cost:100, days:60, up:1, lin:true, v:2, name, fx:(BUILDINGS[id].roi ? "доход" : "выработка")+" построенных зданий +#%"}));
+const upK = id => 1 + UP_STEP*tlv("up_"+id);
+const BRANCHES = [["geo","Недра и сырьё"],["up","Улучшение зданий"],["econ","Экономика"],["res","Ресурсы и энергия"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["ammo","Боеприпасы и ракеты"],["nuc","Ядерная программа"]];
 const TECH_BY = Object.fromEntries(TECH.map(t => [t.id, t]));
 function tlv(id){ return (S && S.rlv && S.rlv[id]) || 0; }
 function tech(id){ return TECH_EFF[Math.min(5, tlv(id))]; }
-function techCostLv(t, lv){ return Math.round(t.cost*Math.pow(1.8, lv-1)); }
-function techDaysLv(t, lv){ return Math.round(t.days*(1 + 0.45*(lv-1))); }
+function techCostLv(t, lv){ if (t.up) return t.cost + 20*(lv-1); return Math.round(t.cost*Math.pow(1.8, lv-1)); }
+function techDaysLv(t, lv){ if (t.up) return t.days; return Math.round(t.days*(1 + 0.45*(lv-1))); }
 function researching(id){ return (S.rq||[]).find(q => q.id === id); }
 function researchSlots(){ const n = objCount("institute"); return 1 + (n >= 3 ? 1 : 0) + (n >= 8 ? 1 : 0); }
 function techReqFail(t, lv){
@@ -4764,8 +4769,8 @@ function checkAchievements(){
   if (!S || !S.countries) return;
   const c = me();
   if (Object.values(S.laws).some(Boolean)) unlock("first_law");
-  const nt = TECH.filter(t => tlv(t.id) > 0).length;
-  if (nt>=8) unlock("tech8"); if (nt>=TECH.length) unlock("tech16");
+  const nt = TECH.filter(t => !t.up && tlv(t.id) > 0).length;
+  if (nt>=8) unlock("tech8"); if (nt>=TECH.filter(t => !t.up).length) unlock("tech16");
   if (S.capital.edu>=95) unlock("edu");
   if (S.treasury > mg()*0.2) unlock("rich");
   if (S.approval>=80) unlock("beloved");
@@ -4801,7 +4806,7 @@ function deficits(){ return RES.filter(r => selfSuff(r.id) < 60).length; }
 const INC_K = 0.25, INC_DECAY = 0.93;
 function objIncome(id, k = buildN(id)){ const b = BUILDINGS[id]; if (!b.roi) return 0; return mg()*b.cost/(1 - MAT_SHARE)*b.roi*INC_K*Math.pow(INC_DECAY, k); }
 // income is fixed when a building appears: it stays what the building earned on its own price then, it does not follow GDP
-function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n){ for (let k = r.n; k < n; k++) r.v += objIncome(id, k); } else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v; }
+function objEarned(id){ if (!BUILDINGS[id].roi) return 0; if (!S.objInc) S.objInc = {}; const n = objCount(id), r = S.objInc[id] || (S.objInc[id] = {n:0, v:0}); if (n > r.n){ for (let k = r.n; k < n; k++) r.v += objIncome(id, k); } else if (n < r.n) r.v *= n/Math.max(1, r.n); r.n = n; return r.v*upK(id); }
 function objUpkeep(id){ return mg()*BUILDINGS[id].cost*0.004; }
 function objCount(id){ return S.buildings[id]||0; }
 function queued(id){ return S.queue.filter(q=>q.type===id).length; }
@@ -4880,7 +4885,7 @@ function goldProf(id){ return GOLD_PROF[id] ?? 0.2; }
 function ownOil(){ return me().prof.oil >= 0.4; }
 function commodOpen(r){ if (r === "oil" && ownOil()) return true; const t = COMMOD[r].tech; return !t || !!tech(t); }
 function depositK(r){ return r === "oil" ? Math.max(0.2, me().prof.oil) : r === "rare" ? Math.max(0.1, rareProf(S.player)) : r === "uran" ? Math.max(0.05, uranProf(S.player)) : 1; }
-function techK(r){ return r === "steel" ? (selfSuff("metal") < 60 ? 0.5 : 1) : r === "rare" ? 1 + 0.25*(tlv("rareearth")-1) : r === "uran" ? 1 + 0.25*(tlv("uranium")-1) : 1; }
+function techK(r){ return (r === "steel" ? (selfSuff("metal") < 60 ? 0.5 : 1) : r === "rare" ? 1 + 0.25*(tlv("rareearth")-1) : r === "uran" ? 1 + 0.25*(tlv("uranium")-1) : 1)*(UP_OUT[r] ? upK(UP_OUT[r]) : 1); }
 function outMult(r){ return depositK(r)*techK(r); }
 function baseOut(r){ return baseOut0(r)*U(r); }
 function baseOut0(r){
@@ -7197,7 +7202,7 @@ function viewBuildObj(){
       <div class="build-grid">${Object.entries(BUILDINGS).filter(([id,b])=>b.cat===S.buildCat).map(([id,b]) => {
         const chk = canBuild(id), up = objUpkeep(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat);
         const outR = b.out ? Object.keys(b.out)[0] : null, outQ = outR ? objOut(id) : 0;
-        const inc = outR ? (commodOpen(outR) ? outQ*commodPrice(outR) : 0) : objIncome(id);
+        const inc = outR ? (commodOpen(outR) ? outQ*commodPrice(outR) : 0) : objIncome(id)*upK(id);
         const milOut = PLANT_CAP[id] !== undefined || id === "ammoplant" ? plantOne(id)*(1 + 0.5*tech("automation"))*milMult() : 0;
         const resPct = b.cat === "res" ? 4/demandK() : 0;
         return `<div class="bcard ${chk.ok?"":"blocked"}">
