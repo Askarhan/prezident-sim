@@ -1582,7 +1582,7 @@ const BUILDINGS = {
   chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"микросхемы и приборы: самолёты, вертолёты и ПВО выпускаются быстрее на 4%, исследования быстрее на 3% за завод, считаются первые 5; нужны «Финтех» и образование 60",req:{tech:"fintech",cap:{edu:60}}},
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, торговля +3%; за мост доставка быстрее на 3%, считаются первые 5",trade:0.03},
   highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок; снабжение на войне +2; за шоссе колонны быстрее на 3% и лимит экспорта древесины и стали +2%, считаются первые 5"},
-  metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
+  metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужда «Дороги» +5% за линию, считаются первые 5; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
   airport:{cat:"inf",name:"Международный аэропорт",days:420,cost:0.015,roi:0.028,desc:"доход от перевозок; за аэропорт туризм +25% и 2 места для доставки техники и боеприпасов самолётом, даже без своих транспортников; максимум 3",max:3},
   port:{cat:"inf",name:"Морской порт",days:480,cost:0.016,roi:0.03,desc:"только у моря; за порт лимит экспорта древесины и стали +10% и доставка быстрее на 10%, торговля +5%; максимум 2",trade:0.05,max:2,req:{coast:true}},
   tankplant:{cat:"mil",name:"Бронетанковый завод",days:360,cost:0.012,desc:"танки, БМП, БТР, САУ, РСЗО",req:{tech:"armor"}},
@@ -6956,7 +6956,7 @@ const POP_BASE = 0.0006, POP_GDP_K = 0.25, DRAFT_K = 20;
 function needNorm(pc){ return 0.55 + 0.45*Math.min(2, pc/30); }
 function wealthK(){ const n = needNorm(gdppc()); if (!S.norm0) S.norm0 = n; return n/S.norm0; }
 function facNorm(id){ return ((S.facBase && S.facBase[id]) || 1)*wealthK(); }
-function needCov(key){ const cats = NEEDS.find(n => n[0] === key)[2], ids = Object.keys(FAC).filter(id => cats.includes(FAC[id].cat)); return ids.reduce((a,id) => a + Math.min(1.5, facCov(id)/facNorm(id)), 0)/ids.length; }
+function needCov(key){ const cats = NEEDS.find(n => n[0] === key)[2], ids = Object.keys(FAC).filter(id => cats.includes(FAC[id].cat)); return ids.reduce((a,id) => a + Math.min(1.5, facCov(id)/facNorm(id)), 0)/ids.length + (key === "roads" ? 0.05*bonusN("metro") : 0); }
 function popRate(){ return LAWS.some(l=>l.popFix && lawOn(l.id)) ? 1 + Math.min(0, lawSum("pop")) : 1.0006 + (S.capital.health-33)*0.00001 + 0.0001*tech("vaccines") + 0.0002*tech("longevity") + 0.000004*minDelta("sport") + lawSum("pop") + facFx("pop"); }
 function popGdp(){ const d = popRate() - 1 - POP_BASE; return POP_GDP_K*d*(d > 0 ? Math.min(1, needCov("edu"))*(S.unemp > baseUnemp() + 4 ? 0.5 : 1) : 1); }
 function popJobs(){ const pc = gdppc(); if (!S.jobs0) S.jobs0 = pc; return clamp(8*(S.jobs0/pc - 1), 0, 6); }
