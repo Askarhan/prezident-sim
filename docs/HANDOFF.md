@@ -64,6 +64,7 @@ Proposed order: 2–3, then 4–6, then 7. He accepted the set in discussion and
 - 10 years with the wait (`GATE=1`), before rule 7: US 4 countries in 8.8 years, Russia 4 in 8.5, no default. Slightly faster than the target of one in 3 years, and the bot never pays the pretext penalty.
 - 8 years without the wait: US 5 in 6.5 years, Kyrgyzstan 0, no default (before rule 7: US defaulted at 2.9–3.3 years, Kyrgyzstan at 4.8).
 - Peace, Kyrgyzstan 10 years: treasury 15 → 160, surplus about 1.7% a year, inside the target.
+- After the energy rework, peace 10 years: Kyrgyzstan treasury 15 → 123, about 1.1% a year, just under the 1.3–3.5% target (it lost the money for surplus power). Germany 15 → 52, about 0.4% a year, was 54 before the rework, so energy is not the cause: big countries are under the target, check this next. Russia with `GATE=1`: 3 countries in 5.5 years, no errors.
 
 ## Measured on build ee778fe, before the flat economy (one run each, approval forced unless noted)
 Tools: `tools/sim/speedrun.js` (flags in its first line), `tools/sim/proto-rules.py`, `tools/sim/budget.js`. Use one country per process. With several wars at once the bot does not split machines, so `PAR=1`.
