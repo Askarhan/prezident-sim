@@ -42,12 +42,13 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Measured after it, one run each. `tools/sim/idle.js` is a player who does nothing: the daily balance drifts to −6…−15 million, the treasury is empty in about a year, then the minus goes to debt. `budget.js` bot, peace, 10 years: no game over, Kyrgyzstan treasury about 175, Germany 18–32. The bot earns under 1 billion from income buildings, its net +228 / +72 is taxes outrunning spending. Causes: the economy grows by itself (`trendGrowthYear`, Kyrgyzstan 4.9%, Germany 1.2%) and taxes follow `mg()`; `S.budFix` follows `mg()` too and holds the start interest (Kyrgyzstan pays 4.7%, Germany 2.5%); tax collection rises with education, research and ministries (`taxCompliance`); inflation eats Kyrgyzstan's debt.
 - Tested, not in the game. Same 2% growth: treasury 121 / 25. Zero trend: 84 / 45. Fixed part of `budFix`: net 151 / 44. Constant `mg()`: net 117 / 46, treasury 82 / 8. If he chooses that growth adds no money, cap `mg()` at `FLAT_GDP` instead of making it constant: war losses (rule 7) work through a falling `mg()`.
 - Done 04.11 (user's decision: "automatic growth is free money"): `trendGrowthYear` is gone, `growthMonthly` starts from `macroGrowth` only, so the Kyrgyz and German gap in growth left too. The cap on `mg()` was not needed. One run each, 10 years. Idle: economy about −0.4% a year (Kyrgyzstan 968, Germany 964, US 964 from 1000), Germany and US −10…−12 a day, Kyrgyzstan +7 a day and treasury 6.9 because inflation eats its debt. Bot: Kyrgyzstan treasury 72, Germany 42, net +187 / +77, economy ×1.1 both, no game over.
+- Done 04.11 (user's decisions): inflation no longer eats debt, debt falls only by repaying (cash in the treasury still loses to inflation). Rail is a fixed 3.4 billion (`RAIL_PRICE`), materials unchanged, income at most 1 billion a year. One run each, 10 years. Bot: Kyrgyzstan treasury 44, Germany 37, economy ×1.1 both, no game over. Idle: −16…−20 a day, debt 400 → about 445. The Kyrgyzstan and Germany gap of item 1 is closed.
 
 ## Next (order changed 04.11: the user dropped the phone test for now, do not wait for it or ask about it)
-1. Rail: he wants to work it out separately, it stays 12 billion (`railCost`) until then. Open: inflation still eats debt by itself (`S.debt *= 1 - k*0.8`, stronger in poor countries), the last small automatic money.
-2. «Окно исследований»: asked twice, he has not described what should change yet.
-3. Stock limit and coins, the rest of the resource step.
-4. Conquest speed re-measure. Bots now spend all their money on paid buildings, so re-check `tools/sim/speedrun.js`.
+1. «Окно исследований»: asked twice, he has not described what should change yet.
+2. Stock limit and coins, the rest of the resource step: no details here, discuss with him first.
+3. Conquest speed re-measure with `tools/sim/speedrun.js`: free income, automatic growth and debt erosion are gone, and bots spend all their money on paid buildings, so the old numbers are stale.
+4. `econ-bot.js` does not sell stock and barely builds income buildings, so it does not show a real player's path yet: teach it to sell before judging the balance of money.
 Then the old list: UI and polish, models, map, release.
 
 ## Now: flat economy stage (user's decisions, 03.11.2026)

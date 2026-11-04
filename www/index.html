@@ -5131,7 +5131,8 @@ function aiPower(c){ return c.army * 3 * techMult(c.tech); }
 
 function armsBuyers(){ return Object.values(C()).filter(x=>!x.owner && x.rel>=40 && !S.wars.some(w=>w.enemy===x.id)); }
 function railIncome(id){ const x = C()[id]; if (!x || x.owner || x.rel < 0) return 0; return Math.min(mg(), x.gdp)/12*0.001; }
-function railCost(){ return mg()*0.012; }
+const RAIL_PRICE = 3.4;   // user's decision 04.11, not tied to the economy
+function railCost(){ return RAIL_PRICE; }
 function railTotal(){ return railCost(); }
 function railMatOk(){ return S.stock.wood >= RAIL_MAT.wood && S.stock.steel >= RAIL_MAT.steel; }
 
@@ -6750,9 +6751,9 @@ function macroGrowth(){ return -Math.max(0, S.infl - 8)*0.00008 - (S.cb - neutra
 function macroMonth(b){
   S.infl += (inflTarget(b) - S.infl)*0.15 + rnd(-0.15, 0.15);
   S.unemp += (unempTarget() - S.unemp)*0.12 + rnd(-0.05, 0.05);
-  // inflation erodes the real value of debt and of cash in the treasury
+  // inflation erodes the cash in the treasury; debt falls only when the player repays it (user's decision 04.11)
   const k = Math.max(0, S.infl)/1200;
-  S.debt *= 1 - k*0.8; S.treasury *= 1 - k*0.3;
+  S.treasury *= 1 - k*0.3;
   if (S.infl > 40 && !S.flags.hyper){ S.flags.hyper = true; addLog("Гиперинфляция: цены растут на глазах, люди скупают доллары."); advise("econ", `Инфляция ${pct(S.infl)} в год! Поднимите ставку ЦБ и остановите печатный станок.`, {tab:"economy"}); }
   if (S.infl < 20) S.flags.hyper = false;
 }
