@@ -25,6 +25,7 @@ const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split
         if (day % 1800 === 0) row(day/360); }
       const B = X.budget(), G = X.me().gdp/12, P = k => `${k} ${(B[k]/G*100).toFixed(1)}`; out.push("доходы % ВВП: " + ["taxes","trade","objects","commod","arms","tourism","other"].map(P).join(" ") + " | всего " + (B.income/G*100).toFixed(1) + " | расходы: " + ["sectors","army","pens","wages","upkeep","interest","science","imports"].map(P).join(" ") + " | всего " + (B.spend/G*100).toFixed(1));
       out.push("сумма за всё время, млрд: " + Object.keys(sum).filter(k => Math.abs(sum[k]) >= 1).sort((a, b) => Math.abs(sum[b]) - Math.abs(sum[a])).map(k => `${k} ${Math.round(sum[k])}`).join(" "));
+      out.push("склад: " + Object.keys(S().stock).map(k => k + " " + Math.round(S().stock[k])).join(" "));
       return {c, out, why:JSON.stringify(why).replace(/"/g, ""), seen:JSON.stringify(seen).replace(/"/g, ""), over:S().over ? (S().overTitle || "конец") : ""}; }, [c, YEARS, NEEDS, NOTRADE]);
     console.log(r.c, NEEDS ? "с программами" : "без программ", NOTRADE ? "без договоров" : "", r.over); r.out.forEach(l => console.log(" ", l)); console.log("  отказы", r.why.slice(0, 200)); console.log("  стройка", r.seen.slice(0, 200)); }
   await b.close(); srv.close(); });

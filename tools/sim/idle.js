@@ -11,7 +11,7 @@ const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split
   for (const c of LIST){ const out = await pg.evaluate(([c, YEARS]) => { const X = SIM, S = () => X.S, out = []; X.newGame(c); X.ui.speed = 0; let B0 = X.budget();
       const day = v => Math.round(v*1000/30*10)/10;
       const row = y => { const B = X.budget(), ch = Object.keys(B).filter(k => typeof B[k] === "number" && !["income","spend","net"].includes(k) && Math.abs(day(B[k]) - day(B0[k])) >= 2).map(k => `${k} ${day(B0[k])}→${day(B[k])}`).join(", ");
-        out.push(`${y}г казна ${S().treasury.toFixed(2)} долг ${S().debt.toFixed(0)} экон ${Math.round(X.mg())} рост ${(X.growthMonthly()*1200).toFixed(2)}% в день ${day(B.net)} | ${ch}`); };
+        out.push(`${y}г казна ${S().treasury.toFixed(2)} долг ${S().debt.toFixed(0)} экон ${Math.round(X.mg())} рост ${(X.growthMonthly()*1200).toFixed(2)}% в день ${day(B.net)} склад ${Object.keys(S().stock).map(k => k + " " + Math.round(S().stock[k])).join(" ")} | ${ch}`); };
       row(0);
       for (let d = 1; d <= YEARS*360 && !S().over; d++){ S().pendingEvent = null; document.querySelectorAll(".modal").forEach(m => m.remove()); S().approval = Math.max(S().approval, 55); S().stability = Math.max(S().stability, 50); S().electionIn = 48;
         S().day = (S().day||1) + 1; X.dayTick(); if (S().day > X.daysIn(S().month, S().year)) X.nextMonth(); if ([30, 180, 360, 1800, 3600].includes(d)) row(d/360); }
