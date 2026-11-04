@@ -13,9 +13,9 @@ const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split
       const others = () => Object.values(S().countries).filter(x => !x.owner && x.id !== c && !S().wars.some(w => w.enemy === x.id));
       const row = y => { const g = X.me().gdp, n = Object.values(S().countries).filter(x => x.trade && !x.owner).length, cov = X.NEEDS.map(n => `${n[0].slice(0, 4)} ${Math.round(X.needCov(n[0])*100)}`).join(" ");
         out.push(`${y}г ВВП ${Math.round(g)} (×${(g/g0).toFixed(1)}) казна ${S().treasury.toFixed(1)} (${(S().treasury/g*100).toFixed(1)}%) долг ${(S().debt/g*100).toFixed(0)}% | сальдо/год ${(mon ? net/mon*12/g*100 : X.budget().net*12/g*100).toFixed(2)}% ВВП, программы ${(mon ? spent/mon*12/g*100 : 0).toFixed(2)}% | ${cov} | волн ${Math.round(S().unrest||0)} | договоров ${n}, рост ${(X.growthMonthly()*1200).toFixed(1)}%, техи ${((0.00125*X.tech("ai") + 0.0004*X.tech("fusion") + 0.00025*X.tech("gene"))*1200).toFixed(1)}%`); spent = net = mon = 0; };
-      row(0);
+      const sum = {}; row(0);
       for (let day = 1; day <= YEARS*360 && !S().over; day++){
-        if (S().day === 1){ mon++; net += X.budget().net || 0;
+        if (S().day === 1){ mon++; net += X.budget().net || 0; const Bm = X.budget(); Object.keys(Bm).forEach(k => { if (typeof Bm[k] === "number") sum[k] = (sum[k]||0) + Bm[k]; });
           if (NEEDS) X.NEEDS.forEach(n => Object.keys(X.FAC).filter(id => n[2].includes(X.FAC[id].cat) && !X.FAC[id].mil).forEach(id => {
             if (X.facCov(id)/X.facNorm(id) >= 1 || (S().progs||[]).some(p => p.id === id)) return; const k = X.facCanStart(id), cost = X.facProgCost(id);
             if (!k.ok){ const w = (k.why||"?").slice(0, 28); why[w] = (why[w]||0) + 1; return; } if (S().treasury < cost*1.1){ why.money = (why.money||0) + 1; return; } X.startProg(id); spent += cost; }));
@@ -24,6 +24,7 @@ const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split
         S().day = (S().day||1) + 1; X.dayTick(); if (S().day > X.daysIn(S().month, S().year)) X.nextMonth();
         if (day % 1800 === 0) row(day/360); }
       const B = X.budget(), G = X.me().gdp/12, P = k => `${k} ${(B[k]/G*100).toFixed(1)}`; out.push("доходы % ВВП: " + ["taxes","trade","objects","commod","arms","tourism","other"].map(P).join(" ") + " | всего " + (B.income/G*100).toFixed(1) + " | расходы: " + ["sectors","army","pens","wages","upkeep","interest","science","imports"].map(P).join(" ") + " | всего " + (B.spend/G*100).toFixed(1));
+      out.push("сумма за всё время, млрд: " + Object.keys(sum).filter(k => Math.abs(sum[k]) >= 1).sort((a, b) => Math.abs(sum[b]) - Math.abs(sum[a])).map(k => `${k} ${Math.round(sum[k])}`).join(" "));
       return {c, out, why:JSON.stringify(why).replace(/"/g, ""), seen:JSON.stringify(seen).replace(/"/g, ""), over:S().over ? (S().overTitle || "конец") : ""}; }, [c, YEARS, NEEDS, NOTRADE]);
     console.log(r.c, NEEDS ? "с программами" : "без программ", NOTRADE ? "без договоров" : "", r.over); r.out.forEach(l => console.log(" ", l)); console.log("  отказы", r.why.slice(0, 200)); console.log("  стройка", r.seen.slice(0, 200)); }
   await b.close(); srv.close(); });

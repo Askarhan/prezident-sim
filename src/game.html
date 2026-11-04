@@ -4768,7 +4768,7 @@ function fullDate(){ return `${S.day||1} ${MONTHS_GEN[S.month]} ${S.year}`; }
 /* ---------- Economy model ---------- */
 /* Flat money: every country counts its money from the same economy, FLAT_GDP a year, moved only by its own growth. me().gdp stays the real size:
    it is for comparing countries and for their strength. Annexed land does not add to it yet. */
-const FLAT_GDP = 1000, START_MONEY = 1, FREE_MONTH = 0.3, PAY_PC = 20;
+const FLAT_GDP = 1000, START_MONEY = 1, FREE_MONTH = 0, PAY_PC = 20;
 function mg(){ const c = me(), g = c.gdp - Object.values(S.occupied||{}).reduce((a,o) => a + (o.added||0), 0); return FLAT_GDP*Math.max(0.1, g/(S.gdp0 || g || 1)); }
 function gdppc(){ return me().gdp / me().pop; }
 function taxBurden(){ const t=S.taxes; return t.inc*0.35 + t.corp*0.25 + t.vat*0.4 + (t.exc||0)*0.15 + (t.eco||0)*0.1; }
@@ -5203,7 +5203,8 @@ function stabilityTarget(){
 function techCost(){ return mg() * 0.012 * me().tech; }
 function recruitAmount(){ return Math.max(2, me().army*0.05); }
 function recruitCost(){ const k = recruitAmount(); return k*0.004*PAY_PC * (lawOn("conscription")?0.5:1) * (ideo("nat")?0.8:1); }
-function improveCost(){ return Math.max(0.02, mg()*0.002); }
+const IMPROVE_PRICE = 0.2;   // base price of diplomacy and intel steps, 200 million, not tied to the economy (user's decision 04.11)
+function improveCost(){ return IMPROVE_PRICE; }
 // reach by land from our country or from any annexed one: annexations open the way further
 function nearReach(c){ return regionReach(landIsos(), c); }
 function canReach(c){ return nearReach(c) || (unitsOf(["carrier"]) > 0 && hasCoast() && hasCoast(c.id)); }

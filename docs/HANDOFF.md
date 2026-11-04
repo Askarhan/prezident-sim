@@ -38,8 +38,12 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 
 - Done 04.11 (user's report: the treasury jumped to −5, then +5, then 0): event choices, the aid fund, the unrest payment and the daily gifts were sums of 0.1–1% of the economy, 1–10 billion, unchecked against a treasury of about 1. They are fixed sums now, 10× smaller (100–600 million, gifts 0.3–1 billion, event loan +2 / debt +2.2). `settleCash` turns any minus into debt at once, in `dayTick`, `chooseEvent` and `nextMonth`, so the treasury never shows a minus. Still heavy, not touched: relations 2 billion, spy network 1, rail 12.
 
+- Done 04.11 (user's decisions: "money comes only from buildings and the player's actions"): `FREE_MONTH` = 0, so `S.budFix` leaves 0 a day at the start, not +10. `improveCost` is a fixed 200 million (`IMPROVE_PRICE`): relations 200, spy network 100 (`netCost`); everything built on it (spy operations, partner step, counter-intelligence, embassy, visit, culture, UN proposal) became 10× cheaper too.
+- Measured after it, one run each. `tools/sim/idle.js` is a player who does nothing: the daily balance drifts to −6…−15 million, the treasury is empty in about a year, then the minus goes to debt. `budget.js` bot, peace, 10 years: no game over, Kyrgyzstan treasury about 175, Germany 18–32. The bot earns under 1 billion from income buildings, its net +228 / +72 is taxes outrunning spending. Causes: the economy grows by itself (`trendGrowthYear`, Kyrgyzstan 4.9%, Germany 1.2%) and taxes follow `mg()`; `S.budFix` follows `mg()` too and holds the start interest (Kyrgyzstan pays 4.7%, Germany 2.5%); tax collection rises with education, research and ministries (`taxCompliance`); inflation eats Kyrgyzstan's debt.
+- Tested, not in the game. Same 2% growth: treasury 121 / 25. Zero trend: 84 / 45. Fixed part of `budFix`: net 151 / 44. Constant `mg()`: net 117 / 46, treasury 82 / 8. If he chooses that growth adds no money, cap `mg()` at `FLAT_GDP` instead of making it constant: war losses (rule 7) work through a falling `mg()`.
+
 ## Next (order changed 04.11: the user dropped the phone test for now, do not wait for it or ask about it)
-1. Heavy sums: relations 2 billion, spy network 1, rail 12. Also why Kyrgyzstan ends richer than Germany in peace.
+1. Waiting for his choice: should growth of the economy add money (lines above). Rail stays 12 billion (`railCost`), he wants to work it out separately.
 2. «Окно исследований»: asked twice, he has not described what should change yet.
 3. Stock limit and coins, the rest of the resource step.
 4. Conquest speed re-measure. Bots now spend all their money on paid buildings, so re-check `tools/sim/speedrun.js`.
