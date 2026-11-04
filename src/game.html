@@ -1579,7 +1579,7 @@ const BUILDINGS = {
   goldmine:{cat:"mat",name:"Золотая шахта",days:150,cost:0.007,desc:"золотые монеты для особых решений: +3 в месяц, каждая следующая шахта чуть меньше; одинаково во всех странах",scale:0.25,dscale:10,decay:0.93,req:{tech:"gold"}},
   chem:{cat:"ind",name:"Химический комбинат",days:240,cost:0.008,desc:"удобрения и взрывчатка: +2% продовольствия и боеприпасы быстрее на 4% за комбинат, считаются первые 5; нужна нефть от 80%",use:{oil:6},req:{res:{oil:80}}},
   auto:{cat:"ind",name:"Автозавод",days:300,cost:0.012,desc:"грузовики и двигатели: колонны быстрее на 3% и бронетехника быстрее на 4% за завод, считаются первые 5; нужна «Автоматизация»",use:{metal:8},req:{tech:"automation"}},
-  chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"нужны «Финтех» и образование 60",req:{tech:"fintech",cap:{edu:60}}},
+  chips:{cat:"ind",name:"Завод электроники",days:360,cost:0.018,roi:0.04,desc:"микросхемы и приборы: самолёты, вертолёты и ПВО выпускаются быстрее на 4%, исследования быстрее на 3% за завод, считаются первые 5; нужны «Финтех» и образование 60",req:{tech:"fintech",cap:{edu:60}}},
   bridge:{cat:"inf",name:"Мост",days:240,cost:0.005,roi:0.022,desc:"доход от перевозок, экспорт +3%",trade:0.03},
   highway:{cat:"inf",name:"Автомагистраль",days:300,cost:0.008,roi:0.025,desc:"доход от перевозок, снабжение на войне +2"},
   metro:{cat:"inf",name:"Метро",days:540,cost:0.02,roi:0.02,desc:"рейтинг +1; нужно 5 млн жителей и инфраструктура 50; 1 линия на 20 млн жителей",appr:1,req:{pop:5,cap:{infra:50}},perPop:20},
@@ -1862,7 +1862,7 @@ function plantOne(pid){ return (mg()*BUILDINGS[pid].cost/(1 - MAT_SHARE))*0.025;
 function plantCap(pid){ return plantOne(pid)*objOn(pid)*(1 + 0.5*tech("automation"))*milMult(); }
 function prodChoices(pid){ return MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => KINDS[m.kind].plant === pid); }
 function prodSpendMonthly(){ return Object.keys(PLANT_CAP).reduce((a,pid) => a + (S.prod[pid] && objOn(pid) ? plantCap(pid)*0.5 : 0), 0) + (objCount("ammoplant") ? ammoPlantCost() : 0); }
-const BONUS_MAX = 5, bonusN = id => Math.min(BONUS_MAX, builtOn(id)), fasterK = id => 1/(1 - 0.04*bonusN(id));   // industry gives a bonus only: no penalty without it, the first 5 count; each cuts production time by 4%
+const BONUS_MAX = 5, bonusN = id => Math.min(BONUS_MAX, builtOn(id)), fasterK = id => 1/(1 - 0.04*bonusN(id)), PLANT_FASTER = {tankplant:"auto", aviaplant:"chips", heliplant:"chips", samplant:"chips"}, plantFaster = pid => PLANT_FASTER[pid] ? fasterK(PLANT_FASTER[pid]) : 1;   // industry gives a bonus only: no penalty without it, the first 5 count; each cuts production time by 4%
 function ammoPlantOut(paid){ const n = objOn("ammoplant")*(1 + 0.5*tech("automation"))*milMult()*plantOne("ammoplant")/0.0712*(paid ? 1 : fasterK("chem")); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
 function ammoPlantCost(){ const o = ammoPlantOut(true); return Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].price*0.5, 0); }
 function armsExportIncome(){
@@ -1878,7 +1878,7 @@ function militaryProduction(){
     const id = S.prod[pid]; if (!id || !objOn(pid)) return;
     if (id.startsWith("ammo:")){ const t = id.slice(5); if (t === "missile" && !tlv("am_missile")) return; const q = Math.floor(plantCap(pid)/AMMO[t].price); if ((S.stock.rare||0) < q*ammoRare(t)){ addLog(`${BUILDINGS[pid].name}: не хватает редкоземельных металлов для боеприпасов.`); return; } if (S.stock.steel < q*AMMO[t].steel){ addLog(`${BUILDINGS[pid].name}: не хватает стали для выпуска.`); return; } S.stock.steel -= q*AMMO[t].steel; S.stock.rare = (S.stock.rare||0) - q*ammoRare(t); S.ammo[t] = (S.ammo[t]||0) + q; return; }
     const m = MODELS[id]; if (!m || !canProduceModel(id).ok) return;
-    S.prodAcc[pid] = (S.prodAcc[pid]||0) + plantCap(pid)*(pid === "tankplant" ? fasterK("auto") : 1);
+    S.prodAcc[pid] = (S.prodAcc[pid]||0) + plantCap(pid)*plantFaster(pid);
     let made = 0;
     while (S.prodAcc[pid] >= m.price){
       if (S.stock.steel < KINDS[m.kind].steel){ addLog(`${BUILDINGS[pid].name}: выпуск остановлен — не хватает стали.`); S.prodAcc[pid] = Math.min(S.prodAcc[pid], m.price); break; }
@@ -4475,7 +4475,7 @@ const TECH_BY = Object.fromEntries(TECH.map(t => [t.id, t]));
 function tlv(id){ return (S && S.rlv && S.rlv[id]) || 0; }
 function tech(id){ return TECH_EFF[Math.min(5, tlv(id))]; }
 function techCostLv(t, lv){ if (t.up) return t.cost + 20*(lv-1); return Math.round(t.cost*Math.pow(1.8, lv-1)); }
-function techDaysLv(t, lv){ if (t.up) return t.days; return Math.round(t.days*(1 + 0.45*(lv-1))); }
+function techDaysLv(t, lv){ return Math.round(t.days*(t.up ? 1 : 1 + 0.45*(lv-1))*(1 - 0.03*bonusN("chips"))); }
 function researching(id){ return (S.rq||[]).find(q => q.id === id); }
 function researchSlots(){ const n = objOn("institute"); return 1 + (n >= 3 ? 1 : 0) + (n >= 8 ? 1 : 0); }
 function techReqFail(t, lv){
