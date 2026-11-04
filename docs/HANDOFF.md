@@ -29,6 +29,10 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Still procedural: hq16 (no CC BY model found). S-500 borrows the S-400 (`BF3D_LIKE`, user's choice, its procedural .glb deleted).
 
 
+## Economy panels checked against the rules, 04.11 (user's request after his first look at the phone build)
+- Build, Economy and Trade screens now tell the current rules: no fake site limit or auto import, the build button no longer shows the value of materials (`buildTotal`, `matValue` removed, `b.scale` removed), `nextNote` shows what the next building loses, `instituteNext` the real points, income totals come from `objEarned`, start buildings are named as feeding the country only, hidden `b.use` is shown. Balance numbers did not change.
+- Open, needs his decision: «Объекты по стране» still cost by population and wealth (`facUnitCost` × `priceLevel`, `facBatch`), but money is flat. One batch of houses: Kyrgyzstan 10 million, US 10.9 billion, same income. Civil buildings of the Energy and Resources tabs keep materials from the old formula (farm 71 + 66, sawmill 500 + 500).
+
 ## Next (order agreed 04.11)
 1. The user's phone test: the economy, start money and paid buildings have never been played by a human. The 04.11 builds also test updating over the old app. Ask him what he noticed, above all when money starts to pile up with nothing to buy.
 2. «Окно исследований»: asked twice, he has not described what should change yet.
