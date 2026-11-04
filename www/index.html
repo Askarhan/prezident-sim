@@ -1776,6 +1776,10 @@ const ORIGIN_BLOC = iso => iso === "ru" || iso === "ir" ? "east" : iso === "cn" 
 function hasCoast(iso){ return !LANDLOCKED.has(iso || S.player); }
 function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return m.kind === "heli" ? "rotor" : (m.kind === "drone" || m.kind === "loiter") ? "drones" : {ground:"armor", air:"aviation", ad:"missile", navy:"aviation"}[k.cls]; }
 function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
+const MKT_LIM = {tank:120, ifv:200, apc:200, sph:60, mlrs:40, fighter:24, attack:24, heli:24, bomber:6}, MKT_OTHER = 30;   // market limit a year per country (user's decision 04.11), the rest only from own plants; IFV and APC share one limit
+function mktKey(kind){ return kind === "apc" ? "ifv" : kind; }
+function mktLim(kind){ return MKT_LIM[kind] || MKT_OTHER; }
+function mktLeft(kind){ if (!S.mkt || S.mkt.y !== S.year) S.mkt = {y:S.year}; return Math.max(0, mktLim(kind) - (S.mkt[mktKey(kind)]||0)); }
 function canBuyModel(id){
   const m = MODELS[id];
   if (m.req && me().gdp < m.req) return {ok:false, why:`только для стран с экономикой от ${money(m.req/365)} в день`};
@@ -1785,6 +1789,7 @@ function canBuyModel(id){
   const chk = canContract(m.origin); if (!chk.ok) return {ok:false, why:chk.why};
   const need = m.gen >= 3 ? 55 : m.gen === 2 ? 25 : 5;
   if (relOf(m.origin) < need && !(o && o.ally)) return {ok:false, why:`нужны отношения от +${need} с ${partnerName(m.origin)}`};
+  if (mktLeft(m.kind) <= 0) return {ok:false, why:`лимит рынка на ${S.year} год исчерпан, дальше своё производство`};
   return {ok:true, price:m.price*1.15, days:travelDays(m.origin)};
 }
 function canProduceModel(id){
@@ -1836,8 +1841,9 @@ function seaPower(units, share){ return Object.entries(units||{}).reduce((a,[id,
 function farWar(iso){ return !nearReach(C()[iso]); }
 function orderUnits(id, qty){
   const m = MODELS[id], chk = canBuyModel(id); if (!chk.ok) return toast(chk.why);
+  qty = Math.min(qty, mktLeft(m.kind));
   const cost = chk.price*qty; if (S.treasury < cost) return toast("Не хватает денег в бюджете.");
-  S.treasury -= cost; S.shipments = S.shipments || [];
+  S.treasury -= cost; S.mkt[mktKey(m.kind)] = (S.mkt[mktKey(m.kind)]||0) + qty; S.shipments = S.shipments || [];
   const ad = KINDS[m.kind].cls === "navy" ? 0 : airDays(chk.days), days = ad || chk.days;
   S.shipments.push({id:shipId(), from:m.origin, to:S.player, r:id, qty, left:days, total:days, dir:"in", cat:"unit", air:!!ad});
   addLog(`Закуплено: ${m.name} ×${qty} в стране ${partnerName(m.origin)} за ${money(cost)}. Доставка ~${days} дн.${ad ? " воздушным мостом" : ""}`);
@@ -5087,6 +5093,7 @@ function canBuild(id){
 }
 function armyUpkeepFull(){ return me().army*0.004*PAY_PC/12 + unitsUpkeepYear(S.units)/12; }
 // the start army is paid for by the country itself: only what is above it costs money, and disbanding it earns nothing
+function warCostMonthly(){ return S.wars.reduce((a, w) => a + 2*((w.men||0)*0.004*PAY_PC + unitsUpkeepYear(warUnits(w)))/12, 0); }   // a war costs double upkeep of the forces in it, on top of normal upkeep (user's decision 04.11)
 function armyUpkeepMonthly(){ if (S.army0 === undefined) S.army0 = armyUpkeepFull(); return Math.max(0, armyUpkeepFull() - S.army0); }
 function techMult(t){ return 1 + 0.25*t; }
 function rawPower(){ return (S.occupied ? freeArmy() : me().army) + unitsPower(S.units); }
@@ -5126,7 +5133,7 @@ function budget(){
   const laws = m * lawSum("cost");
   const interest = S.debt * debtRate() / 12;
   const pens = S.pens ? pensionCost() : 0, wages = S.wages ? wageCost() : 0, print = S.print ? printIncome() : 0;
-  const war = m * 0.012 * S.wars.length;
+  const war = warCostMonthly();
   const loans = loanIncome() + investIncome(), dipl = dipUpkeep() + orgDues();
   const other = m*(S.budFix||0);   // other revenue and spending of the state, set once at the start so every country begins with the same margin
   const income = taxes + Math.max(0,trade) + objects + rail + arms + commod + tourism + loans + print + Math.max(0, other);
@@ -7636,14 +7643,15 @@ function viewArmy(){
     if (tab === "navy" && !hasCoast()) body = `<div class="panel"><p class="muted" style="margin:0">У страны нет выхода к морю — флот недоступен. Его можно получить, присоединив прибрежную страну.</p></div>`;
     else body = Object.entries(KINDS).filter(([,k]) => k.cls === tab).map(([kid, k]) => {
       const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kid);
-      const have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0);
+      const have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0), left = mktLeft(kid), bq = Math.min(k.batch, left);
       return `<div class="panel"><div class="row"><h3>${ic(k.icon)} ${k.name}</h3><span class="num">${have.toLocaleString("ru-RU")} ед.</span></div>
+        <small class="muted">Рынок на ${S.year} год: можно купить ещё ${left} из ${mktLim(kid)}</small>
         <div class="unit-grid">${ms.map(m => { const n = S.units[m.id]||0, buy = canBuyModel(m.id), prod = canProduceModel(m.id);
           return `<div class="ucard ${n?"have":""}">
             <button class="uc-photo" data-uinfo="${m.id}" aria-label="Подробнее: ${esc(m.name)}"><img src="${photo(m.id)}" alt="" loading="lazy" draggable="false"><span class="gen g${m.gen}">${m.gen} пок.</span><i class="uc-i" aria-hidden="true">i</i></button>
             <div class="uc-name"><b>${flag(m.origin)} ${m.name}</b></div>
             <div class="row uc-meta"><span class="uc-pw">Мощь <b class="num">${m.pw.toLocaleString("ru-RU")}</b></span><span class="num ${n?"":"muted"}">В строю: <b>${n.toLocaleString("ru-RU")}</b></span></div>
-            <div class="btns">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*k.batch ? "disabled" : ""}>+${k.batch} · ${money(buy.price*k.batch)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}
+            <div class="btns">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*bq ? "disabled" : ""}>+${bq} · ${money(buy.price*bq)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}
               ${n ? `<button class="btn sm" data-act="sellunit" data-arg="${m.id}">Списать ${Math.min(n, k.batch)}</button>` : ""}</div>
           </div>`; }).join("")}</div></div>`; }).join("");
   } else if (tab === "bases"){
