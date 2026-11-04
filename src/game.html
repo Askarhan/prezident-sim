@@ -9289,7 +9289,7 @@ function newGame(id){
     if (c.region===mine.region) r += 15; else if (ADJ[mine.region].includes(c.region)) r += 5; c.rel = Math.round(clamp(r,-60,60)); });
   mine.owner = "player";
   S = { countries, player:id, turn:0, year:2027, month:0,
-    treasury: START_MONEY, debt: FLAT_GDP*0.4, approval:55, stability:60,
+    treasury: START_MONEY, debt: 0, approval:55, stability:60,
     taxes:{inc:13,corp:20,vat:12,exc:5,eco:2}, sectors:{health:1,edu:1,infra:1,police:1},
     laws:{}, buildings:{farm:0,oil:0,mine:0,power:0}, queue:[], mods:[], wars:[], log:[],
     hist:{gdp:[mine.gdp], appr:[55]}, terms:0, electionIn:48, lowStab:0, topMonths:0, adCd:0, eventCd:3,
