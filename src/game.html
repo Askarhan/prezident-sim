@@ -1431,25 +1431,7 @@ use.cu{fill:#000;stroke:none}
 .b-mats>span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
 .b-mats small{font-size:10.5px}
 :root .b-list{margin-top:6px;padding-bottom:0!important}
-.brow{display:grid;grid-template-columns:26px minmax(0,1fr) 92px 128px 132px;gap:8px;align-items:center;min-height:50px;padding:3px 0;border-top:1px solid var(--line)}
-.brow.have{background:rgb(212 175 55 / .09);box-shadow:inset 3px 0 0 var(--gold-hi);padding-left:6px}
-.brow.none .br-name b{color:var(--muted);font-weight:500}
-.br-ic{display:grid;place-items:center}
-.br-name{display:flex;flex-direction:column;gap:1px;min-width:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.br-name b{display:flex;align-items:center;gap:5px;min-width:0;font-size:13.5px;font-weight:600}
-.br-name small{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:11px;line-height:1.2;color:var(--muted)}
-.br-name small.down{color:var(--bad)}
-.br-name small b{display:inline;font-size:inherit}
-.br-name[aria-expanded="true"] .uk-go{transform:rotate(90deg)}
-.br-have{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.15}
-.br-have b{font-size:16px;color:var(--gold-hi)}
-.br-have small{font-size:10.5px;color:var(--muted)}
-.br-cost{display:flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:12px;white-space:nowrap}
-.br-cost span{display:inline-flex;align-items:center;gap:3px}
-.br-act{display:flex;justify-content:flex-end;min-width:0}
-.br-act .btn{white-space:nowrap}
 .tr-note.down{color:var(--bad)}
-.brow .tr-more{padding:2px 8px 8px 34px}
 .sum-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:6px}
 .sum-strip span{display:flex;flex-direction:column;align-items:center;min-width:0;padding:5px 4px;background:#131F33;border:1px solid var(--line);border-radius:3px;line-height:1.2}
 .sum-strip b{font-size:15px;color:var(--gold-hi);white-space:nowrap}
@@ -1487,8 +1469,11 @@ use.cu{fill:#000;stroke:none}
 .railed-main{min-width:0}
 .crail{position:sticky;top:0;z-index:2;display:flex;flex-direction:column;gap:1px}
 .crail-b{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:37px;padding:2px 0;border:0;border-left:2px solid transparent;border-radius:0 3px 3px 0;background:none;color:var(--muted);font:inherit;cursor:pointer}
+.b-rail .crail-b{min-height:32px;padding:0}
+.b-rail .gc-bar{flex-wrap:wrap;gap:0 3px;font-size:11px}
 .crail-b span{max-width:100%;overflow:hidden;font-size:9.5px;line-height:1.1;white-space:nowrap;text-overflow:ellipsis}
 .crail-b .pic{width:19px;height:19px}
+.b-rail .crail-b .pic{width:15px;height:15px}
 .crail-b[aria-pressed="true"]{border-left-color:var(--gold-hi);background:rgb(212 175 55 / .13);color:var(--gold-hi)}
 .gc-head{display:flex;align-items:baseline;gap:8px;margin:9px 0 5px;padding-top:5px;border-top:1px solid var(--line);font-size:12.5px}
 .gc-head small{min-width:0;overflow:hidden;font-size:10.5px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis}
@@ -5322,9 +5307,9 @@ function marketTurn(){
 }
 function canBuild(id){
   const b = BUILDINGS[id], r = b.req || {}, n = objCount(id) + queued(id);
+  if (r.coast && !hasCoast()) return {ok:false, why:"нужен выход к морю"};
   if (r.tech && !tech(r.tech) && !(r.tech === "geo" && ownOil())) return {ok:false, why:`нужна технология «${TECH.find(x=>x.id===r.tech).name}»`};
   if (r.res) for (const k in r.res) if (selfSuff(k) < r.res[k]) return {ok:false, why:`нужно ${RES.find(x=>x.id===k).name.toLowerCase()} от ${r.res[k]}%`};
-  if (r.coast && !hasCoast()) return {ok:false, why:"нужен выход к морю"};
   if (r.pop && me().pop < r.pop) return {ok:false, why:`нужно население от ${r.pop} млн`};
   if (r.cap) for (const k in r.cap) if (S.capital[k] < r.cap[k]) return {ok:false, why:`нужно накопленное ${k==="edu"?"образование":"инфраструктура"} ${r.cap[k]}`};
   if (b.max && n >= b.max) return {ok:false, why:`максимум ${b.max}`};
@@ -6266,7 +6251,7 @@ const TUT_STEPS = [
   {who:"sec", tab:"map", sel:"#worldmap path.m-player", text:"Это ваша страна. Нажмите на неё — откроется карточка с главными цифрами.", done:() => ui.mapSel === S.player},
   {who:"sec", sel:'[data-speed="1"]', text:"Время идёт, когда нажат ▶: дни бегут, казна пополняется, стройки растут. ⏸ ставит паузу. Запустите время.", done:() => ui.speed > 0},
   {who:"sec", tab:"science", sel:".tc.can", text:"Наука — двигатель страны. Нажмите на карточку и начните первое исследование: новые здания, ресурсы, техника.", done:b => (S.rq||[]).length > b.rq || Object.keys(S.rlv||{}).length > b.rlv},
-  {who:"econ", tab:"build", sel:() => S.buildCat !== "mat" ? '[data-buildcat="mat"]' : '[data-act="build"][data-arg="sawmill"]:not([disabled]), [data-act="build"]:not([disabled])', text:"Стройка. Лесопилка даёт древесину, металлургический завод — сталь: из них строится всё остальное. Заложите первый объект.", done:b => S.queue.length > b.queue || blt() > b.blt},
+  {who:"econ", tab:"build", sel:() => S.buildCat !== "mat" ? '[data-buildcat="mat"]' : '.gc[data-bld="sawmill"]:not(.lock), .gc[data-bld]:not(.lock)', text:"Стройка. Лесопилка даёт древесину, металлургический завод — сталь: из них строится всё остальное. Заложите первый объект.", done:b => S.queue.length > b.queue || blt() > b.blt},
   {who:"econ", tab:"economy", sel:"[data-tax]", look:3, text:"Бюджет и налоги. Доходы должны быть больше расходов: дефицит копит долг, а проценты съедают казну. Осмотритесь."},
   {who:"econ", tab:"trade", sel:".gc[data-good]:not(.lock)", look:3, text:"Торговля: биржа, договоры и закупки. Не хватает стали — купите здесь, но своя дешевле."},
   {who:"gen", tab:"army", sel:".hint-i, .uinfo, [data-uinfo]", look:3, text:"Армия: техника, боеприпасы, заводы. Нажмите на карточку: там описание и закупка. Без снарядов техника бьёт втрое слабее."},
@@ -6352,7 +6337,7 @@ const LESSONS = [
   {id:"deficit", who:"econ", title:"Дефицит бюджета", when:() => S.turn > 1 && budget().net < 0, pages:[
     {tab:"economy", sel:"[data-tax]", text:"Бюджет ушёл в минус. Поднимите налоги, урежьте расходы или стройте доходные объекты: долг растёт, проценты съедают казну."}]},
   {id:"shortage", who:"econ", title:"Нехватка ресурсов", when:() => S.turn > 1 && ["power", "food"].some(r => selfSuff(r) < 90), pages:[
-    {tab:"build", sel:'[data-act="build"]:not([disabled])', text:"Без энергии здания встают, без продовольствия падают рост и рейтинг. Стройте электростанции и агрокомплексы: каждая постройка закрывает несколько процентов потребности."}]},
+    {tab:"build", sel:'.gc[data-bld]:not(.lock)', text:"Без энергии здания встают, без продовольствия падают рост и рейтинг. Стройте электростанции и агрокомплексы: каждая постройка закрывает несколько процентов потребности."}]},
   {id:"coins", who:"sec", title:"Золотые монеты", when:() => (S.coins||0) >= 10, pages:[
     {tab:"map", sel:".k-coins", text:"Золотые монеты — особая валюта, одинаковая для всех стран. Их дают за обучение, цели, достижения и золотую шахту."}]},
   {id:"sanctions", who:"dipl", title:"Санкции", when:() => Object.values(C()).some(x => x.sanctionsUs && !x.owner), pages:[
@@ -7364,6 +7349,18 @@ function facEffectText(id){
   for (const k in F.fx){ const v = F.fx[k]*r*2; if (Math.abs(v) < 1e-9) continue; parts.push(k === "growth" ? `${L[k]} ${v>=0?"+":"−"}${Math.abs(v*1200).toFixed(2).replace(".",",")}%/год` : k === "pop" ? `${L[k]} ${v>=0?"+":"−"}${Math.abs(v*1200).toFixed(2).replace(".",",")}%/год` : k === "tax" || k === "tour" ? `${L[k]} ${v>=0?"+":"−"}${Math.abs(v*100).toFixed(1).replace(".",",")}%` : `${L[k]} ${v>=0?"+":"−"}${Math.abs(v).toFixed(1).replace(".",",")}`); }
   return parts.length ? `<span class="${r>0.005?"up":r<-0.005?"down":"muted"}">${parts.join(", ")}</span>` : `<span class="muted">как обычно</span>`;
 }
+function facGc(id){ const F = FAC[id], n = facCount(id), prog = S.progs.find(p => p.id === id), cov = F.mil && !MIL_CAP[F.mil] ? null : facCov(id)/(F.mil ? 1 : facNorm(id));
+  return gcard({attr:`data-fac="${id}"`, cls:prog || cov === null || cov >= 0.9 ? "have" : "none", pic:isoIcon(F.look, 54), n:fmtN(id === "house" ? facGood(id) : n), tag:prog ? `+${fmtN(prog.n)} · ${Math.ceil(prog.left)} дн.` : "", bar:cov === null ? "—" : `<b class="num ${cov < 0.9 ? "down" : cov > 1.05 ? "up" : ""}">${Math.round(cov*100)}%</b>`, name:F.name, two:1, label:F.name}); }
+function showFac(id){ liveSheet(() => { const F = FAC[id], n = facCount(id), prog = S.progs.find(p => p.id === id), chk = facCanStart(id), base = F.mil ? 1 : facNorm(id), cov = F.mil && !MIL_CAP[F.mil] ? null : facCov(id)/base;
+  modalRoot.innerHTML = sheetHtml(F.name, `<span class="gs-ico">${isoIcon(F.look, 44)}</span>`, `<div class="ts">
+    <div class="gs-row"><span class="muted">Сейчас</span><b class="num">${fmtN(id === "house" ? facGood(id) : n)}</b></div>
+    ${cov !== null ? `<div class="bar ${cov < 0.9 ? "low" : cov < 0.995 ? "mid" : "high"}"><i style="width:${Math.min(100, cov*100).toFixed(0)}%"></i></div><small class="muted">${F.mil ? "" : `норма ${fmtN(facNeed(id)*base)} · `}обеспеченность ${Math.round(cov*100)}%</small>` : ""}
+    ${F.desc ? `<div>${F.desc}</div>` : ""}
+    <div>${facEffectText(id)}</div>
+    ${prog ? `<div class="bar"><i style="width:${((1 - prog.left/prog.total)*100).toFixed(1)}%"></i></div><small class="muted">+${fmtN(prog.n)} · ещё ${Math.ceil(prog.left)} дн.</small>`
+      : `${chk.ok ? "" : `<small class="down">${chk.why}</small>`}<button class="btn ${chk.ok ? "primary" : ""}" data-prog="${id}" ${chk.ok ? "" : "disabled"}>+${fmtN(facProgN(id))} · ${money(facProgCost(id))} · ${Object.entries(facProgMat(id)).map(([r,q]) => `${ic(r,"sm")}${fmtQ(q)}`).join(" ")} · ${facProgDays(id)} дн.</button>`}
+  </div>`);
+}); }
 function facCard(id){
   const F = FAC[id], n = facCount(id), prog = S.progs.find(p => p.id === id), chk = facCanStart(id), need = facNeed(id);
   const base = F.mil ? 1 : facNorm(id), cov = F.mil && !MIL_CAP[F.mil] ? null : facCov(id)/base, normN = need*base;
@@ -7388,15 +7385,16 @@ function viewFacilities(){
       ${prog ? `<div class="f-prog"><div class="bar"><i style="width:${((1 - prog.left/prog.total)*100).toFixed(1)}%"></i></div><small class="muted">расселяем ${fmtN(prog.n)} · ещё ${Math.ceil(prog.left)} дн.</small></div>`
         : bad >= 1 ? `<button class="btn ${chk.ok?"primary":""} sm" data-prog="renov" ${chk.ok?"":"disabled"}>Расселить ${fmtN(facProgN("renov"))} · ${money(facProgCost("renov"))}</button>${chk.ok ? "" : `<small class="down">${chk.why}</small>`}` : ""}
     </div></div>`; })() : "";
-  return `<div class="panel fac-head">
+  return `<div class="railed"><nav class="crail" aria-label="Потребности">${NEEDS.map(([id, n, cs]) => { const v = needCov(id); return `<button class="crail-b" data-faccat="${cs[0]}" aria-pressed="${cs.includes(cat)}"><b class="num ${v < 0.9 ? "down" : v > 1.05 ? "up" : ""}">${Math.round(v*100)}%</b><span>${n}</span></button>`; }).join("")}</nav><div class="railed-main">
+    <div class="panel fac-head">
       <div class="row"><h3>Объекты по стране</h3><span class="num muted">Госпрограмм: ${S.progs.length}</span></div>
+      <div class="bstats"><span>Население <b class="num">${people(me().pop)}</b> · <b class="num ${popRate() < 1 ? "down" : ""}">${((popRate() - 1)*1200).toFixed(1).replace(".",",")}%</b> в год</span><span>Настроение <b class="num ${unrestStage() >= 2 ? "down" : ""}">${UNREST_NAME[unrestStage()]} · ${Math.round(S.unrest || 0)}</b></span></div>
       ${S.progs.length ? `<div class="bstats">${S.progs.map(p => `<span>${p.id === "renov" ? "Расселение" : FAC[p.id].name} +${fmtN(p.n)} <b class="num">${Math.ceil(p.left)} дн.</b></span>`).join("")}</div>` : ""}
       <div class="label">Норма растёт вместе с населением и богатством страны, а здания стареют. Выше нормы — бонусы, ниже — штрафы. Строят госпрограммы: партия — 5% нормы, цена партии одна во всех странах.</div>
     </div>
-    <div class="row"><span>Население <b class="num">${people(me().pop)}</b></span><span class="num ${popRate() < 1 ? "down" : ""}">${((popRate() - 1)*1200).toFixed(1).replace(".",",")}% в год</span></div>
-    <div class="row"><span>Настроение людей</span><span class="num ${unrestStage() >= 2 ? "down" : ""}">${UNREST_NAME[unrestStage()]} · ${Math.round(S.unrest || 0)}</span></div>
-    <div class="filters fac-cats">${NEEDS.map(([id,n,cs]) => { const v = needCov(id); return `<button class="chip" data-faccat="${cs[0]}" aria-pressed="${cs.includes(cat)}">${n} <b class="num ${v<0.9?"down":v>1.05?"up":""}">${Math.round(v*100)}%</b></button>`; }).join("")}</div>
-    <div class="fac-grid">${renov}${Object.keys(FAC).filter(id => (NEEDS.find(n => n[2].includes(cat)) || [0,0,[cat]])[2].includes(FAC[id].cat)).map(facCard).join("")}</div>`;
+    ${renov}
+    <div class="gcards">${Object.keys(FAC).filter(id => (NEEDS.find(n => n[2].includes(cat)) || [0,0,[cat]])[2].includes(FAC[id].cat)).map(facGc).join("")}</div>
+  </div></div>`;
 }
 
 function facCatCov(cat){
@@ -7456,15 +7454,18 @@ function viewBuild(){
   const sw = `<div class="filters build-mode"><button class="chip" data-buildmode="obj" aria-pressed="${mode==="obj"}">${ic("factory","sm")}Крупные объекты</button><button class="chip" data-buildmode="fac" aria-pressed="${mode==="fac"}">${ic("build","sm")}Объекты по стране</button>${mode === "obj" ? `<button class="pw-chip ${powerBalance()<0?"bad":""}" data-tab="economy" data-govtab-go2="energy">${ic("power","sm")} ${powerBalance()>=0?"Избыток":"Дефицит"} электроэнергии: <b class="num">${pw(powerBalance())}</b></button>` : ""}</div>`;
   return sw + (mode === "fac" ? viewFacilities() : viewBuildObj());
 }
-// one row per building (user's decision 05.11): how many we own is seen at once, the reason it is blocked sits on the row, details open on tap
-function viewBuildObj(){
-  const queued = t => S.queue.filter(q=>q.type===t).length;
-  const row = ([id, b]) => {
-    const chk = canBuild(id), up = objUpkeep(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat), q = queued(id);
-    const outR = b.out ? Object.keys(b.out)[0] : null, outQ = outR ? objOut(id) : 0;
-    const inc = outR ? (commodOpen(outR) ? outQ*commodPrice(outR) : 0) : objIncome(id)*upK(id);
-    const milOut = PLANT_CAP[id] !== undefined || id === "ammoplant" ? plantOne(id)*(1 + 0.5*tech("automation"))*milMult()*(id === "ammoplant" ? fasterK("chem") : plantFaster(id)) : 0, start = (S.mills0||{})[id]||0, off = pwOff(id), note = nextNote(id);
-    const resPct = b.cat === "res" ? 4/demandK() : 0, more = ui.bRow === id, miss = Object.keys(sh.miss);
+// Build cards (user's decision 05.11): count and price on the card, everything else in the sheet. Pictures come later: add the id to BLD_PICS, file icons/buildings/<id>.webp
+const BLD_PICS = new Set();
+const BLD_RAIL = [["energy","Энергия","power"],["mat","Материалы","wood"],["sci","Наука","rp"],["res","Ресурсы","food"],["ind","Промышл.","factory"],["inf","Транспорт","gdp"],["mil","Военные","milpower"]];
+function bldCard(id){ const b = BUILDINGS[id], chk = canBuild(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat), q = queued(id), off = pwOff(id), cost = buildCost(id);
+  const bar = [cost ? `<b class="num ${S.treasury < cost ? "down" : ""}">${money(cost).replace(" $", "")}</b>` : "", ...Object.entries(mat).map(([r, x]) => `${ic(r,"sm")}<b class="num ${sh.miss[r] ? "down" : ""}">${fmtQ(x)}</b>`)].filter(Boolean).join(" ") || "—";
+  return gcard({attr:`data-bld="${id}"`, cls:n ? "have" : chk.ok || chk.mat ? "none" : "lock", ...(BLD_PICS.has(id) ? {img:`icons/buildings/${id}.webp`} : {pic:ic(BUILD_ICON[id])}), n:n.toLocaleString("ru-RU"), tag:q ? `строится ${q}` : off ? `стоит ${off}` : "", bar, name:b.name, two:1, label:b.name}); }
+function showBuild(id){ liveSheet(() => {
+  const b = BUILDINGS[id], chk = canBuild(id), up = objUpkeep(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat), q = queued(id);
+  const outR = b.out ? Object.keys(b.out)[0] : null, outQ = outR ? objOut(id) : 0;
+  const inc = outR ? (commodOpen(outR) ? outQ*commodPrice(outR) : 0) : objIncome(id)*upK(id);
+  const milOut = PLANT_CAP[id] !== undefined || id === "ammoplant" ? plantOne(id)*(1 + 0.5*tech("automation"))*milMult()*(id === "ammoplant" ? fasterK("chem") : plantFaster(id)) : 0, start = (S.mills0||{})[id]||0, off = pwOff(id), note = nextNote(id);
+  const resPct = b.cat === "res" ? 4/demandK() : 0, miss = Object.keys(sh.miss);
     const stats = [
           `${outR ? `<span>Выпуск <b class="num">+${fmtQ(outQ)}</b>/мес</span>` : ""}`,
           `${outR && inc ? `<span>На бирже ≈ <b class="up num">+${money(inc)}</b>/мес</span>` : ""}`,
@@ -7480,29 +7481,29 @@ function viewBuildObj(){
           `${buildCost(id) ? `<span>Цена <b class="num ${S.treasury<buildCost(id)?"down":""}">${money(buildCost(id))}</b></span>` : ""}`,
           `${Object.keys(mat).length ? `<span class="mat">${Object.entries(mat).map(([r,q]) => `${ic(r,"sm")}<b class="num ${sh.miss[r]?"down":""}" title="${COMMOD[r].name}">${fmtQ(q)}</b>`).join(" ")}</span>` : ""}`
     ].filter(Boolean);
-    const tr = miss.map(r=>inTransit(r)).reduce((a,x)=>a+x,0), est = miss.reduce((a,r)=>{ const best = suppliers(r)[0]; return a + (best ? Math.max(0, Math.ceil(sh.miss[r]-inTransit(r)))*best.price : 0); }, 0), dd = Math.max(0, ...miss.map(r=>(suppliers(r)[0]||{days:0}).days));
-    return `<div class="brow ${n ? "have" : "none"} ${chk.ok?"":"blocked"}">
-      <span class="br-ic">${ic(BUILD_ICON[id])}</span>
-      <button class="br-name" data-brow="${id}" aria-expanded="${more}"><b>${b.name}<span class="uk-go" aria-hidden="true">›</span></b><small class="${chk.ok?"":"down"}">${chk.ok ? stats[0] : chk.why}</small></button>
-      <span class="br-have">${n ? `<b class="num">×${n}</b>${q ? `<small>+${q} строится</small>` : ""}` : q ? `<span class="ur-way">Строится: ${q}</span>` : `<span class="ur-none">Не построено</span>`}</span>
-      <span class="br-cost">${buildCost(id) ? `<b class="num ${S.treasury<buildCost(id)?"down":""}">${money(buildCost(id))}</b>` : ""}${Object.keys(mat).length ? `<span>${Object.entries(mat).map(([r,x]) => `${ic(r,"sm")}<b class="num ${sh.miss[r]?"down":""}" title="${COMMOD[r].name}">${fmtQ(x)}</b>`).join(" ")}</span>` : ""}</span>
-      <span class="br-act">${chk.mat && est > 0 ? `<button class="btn sm" data-act="ordermat" data-arg="${id}">Заказать · ${money(est)}</button>` : `<button class="btn sm ${chk.ok?"primary":""}" data-act="build" data-arg="${id}" ${chk.ok?"":"disabled"}>Построить</button>`}</span>
-      ${more ? `<div class="tr-more"><div class="tr-note">${b.desc}</div><div class="bstats">${stats.join("")}<span>Содержание <b class="down num">−${money(up)}</b>/мес</span><span>Срок <b class="num">${buildDays(id)} дн.</b></span></div>
-        ${note ? `<div class="tr-note">${note}</div>` : ""}
-        ${miss.length ? `<div class="tr-note down">Материалов нет на складе${tr ? ` · в пути ${tr}` : ""}${est > 0 ? ` · доставка ~${dd} дн.` : ""}</div>` : ""}
-        ${n && outR ? `<div class="tr-note">${start ? `Стартовые ×${start} кормят только страну.` : ""}${builtN(id) ? ` На склад идёт: <span class="up num">+${fmtQ(prodOf(outR))}</span>/мес` : ""}</div>` : n && inc ? `<div class="tr-note">Все ${n} приносят: <span class="up num">+${money(objEarned(id))}</span>/мес</div>` : ""}
-        ${off ? `<div class="tr-note down">Стоит без энергии: ${off}</div>` : ""}
-      </div>` : ""}
-    </div>`; };
-  return `<div class="panel b-top"><div class="row"><h3>Материалы</h3><span class="b-mats">${Object.entries(COMMOD).map(([r,d]) => `<span title="${d.name}">${ic(r,"sm")}<b class="num">${fmtQ(S.stock[r]||0)}</b>${commodOpen(r) && prodOf(r) ? `<small class="up">+${fmtQ(prodOf(r))}</small>` : ""}</span>`).join("")}</span></div>
+  const tr = miss.map(r=>inTransit(r)).reduce((a,x)=>a+x,0), est = miss.reduce((a,r)=>{ const best = suppliers(r)[0]; return a + (best ? Math.max(0, Math.ceil(sh.miss[r]-inTransit(r)))*best.price : 0); }, 0), dd = Math.max(0, ...miss.map(r=>(suppliers(r)[0]||{days:0}).days));
+  modalRoot.innerHTML = sheetHtml(b.name, `<span class="gs-ico">${ic(BUILD_ICON[id])}</span>`, `<div class="ts">
+    <div class="gs-row"><span class="muted">Построено</span><b class="num">${n}${q ? ` · ещё ${q} строится` : ""}</b></div>
+    <div>${b.desc}</div>
+    <div class="bstats">${stats.join("")}</div>
+    ${note ? `<div class="tr-note">${note}</div>` : ""}
+    ${miss.length ? `<div class="tr-note down">Материалов нет на складе${tr ? ` · в пути ${tr}` : ""}${est > 0 ? ` · доставка ~${dd} дн.` : ""}</div>` : ""}
+    ${n && outR ? `<div class="tr-note">${start ? `Стартовые ×${start} кормят только страну.` : ""}${builtN(id) ? ` На склад идёт: <span class="up num">+${fmtQ(prodOf(outR))}</span>/мес` : ""}</div>` : n && inc ? `<div class="tr-note">Все ${n} приносят: <span class="up num">+${money(objEarned(id))}</span>/мес</div>` : ""}
+    ${off ? `<div class="tr-note down">Стоит без энергии: ${off}</div>` : ""}
+    ${chk.ok ? "" : `<small class="down">${chk.why}</small>`}
+    ${chk.mat && est > 0 ? `<button class="btn primary" data-act="ordermat" data-arg="${id}">Заказать · ${money(est)}</button>` : `<button class="btn ${chk.ok ? "primary" : ""}" data-act="build" data-arg="${id}" ${chk.ok ? "" : "disabled"}>Построить</button>`}
+  </div>`);
+}); }
+function viewBuildObj(){
+  return `<div class="railed b-rail">${crail(BLD_RAIL, S.buildCat, "buildcat")}<div class="railed-main">
+    <div class="panel b-top"><div class="row"><h3>Материалы</h3><span class="b-mats">${Object.entries(COMMOD).map(([r,d]) => `<span title="${d.name}">${ic(r,"sm")}<b class="num">${fmtQ(S.stock[r]||0)}</b>${commodOpen(r) && prodOf(r) ? `<small class="up">+${fmtQ(prodOf(r))}</small>` : ""}</span>`).join("")}</span></div>
       <div class="label">Стартовые заводы кормят только страну, на склад идёт выпуск построенных вами. Недостающее можно заказать в строке здания или в «Торговле»: у каждого продавца лимит в месяц.</div>
       <div class="label">Строить можно сразу несколько объектов, лимита нет. Материалы списываются со склада при закладке, каждое следующее здание того же типа дороже на 2%.</div></div>
     ${S.queue.length ? foldSec("bqsec", ui.bqOpen ?? "queue", "queue", "Сейчас строится", `объектов: ${S.queue.length}`, false, `<div class="tr-body"><div class="queue">${S.queue.map((q,i)=>`<div class="qitem"><div class="row"><b class="bname">${ic(BUILD_ICON[q.type])}${BUILDINGS[q.type].name}</b><span class="num muted" data-qdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar"><i data-qprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div>${q.boosted ? `<span class="tr-note">Ускорено</span>` : q.left > 31 ? `<button class="btn ad-btn" data-boost="${i}">${ic("play","sm")} −30 дней за рекламу</button>` : ""}</div>`).join("")}</div>${selfSuff("metal")<60 ? `<div class="tr-note down">Нехватка руды: стройки идут вдвое медленнее.</div>` : ""}</div>`) : ""}
-    <div class="panel b-list">
-      <div class="row pw-chip-row"><div class="filters">${BUILD_CATS.map(([id,n])=>`<button class="chip" data-buildcat="${id}" aria-pressed="${S.buildCat===id}">${n}</button>`).join("")}</div></div>
-      ${Object.entries(BUILDINGS).filter(([id,b])=>b.cat===S.buildCat).map(row).join("")}
-    </div>`;
+    <div class="gcards">${Object.keys(BUILDINGS).filter(id => BUILDINGS[id].cat === S.buildCat).map(bldCard).join("")}</div>
+  </div></div>`;
 }
+
 
 /* Research board (user's decision 05.11): rows are branches, columns tiers I–IV, lines are real requirements. A tap opens the sheet. */
 const SCI_BOARD = [["geo","Недра",[["geo","rareearth","uranium","exchange"],[null,"gold","refining"]]],["econ","Экономика"],["res","Ресурсы"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["nav","Флот"],["ammo","Боеприпасы",[["am_small","am_atgm"],["am_shell","am_rocket","am_sam","am_missile"],[null,"am_bomb","am_warhead"]]],["nuc","Ядерная"],["log","Логистика"],["up","Здания"]].map(([br, name, rows]) => {
@@ -9487,7 +9488,7 @@ document.addEventListener("click", e => {
   if (t.dataset.nuke){ const w = S.wars.find(x => x.enemy === t.dataset.nuke); if (w) nuclearStrike(w); save(); render(); return; }
   if (t.dataset.science !== undefined){ minSet("science", [0,3,6,10][+t.dataset.science]); save(); render(); liveRefresh(); return; }
   if (t.dataset.sector){ S.sectors[t.dataset.sector] = +t.dataset.level; save(); render(); return; }
-  if (t.dataset.prog){ startProg(t.dataset.prog); return; }
+  if (t.dataset.prog){ startProg(t.dataset.prog); liveRefresh(); return; }
   if (t.dataset.dip){ dipAct(t.dataset.dip, ui.ctry); return; }
   if (t.dataset.print !== undefined){ S.print = +t.dataset.print; save(); render(); return; }
   if (t.dataset.repay){ repay(t.dataset.repay); return; }
@@ -9508,7 +9509,8 @@ document.addEventListener("click", e => {
   if (t.dataset.buildmode){ S.buildMode = t.dataset.buildmode; save(); render(); return; }
   if (t.dataset.govtab){ const [k, v] = t.dataset.govtab.split(":"); S[k] = v; save(); render(); return; }
   if (t.dataset.bqsec){ ui.bqOpen = (ui.bqOpen ?? "queue") === "queue" ? "" : "queue"; render(); return; }
-  if (t.dataset.brow){ ui.bRow = ui.bRow === t.dataset.brow ? null : t.dataset.brow; render(); return; }
+  if (t.dataset.bld){ showBuild(t.dataset.bld); return; }
+  if (t.dataset.fac){ showFac(t.dataset.fac); return; }
   if (t.dataset.sumsec){ ui.sumOpen = sumOpenId() === t.dataset.sumsec ? "" : t.dataset.sumsec; render(); return; }
   if (t.hasAttribute("data-sumnews")){ ui.sumNews = !ui.sumNews; render(); return; }
   if (t.dataset.trsec){ ui.trOpen = (ui.trOpen ?? "stock") === t.dataset.trsec ? "" : t.dataset.trsec; render(); return; }
