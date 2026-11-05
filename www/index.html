@@ -1544,6 +1544,47 @@ use.cu{fill:#000;stroke:none}
 .gs-head h2{flex:1;min-width:0;margin:0;font-size:17px}
 .gs-ico img{display:block;width:40px;height:40px}
 .gs-face .portrait{display:block;border-radius:4px}
+.sb-top{display:flex;align-items:center;gap:12px;width:100%;min-height:34px;margin-bottom:8px;padding:3px 10px;border:1px solid var(--line);border-radius:4px;background:rgb(255 255 255 / .04);color:var(--ink);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.sb-top>.pic{flex:none;width:18px;height:18px;margin-right:-6px}
+.sb-top b{color:var(--gold-hi)}
+.sb-top em{margin-left:auto;font-size:11.5px;font-style:normal;color:var(--muted);white-space:nowrap}
+.sb-wrap{display:flex;gap:6px;overflow-x:auto}
+.sb-rail,.sb-tree{display:grid;grid-auto-rows:60px;row-gap:8px}
+.sb-rail{position:sticky;left:0;z-index:2;flex:none;width:64px;background:var(--panel)}
+.sb-rail span{display:flex;align-items:center;padding-left:6px;border-left:2px solid var(--gold-lo);font-size:10.5px;color:var(--muted)}
+.sb-tree{position:relative;flex:1;min-width:600px;grid-template-columns:repeat(4,22%);column-gap:4%}
+.sb-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.sb-links path{fill:none;stroke:var(--line-2);stroke-width:1.5;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.sb-links path.on{stroke:var(--gold)}
+.sb-links path.sep{stroke:var(--line);stroke-width:1;stroke-dasharray:none}
+.tc{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);grid-template-rows:minmax(0,1fr) 18px;min-width:0;padding:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel-2);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.tc:active{border-color:var(--gold-hi)}
+.tc-ic{display:flex;align-items:center;justify-content:center}
+.tc-ic img,.tc-ic svg,.tc-ic .pic{display:block;width:27px;height:27px}
+.tc-n{align-self:center;display:-webkit-box;padding:0 19px 0 3px;overflow:hidden;font-size:11.5px;line-height:1.15;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.tc-t{position:absolute;top:2px;right:2px;min-width:15px;padding:0 2px;border-radius:2px;font-size:9.5px;font-weight:700;line-height:13px;text-align:center;color:#0A111D}
+.tc-t.t1{background:#8E9AB0}
+.tc-t.t2{background:var(--good)}
+.tc-t.t3{background:var(--state)}
+.tc-t.t4{background:#C9A2E8}
+.tc-f{grid-column:1/-1;display:flex;align-items:center;gap:6px;padding:0 5px;background:rgb(0 0 0 / .24);font-size:11px;color:var(--muted)}
+.tc-c{display:flex;align-items:center;gap:2px;white-space:nowrap}
+.tc-c .pic{width:12px;height:12px}
+.tc-b{flex:1;min-width:0;height:4px;border-radius:2px;overflow:hidden;background:rgb(255 255 255 / .1)}
+.tc-b b{display:block;height:100%;background:var(--gold)}
+.tc.can{border-color:var(--gold-lo)}
+.tc.can .tc-c{color:var(--gold-hi)}
+.tc.lock{background:var(--panel)}
+.tc.lock .tc-ic{filter:grayscale(1);opacity:.45}
+.tc.lock .tc-n,.tc.lock .tc-f{opacity:.55}
+.tc.lock .tc-t{opacity:.5}
+.tc.run{border-color:var(--state)}
+.tc.run .tc-b b{background:var(--state)}
+.tc.run .tc-c{color:var(--state)}
+.tc.max{border-color:var(--gold-hi)}
+.tc.max .tc-c{color:var(--gold-hi)}
+.ts{display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.ts-fx small{display:block;margin-bottom:1px;color:var(--muted)}
 .gs-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ui-x{flex:none;width:30px;height:30px;padding:0;border:1px solid var(--line-2);border-radius:3px;background:none;color:var(--ink);font-size:14px;cursor:pointer}
 .dip-head,.dip-line{display:grid;grid-template-columns:minmax(0,1fr) 62px 150px minmax(0,190px) 10px;gap:10px;align-items:center;width:100%;box-sizing:border-box;padding:0 4px}
@@ -4712,11 +4753,11 @@ function researchDay(){
 }
 function boostResearch(i){
   const q = S.rq[i]; if (!q || q.boosted) return;
-  rewardAd("Награда: исследование на 25% быстрее", () => { q.left = Math.max(1, Math.round(q.left - q.total*0.25)); q.boosted = true; toast(`${TECH_BY[q.id].name}: −25% времени`); });
+  rewardAd("Награда: исследование на 25% быстрее", () => { q.left = Math.max(1, Math.round(q.left - q.total*0.25)); q.boosted = true; toast(`${TECH_BY[q.id].name}: −25% времени`); liveRefresh(); });
 }
 function adPoints(){
   if ((S.rpAdCd||0) > 0) return;
-  rewardAd("Награда: гранты учёным", () => { const v = Math.round(25 + rpMonthly()*1.5); S.rp += v; S.rpAdCd = 3; floatText(S.player, `+${v} ОИ`, "cargo"); });
+  rewardAd("Награда: гранты учёным", () => { const v = Math.round(25 + rpMonthly()*1.5); S.rp += v; S.rpAdCd = 3; floatText(S.player, `+${v} ОИ`, "cargo"); liveRefresh(); });
 }
 // ammunition quality multipliers for combat
 function ammoMult(kind, foe){
@@ -6212,7 +6253,7 @@ const TUT_COINS = 2;
 const TUT_STEPS = [
   {who:"sec", tab:"map", sel:"#worldmap path.m-player", text:"Это ваша страна. Нажмите на неё — откроется карточка с главными цифрами.", done:() => ui.mapSel === S.player},
   {who:"sec", sel:'[data-speed="1"]', text:"Время идёт, когда нажат ▶: дни бегут, казна пополняется, стройки растут. ⏸ ставит паузу. Запустите время.", done:() => ui.speed > 0},
-  {who:"sec", tab:"science", sel:"[data-research]:not([disabled])", text:"Наука — двигатель страны. Выберите первое исследование: новые здания, ресурсы, техника.", done:b => (S.rq||[]).length > b.rq || Object.keys(S.rlv||{}).length > b.rlv},
+  {who:"sec", tab:"science", sel:".tc.can", text:"Наука — двигатель страны. Нажмите на карточку и начните первое исследование: новые здания, ресурсы, техника.", done:b => (S.rq||[]).length > b.rq || Object.keys(S.rlv||{}).length > b.rlv},
   {who:"econ", tab:"build", sel:() => S.buildCat !== "mat" ? '[data-buildcat="mat"]' : '[data-act="build"][data-arg="sawmill"]:not([disabled]), [data-act="build"]:not([disabled])', text:"Стройка. Лесопилка даёт древесину, металлургический завод — сталь: из них строится всё остальное. Заложите первый объект.", done:b => S.queue.length > b.queue || blt() > b.blt},
   {who:"econ", tab:"economy", sel:"[data-tax]", look:3, text:"Бюджет и налоги. Доходы должны быть больше расходов: дефицит копит долг, а проценты съедают казну. Осмотритесь."},
   {who:"econ", tab:"trade", sel:".gc[data-good]:not(.lock)", look:3, text:"Торговля: биржа, договоры и закупки. Не хватает стали — купите здесь, но своя дешевле."},
@@ -7451,24 +7492,60 @@ function viewBuildObj(){
     </div>`;
 }
 
+/* Research board (user's decision 05.11): rows are branches, columns tiers I–IV, lines are real requirements. A tap opens the sheet. */
+const SCI_BOARD = [["geo","Недра",[["geo","gold","uranium","exchange"],[null,"rareearth","refining"]]],["econ","Экономика"],["res","Ресурсы"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["ammo","Боеприпасы",[["am_small","am_atgm"],["am_shell","am_rocket","am_sam","am_missile"],[null,"am_bomb","am_warhead"]]],["nuc","Ядерная"],["up","Здания"]].map(([br, name, rows]) => {
+  const ids = TECH.filter(t => t.br === br).sort((x, y) => x.tier - y.tier).map(t => t.id);
+  if (!rows) rows = br === "up" ? Array.from({length:Math.ceil(ids.length/4)}, (_, k) => ids.slice(k*4, k*4 + 4)) : [ids];
+  return {br, name, rows};
+});
+const TECH_POS = {}, SB_H = 60, SB_G = 8; let SB_ROWS = 0;
+SCI_BOARD.forEach(b => { b.r = SB_ROWS; b.rows.forEach((row, i) => row.forEach((id, c) => { if (id) TECH_POS[id] = [SB_ROWS + i, c]; })); SB_ROWS += b.rows.length; });
+const TECH_IC = {egov:"politics",automation:"factory",fintech:"money",ai:"economy",smartgrid:"power",agro:"food",deep:"ore",fusion:"uran",telemed:"approval",vaccines:"stability",gene:"rp",longevity:"population",comms:"cls_bases",drones:"cls_air",missile:"sam",cyber:"intel",armor:"tank",rotor:"heli",aviation:"jet",armsexport:"trade",geo:"oil",gold:"gold",rareearth:"rare",uranium:"uran",refining:"factory",exchange:"budget",am_small:"cls_ground",am_shell:"cls_ammo",am_atgm:"tank",am_rocket:"cls_ammo",am_bomb:"plane",am_sam:"sam",am_warhead:"alert",am_missile:"cls_air",nuc_enrich:"uran",nuc_reactor:"power",nuc_bomb:"alert",nuc_carrier:"cls_ammo",up_sawmill:"wood",up_steelworks:"steel",up_oilrig:"oil",up_raremine:"rare",up_uranmine:"uran",up_chips:"rp",up_bridge:"bridge",up_highway:"road",up_metro:"metro",up_airport:"plane",up_port:"port"};
+const techIc = t => ic(TECH_IC[t.id] || "factory");
+const techDeps = t => t.up ? [] : t.req ? Object.keys(t.req) : t.tier > 1 ? TECH.filter(x => x.br === t.br && x.tier === t.tier-1).slice(0, 1).map(x => x.id) : [];
+// x is in units of a board 1000 wide (a column 220, a gap 40), y in pixels
+function sbLink(a, t){
+  const [r1, c1] = TECH_POS[a], [r2, c2] = TECH_POS[t.id], y = r => r*(SB_H + SB_G) + SB_H/2, x1 = c1*260 + 220, x2 = c2*260, y1 = y(r1), y2 = y(r2);
+  if (c1 === c2) return `M${x2 + 110} ${y1 + SB_H/2}V${y2 - SB_H/2}`;
+  if (TECH_BY[a].br !== t.br) return "";
+  if (r1 === r2 && c2 === c1 + 1) return `M${x1} ${y1}H${x2}`;
+  if (c2 === c1 + 1) return `M${x1} ${y1}H${x1 + 20}V${y2}H${x2}`;
+  const ch = y2 - (SB_H + SB_G)/2;
+  return `M${x1} ${y1}H${x1 + 20}V${ch}H${x2 - 20}V${y2}H${x2}`;
+}
+function techCard(t){
+  const lv = tlv(t.id), nx = lv + 1, i = (S.rq||[]).findIndex(q => q.id === t.id), q = i < 0 ? null : S.rq[i], maxed = lv >= t.max;
+  const why = maxed ? null : techReqFail(t, nx), cost = maxed ? 0 : techCostLv(t, nx), st = maxed ? "max" : q ? "run" : why && !lv ? "lock" : !why && S.rp >= cost && (S.rq||[]).length < researchSlots() ? "can" : "wait";
+  const [r, c] = TECH_POS[t.id], fill = q ? `data-rqprog="${i}" style="width:${((1 - q.left/q.total)*100).toFixed(1)}%"` : `style="width:${lv/t.max*100}%"`;
+  return `<button class="tc ${st}" data-tech="${t.id}" style="grid-row:${r + 1};grid-column:${c + 1}" aria-label="${esc(t.name)}">
+    <span class="tc-ic">${techIc(t)}</span><span class="tc-n">${t.name}</span>${t.up ? "" : `<span class="tc-t t${t.tier}">${roman(t.tier)}</span>`}
+    <span class="tc-f"><span class="tc-c num" ${q ? `data-rqdays="${i}"` : ""}>${q ? `${Math.ceil(q.left)} дн.` : maxed ? "макс." : `${ic("rp")}${cost}`}</span><span class="tc-b">${t.up && !q ? "" : `<b ${fill}></b>`}</span><span class="num">${t.up ? `ур. ${lv}` : `${lv}/${t.max}`}</span></span>
+  </button>`;
+}
 function viewScience(){
+  const f1 = v => (Math.round(v*10)/10).toString().replace(".", ","), H = SB_ROWS*(SB_H + SB_G) - SB_G;
+  const seps = SCI_BOARD.slice(1).map(b => `<path class="sep" d="M0 ${b.r*(SB_H + SB_G) - SB_G/2}H1000"/>`).join("");
+  const links = TECH.flatMap(t => techDeps(t).map(a => [a, t])).map(([a, t]) => { const d = sbLink(a, t); return d ? `<path class="${tlv(a) ? "on" : ""}" d="${d}"/>` : ""; }).join("");
+  return `<button class="sb-top" data-scilabs>${ic("rp")}<b class="num"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span> ОИ</b><span class="num">+${f1(rpMonthly())} в месяц</span><span>Лаборатории <b class="num">${(S.rq||[]).length}/${researchSlots()}</b></span><em>Финансирование, НИИ ›</em></button>
+  <div class="sb-wrap"><div class="sb-rail">${SCI_BOARD.map(b => `<span style="grid-row:span ${b.rows.length}">${b.name}</span>`).join("")}</div>
+    <div class="sb-tree"><svg class="sb-links" viewBox="0 0 1000 ${H}" preserveAspectRatio="none" aria-hidden="true">${seps}${links}</svg>${TECH.map(techCard).join("")}</div></div>`;
+}
+function showTech(id){ liveSheet(() => {
+  const t = TECH_BY[id], lv = tlv(id), nx = lv + 1, maxed = lv >= t.max, i = (S.rq||[]).findIndex(q => q.id === id), q = i < 0 ? null : S.rq[i];
+  const cost = maxed ? 0 : techCostLv(t, nx), why = maxed ? null : techReqFail(t, nx), busy = (S.rq||[]).length >= researchSlots();
+  const block = q ? "" : why || (maxed ? "" : busy ? "Все лаборатории заняты: 3 НИИ — 2 направления, 8 НИИ — 3." : S.rp < cost ? `Не хватает очков: нужно ${cost}, есть ${Math.floor(S.rp)}.` : "");
+  modalRoot.innerHTML = sheetHtml(t.name, `<span class="gs-ico">${techIc(t)}</span>`, `<div class="ts">
+    <div class="gs-row"><span class="muted">Уровень</span><b class="num">${t.up ? lv : `${lv} из ${t.max}`}</b></div>
+    ${lv ? `<div class="ts-fx"><small>Сейчас (${roman(lv)})</small>${fxText(t, lv)}</div>` : ""}
+    ${maxed ? `<span class="pill good">Максимум</span>` : `<div class="ts-fx"><small>${q ? "Исследуется" : "Следующий"} уровень ${roman(nx)}</small>${fxText(t, nx)}</div>`}
+    ${q ? `<div class="bar high"><i data-rqprog="${i}" style="width:${((1 - q.left/q.total)*100).toFixed(1)}%"></i></div><div class="gs-row"><span class="muted">Осталось</span><span class="num" data-rqdays="${i}">${Math.ceil(q.left)} дн.</span></div>${q.boosted ? `<span class="label">Ускорено</span>` : `<button class="btn ad-btn" data-rqboost="${i}">${ic("play","sm")} −25% времени за рекламу</button>`}` : ""}
+    ${maxed || q ? "" : `<div class="gs-row"><span class="muted">Цена</span><b class="num">${cost} ОИ · ${techDaysLv(t, nx)} дн.</b></div>${block ? `<small class="down">${block}</small>` : ""}<button class="btn primary" data-research="${id}" ${block ? "disabled" : ""}>Исследовать</button>`}
+    ${t.br === "nuc" ? `<div class="tr-note">${ic("alert")} <span>Ядерная программа поднимает репутацию агрессора, вызывает вопросы МАГАТЭ и может спровоцировать удар по вашим центрам обогащения. Зато бомба сдерживает врагов. Боеголовок в арсенале: <b class="num">${S.nukes||0}</b>.</span></div>` : t.br === "ammo" ? `<div class="tr-note">Каждый уровень открывает более мощный тип боеприпаса: техника этого вида бьёт сильнее. Крылатые ракеты нельзя купить или произвести без «Ракет I».</div>` : ""}
+  </div>`);
+}); }
+function showLabs(){ liveSheet(() => {
   const inc = rpIncome(), slots = researchSlots(), f1 = v => (Math.round(v*10)/10).toString().replace(".", ",");
-  const card = t => {
-    const lv = tlv(t.id), nx = lv + 1, q = researching(t.id), maxed = lv >= t.max;
-    const why = maxed ? null : techReqFail(t, nx), cost = maxed ? 0 : techCostLv(t, nx);
-    const pips = Array.from({length:t.max}, (_, k) => `<i class="${k < lv ? "on" : q && k === lv ? "wip" : ""}"></i>`).join("");
-    return `<div class="tech ${lv ? "done" : ""} ${q ? "active" : ""} ${!lv && why ? "locked" : ""}">
-      <div class="row"><b>${t.name}</b><span class="pips">${pips}</span></div>
-      ${lv ? `<small><b>Сейчас (${roman(lv)}):</b> ${fxText(t, lv)}</small>` : ""}
-      ${maxed ? `<span class="pill good">Максимум</span>` : q ? `<div class="bar high"><i style="width:${(1-q.left/q.total)*100}%"></i></div><span class="label num">Ур. ${roman(q.lv)} · осталось ${Math.ceil(q.left)} дн.</span>`
-        : `<small class="muted"><b>Ур. ${roman(nx)}:</b> ${fxText(t, nx)}</small>
-          <div class="row"><span class="label num">${cost} ОИ · ${techDaysLv(t, nx)} дн.</span>
-          ${why ? `<small class="down">${why}</small>` : `<button class="btn ${S.rp >= cost && (S.rq||[]).length < slots ? "primary" : ""} sm" data-research="${t.id}" ${S.rp >= cost && (S.rq||[]).length < slots ? "" : "disabled"}>Исследовать</button>`}</div>`}
-    </div>`;
-  };
-  const tab = ui.sciTab || "geo";
-  return `<div class="grid2">
-    <div class="panel">
+  modalRoot.innerHTML = sheetHtml("Наука", `<span class="gs-ico">${ic("rp")}</span>`, `<div class="ts">
       <div class="row"><h3>Очки исследований</h3><span class="num rp-big"><span data-rp>${Math.floor(S.rp).toLocaleString("ru-RU")}</span> ОИ</span></div>
       <div class="row"><span>Приток в месяц</span><span class="num up">+${f1(inc.total)}</span></div>
       <div class="bstats"><span>База <b>${f1(inc.parts.base)}</b></span><span>Образование <b>×${f1(inc.parts.edu)}</b></span><span>Финансирование <b>${f1(inc.parts.fund)}</b></span><span>НИИ ×${objCount("institute")} <b>${f1(inc.parts.inst)}</b></span><span>Научные союзы <b>${f1(inc.parts.pacts)}</b></span>${inc.mult > 1 ? `<span>Технократия <b>×1,3</b></span>` : ""}</div>
@@ -7476,18 +7553,12 @@ function viewScience(){
         ${[0,1,2,3].map(l=>`<button data-science="${l}" aria-pressed="${[0,3,6,10][l]===minLvl("science")}">${["0","Мин","Норм","Макс"][l]}</button>`).join("")}</span></div>
       <div class="btns"><button class="btn" data-tab="build" data-buildcat-go="sci">${ic("science","sm")} Построить НИИ</button><button class="btn ad-btn" data-rpad ${(S.rpAdCd||0) > 0 ? "disabled" : ""}>${ic("play","sm")} ${(S.rpAdCd||0) > 0 ? `Гранты через ${S.rpAdCd} мес.` : `+${Math.round(25 + rpMonthly()*1.5)} ОИ за рекламу`}</button></div>
       <div class="label">Ещё очки дают научные союзы с развитыми странами (карточка страны), промышленный шпионаж и трофеи после побед.</div>
-    </div>
-    <div class="panel">
       <div class="row"><h3>Лаборатории</h3><span class="num">${(S.rq||[]).length} / ${slots}</span></div>
-      ${(S.rq||[]).length ? S.rq.map((q, i) => { const t = TECH_BY[q.id]; return `<div class="qitem"><div class="row"><b>${t.name} ${roman(q.lv)}</b><span class="num muted" data-rqdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar high"><i data-rqprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div>${q.boosted ? `<span class="label">Ускорено</span>` : `<button class="btn ad-btn sm" data-rqboost="${i}">${ic("play","sm")} −25% времени за рекламу</button>`}</div>`; }).join("") : `<p class="muted" style="margin:0">Лаборатории свободны. Выберите технологию ниже: сначала оплачиваете очками, потом идёт время.</p>`}
+      ${(S.rq||[]).length ? S.rq.map((q, i) => { const t = TECH_BY[q.id]; return `<div class="qitem"><div class="row"><b>${t.name} ${roman(q.lv)}</b><span class="num muted" data-rqdays="${i}">${Math.ceil(q.left)} дн.</span></div><div class="bar high"><i data-rqprog="${i}" style="width:${((1-q.left/q.total)*100).toFixed(1)}%"></i></div>${q.boosted ? `<span class="label">Ускорено</span>` : `<button class="btn ad-btn sm" data-rqboost="${i}">${ic("play","sm")} −25% времени за рекламу</button>`}</div>`; }).join("") : `<p class="muted" style="margin:0">Лаборатории свободны. Выберите исследование на доске: сначала оплачиваете очками, потом идёт время.</p>`}
       <div class="label">Параллельных исследований: 1, с 3 НИИ — 2, с 8 НИИ — 3.</div>
-    </div>
-  </div>
-  <div class="filters" style="margin-top:12px">${BRANCHES.map(([br, name]) => `<button class="chip" data-scitab="${br}" aria-pressed="${tab===br}">${name}</button>`).join("")}</div>
-  <div class="tech-row">${TECH.filter(x => x.br === tab).map(card).join("")}</div>
-  ${tab === "nuc" ? `<div class="panel nuc-note">${ic("alert")} <span>Ядерная программа поднимает репутацию агрессора, вызывает вопросы МАГАТЭ и может спровоцировать удар по вашим центрам обогащения. Зато бомба сдерживает врагов. Боеголовок в арсенале: <b class="num">${S.nukes||0}</b>.</span></div>` : ""}
-  ${tab === "ammo" ? `<div class="label" style="margin-top:8px">Каждый уровень открывает более мощный тип боеприпаса: техника этого вида бьёт сильнее. Крылатые ракеты нельзя купить или произвести без «Ракет I».</div>` : ""}`;
-}
+  </div>`);
+}); }
+
 
 /* ================= Intelligence service: networks, reports, operations, counter-intelligence ================= */
 OPS.push({id:"influence", name:"Информационная кампания", pts:2, desc:"улучшает образ вашей страны: отношения +6, влияние +4"});
@@ -8691,7 +8762,8 @@ function updateLabels(){
   const mk = document.querySelector("#bloc-mask .bloc-mk"); if (mk) mk.style.strokeWidth = (3*upp/k).toFixed(4);   // ~3 px on screen at any zoom
   document.querySelectorAll(gl ? "#map-fx .fx-mark:not(.fx-ocean):not(.fx-cap):not(.fx-city):not(.fx-cargo)" : "#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
   if (!gl) document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
-  document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 ? "" : "none"; });
+  const nameL = LABELS[S && S.player], nameW = nameL ? (partnerName(S.player).length*4.7 + 12)*upp/k : 0, nameH = 18*upp/k;   // a pin never covers the name of the own country, it comes back on zoom
+  document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 && !(nameL && Math.abs(el.dataset.x - nameL.x) < nameW && Math.abs(el.dataset.y - nameL.y) < nameH) ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fc-name").forEach(el => { el.style.display = k >= 1.8 ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fx-ocean").forEach(el => { el.style.display = k <= 2.4 ? "" : "none"; });
 }
@@ -9334,7 +9406,7 @@ document.addEventListener("click", e => {
   if ((t.dataset.mapgo || t.dataset.facgo) && ui.live) closeModal();
   if (t.dataset.facgo){ if (t.dataset.facgo === "defense") S.armyTab = "bases"; else { S.buildMode = "fac"; S.facCat = t.dataset.facgo; } }
   if (t.dataset.govtabGo2) S.econTab = t.dataset.govtabGo2;
-  if (t.dataset.tab){ ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
+  if (t.dataset.tab){ if (t.closest(".sheet.live")) closeModal(); ui.tab = t.dataset.tab; ui.more = false; ui.newConfirm = false; if (t.closest(".adv-card") || t.closest(".inbox-row")) {} render(); return; }
   if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
   if (t.hasAttribute("data-worldhard")){ settings.worldHard = !settings.worldHard; settingsSave(); sfx("tap"); render(); return; }
@@ -9395,12 +9467,13 @@ document.addEventListener("click", e => {
   if (t.dataset.vote){ S.council.res.myVote = t.dataset.vote==="abstain" ? null : t.dataset.vote; save(); render(); return; }
   if (t.hasAttribute("data-propose")){ S.treasury -= improveCost()*2; S.council.res = {type:"sanctions", target:ui.propTarget, left:3, proposer:"player", myVote:"yes"}; S.council.propCd = 12; addLog(`Вы внесли в Совет наций резолюцию о санкциях против ${C()[ui.propTarget].name}.`); save(); render(); return; }
   if (t.dataset.ideology){ S.ideology = t.dataset.ideology; S.ideoCd = 24; S.mods.push({stat:"stability",v:-20,left:6},{stat:"approval",v:-5,left:6}); if (ideo("nat")) Object.values(C()).forEach(x=>{ if(!x.owner) x.rel -= 10; }); addLog(`Государство перешло к идеологии «${IDEOLOGIES.find(i=>i.id===S.ideology).name}».`); save(); render(); return; }
-  if (t.dataset.research){ startResearch(t.dataset.research); save(); render(); return; }
-  if (t.dataset.scitab){ ui.sciTab = t.dataset.scitab; render(); return; }
+  if (t.dataset.research){ startResearch(t.dataset.research); save(); render(); if (researching(t.dataset.research)) closeModal(); return; }
+  if (t.dataset.tech){ showTech(t.dataset.tech); return; }
+  if (t.hasAttribute("data-scilabs")){ showLabs(); return; }
   if (t.dataset.rqboost !== undefined){ boostResearch(+t.dataset.rqboost); return; }
   if (t.hasAttribute("data-rpad")){ adPoints(); return; }
   if (t.dataset.nuke){ const w = S.wars.find(x => x.enemy === t.dataset.nuke); if (w) nuclearStrike(w); save(); render(); return; }
-  if (t.dataset.science !== undefined){ minSet("science", [0,3,6,10][+t.dataset.science]); save(); render(); return; }
+  if (t.dataset.science !== undefined){ minSet("science", [0,3,6,10][+t.dataset.science]); save(); render(); liveRefresh(); return; }
   if (t.dataset.sector){ S.sectors[t.dataset.sector] = +t.dataset.level; save(); render(); return; }
   if (t.dataset.prog){ startProg(t.dataset.prog); return; }
   if (t.dataset.dip){ dipAct(t.dataset.dip, ui.ctry); return; }
