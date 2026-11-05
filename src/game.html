@@ -123,6 +123,16 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-
 @media (max-width:520px){.tech-tree{grid-template-columns:1fr}}
 .branch{display:flex;flex-direction:column;gap:8px;min-width:0}
 .branch h3{font-size:14px}
+.lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:6px;padding:6px 0 2px}
+.lc{display:flex;flex-direction:column;min-width:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:rgb(255 255 255 / .04)}
+.lc.on{border-color:var(--good);background:rgb(79 191 122 / .09)}
+.lc-n{padding:5px 7px 2px;font-size:12px;line-height:1.2}
+.lc-fx{flex:1;display:flex;flex-direction:column;gap:1px;padding:0 7px 5px;font-size:11px;line-height:1.2}
+.lc-fx .pro{color:var(--good)}
+.lc-fx .con{color:var(--bad)}
+.lc-f{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:30px;padding:2px 7px;background:rgb(0 0 0 / .24);font-size:11px;color:var(--muted)}
+.lc.on .lc-f{color:var(--good)}
+.lc .switch{grid-row:auto;grid-column:auto;flex:none}
 .tech{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .tech small{color:var(--muted)}
 .tech .pill{align-self:flex-start}
@@ -1451,13 +1461,6 @@ use.cu{fill:#000;stroke:none}
 :root .mr-lv .mb-step{width:36px;height:36px;flex:none}
 .mr-cost{text-align:right;font-size:12.5px;white-space:nowrap}
 .mr-more{grid-column:1/-1;display:flex;flex-direction:column;gap:3px;padding:2px 0 6px 48px}
-.lrow{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr) auto;gap:10px;align-items:center;min-height:46px;padding:4px 10px;border-top:1px solid var(--line)}
-.lrow.on{background:rgb(79 191 122 / .09);box-shadow:inset 3px 0 0 var(--good)}
-.lrow .switch{grid-row:auto;grid-column:auto;flex:none}
-.lr-name{font-size:13.5px;font-weight:600;line-height:1.2}
-.lr-fx{display:flex;flex-direction:column;min-width:0;font-size:11px;line-height:1.25}
-.lr-fx .pro{color:var(--good)}
-.lr-fx .con{color:var(--bad)}
 .uk-head{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 10px;border:0;border-radius:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .uk-head b{font-weight:600;white-space:nowrap}
 .uk-head small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -6661,7 +6664,7 @@ let viewMapCache = "";
 function hintify(root){
   root.querySelectorAll(".panel").forEach(panel => {
     const cand = [...panel.querySelectorAll(".label, p.muted, small.muted, .muted.small, .tip-text")].filter(el => {
-      if (el.closest(".ucard, .gc, .lrow, .trow, .brow, .srow, .srow-note, .tr-body, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
+      if (el.closest(".ucard, .gc, .lc, .trow, .brow, .srow, .srow-note, .tr-body, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
       if (el.querySelector("button, input, select, .bar, .num")) return false;
       if (el.closest(".panel") !== panel) return false;
       return el.textContent.trim().length > 60;
@@ -7045,9 +7048,14 @@ function viewMinistries(){
 const LAW_GROUPS = [["mob","Военная или мирная экономика","можно выбрать только один курс"],["trade","Внешняя торговля","только один режим"],["demo","Демография","только один курс"],["", "Государство и общество", ""]];
 function viewLaws(){
   const open = ui.lawOpen ?? (LAW_GROUPS[0][0] || "gen");
-  const row = l => `<div class="lrow ${lawOn(l.id)?"on":""}"><b class="lr-name">${l.name}</b><div class="lr-fx">${l.pros.map(p=>`<span class="pro">▲ ${p}</span>`).join("")}${l.cons.map(c=>`<span class="con">▼ ${c}</span>`).join("")}</div><button class="switch" role="switch" aria-checked="${lawOn(l.id)}" aria-label="${l.name}" data-law="${l.id}"></button></div>`;
-  return `${!majority() ? `<div class="panel"><div class="label down">У вас нет большинства в парламенте: каждый новый закон проходит через уступки коалиции (рейтинг −2).</div></div>` : ""}
-    ${LAW_GROUPS.map(([g, n, hint]) => { const ls = LAWS.filter(l => (l.grp||"") === g), id = g || "gen", on = open === id, cnt = ls.filter(l => lawOn(l.id)).length; return ls.length ? `<div class="panel uk-sec ${on?"open":""}"><button class="uk-head" data-lawgrp="${id}" aria-expanded="${on}"><b>${n}</b>${hint ? `<small class="muted">${hint}</small>` : ""}<span class="uk-n ${cnt?"":"none"}">${cnt ? "включено: " + cnt : "не включено"}</span><span class="uk-go" aria-hidden="true">›</span></button>${on ? ls.map(row).join("") : ""}</div>` : ""; }).join("")}`;
+  // a card with the switch under the effects (user's decision 05.11): one tap, no sheet
+  const row = l => `<div class="lc ${lawOn(l.id)?"on":""}"><b class="lc-n">${l.name}</b><div class="lc-fx">${l.pros.map(p=>`<span class="pro">▲ ${p}</span>`).join("")}${l.cons.map(c=>`<span class="con">▼ ${c}</span>`).join("")}</div><div class="lc-f"><span>${lawOn(l.id)?"Включён":"Выключен"}</span><button class="switch" role="switch" aria-checked="${lawOn(l.id)}" aria-label="${l.name}" data-law="${l.id}"></button></div></div>`;
+  const G = LAW_GROUPS.find(g => (g[0] || "gen") === open) || LAW_GROUPS[0], ls = LAWS.filter(l => (l.grp||"") === G[0]), cnt = ls.filter(l => lawOn(l.id)).length;
+  return `<div class="railed">${crail([["mob","Курс","milpower"],["trade","Торговля","money"],["demo","Демография","population"],["gen","Общество","stability"]], G[0] || "gen", "lawgrp")}<div class="railed-main">
+    ${!majority() ? `<div class="panel"><div class="label down">У вас нет большинства в парламенте: каждый новый закон проходит через уступки коалиции (рейтинг −2).</div></div>` : ""}
+    <div class="gc-head"><b>${G[1]}</b>${G[2] ? `<small>${G[2]}</small>` : ""}<span class="${cnt ? "" : "none"}">${cnt ? "включено: " + cnt : "не включено"}</span></div>
+    <div class="lcards">${ls.map(row).join("")}</div>
+  </div></div>`;
 }
 function viewSociety(){
   return `<div class="grid2">
@@ -9516,7 +9524,7 @@ document.addEventListener("click", e => {
   if (t.dataset.trsec){ ui.trOpen = (ui.trOpen ?? "stock") === t.dataset.trsec ? "" : t.dataset.trsec; render(); return; }
   if (t.dataset.good){ showGood(t.dataset.good); return; }
   if (t.dataset.minrow){ showMinister(t.dataset.minrow); return; }
-  if (t.dataset.lawgrp){ ui.lawOpen = (ui.lawOpen ?? (LAW_GROUPS[0][0] || "gen")) === t.dataset.lawgrp ? "" : t.dataset.lawgrp; render(); return; }
+  if (t.dataset.lawgrp){ ui.lawOpen = t.dataset.lawgrp; render(); return; }
   if (t.dataset.minlvl){ const [id, v] = t.dataset.minlvl.split(":"); minSet(id, +v); sfx("tap"); save(); render(); liveRefresh(); return; }
   if (t.dataset.minpick){ showMinisterPicker(t.dataset.minpick); return; }
   if (t.dataset.hire){ const [id, k] = t.dataset.hire.split(":"); hireMinister(id, +k); return; }
