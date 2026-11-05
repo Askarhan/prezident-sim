@@ -1429,6 +1429,18 @@ use.cu{fill:#000;stroke:none}
 :root .win-x,:root .tip-open{width:32px!important;height:32px!important}
 :root .tip-open .portrait{width:26px!important;height:26px!important}
 .tip-float{top:46px!important}
+:root .tip-open{position:relative;overflow:visible}
+:root .tip-open .portrait{border-radius:50%;overflow:hidden}
+.tip-open.new::after{content:"";position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:1.5px solid #101A2A}
+@media (max-height:420px){
+  :root .window{top:0!important;bottom:0!important;left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
+  :root .win-head{height:34px;box-sizing:border-box}
+  :root .win-head h2{font-size:16px!important}
+  :root .win-x,:root .tip-open{width:30px!important;height:30px!important}
+  :root .win-body{padding:6px 8px!important}
+  :root .win-body .panel{padding:8px 10px!important}
+  .tip-float{top:38px!important}
+}
 #adv-root{bottom:calc(40px + env(safe-area-inset-bottom,0px))!important}
 @media (max-width:700px){ :root .tile .tile-l{display:none} }
 :root .tb-name .tb-sub{display:none!important} :root .tb-name b{font-size:13.5px!important}
@@ -5904,18 +5916,20 @@ function advisorTip(tab){
 }
 /* minister's advice: a dismissible bubble over the top of the window instead of a block inside it */
 function tipWho(tab){ return {economy:"econ", build:"econ", trade:"econ", army:"gen", hq:"gen", intel:"intel", diplomacy:"dipl"}[tab] || "sec"; }
-function tipFloat(tab, force){
-  const off = (settings.tipOff||{})[tab];
-  if (off && !force) return "";
+// advice opens only from the portrait in the window head (user's decision 05.11); the dot means its subject changed since he last read it, numbers alone do not count
+function tipKey(tab){ return (advisorTip(tab) || "").replace(/<[^>]+>/g, "").replace(/[\d\s.,%+−-]+/g, ""); }
+function tipNew(tab){ const k = tipKey(tab); return !!k && (settings.tipSeen||{})[tab] !== k; }
+function tipFloat(tab){
   const html = advisorTip(tab); if (!html) return "";
   return `<div class="tip-float" role="status">${html.replace('<div class="tip">', '<div class="tip">').replace(/<\/div><\/div>$/, '</div><button class="tip-x" data-tipx aria-label="Скрыть совет">' + ic("close") + '</button></div>')}</div>`;
 }
-function showTip(force){
+function showTip(){
   const w = document.querySelector(".window"); if (!w) return;
   w.querySelectorAll(".tip-float").forEach(e => e.remove());
-  const h = tipFloat(ui.tab, force); if (!h) return;
+  const h = tipFloat(ui.tab); if (!h) return;
   w.insertAdjacentHTML("beforeend", h);
-  clearTimeout(ui.tipT); ui.tipT = setTimeout(() => { const e = document.querySelector(".tip-float"); if (e){ e.classList.add("out"); setTimeout(() => e.remove(), 300); } }, 9000);
+  if (tipNew(ui.tab)){ settings.tipSeen = settings.tipSeen || {}; settings.tipSeen[ui.tab] = tipKey(ui.tab); settingsSave(); }
+  const b = w.querySelector(".tip-open"); if (b) b.classList.remove("new");
 }
 function viewInbox(){
   const list = (S.inbox||[]).slice(0, 12);
@@ -6403,7 +6417,7 @@ function render(){
   const win = ui.tab !== "map" && WIN[ui.tab] ? (() => { const [title, icn, col] = WIN[ui.tab];
     return `<button class="win-scrim" data-tab="map" aria-label="Закрыть окно" tabindex="-1"></button>
       <section class="window" role="dialog" aria-label="${title}" style="--c:${col}">
-        <header class="win-head"><span class="win-ic">${hic(ui.tab)}</span><h2>${title}</h2><span class="spacer"></span>${advisorTip(ui.tab) ? `<button class="tip-open" data-tipshow aria-label="Совет министра">${portrait(tipWho(ui.tab), 30)}</button>` : ""}<button class="win-x" data-tab="map" aria-label="Закрыть">${ic("close")}</button></header>
+        <header class="win-head"><span class="win-ic">${hic(ui.tab)}</span><h2>${title}</h2><span class="spacer"></span>${advisorTip(ui.tab) ? `<button class="tip-open${tipNew(ui.tab) ? " new" : ""}" data-tipshow aria-label="Совет министра">${portrait(tipWho(ui.tab), 30)}</button>` : ""}<button class="win-x" data-tab="map" aria-label="Закрыть">${ic("close")}</button></header>
         <div class="win-body">${VIEWS()[ui.tab]()}</div>
       </section>`; })() : "";
   const opening = ui.lastTab !== ui.tab;
@@ -6437,7 +6451,7 @@ function render(){
   </div>`;
   const mapHtml = viewMapCache;
   if (!softRender(html, opening)){ app.innerHTML = html; ui.mapHtml = mapHtml; attachMap(); }
-  const winEl = document.querySelector(".window"); if (winEl && opening){ winEl.classList.add("win-open"); showTip(false); }
+  const winEl = document.querySelector(".window"); if (winEl && opening) winEl.classList.add("win-open"); if (ui.tipOpen){ if (winEl && ui.tipOpen === ui.tab) showTip(); else ui.tipOpen = null; }
   const wb = document.querySelector(".win-body"); if (wb && wb._raw === undefined){ wb._raw = wb.innerHTML; hintify(wb); }
   const bodyNew = document.querySelector(".win-body"); if (bodyNew) bodyNew.scrollTop = keep;
   if (ui.lastTab !== ui.tab && ui.tab !== "map") sfx("open");
@@ -9260,8 +9274,8 @@ document.addEventListener("click", e => {
   if (t.dataset.law){ if (!majority()){ S.mods.push({stat:"approval",v:-2,left:6}); addLog("Без большинства в парламенте закон прошёл только через уступки коалиции: рейтинг −2."); } { const L0 = LAWS.find(l=>l.id===t.dataset.law); if (!S.laws[L0.id] && L0.grp) LAWS.forEach(l => { if (l.grp===L0.grp && l.id!==L0.id && S.laws[l.id]){ S.laws[l.id] = false; addLog(`Отменён закон «${l.name}».`); } }); }
     S.laws[t.dataset.law] = !S.laws[t.dataset.law]; addLog(`${S.laws[t.dataset.law]?"Принят":"Отменён"} закон «${LAWS.find(l=>l.id===t.dataset.law).name}».`); checkAchievements(); save(); render(); return; }
   if (t.dataset.choice !== undefined){ chooseEvent(+t.dataset.choice); return; }
-  if (t.hasAttribute("data-tipx")){ settings.tipOff = settings.tipOff || {}; settings.tipOff[ui.tab] = true; settingsSave(); const e = document.querySelector(".tip-float"); if (e) e.remove(); return; }
-  if (t.hasAttribute("data-tipshow")){ if (document.querySelector(".tip-float")){ document.querySelector(".tip-float").remove(); return; } if (settings.tipOff) delete settings.tipOff[ui.tab]; settingsSave(); showTip(true); return; }
+  if (t.hasAttribute("data-tipx")){ ui.tipOpen = null; const e = document.querySelector(".tip-float"); if (e) e.remove(); return; }
+  if (t.hasAttribute("data-tipshow")){ const e = document.querySelector(".tip-float"); if (e){ e.remove(); ui.tipOpen = null; return; } ui.tipOpen = ui.tab; showTip(); return; }
   if (t.classList.contains("hint-i")){ const open = document.querySelector(".hint-pop"); if (open && open._from === t){ closeHint(); return; } showHint(t); document.querySelector(".hint-pop")._from = t; return; }
   if (t.hasAttribute("data-close")){ closeModal(); return; }
   if (t.dataset.uinfo){ showUnitInfo(t.dataset.uinfo); return; }
