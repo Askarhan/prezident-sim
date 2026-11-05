@@ -57,7 +57,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Measured 05.11, one run each, `GATE=1`, `PAR=1`, 10 years. The bot has no oil plan, so with nothing prepared the US took 0 countries and Russia 2 (Kyrgyzstan at 3.5, Kazakhstan at 7.8), also US without the wait 0 in 8 years. With 8 rigs, 2 hydro and 1500 oil given at the start: US 4 by 8.7, Russia 4 by 8.5. So war now needs oil prepared first; teach `speedrun.js` to build rigs and to buy units before judging conquest speed.
 
 ## Next (order changed 04.11: the user dropped the phone test for now, do not wait for it or ask about it)
-1. Teach `speedrun.js` to build rigs and power, stock oil, and buy and produce units, then measure conquest with the new prices. Today it fights only with the start army and has no oil plan.
+1. Show him the speed measure of 05.11 (below) and let him decide whether plants or the pretext need a change. Nothing was changed in the game.
 2. Ask him which next: UI and polish, models, map, release.
 «Окно исследований», stock limit and coins stay as they are (his decisions 05.11): do not ask until he brings them up. Coins buy nothing yet, no code spends them.
 
@@ -95,6 +95,16 @@ Proposed order: 2–3, then 4–6, then 7. He accepted the set in discussion and
 - 6. Done 04.11: `guardK` = share of world GDP, max 0.4, stays home: cuts `freeArmy`, `warFight` and the machines part of `warCostMonthly`. US 31%: all forces in one war cost 448 a day against income 377.
 - 7. Done 04.11 (user's decisions): `warCut` takes every war loss of the player's economy (missiles, blockade, defeat, partisans, sabotage, war-time negative growth) and stops at 50% of the start economy (`WAR_FLOOR`, own land only). Missile −0.15% of the start economy (`MIS_PC`), at most −3% a year (`MIS_CAP`, `S.misY`). Lost war −10% of the start economy (`LOST_PC`) and −5 billion (`LOST_CASH`).
 - 8. Closed 04.11 without changes (user's decision): at the start Saudi Arabia earns 33 a day from oil, Russia 25, Japan and Kyrgyzstan 0, and `S.budFix` levels everyone to +10 a day, so the real edge comes only from rigs the player builds. Japan pays nothing for oil at the start.
+
+## Measured 05.11, conquest at the new prices (`PAR=1 ECON=1 GATE=1 ARMY=1 node tools/sim/speedrun.js 10 <country>`, one run each, approval forced)
+`ARMY=1` is new: the bot researches `geo`, `armor`, `automation`, builds up to 3 rigs, tank plants and steelworks, runs the plants, keeps 60 days of oil and starts a war only with 30 days in stock. Its code is `simArmy` and `simArmyWant` in `econ-bot.js`. A run takes about 20 s.
+- Russia: 4 countries in 8.8 years, debt 237, 7474 tanks at year 10. The gaps between wins (1.9, 2.4, 2.9 years) are the pretext wait plus about 0.4 year, so for a strong country the pretext alone sets the pace.
+- US: 3 countries in 7.2 years, the 4th at 70% at year 10, debt 293. Oil ran out in the first war (fuel 0.03 at year 2), treasury stayed at 0, so it built no tank plant in 10 years.
+- Kyrgyzstan: first plant about year 5, first war 6.6, Kazakhstan taken at 8.9, 1399 tanks at year 10, debt 16.
+- Target was one country in 3 years: Russia 2.2 a country, US 2.4, both slightly faster.
+- One tank plant makes about 550 tanks a year for about 4 billion, nearly 5 yearly market limits (120). Not changed, for the user to judge.
+- Debt is no limit yet: default is 160% of `mg()`, about 1600 for everyone. The `долг %` in the bot's result line divides by the real GDP and misleads, read the absolute number.
+- The bot is not a person: it pays no pretext penalty, has free SAM missiles, auto wars spend no ammo, it builds no rare earth mines and plants make only tanks.
 
 ## Measured 04.11 with all war rules (one run each, approval forced, `PAR=1`)
 - 10 years with the wait (`GATE=1`), before rule 7: US 4 countries in 8.8 years, Russia 4 in 8.5, no default. Slightly faster than the target of one in 3 years, and the bot never pays the pretext penalty.
