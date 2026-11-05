@@ -2559,13 +2559,16 @@ function fuelNeed(w){ depInit(w); const U = {}; w.dep.forEach(d => { for (const 
 // all wars together: how long the oil in stock lasts after our own production
 function fuelOutlook(){ const need = S.wars.reduce((a, w) => a + fuelNeed(w).oil, 0), prod = prodOf("oil")/30, net = need - prod;
   return {need, prod, days: net > 0 ? (S.stock.oil||0)/net : Infinity}; }
+// war oil can be bought in debt, 2 billion a year at most (user's decision 05.11, the size is the assistant's choice): settleCash turns the minus into debt
+const OIL_CREDIT = 2;
+function oilCreditLeft(){ if (!S.oilCr || S.oilCr.y !== S.year) S.oilCr = {y:S.year, used:0}; return Math.max(0, OIL_CREDIT - S.oilCr.used); }
 function fuelDay(w){
   const n = fuelNeed(w); S.treasury -= n.cost; w.frontCost = (w.frontCost||0) + n.cost; w.fuelNeed = n.oil;
   const have = S.stock.oil||0, was = w.fuel ?? 1;
   if (have >= n.oil){ S.stock.oil = have - n.oil; w.fuel = 1; }
   else { S.stock.oil = 0; let got = have;
     // the shortfall is bought on the market while there are no sanctions and there is money
-    { const price = importPrice("oil"), day = S.year*400 + S.month*32 + (S.day||1), used = S.spotDay === day ? S.spotUsed||0 : 0, buy = Math.min(n.oil - have, Math.max(0, oilSpotMax() - used), Math.max(0, S.treasury)/price); S.spotDay = day; S.spotUsed = used + Math.max(0, buy); if (buy > 0){ S.treasury -= buy*price; w.fuelBought = (w.fuelBought||0) + buy*price; got += buy; } }
+    { const price = importPrice("oil"), day = S.year*400 + S.month*32 + (S.day||1), used = S.spotDay === day ? S.spotUsed||0 : 0, cash = Math.max(0, S.treasury), buy = Math.min(n.oil - have, Math.max(0, oilSpotMax() - used), (cash + oilCreditLeft())/price); S.spotDay = day; S.spotUsed = used + Math.max(0, buy); if (buy > 0){ S.oilCr.used += Math.max(0, buy*price - cash); S.treasury -= buy*price; w.fuelBought = (w.fuelBought||0) + buy*price; got += buy; } }
     w.fuel = n.oil > 0 ? clamp(got/n.oil, 0, 1) : 1; }
   if (w.fuel < 0.98 && was >= 0.98) warEvent(w, `Не хватает топлива: воюет только ${Math.round(w.fuel*100)}% техники на фронте, остальная стоит. Рынок не продаст больше за день: нужны запас, импорт или вышки.`, "bad");
   else if (w.fuel >= 0.98 && was < 0.98) warEvent(w, "Топливо снова есть: вся техника на фронте воюет.", "good");
