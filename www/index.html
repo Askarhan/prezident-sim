@@ -1436,6 +1436,13 @@ use.cu{fill:#000;stroke:none}
 :root .uk-sec{padding:0!important;overflow:hidden}
 .uk-sec+.uk-sec{margin-top:6px}
 .army-body .uk-sec+.uk-sec{margin-top:0}
+.sum-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.sum-strip span{display:flex;flex-direction:column;align-items:center;min-width:0;padding:5px 4px;background:#131F33;border:1px solid var(--line);border-radius:3px;line-height:1.2}
+.sum-strip b{font-size:15px;color:var(--gold-hi);white-space:nowrap}
+.sum-strip small{max-width:100%;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sum-sparks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sum-sparks .spark{height:42px}
+.tr-body .news{max-height:none;overflow:visible}
 .tr-head,.trow{display:grid;grid-template-columns:minmax(0,1fr) 82px 92px minmax(0,1.9fr);gap:8px;align-items:center;padding:0 10px}
 .tr-head{padding-bottom:3px;font-size:11px;color:var(--muted)}
 .tr-head span:nth-child(2),.tr-head span:nth-child(3){text-align:right}
@@ -6032,9 +6039,9 @@ function showTip(){
   if (tipNew(ui.tab)){ settings.tipSeen = settings.tipSeen || {}; settings.tipSeen[ui.tab] = tipKey(ui.tab); settingsSave(); }
   const b = w.querySelector(".tip-open"); if (b) b.classList.remove("new");
 }
-function viewInbox(){
+function inboxRows(){
   const list = (S.inbox||[]).slice(0, 12);
-  return `<div class="panel"><h3>Сообщения советников</h3>${list.length ? list.map(m => `<div class="inbox-row">${portrait(m.who, 36, m.mood)}<div><small class="muted">${esc(m.t)} · ${ADVISORS[m.who].name}</small><p>${esc(m.text)}</p></div>${m.tab ? `<button class="btn" data-tab="${m.tab}">Открыть</button>` : ""}</div>`).join("") : `<p class="muted" style="margin:0">Пока тихо. Советники напишут, когда будет что сказать.</p>`}</div>`;
+  return list.length ? list.map(m => `<div class="inbox-row">${portrait(m.who, 36, m.mood)}<div><small class="muted">${esc(m.t)} · ${ADVISORS[m.who].name}</small><p>${esc(m.text)}</p></div>${m.tab ? `<button class="btn" data-tab="${m.tab}">Открыть</button>` : ""}</div>`).join("") : `<div class="tr-note">Пока тихо. Советники напишут, когда будет что сказать.</div>`;
 }
 function viewSettings(){
   const sw = (key, label, hint) => `<div class="law"><b>${label}</b><button class="switch" role="switch" aria-checked="${!!settings[key]}" aria-label="${label}" data-setting="${key}"></button><small>${hint}</small></div>`;
@@ -6637,39 +6644,23 @@ function spark(arr, color){
   return `<svg class="spark" viewBox="0 0 300 56" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" style="stroke:${color}"/><circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="3" style="fill:${color}"/></svg>`;
 }
 
+// a folding section with a short status in its head; attr is the data attribute the click handler reads
+function foldSec(attr, open, id, title, right, none, body){ return `<div class="panel uk-sec ${open===id?"open":""}"><button class="uk-head" data-${attr}="${id}" aria-expanded="${open===id}"><b>${title}</b><span class="uk-n ${none?"none":""}">${right}</span><span class="uk-go" aria-hidden="true">›</span></button>${open===id ? body : ""}</div>`; }
+function sumOpenId(){ return ui.sumOpen ?? ((S.inbox||[]).some(m => !m.read) ? "inbox" : "news"); }
 function viewSummary(){
-  const c = me();
-  const rivals = Object.values(C()).filter(x=>!x.owner).sort((a,b)=>b.gdp-a.gdp);
-  const rank = rivals.filter(x=>x.gdp > c.gdp).length + 1;
-  return `<div class="grid2">
-    <div class="panel">
-      <h3>Динамика</h3>
-      <div><div class="row"><span class="label">Доход в день</span><span class="num">${money(budget().income/30)}</span></div>${spark(S.hist.gdp, "var(--state)")}</div>
-      <div><div class="row"><span class="label">Рейтинг</span><span class="num">${pct(S.approval)}</span></div>${spark(S.hist.appr, "var(--accent)")}</div>
-      <div class="row"><span>Население</span><span class="num">${people(c.pop)}</span></div>
-      <div class="row"><span>Место в мире по экономике</span><span class="num">№ ${rank}</span></div>
-      <div class="row"><span>Уровней технологий</span><span class="num">${TECH.reduce((a,t)=>a+tlv(t.id),0)} / ${TECH.reduce((a,t)=>a+t.max,0)}</span></div>
-      <div class="row"><span>Сроков отработано</span><span class="num">${S.terms}</span></div>
-    </div>
-    <div class="panel">
-      <h3>Новости</h3>
-      <ul class="news">${S.log.slice(0,14).map(l=>`<li><span class="when">${esc(l.t)}</span><span>${esc(l.text)}</span></li>`).join("")}</ul>
-    </div>
-    <div class="panel">
-      <h3>Цели и победы</h3>
-      ${WINS.map(w => { const got = (S.wins||{})[w.id], max = typeof w.max === "function" ? w.max() : w.max; return `<div class="goal"><span>${got ? "🏆 " : ""}${typeof w.goal === "function" ? w.goal() : w.goal}</span><span class="num">${got ? esc(w.rank) : `${w.val()}${w.unit||""} / ${max}${w.unit||""}`}</span></div>`; }).join("")}
+  const c = me(), rivals = Object.values(C()).filter(x=>!x.owner), rank = rivals.filter(x=>x.gdp > c.gdp).length + 1;
+  const open = sumOpenId(), unread = (S.inbox||[]).filter(m=>!m.read).length, wins = WINS.filter(w => (S.wins||{})[w.id]).length, got = achCache || (achCache = achGet()), achN = ACHIEVEMENTS.filter(a=>got[a.id]).length, news = S.log.slice(0, ui.sumNews ? 14 : 5);
+  const sec = (id, title, right, none, body) => foldSec("sumsec", open, id, title, right, none, `<div class="tr-body">${body}</div>`);
+  const cell = (v, l) => `<span><b class="num">${v}</b><small>${l}</small></span>`;
+  return `<div class="sum-strip">${cell(money(budget().income/30), "Доход в день")}${cell(pct(S.approval), "Рейтинг")}${cell(people(c.pop), "Население")}${cell("№ " + rank, "Место по экономике")}${cell(`${TECH.reduce((a,t)=>a+tlv(t.id),0)} / ${TECH.reduce((a,t)=>a+t.max,0)}`, "Технологии")}</div>`
+    + sec("news", "Новости", S.log[0] ? esc(S.log[0].t) : "нет", !unread, `<ul class="news">${news.map(l=>`<li><span class="when">${esc(l.t)}</span><span>${esc(l.text)}</span></li>`).join("")}</ul>${S.log.length > 5 ? `<button class="btn sm" data-sumnews style="align-self:flex-start">${ui.sumNews ? "Свернуть" : "Показать ещё"}</button>` : ""}`)
+    + sec("inbox", "Сообщения советников", unread ? `новых: ${unread}` : "новых нет", !unread, inboxRows())
+    + sec("goals", "Цели и победы", `${wins} из ${WINS.length}`, !wins, `${WINS.map(w => { const done = (S.wins||{})[w.id], max = typeof w.max === "function" ? w.max() : w.max; return `<div class="goal"><span>${done ? "🏆 " : ""}${typeof w.goal === "function" ? w.goal() : w.goal}</span><span class="num">${done ? esc(w.rank) : `${w.val()}${w.unit||""} / ${max}${w.unit||""}`}</span></div>`; }).join("")}
       <div class="goal"><span><b>Главная цель: объединить мир</b> (все страны присоединены, союзные или сателлиты)</span><span class="num">${Object.values(C()).filter(x => x.id !== S.player && (x.owner || x.puppet)).length} / ${Object.values(C()).length - 1}</span></div>
-      <div class="label" style="margin-top:4px">После каждой победы игру можно продолжить.</div>
-      <div class="label" style="margin-top:4px">Поражение: проигранные выборы, революция (стабильность &lt; 15% три месяца), госдолг &gt; 160% экономики</div>
-    </div>
-    <div class="panel">
-      <h3>Помощь МВФ</h3>
-      <p class="muted" style="margin:0">Посмотрите рекламный ролик и получите разовый транш в бюджет: ${money(mg()*0.015)}. Доступно раз в 6 месяцев.</p>
-      <div class="row"><span class="pill state">Реклама по желанию</span><button class="btn primary" data-act="ad" ${S.adCd>0?"disabled":""}>${S.adCd>0?`Через ${S.adCd} мес.`:"Смотреть и получить"}</button></div>
-    </div>
-    ${viewInbox()}
-    ${viewAchievements(false)}
-  </div>`;
+      <div class="tr-note">После каждой победы игру можно продолжить. Поражение: проигранные выборы, революция (стабильность &lt; 15% три месяца), госдолг &gt; 160% экономики.</div>`)
+    + sec("ach", "Достижения", `${achN} из ${ACHIEVEMENTS.length}`, !achN, achGrid())
+    + sec("dyn", "Динамика", `сроков: ${S.terms}`, true, `<div class="sum-sparks"><div><div class="row"><small>Доход в день</small><span class="num">${money(budget().income/30)}</span></div>${spark(S.hist.gdp, "var(--state)")}</div><div><div class="row"><small>Рейтинг</small><span class="num">${pct(S.approval)}</span></div>${spark(S.hist.appr, "var(--accent)")}</div></div><div class="row"><span>Сроков отработано</span><span class="num">${S.terms}</span></div>`)
+    + sec("imf", "Помощь МВФ", S.adCd>0 ? `через ${S.adCd} мес.` : "доступна", S.adCd>0, `<div class="tr-note">Посмотрите рекламный ролик и получите разовый транш в бюджет: ${money(mg()*0.015)}. Доступно раз в 6 месяцев.</div><div class="row"><span class="pill state">Реклама по желанию</span><button class="btn primary" data-act="ad" ${S.adCd>0?"disabled":""}>${S.adCd>0?`Через ${S.adCd} мес.`:"Смотреть и получить"}</button></div>`);
 }
 
 /* ================= Government: taxes, energy, laws, ministries, ministers ================= */
@@ -7572,12 +7563,13 @@ function viewCouncil(){
   </div>`;
 }
 
+function achGrid(){ const got = achCache || (achCache = achGet()); return `<div class="ach-grid">${ACHIEVEMENTS.map(a=>`<div class="ach ${got[a.id]?"on":""}"><b>${a.name}</b><small>${a.desc}</small></div>`).join("")}</div>`; }
 function viewAchievements(compact){
   const got = achCache || (achCache = achGet());
   const n = ACHIEVEMENTS.filter(a=>got[a.id]).length;
   return `<div class="panel" ${compact?"":'style="grid-column:1/-1"'}>
     <div class="row"><h3>${ic("trophy","sm")} Достижения</h3><span class="num">${n} / ${ACHIEVEMENTS.length}</span></div>
-    <div class="ach-grid">${ACHIEVEMENTS.map(a=>`<div class="ach ${got[a.id]?"on":""}"><b>${a.name}</b><small>${a.desc}</small></div>`).join("")}</div>
+    ${achGrid()}
   </div>`;
 }
 
@@ -8692,7 +8684,7 @@ function partnerCard(iso){
 // everything about one good sits on its row (user's decision 05.11): stock, price, sale and purchase, the details open on tap
 function viewTrade(){
   const open = ui.trOpen ?? "stock", list = allContracts(), proj = commodProjection();
-  const sec = (id, title, right, none, body) => `<div class="panel uk-sec ${open===id?"open":""}"><button class="uk-head" data-trsec="${id}" aria-expanded="${open===id}"><b>${title}</b><span class="uk-n ${none?"none":""}">${right}</span><span class="uk-go" aria-hidden="true">›</span></button>${open===id ? body : ""}</div>`;
+  const sec = (id, title, right, none, body) => foldSec("trsec", open, id, title, right, none, body);
   const pool = [...Object.keys(C()).filter(i=>i!==S.player), ...Object.keys(MINOR_GDP).filter(i=>MINOR_GDP[i]>=40 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
   const more = (r, d, chg) => { const h = S.mhist[r], prod = prodGross(r), civ = r === "oil" ? oilCiv() : civOf(r), contr = list.filter(c=>c.r===r).reduce((a,c)=>a+c.q,0), sup = IMPORTABLE.includes(r) ? suppliers(r).slice(0,3) : null;
     const top = pool.filter(i=>canContract(i).ok).map(i=>[i, premium_(i,r)]).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -9370,6 +9362,8 @@ document.addEventListener("click", e => {
   if (t.dataset.faccat){ S.facCat = t.dataset.faccat; save(); render(); return; }
   if (t.dataset.buildmode){ S.buildMode = t.dataset.buildmode; save(); render(); return; }
   if (t.dataset.govtab){ const [k, v] = t.dataset.govtab.split(":"); S[k] = v; save(); render(); return; }
+  if (t.dataset.sumsec){ ui.sumOpen = sumOpenId() === t.dataset.sumsec ? "" : t.dataset.sumsec; render(); return; }
+  if (t.hasAttribute("data-sumnews")){ ui.sumNews = !ui.sumNews; render(); return; }
   if (t.dataset.trsec){ ui.trOpen = (ui.trOpen ?? "stock") === t.dataset.trsec ? "" : t.dataset.trsec; render(); return; }
   if (t.dataset.trres){ ui.trRes = ui.trRes === t.dataset.trres ? null : t.dataset.trres; render(); return; }
   if (t.dataset.minblk){ ui.minOpen = (ui.minOpen ?? MIN_BLOCKS[0][0]) === t.dataset.minblk ? "" : t.dataset.minblk; ui.minRow = null; render(); return; }
