@@ -1790,7 +1790,7 @@ const BUILDINGS = {
   heliplant:{cat:"mil",name:"Вертолётный и дроновый завод",days:420,cost:0.014,desc:"вертолёты и дроны",req:{tech:"rotor"}},
   aviaplant:{cat:"mil",name:"Авиазавод",days:540,cost:0.022,desc:"самолёты",req:{tech:"aviation"}},
   samplant:{cat:"mil",name:"Завод ПВО и ракет",days:420,cost:0.016,desc:"ПВО, РЭБ, ракетные комплексы и ракеты",req:{tech:"missile"}},
-  shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки; нужен выход к морю",req:{coast:true}},
+  shipyard:{cat:"mil",name:"Военная верфь",days:720,cost:0.03,desc:"корабли и подлодки; нужен выход к морю",req:{coast:true,tech:"shipbuild"}},
   institute:{cat:"sci",name:"НИИ и университет",days:200,cost:0.004,desc:"+10 очков исследований в месяц, образование их умножает; 3 НИИ открывают вторую лабораторию, 8 — третью",decay:0.93,dscale:15},
   enrich:{cat:"sci",name:"Центр обогащения урана",days:540,cost:0.02,desc:"нужен для ядерной программы; после «Ядерной боеголовки» собирает боезаряды; расходует 6,5 урана в месяц",req:{tech:"nuc_enrich"},max:4},
   npp:{cat:"energy",name:"Атомная электростанция",days:600,cost:0.012,desc:"+12 ед. электроэнергии и +2 за каждый уровень «Мирного атома»; сжигает 13 урана в месяц",req:{tech:"nuc_reactor"},use:{metal:2}},
@@ -1982,7 +1982,7 @@ const PLANT_CAP = {tankplant:0.06, heliplant:0.04, aviaplant:0.12, samplant:0.1,
 function blocOf(iso){ if (["ru","kz","kg","uz","by","az","ir","in","vn","eg","dz","sy","tm","tj","mn"].includes(iso)) return "east"; if (["cn","pk","kp","mm","bd"].includes(iso)) return "china"; return "west"; }
 const ORIGIN_BLOC = iso => iso === "ru" || iso === "ir" ? "east" : iso === "cn" ? "china" : iso === "tr" ? "any" : "west";
 function hasCoast(iso){ if (!iso && Object.keys(S.occupied||{}).some(i => !LANDLOCKED.has(i))) return true; return !LANDLOCKED.has(iso || S.player); }   // no argument: the player, conquered coast counts
-function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return m.kind === "heli" ? "rotor" : (m.kind === "drone" || m.kind === "loiter") ? "drones" : {ground:"armor", air:"aviation", ad:"missile", navy:"aviation"}[k.cls]; }
+function genTech(m){ const k = KINDS[m.kind]; if (m.gen < 2) return null; return m.kind === "heli" ? "rotor" : (m.kind === "drone" || m.kind === "loiter") ? "drones" : {ground:"armor", air:"aviation", ad:"missile", navy:"shipbuild"}[k.cls]; }
 function modelUpkeep(m){ return m.price * (KINDS[m.kind].cls === "navy" ? 0.06 : 0.1); }
 const MKT_LIM = {tank:120, ifv:200, apc:200, sph:60, mlrs:40, fighter:24, attack:24, heli:24, bomber:6, loiter:300}, MKT_OTHER = 30;   // market limit a year per country (user's decision 04.11), the rest only from own plants; IFV and APC share one limit
 function mktKey(kind){ return kind === "apc" ? "ifv" : kind; }
@@ -2138,7 +2138,7 @@ function forceStats(units, ammo, share, foe){
     else if (k.cls === "ad"){ if (m.kind === "ew") st.ew += m.aa*n; else st.ad += m.aa*n*amm; }
     else if (k.cls === "navy"){ st.navy += (m.ga + m.aa)*n; }
   }
-  if (!foe){ st.g *= 1 + 0.08*tlv("am_warhead"); }
+  if (!foe){ st.g *= 1 + 0.08*tlv("am_warhead"); st.navy *= 1 + 0.1*tech("carriers"); }
   return st;
 }
 function ammoNeedFor(units){
@@ -2313,7 +2313,7 @@ function phaseTick(w){
 }
 /* supply of a direction: the deeper the army goes, the worse; depots, a railway to the enemy, highways and transport aircraft hold it up */
 function supplySupport(w){ return (viaOccupied(w.enemy) ? -15 : 0) + Math.min(40, 4*facCount("depot")) + (S.rails && S.rails[w.enemy] && S.rails[w.enemy].done ? 25 : 0) + Math.min(10, 2*objOn("highway")) + Math.min(20, 4*airliftCap()); }
-function supplyTarget(w, f){ return f.p <= 0 ? 100 : clamp(100 - Math.max(0, f.p - 15)*0.9 + supplySupport(w), 10, 100); }
+function supplyTarget(w, f){ return f.p <= 0 ? 100 : clamp(100 - Math.max(0, f.p - 15)*0.9 + supplySupport(w) + 10*tech("depots"), 10, 100); }
 function supplyK(f){ const v = f.sup ?? 100; return v >= 70 ? 1 : 0.45 + v/127; }
 function frontsDay(w, base){
   const {atkM, atkT, defM, defT} = base, n = w.fronts.length;
@@ -2648,7 +2648,7 @@ function roadDays(iso){
   const a = LABELS && LABELS[S.player], b = LABELS && LABELS[iso], far = farWar(iso);
   if (!a || !b) return far ? 90 : 14;
   const d = Math.hypot(a.x - b.x, a.y - b.y);
-  return Math.round(far ? clamp(20 + d*0.32, 30, 180) : clamp(5 + d*0.15, 5, 30));
+  return Math.round((far ? clamp(20 + d*0.32, 30, 180) : clamp(5 + d*0.15, 5, 30))*(1 - 0.1*tech("echelons")));
 }
 const warTrip = w => w.trip || (w.trip = roadDays(w.enemy));
 // a finished railway to the country of this war: ground machines and troops go 40% faster; aircraft and airlift do not use it
@@ -2762,7 +2762,7 @@ const OIL_T = 137;   // thousand tonnes in a million barrels
 function fuelOf(units, mode){ const k = FUEL_MODE[mode] ?? 1; let oil = 0, cost = 0;
   for (const id in units||{}){ const m = MODELS[id], n = units[id]; if (!m || !(n > 0)) continue; oil += (FUEL_BBL[m.kind]||0)*n; cost += m.price*FRONT_COST*n; }
   return {oil:oil*k/1e6*OIL_T*WAR_OIL, cost:cost*k}; }
-function fuelNeed(w){ depInit(w); const U = {}; w.dep.forEach(d => { for (const id in d) U[id] = (U[id]||0) + d[id]; }); const o = fuelOf(U, w.mode); o.road = roadOil(w)*WAR_OIL; o.oil += o.road; return o; }
+function fuelNeed(w){ depInit(w); const U = {}; w.dep.forEach(d => { for (const id in d) U[id] = (U[id]||0) + d[id]; }); const o = fuelOf(U, w.mode); o.road = roadOil(w)*WAR_OIL; o.oil = (o.oil + o.road)*(1 - 0.1*tech("fuelsave")); return o; }
 // all wars together: how long the oil in stock lasts after our own production
 function fuelOutlook(){ const need = S.wars.reduce((a, w) => a + fuelNeed(w).oil, 0), prod = prodOf("oil")/30, net = need - prod;
   return {need, prod, days: net > 0 ? (S.stock.oil||0)/net : Infinity}; }
@@ -2863,8 +2863,8 @@ function warDay(w){
     const sp = seaPower(S.units, share);
     if (sp > 0 && (S.ammo.missile||0) >= 1){ w.sea = clamp(sp/(sp + 120), 0, 0.6)*0.5*(1 - clamp(th.ad/(th.ad + 400), 0, 0.5)); warPush(w, w.sea); S.ammo.missile = Math.max(0, S.ammo.missile - Math.max(0.2, sp/400)); }
     if (hasCoast(e.id)){
-      if (my.navy > th.navy*1.3 + 10){ w.blockade = 1; e.gdp *= 0.9996; }
-      else if (th.navy > my.navy*1.3 + 10){ w.blockade = -1; warCut(me().gdp*0.0003); }
+      if (my.navy > th.navy*1.3 + 10){ w.blockade = 1; e.gdp *= 1 - 0.0004*(1 + 0.5*tech("blockade")); }
+      else if (th.navy > my.navy*1.3 + 10){ w.blockade = -1; warCut(me().gdp*0.0003*(1 - 0.3*tech("blockade"))); }
     }
   }
   if (w.blockade !== w.lastBlock){ if (w.blockade === 1) warEvent(w, `Наш флот блокировал побережье: экспорт и импорт ${e.name} остановлены.`, "good"); else if (w.blockade === -1) warEvent(w, "Флот противника блокирует наши порты: торговля страдает.", "bad"); w.lastBlock = w.blockade; }
@@ -3029,7 +3029,7 @@ function doStrike(w, type){
     else { const lost = Object.keys(S.units).find(id => MODELS[id] && MODELS[id].kind === "transport" && S.units[id] > 0); if (lost){ S.units[lost]--; w.lossMy[lost] = (w.lossMy[lost]||0) + 1; } me().army = Math.max(1, me().army*0.995); text = "Десант попал под огонь ПВО: потерян транспортник, плацдарм не удержан."; }
   } else if (type === "landing"){
     if (!hasCoast() || !hasCoast(e.id)) return toast("Десант возможен только между странами с выходом к морю.");
-    if (my.navy < th.navy*1.2 + 20) return toast("Флот слабее вражеского: десант сорвётся.");
+    if (my.navy < th.navy*1.2*(1 - 0.06*tlv("marines")) + 20) return toast("Флот слабее вражеского: десант сорвётся.");
     warPush(w, 8);
     { const WU = warUnits(w); Object.keys(WU).forEach(id => { const m = MODELS[id]; if (m && (m.kind === "ifv" || m.kind === "apc")){ const l = depTake(w, id, Math.floor(WU[id]*0.02)); if (l) w.lossMy[id] = (w.lossMy[id]||0) + l; } }); }
     text = "Морской десант высажен: фронт продвинулся на 8%.";
@@ -4645,9 +4645,8 @@ const TECH = [
   {id:"fintech",br:"econ",tier:3,max:5,cost:220,days:200,name:"Финтех и электронные платежи",fx:"закупки на бирже дешевле на #%",v:8},
   {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост экономики +#% в год",v:1.5},
   {id:"smartgrid",br:"res",tier:1,max:5,cost:60,days:90,name:"Умные энергосети",fx:"построенные здания потребляют на #% меньше энергии",v:8},
-  {id:"agro",br:"res",tier:2,max:5,cost:120,days:140,name:"Точное земледелие",fx:"покрытие продовольствия +#%",v:20},
-  {id:"deep",br:"res",tier:3,max:5,cost:220,days:200,name:"Глубокая добыча",fx:"вышки и рудники истощаются медленнее на #1%, покрытие топлива и руды +#2%",v:[20,20]},
-  {id:"fusion",br:"res",tier:4,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"энергия +#1 ед., рост экономики +#2% в год",v:[40,0.5],req:{nuc_reactor:2}},
+  {id:"deep",br:"res",tier:2,max:5,cost:140,days:150,name:"Глубокая добыча",fx:"вышки и рудники истощаются медленнее на #1%, покрытие топлива и руды +#2%",v:[20,20]},
+  {id:"fusion",br:"res",tier:3,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"энергия +#1 ед., рост экономики +#2% в год",v:[40,0.5],req:{nuc_reactor:2}},
   {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"потребность «Здоровье» +#1%, рейтинг +#2",v:[6,2]},
   {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,2]},
   {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"«Здоровье» +#1%, рейтинг +#2, рост экономики +#3% в год",v:[6,3,0.3]},
@@ -4658,7 +4657,7 @@ const TECH = [
   {id:"cyber",br:"def",tier:4,max:5,cost:400,days:280,name:"Кибервойска",fx:"мощь +#1%, сила врага −#2%, успех спецопераций +#3%",v:[10,10,10]},
   {id:"armor",br:"mil",tier:1,max:3,cost:80,days:120,name:"Современная бронетехника",fx:"бронетанковый завод; ур. 2–3 — покупка и выпуск наземной техники 2–3 поколения",v:0},
   {id:"rotor",br:"mil",tier:2,max:3,cost:150,days:160,name:"Вертолётостроение",fx:"вертолётный завод; ур. 2–3 — покупка и выпуск вертолётов 2–3 поколения",v:0},
-  {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — покупка и выпуск самолётов и кораблей 2–3 поколения",v:0},
+  {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — покупка и выпуск самолётов 2–3 поколения",v:0},
   {id:"armsexport",br:"mil",tier:4,max:5,cost:360,days:260,name:"Экспорт вооружений",fx:"цена экспорта техники +#%",v:28.572},
   {id:"geo",br:"geo",tier:1,max:5,cost:60,days:90,name:"Геологоразведка",fx:"открывает нефть в странах без своих месторождений; добыча нефти ×#",v:1,lin:true},
   {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"золотые шахты: золотые монеты ×#",v:1,lin:true},
@@ -4666,6 +4665,16 @@ const TECH = [
   {id:"uranium",br:"geo",tier:3,max:3,cost:180,days:170,name:"Добыча урана",fx:"урановые рудники; добыча ×#",v:1,lin:true,req:{rareearth:1}},
   {id:"refining",br:"geo",tier:3,max:5,cost:200,days:190,name:"Нефтепереработка",fx:"нефть дороже на #%",v:35,req:{geo:2}},
   {id:"exchange",br:"geo",tier:4,max:5,cost:320,days:250,name:"Сырьевая биржа",fx:"всё сырьё дороже на #%",v:15},
+  // the fleet has its own line, ships left «Авиастроение» (user's decision 05.11)
+  {id:"shipbuild",br:"nav",tier:1,max:3,cost:80,days:120,name:"Судостроение",fx:"военная верфь; ур. 2–3 — покупка и выпуск кораблей 2–3 поколения",v:0},
+  {id:"marines",br:"nav",tier:2,max:3,cost:140,days:150,name:"Морская пехота",fx:"для десанта нужно на #% меньше флота",v:6,lin:true},
+  {id:"blockade",br:"nav",tier:3,max:5,cost:240,days:220,name:"Морская блокада",fx:"наша блокада бьёт сильнее на #1%, вражеская слабее на #2%",v:[50,30]},
+  {id:"carriers",br:"nav",tier:4,max:5,cost:380,days:280,name:"Авианосные группы",fx:"мощь флота +#%",v:10},
+  // logistics: supply, war oil, the road to the front, deliveries
+  {id:"depots",br:"log",tier:1,max:5,cost:70,days:100,name:"Полевые склады",fx:"снабжение на фронте +#",v:10},
+  {id:"fuelsave",br:"log",tier:2,max:5,cost:130,days:150,name:"Экономия топлива",fx:"армия расходует на #% меньше нефти",v:10},
+  {id:"echelons",br:"log",tier:3,max:5,cost:230,days:210,name:"Воинские эшелоны",fx:"техника доезжает до фронта на #% быстрее",v:10},
+  {id:"freight",br:"log",tier:4,max:5,cost:360,days:260,name:"Глобальные перевозки",fx:"поставки с биржи и по договорам приходят на #% быстрее",v:10},
   // ammunition & missiles: each level unlocks a stronger type
   {id:"am_small",br:"ammo",tier:1,max:2,cost:50,days:80,name:"Патроны",tiers:["стандартные","бронебойные","нового поколения"],fx:"пехота +#%",v:10,lin:true,ammo:true},
   {id:"am_shell",br:"ammo",tier:1,max:3,cost:70,days:100,name:"Артиллерийские снаряды",tiers:["122 мм","152/155 мм","активно-реактивные","высокоточные «Краснополь» / Excalibur"],fx:"артиллерия и танки +#%",v:18,lin:true,ammo:true},
@@ -4686,7 +4695,6 @@ const UP_OUT = {wood:"sawmill", steel:"steelworks", oil:"oilrig", rare:"raremine
 [["sawmill","Лесопилки"],["steelworks","Металлургические заводы"],["oilrig","Нефтяные вышки"],["raremine","Рудники РЗМ"],["uranmine","Урановые рудники"],["chips","Заводы электроники"],["bridge","Мосты"],["highway","Автомагистрали"],["metro","Метро"],["airport","Аэропорты"],["port","Порты"]].forEach(([id, name]) =>
   TECH.push({id:"up_"+id, br:"up", tier:1, max:99, cost:100, days:60, up:1, lin:true, v:2, name, fx:(BUILDINGS[id].roi ? "доход" : "выработка")+" построенных зданий +#%"}));
 const upK = id => 1 + UP_STEP*tlv("up_"+id);
-const BRANCHES = [["geo","Недра и сырьё"],["up","Улучшение зданий"],["econ","Экономика"],["res","Ресурсы и энергия"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["ammo","Боеприпасы и ракеты"],["nuc","Ядерная программа"]];
 const TECH_BY = Object.fromEntries(TECH.map(t => [t.id, t]));
 function tlv(id){ return (S && S.rlv && S.rlv[id]) || 0; }
 function tech(id){ return TECH_EFF[Math.min(5, tlv(id))]; }
@@ -4696,6 +4704,7 @@ function researching(id){ return (S.rq||[]).find(q => q.id === id); }
 function researchSlots(){ const n = objOn("institute"); return 1 + (n >= 3 ? 1 : 0) + (n >= 8 ? 1 : 0); }
 function techReqFail(t, lv){
   if (lv > t.max) return "максимальный уровень";
+  if (t.br === "nav" && !hasCoast()) return "нужен выход к морю";
   if (t.req && lv === 1) for (const [id, l] of Object.entries(t.req)) if (tlv(id) < l) return `нужно: ${TECH_BY[id].name} ${roman(l)}`;
   if (!t.req && t.tier > 1){ const prev = TECH.find(x => x.br === t.br && x.tier === t.tier-1); const need = prev ? Math.min(prev.max, Math.max(1, lv-1)) : 1; if (prev && tlv(prev.id) < need) return `нужно: ${prev.name} ${roman(need)}`; }
   const lr = t.lvReq && t.lvReq[lv]; if (lr && lr.bld && !objCount(lr.bld)) return `нужна постройка: ${BUILDINGS[lr.bld].name}`;
@@ -4923,6 +4932,8 @@ function migrate(s){
   if (!s.prod) s.prod = {}; if (!s.prodAcc) s.prodAcc = {}; if (!s.prodExport) s.prodExport = {};
   if (!s.armyTab) s.armyTab = "ground";
   if (!s.rlv){ s.rlv = {}; Object.keys((s.research && s.research.done) || {}).forEach(id => { if (TECH_BY[id]) s.rlv[id] = Math.min(2, TECH_BY[id].max); }); s.rp = 200 + Object.values((s.research && s.research.prog) || {}).reduce((a,v)=>a+v,0)*0.5; s.rq = []; }
+  // research rework 05.11: «Точное земледелие» left the board, ships moved from aviation to their own research
+  if (s.rlv){ delete s.rlv.agro; if (s.rlv.aviation && !s.rlv.shipbuild) s.rlv.shipbuild = s.rlv.aviation; } if (s.rq) s.rq = s.rq.filter(q => TECH_BY[q.id]);
   if (s.rp === undefined) s.rp = 200; if (!s.rq) s.rq = [];
   if (!s.occupied){ s.occupied = {}; Object.values(s.countries).forEach(x => { if (x.owner === "player" && x.id !== s.player) s.occupied[x.id] = {iso:x.id, share:1, res:25, integ:0.6, damage:0.1, garrison:1, policy:"normal", gdpFull:x.gdp*0.6, added:x.gdp*0.6, pop:x.pop, since:0, unrest:0}; }); }
   if (s.infamy === undefined) s.infamy = Object.keys(s.occupied).length*15;
@@ -5029,7 +5040,7 @@ function selfSuff(r){
   const c = me(); let v = c.prof[r]*100 + S.annexBonus[r] + ((S.resLift||{})[r]||0);
   const b = RES.find(x=>x.id===r).build; v += objOn(b)*4;
   Object.entries(BUILDINGS).forEach(([id,bd]) => { if (bd.use && bd.use[r]) v -= bd.use[r]*builtN(id); });
-  if (r==="food") v += 20*tech("agro") + 2*bonusN("chem");
+  if (r==="food") v += 2*bonusN("chem");
   if (r==="oil" || r==="metal") v += 20*tech("deep");
   v *= 1 + lawSum("res");
   v = v/demandK();
@@ -5150,7 +5161,7 @@ function prodOf(r){ const v = prodGross(r); return r === "oil" ? Math.max(0, v -
 /* Start buildings (S.mills0, annexed land included) feed the country itself, so free wood and steel come only from buildings the player
    built. Big countries get GIANT_K more from their first BONUS_FIRST built ones. Lost start buildings leave a shortfall: it comes out of the stock, an empty
    stock costs approval and stability. */
-const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03, PORT_K = 0.1, portN = () => Math.min(2, objOn("port")), portDays = d => Math.max(2, Math.round(d*(1 - PORT_K*portN() - 0.03*bonusN("bridge"))));   // a port: +10% export limit, deliveries 10% faster; a bridge: deliveries 3% faster, first 5; air deliveries do not count
+const EXP_R = new Set(["wood","steel"]), EXPORT_K = 0.03, PORT_K = 0.1, portN = () => Math.min(2, objOn("port")), portDays = d => Math.max(2, Math.round(d*(1 - PORT_K*portN() - 0.03*bonusN("bridge"))*(1 - 0.1*tech("freight"))));   // a port: +10% export limit, deliveries 10% faster; a bridge: deliveries 3% faster, first 5; air deliveries do not count
 const GIANT_GDP = 1500, GIANT_K = 0.3, MILL_OF = {wood:"sawmill", steel:"steelworks"}, millOut = r => BUILDINGS[MILL_OF[r]].out[r]*outMult(r)*(1 + lawSum("res"));
 function civOf(r){ return EXP_R.has(r) ? millOut(r)*((S.mills0||{})[MILL_OF[r]]||0) : 0; }
 function giantPlus(r){ return (S.gdp0 || 0) >= GIANT_GDP ? GIANT_K*millOut(r)*Math.min(BONUS_FIRST, builtOn(MILL_OF[r])) : 0; }
@@ -7494,14 +7505,14 @@ function viewBuildObj(){
 }
 
 /* Research board (user's decision 05.11): rows are branches, columns tiers I–IV, lines are real requirements. A tap opens the sheet. */
-const SCI_BOARD = [["geo","Недра",[["geo","rareearth","uranium","exchange"],[null,"gold","refining"]]],["econ","Экономика"],["res","Ресурсы"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["ammo","Боеприпасы",[["am_small","am_atgm"],["am_shell","am_rocket","am_sam","am_missile"],[null,"am_bomb","am_warhead"]]],["nuc","Ядерная"],["up","Здания"]].map(([br, name, rows]) => {
+const SCI_BOARD = [["geo","Недра",[["geo","rareearth","uranium","exchange"],[null,"gold","refining"]]],["econ","Экономика"],["res","Ресурсы"],["soc","Общество"],["def","Оборона"],["mil","ВПК"],["nav","Флот"],["ammo","Боеприпасы",[["am_small","am_atgm"],["am_shell","am_rocket","am_sam","am_missile"],[null,"am_bomb","am_warhead"]]],["nuc","Ядерная"],["log","Логистика"],["up","Здания"]].map(([br, name, rows]) => {
   const ids = TECH.filter(t => t.br === br).sort((x, y) => x.tier - y.tier).map(t => t.id);
   if (!rows) rows = br === "up" ? Array.from({length:Math.ceil(ids.length/4)}, (_, k) => ids.slice(k*4, k*4 + 4)) : [ids];
   return {br, name, rows};
 });
 const TECH_POS = {}, SB_H = 60, SB_G = 8; let SB_ROWS = 0;
 SCI_BOARD.forEach(b => { b.r = SB_ROWS; b.rows.forEach((row, i) => row.forEach((id, c) => { if (id) TECH_POS[id] = [SB_ROWS + i, c]; })); SB_ROWS += b.rows.length; });
-const TECH_IC = {egov:"politics",automation:"factory",fintech:"money",ai:"economy",smartgrid:"power",agro:"food",deep:"ore",fusion:"uran",telemed:"approval",vaccines:"stability",gene:"rp",longevity:"population",comms:"cls_bases",drones:"cls_air",missile:"sam",cyber:"intel",armor:"tank",rotor:"heli",aviation:"jet",armsexport:"trade",geo:"oil",gold:"gold",rareearth:"rare",uranium:"uran",refining:"factory",exchange:"budget",am_small:"cls_ground",am_shell:"cls_ammo",am_atgm:"tank",am_rocket:"cls_ammo",am_bomb:"plane",am_sam:"sam",am_warhead:"alert",am_missile:"cls_air",nuc_enrich:"uran",nuc_reactor:"power",nuc_bomb:"alert",nuc_carrier:"cls_ammo",up_sawmill:"wood",up_steelworks:"steel",up_oilrig:"oil",up_raremine:"rare",up_uranmine:"uran",up_chips:"rp",up_bridge:"bridge",up_highway:"road",up_metro:"metro",up_airport:"plane",up_port:"port"};
+const TECH_IC = {shipbuild:"cls_navy",marines:"cls_ground",blockade:"port",carriers:"jet",depots:"build",fuelsave:"oil",echelons:"rail",freight:"trade",egov:"politics",automation:"factory",fintech:"money",ai:"economy",smartgrid:"power",deep:"ore",fusion:"uran",telemed:"approval",vaccines:"stability",gene:"rp",longevity:"population",comms:"cls_bases",drones:"cls_air",missile:"sam",cyber:"intel",armor:"tank",rotor:"heli",aviation:"jet",armsexport:"trade",geo:"oil",gold:"gold",rareearth:"rare",uranium:"uran",refining:"factory",exchange:"budget",am_small:"cls_ground",am_shell:"cls_ammo",am_atgm:"tank",am_rocket:"cls_ammo",am_bomb:"plane",am_sam:"sam",am_warhead:"alert",am_missile:"cls_air",nuc_enrich:"uran",nuc_reactor:"power",nuc_bomb:"alert",nuc_carrier:"cls_ammo",up_sawmill:"wood",up_steelworks:"steel",up_oilrig:"oil",up_raremine:"rare",up_uranmine:"uran",up_chips:"rp",up_bridge:"bridge",up_highway:"road",up_metro:"metro",up_airport:"plane",up_port:"port"};
 const techIc = t => ic(TECH_IC[t.id] || "factory");
 const techDeps = t => t.up ? [] : t.req ? Object.keys(t.req) : t.tier > 1 ? TECH.filter(x => x.br === t.br && x.tier === t.tier-1).slice(0, 1).map(x => x.id) : [];
 // x is in units of a board 1000 wide (a column 220, a gap 40), y in pixels
