@@ -201,9 +201,6 @@ h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-
 .tname .ic{color:var(--accent)}
 .tname small{font-size:12px}
 .trow.locked{opacity:.55}
-.mrow{display:grid;grid-template-columns:minmax(0,1.2fr) auto minmax(60px,.8fr);gap:10px;align-items:center}
-.mrow+.mrow{border-top:1px dashed var(--line);padding-top:8px}
-.mrow .spark{height:28px}
 .stock{display:flex;flex-direction:column;gap:6px}
 .stock+.stock{border-top:1px dashed var(--line);padding-top:10px}
 .btns{display:flex;flex-wrap:wrap;gap:6px}
@@ -1433,6 +1430,29 @@ use.cu{fill:#000;stroke:none}
 :root .uk-sec{padding:0!important;overflow:hidden}
 .uk-sec+.uk-sec{margin-top:6px}
 .army-body .uk-sec+.uk-sec{margin-top:0}
+.tr-head,.trow{display:grid;grid-template-columns:minmax(0,1fr) 82px 92px minmax(0,1.9fr);gap:8px;align-items:center;padding:0 10px}
+.tr-head{padding-bottom:3px;font-size:11px;color:var(--muted)}
+.tr-head span:nth-child(2),.tr-head span:nth-child(3){text-align:right}
+.trow{min-height:46px;border-top:1px solid var(--line)}
+.trow.off{opacity:.65}
+.tr-name{display:flex;align-items:center;gap:6px;min-width:0;min-height:40px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.tr-name b{min-width:0;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trow.open .tr-name .uk-go{transform:rotate(90deg)}
+.tr-q,.tr-p{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;font-size:13px;white-space:nowrap}
+.tr-q b{font-size:14px;color:var(--gold-hi)}
+.tr-q small,.tr-p small{font-size:10.5px}
+.tr-q small{color:var(--muted)}
+.tr-act{display:flex;gap:4px;justify-content:flex-end;align-items:center;min-width:0}
+.tr-act .btn{white-space:nowrap}
+.tr-lock{grid-column:2/-1;font-size:11.5px;color:var(--muted);text-align:right}
+.tr-more{grid-column:1/-1;display:flex;flex-direction:column;gap:5px;padding:2px 0 8px}
+.tr-auto{display:flex;align-items:center;gap:10px}
+.tr-auto .spark{width:110px;height:26px;flex:none}
+.tr-auto small{margin-left:auto;color:var(--muted);font-size:11.5px}
+.tr-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.tr-chips small{width:100%;color:var(--muted);font-size:11px}
+.tr-note{font-size:11.5px;line-height:1.3;color:var(--muted)}
+.tr-body{display:flex;flex-direction:column;gap:5px;padding:6px 10px 8px;border-top:1px solid var(--line)}
 .mrow{display:grid;grid-template-columns:40px minmax(0,1fr) 124px 112px;gap:8px;align-items:center;min-height:46px;padding:3px 10px 3px 8px;border-top:1px solid var(--line);box-shadow:inset 3px 0 0 var(--mc)}
 :root .mr-face{position:relative;width:38px;height:38px;padding:0}
 :root .mr-face .tier{font-size:9px}
@@ -6134,7 +6154,7 @@ const TUT_STEPS = [
   {who:"sec", tab:"science", sel:"[data-research]:not([disabled])", text:"Наука — двигатель страны. Выберите первое исследование: новые здания, ресурсы, техника.", done:b => (S.rq||[]).length > b.rq || Object.keys(S.rlv||{}).length > b.rlv},
   {who:"econ", tab:"build", sel:() => S.buildCat !== "mat" ? '[data-buildcat="mat"]' : '[data-act="build"][data-arg="sawmill"]:not([disabled]), [data-act="build"]:not([disabled])', text:"Стройка. Лесопилка даёт древесину, металлургический завод — сталь: из них строится всё остальное. Заложите первый объект.", done:b => S.queue.length > b.queue || blt() > b.blt},
   {who:"econ", tab:"economy", sel:"[data-tax]", look:3, text:"Бюджет и налоги. Доходы должны быть больше расходов: дефицит копит долг, а проценты съедают казну. Осмотритесь."},
-  {who:"econ", tab:"trade", sel:".stock, .mrow", look:3, text:"Торговля: биржа, договоры и закупки. Не хватает стали — купите здесь, но своя дешевле."},
+  {who:"econ", tab:"trade", sel:".trow:not(.off)", look:3, text:"Торговля: биржа, договоры и закупки. Не хватает стали — купите здесь, но своя дешевле."},
   {who:"gen", tab:"army", sel:".hint-i, .uinfo, [data-uinfo]", look:3, text:"Армия: техника, боеприпасы, заводы. У каждой единицы есть (i) с описанием. Без снарядов техника бьёт втрое слабее."},
   {who:"dipl", tab:["diplomacy", "country"], sel:() => ui.tab === "country" ? '[data-act="improve"]:not([disabled])' : "[data-ctry]", look:5, lookTab:"country", text:"Дипломатия. Откройте соседа и улучшите отношения: от +20 откроется торговый договор, от +60 — союз.", done:() => Object.values(C()).some(x => x.improveCd > 0)}
 ];
@@ -6349,7 +6369,7 @@ function act(name, arg){
       toast(`Продано: ${COMMOD[r].name.toLowerCase()} ${fmtQ(q)} за ${money(sum)}`); break;
     }
     case "buy": {
-      const best = suppliers(arg)[0]; if (!best) return toast("Сейчас никто не продаёт этот товар.");
+      const best = suppliers(arg).find(x => sellerLeft(x.iso, arg) >= 1); if (!best) return toast("Сейчас никто не продаёт этот товар.");
       orderGoods(best.iso, arg, COMMOD[arg].buy); break;
     }
     case "autosell": S.autoSell[arg] = !S.autoSell[arg]; break;
@@ -6541,7 +6561,7 @@ let viewMapCache = "";
 function hintify(root){
   root.querySelectorAll(".panel").forEach(panel => {
     const cand = [...panel.querySelectorAll(".label, p.muted, small.muted, .muted.small, .tip-text")].filter(el => {
-      if (el.closest(".ucard, .urow, .mrow, .lrow, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
+      if (el.closest(".ucard, .urow, .mrow, .lrow, .trow, .tr-body, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
       if (el.querySelector("button, input, select, .bar, .num")) return false;
       if (el.closest(".panel") !== panel) return false;
       return el.textContent.trim().length > 60;
@@ -8663,48 +8683,41 @@ function partnerCard(iso){
   </div>`;
 }
 
+// everything about one good sits on its row (user's decision 05.11): stock, price, sale and purchase, the details open on tap
 function viewTrade(){
-  const mrow = (r,d) => { const open = commodOpen(r), h = S.mhist[r], chg = h.length>1 ? h[h.length-1]/h[h.length-2]-1 : 0;
-    return `<div class="mrow"><span class="tname"><span>${ic(r)}${d.name}</span><small class="muted">${open ? `за единицу` : `нужна «${TECH.find(t=>t.id===d.tech).name}»`}</small></span>
-      <span class="num" style="text-align:right">${money(commodPrice(r))}<br><small class="${chg>=0?"up":"down"}">${chg>=0?"▲":"▼"} ${pct(Math.abs(chg)*100,1)}</small></span>
-      ${spark(h.length>1?h:[h[0],h[0]], chg>=0?"var(--good)":"var(--bad)")}</div>`; };
-  const stockRow = (r,d) => {
-    if (!commodOpen(r)) return `<div class="stock"><div class="row"><b class="bname">${ic(r,"lg")}${d.name}</b><span class="label">закрыто</span></div><small class="muted">Откройте «${TECH.find(t=>t.id===d.tech).name}» во вкладке «Наука» → «Недра и сырьё». После этого появится добыча и продажа.</small></div>`;
-    const prod = prodGross(r), civ = r === "oil" ? oilCiv() : civOf(r), contr = allContracts().filter(c=>c.r===r).reduce((a,c)=>a+c.q,0);
-    return `<div class="stock">
-      <div class="row"><b class="bname">${ic(r,"lg")}${d.name}</b><span class="num">${fmtQ(S.stock[r])}</span></div>
-      <div class="bstats"><span>Добыча <b class="up num">+${fmtQ(prod)}</b>/мес</span>${EXP_R.has(r) ? `<span>Продать можно ещё <b class="num">${fmtQ(expRoom(r))}</b> в этом месяце</span>` : ""}${civ?`<span>Страна потребляет <b class="down num">−${fmtQ(civ)}</b>/мес</span><span>Остаток <b class="num">${fmtQ(prodOf(r))}</b>/мес</span>`:""}${contr?`<span>По контрактам <b class="down num">−${contr}</b>/мес</span>`:""}<span>Стоимость склада <b class="num">${money(S.stock[r]*commodPrice(r))}</b></span></div>
-      <div class="row"><span class="btns">
-        <button class="btn" data-act="sell" data-arg="${r}:0.5" ${S.stock[r] <= 0.0005?"disabled":""}>Продать половину</button>
-        <button class="btn" data-act="sell" data-arg="${r}:1" ${S.stock[r] <= 0.0005?"disabled":""}>Продать всё</button>
-        ${d.buy ? (() => { const bs = suppliers(r)[0]; return bs ? `<button class="btn" data-act="buy" data-arg="${r}" ${S.treasury<d.buy*bs.price?"disabled":""}>Заказать ${fmtQ(d.buy)} · ${money(d.buy*bs.price)} · ${esc(partnerName(bs.iso))}, ~${bs.days} дн.</button>` : ""; })() : ""}
-        ${inTransit(r) ? `<span class="pill state">В пути: ${inTransit(r)}</span>` : ""}
-      </span>
-      <span class="mat"><small class="muted">Продавать излишки${r === "oil" ? ` (запас на войну ${fmtQ(armyOil()*OIL_KEEP)})` : d.reserve?` (запас ${fmtQ(d.reserve)})`:""}</small><button class="switch" style="grid-row:auto;grid-column:auto" role="switch" aria-checked="${!!S.autoSell[r]}" aria-label="Автопродажа: ${d.name}" data-act="autosell" data-arg="${r}"></button></span></div>
-    </div>`; };
-  const list = allContracts();
-  const rowsC = list.map(c => { const d = COMMOD[c.r], v = c.q*contractPrice(c.iso,c.r);
-    return `<div class="row"><span><b>${flag(c.iso)} ${esc(partnerName(c.iso))}</b><br><small class="muted">${d.name}: ${fmtQ(c.q)} в месяц · ${money(contractPrice(c.iso,c.r))} за единицу</small></span>
-      <span class="btns"><span class="num up">+${money(v)}</span><button class="btn" data-mapgo="${c.iso}">${ic("map","sm")} На карте</button><button class="btn" data-act="contract" data-arg="${c.iso}:${c.r}:0">Расторгнуть</button></span></div>`; }).join("");
+  const open = ui.trOpen ?? "stock", list = allContracts(), proj = commodProjection();
+  const sec = (id, title, right, none, body) => `<div class="panel uk-sec ${open===id?"open":""}"><button class="uk-head" data-trsec="${id}" aria-expanded="${open===id}"><b>${title}</b><span class="uk-n ${none?"none":""}">${right}</span><span class="uk-go" aria-hidden="true">›</span></button>${open===id ? body : ""}</div>`;
   const pool = [...Object.keys(C()).filter(i=>i!==S.player), ...Object.keys(MINOR_GDP).filter(i=>MINOR_GDP[i]>=40 && (!WORLD || WORLD.paths[i.toUpperCase()]))];
-  const buyers = Object.entries(COMMOD).filter(([r])=>commodOpen(r)).map(([r,d]) => {
+  const more = (r, d, chg) => { const h = S.mhist[r], prod = prodGross(r), civ = r === "oil" ? oilCiv() : civOf(r), contr = list.filter(c=>c.r===r).reduce((a,c)=>a+c.q,0), sup = IMPORTABLE.includes(r) ? suppliers(r).slice(0,3) : null;
     const top = pool.filter(i=>canContract(i).ok).map(i=>[i, premium_(i,r)]).sort((a,b)=>b[1]-a[1]).slice(0,3);
-    return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${d.name}</b></span><span class="btns">${top.map(([i,p])=>`<button class="chip" data-mapgo="${i}">${flag(i)} ${esc(partnerName(i))} <span class="up num">+${Math.round(p*100)}%</span></button>`).join("")}</span></div>`; }).join("");
-  return `<div class="grid2">
-    <div class="panel"><h3>Мировая биржа</h3>${Object.entries(COMMOD).map(([r,d])=>mrow(r,d)).join("")}
-      <div class="label">Цены меняются каждый месяц. Продавайте, когда цена выше обычной.</div></div>
-    <div class="panel"><h3>Выручка</h3>
+    return `<div class="tr-more">
+      <div class="bstats"><span>Добыча <b class="up num">+${fmtQ(prod)}</b>/мес</span>${EXP_R.has(r) ? `<span>Продать можно ещё <b class="num">${fmtQ(expRoom(r))}</b> в этом месяце</span>` : ""}${civ?`<span>Страна потребляет <b class="down num">−${fmtQ(civ)}</b>/мес</span><span>Остаток <b class="num">${fmtQ(prodOf(r))}</b>/мес</span>`:""}${contr?`<span>По контрактам <b class="down num">−${contr}</b>/мес</span>`:""}<span>Стоимость склада <b class="num">${money(S.stock[r]*commodPrice(r))}</b></span></div>
+      <div class="tr-auto">${spark(h.length>1?h:[h[0],h[0]], chg>=0?"var(--good)":"var(--bad)")}<small>Продавать излишки${r === "oil" ? ` (запас на войну ${fmtQ(armyOil()*OIL_KEEP)})` : d.reserve?` (запас ${fmtQ(d.reserve)})`:""}</small><button class="switch" style="grid-row:auto;grid-column:auto" role="switch" aria-checked="${!!S.autoSell[r]}" aria-label="Автопродажа: ${d.name}" data-act="autosell" data-arg="${r}"></button></div>
+      ${sup ? `<div class="tr-chips"><small>Где купить</small>${sup.map(x=>`<button class="chip" data-mapgo="${x.iso}">${flag(x.iso)} ${esc(partnerName(x.iso))} <span class="num warn">${money(x.price)} · ${x.days} дн. · до ${fmtQ(sellerLeft(x.iso, r))}/мес</span></button>`).join("") || `<span class="muted">никто не продаёт</span>`}</div>` : ""}
+      <div class="tr-chips"><small>Лучшие покупатели</small>${top.map(([i,p])=>`<button class="chip" data-mapgo="${i}">${flag(i)} ${esc(partnerName(i))} <span class="up num">+${Math.round(p*100)}%</span></button>`).join("") || `<span class="muted">нет</span>`}</div>
+      <div class="tr-note">Цена покупки за единицу с доставкой, у каждого продавца лимит в месяц. Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div>
+    </div>`; };
+  const row = (r, d) => {
+    if (!commodOpen(r)) return `<div class="trow off"><span class="tr-name">${ic(r)}<b>${d.name}</b></span><span class="tr-lock">Нет в наличии: откройте «${TECH.find(t=>t.id===d.tech).name}» в разделе «Наука» → «Недра и сырьё»</span></div>`;
+    const h = S.mhist[r], chg = h.length>1 ? h[h.length-1]/h[h.length-2]-1 : 0, on = ui.trRes === r, net = prodOf(r), way = inTransit(r), bs = d.buy ? suppliers(r).find(x => sellerLeft(x.iso, r) >= 1) : null, bq = bs ? Math.min(d.buy, Math.floor(sellerLeft(bs.iso, r))) : 0, none = S.stock[r] <= 0.0005;
+    return `<div class="trow ${on?"open":""}">
+      <button class="tr-name" data-trres="${r}" aria-expanded="${on}">${ic(r)}<b>${d.name}</b><span class="uk-go" aria-hidden="true">›</span></button>
+      <span class="tr-q num"><b>${fmtQ(S.stock[r])}</b><small>${way ? `в пути ${fmtQ(way)}` : net ? `+${fmtQ(net)}/мес` : "нет добычи"}</small></span>
+      <span class="tr-p num">${money(commodPrice(r))}<small class="${chg>=0?"up":"down"}">${chg>=0?"▲":"▼"} ${pct(Math.abs(chg)*100,1)}</small></span>
+      <span class="tr-act"><button class="btn sm" data-act="sell" data-arg="${r}:0.5" ${none?"disabled":""}>Продать ½</button><button class="btn sm" data-act="sell" data-arg="${r}:1" ${none?"disabled":""}>Всё</button>${bs ? `<button class="btn sm" data-act="buy" data-arg="${r}" title="${esc(partnerName(bs.iso))}, ~${bs.days} дн." ${S.treasury<bq*bs.price?"disabled":""}>Купить ${fmtQ(bq)} · ${money(bq*bs.price)}</button>` : ""}</span>
+      ${on ? more(r, d, chg) : ""}
+    </div>`; };
+  const rowsC = list.map(c => { const d = COMMOD[c.r], v = c.q*contractPrice(c.iso,c.r);
+    return `<div class="row"><span><b>${flag(c.iso)} ${esc(partnerName(c.iso))}</b><br><small>${d.name}: ${fmtQ(c.q)} в месяц · ${money(contractPrice(c.iso,c.r))} за единицу</small></span>
+      <span class="btns"><span class="num up">+${money(v)}</span><button class="btn" data-mapgo="${c.iso}">${ic("map","sm")} На карте</button><button class="btn" data-act="contract" data-arg="${c.iso}:${c.r}:0">Расторгнуть</button></span></div>`; }).join("");
+  return sec("stock", "Склад и биржа", "цена за единицу", true, `<div class="tr-head"><span>Товар</span><span>Запас</span><span>Цена</span><span></span></div>${Object.entries(COMMOD).map(([r,d])=>row(r,d)).join("")}`)
+    + sec("contracts", "Экспортные контракты", list.length ? `активных: ${list.length}` : "нет", !list.length, `<div class="tr-body">${rowsC || `<div class="tr-note">Контрактов пока нет. Выберите страну на карте и задайте объём поставок: товар будет уходить со склада каждый месяц по цене выше биржевой.</div>`}</div>`)
+    + sec("income", "Выручка", `+${money(proj)} за месяц`, !proj, `<div class="tr-body">
       <div class="row"><span>Продано сырья в прошлом месяце</span><span class="num up">+${money(S.lastCommod||0)}</span></div>
       ${(S.shipments||[]).some(x=>x.dir==="out"&&x.value) ? `<div class="row"><span>Деньги в пути (оплата при доставке)</span><span class="num up">+${money(S.shipments.filter(x=>x.dir==="out"&&x.value).reduce((a,x)=>a+x.value,0))}</span></div>` : ""}
-      <div class="row"><span>Прогноз на этот месяц</span><span class="num up">+${money(commodProjection())}</span></div>
-      <div class="row"><span>Активных контрактов</span><span class="num">${list.length}</span></div>
-      <div class="label">Выпуск на продажу дают построенные вами лесопилки, металлургические заводы, вышки и рудники: «Стройка → Сырьё и материалы».</div>
-      <button class="btn" data-tab="build" style="align-self:flex-start">${ic("factory","sm")} К стройкам</button></div>
-    <div class="panel" style="grid-column:1/-1"><h3>Склад</h3>${Object.entries(COMMOD).map(([r,d])=>stockRow(r,d)).join("")}</div>
-    <div class="panel"><h3>Экспортные контракты</h3>${rowsC || `<p class="muted" style="margin:0">Контрактов пока нет. Выберите страну на карте и задайте объём поставок — товар будет уходить со склада каждый месяц по цене выше биржевой.</p>`}</div>
-    <div class="panel"><h3>Где купить материалы</h3>${IMPORTABLE.map(r => { const top = suppliers(r).slice(0,3); return `<div class="row"><span class="mat">${ic(r,"sm")} <b>${COMMOD[r].name}</b></span><span class="btns">${top.map(x=>`<button class="chip" data-mapgo="${x.iso}">${flag(x.iso)} ${esc(partnerName(x.iso))} <span class="num warn">${money(x.price)} · ${x.days} дн. · до ${fmtQ(sellerLeft(x.iso, r))}/мес</span></button>`).join("") || `<span class="muted">никто не продаёт</span>`}</span></div>`; }).join("")}<div class="label">Цена за единицу с доставкой. Ближе — быстрее. У каждого продавца лимит поставок в месяц.</div></div>
-    <div class="panel"><h3>Лучшие покупатели</h3>${buyers || `<p class="muted" style="margin:0">Нечего продавать.</p>`}<div class="label">Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div></div>
-  </div>`;
+      <div class="row"><span>Прогноз на этот месяц</span><span class="num up">+${money(proj)}</span></div>
+      <div class="tr-note">Выпуск на продажу дают построенные вами лесопилки, металлургические заводы, вышки и рудники: «Стройка → Сырьё и материалы». Цены меняются каждый месяц: продавайте, когда цена выше обычной.</div>
+      <button class="btn sm" data-tab="build" style="align-self:flex-start">${ic("factory","sm")} К стройкам</button></div>`);
 }
 function mapZoomAt(vx, vy, factor){ mapMvMark(); const m = ui.map, nk = clamp(m.k*factor, 1, 10); const px = (vx - m.x)/m.k, py = (vy - m.y)/m.k; m.k = nk; m.x = vx - px*nk; m.y = vy - py*nk; mapApply(); }
 function attachMap(){
@@ -9351,6 +9364,8 @@ document.addEventListener("click", e => {
   if (t.dataset.faccat){ S.facCat = t.dataset.faccat; save(); render(); return; }
   if (t.dataset.buildmode){ S.buildMode = t.dataset.buildmode; save(); render(); return; }
   if (t.dataset.govtab){ const [k, v] = t.dataset.govtab.split(":"); S[k] = v; save(); render(); return; }
+  if (t.dataset.trsec){ ui.trOpen = (ui.trOpen ?? "stock") === t.dataset.trsec ? "" : t.dataset.trsec; render(); return; }
+  if (t.dataset.trres){ ui.trRes = ui.trRes === t.dataset.trres ? null : t.dataset.trres; render(); return; }
   if (t.dataset.minblk){ ui.minOpen = (ui.minOpen ?? MIN_BLOCKS[0][0]) === t.dataset.minblk ? "" : t.dataset.minblk; ui.minRow = null; render(); return; }
   if (t.dataset.minrow){ ui.minRow = ui.minRow === t.dataset.minrow ? null : t.dataset.minrow; render(); return; }
   if (t.dataset.lawgrp){ ui.lawOpen = (ui.lawOpen ?? (LAW_GROUPS[0][0] || "gen")) === t.dataset.lawgrp ? "" : t.dataset.lawgrp; render(); return; }
