@@ -325,7 +325,6 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .float.at-kpi{animation-name:floatKpi}
 @media (prefers-reduced-motion:reduce){.float{animation-duration:1.2s}}
 
-.armytabs{margin:10px 0;position:sticky;top:-12px;z-index:2;background:#F2F6FC;padding:6px 0}
 .army-head{gap:6px}
 .army-body{display:flex;flex-direction:column;gap:12px}
 .unit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
@@ -1138,7 +1137,7 @@ use.cu{fill:#000;stroke:none}
 :root .win-x{width:44px;height:36px;background:#141F33;border:1px solid var(--line-2);border-radius:4px;color:var(--ink)}
 :root .win-x:hover{border-color:var(--gold);color:var(--gold-hi);background:#1A2740}
 :root .tip{background:#111C2E;border:1px solid var(--line);border-radius:4px}
-:root .gov-tabs,:root .armytabs{background:#0C1525}
+:root .gov-tabs{background:#0C1525}
 
 /* tabs: equal-width dark slabs, gold when active */
 :root .gov-tabs{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto}
@@ -1324,7 +1323,6 @@ use.cu{fill:#000;stroke:none}
 :root .tile{gap:1px!important;font-size:10px!important;padding:1px 2px 0!important}
 :root .tile-ic{height:24px!important;width:40px!important;border-radius:8px!important}
 :root .tile-ic .hic,:root .tile-ic .ic{width:17px!important;height:17px!important}
-:root .armytabs .chip{display:inline-flex;align-items:center;gap:6px}
 @media (max-width:820px){ :root .tb-kpis .kpi .kd{display:none!important} :root .tb-name .tb-sub{display:none} }
 @media (max-width:790px){ :root .tb-name{display:none!important} }
 
@@ -1344,17 +1342,11 @@ use.cu{fill:#000;stroke:none}
 :root .uc-photo{position:relative;display:block;width:100%;aspect-ratio:16/9;padding:0;border:0;border-bottom:1px solid var(--line);background:#0A111D;cursor:pointer}
 :root .uc-photo img{width:100%;height:100%;object-fit:cover;display:block}
 :root .uc-photo .gen{position:absolute;top:6px;left:6px;box-shadow:0 1px 4px rgb(0 0 0 / .5)}
-:root .uc-i{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:700 italic 14px var(--f-serif);color:var(--gold-hi);background:rgb(8 14 26 / .78);border:1px solid var(--gold-lo);box-shadow:0 1px 4px rgb(0 0 0 / .6)}
 :root .uc-name{padding-top:8px}
 :root .uc-name b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 :root .uc-meta{margin-top:4px!important;font-size:12.5px}
 :root .uc-pw b{color:var(--gold-hi)}
 :root .ucard .btns{margin-top:8px!important;margin-bottom:10px!important}
-:root .ammo-row{display:flex!important;flex-direction:row!important;gap:12px;align-items:stretch}
-:root .am-photo{position:relative;flex:0 0 132px;aspect-ratio:16/9;padding:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#0A111D;align-self:center}
-:root .am-photo img{width:100%;height:100%;object-fit:cover;display:block}
-:root .am-photo .uc-i{width:20px;height:20px;font-size:12px;top:4px;right:4px}
-:root .am-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 :root .sheet.uinfo{max-width:860px;width:min(96vw,860px);padding:0!important;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);overflow:hidden;max-height:92vh}
 :root .ui-photo{margin:0;position:relative;background:#0A111D;min-height:100%}
 :root .ui-photo img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1521,23 +1513,41 @@ use.cu{fill:#000;stroke:none}
 .uk-n.none{font-weight:400;color:var(--muted)}
 .uk-go{color:var(--muted);transition:transform .15s}
 .uk-sec.open .uk-go{transform:rotate(90deg)}
-.urow{display:grid;grid-template-columns:76px minmax(0,1.1fr) 104px minmax(0,1.3fr);gap:10px;align-items:center;min-height:52px;padding:4px 10px;border-top:1px solid var(--line)}
-.urow.have{background:rgb(212 175 55 / .09);box-shadow:inset 3px 0 0 var(--gold-hi)}
-.ur-photo{position:relative;width:76px;height:44px;padding:0;border:0;border-radius:3px;overflow:hidden;background:#0A111D;cursor:pointer}
-.ur-photo img{width:100%;height:100%;object-fit:cover;display:block}
-.urow.none .ur-photo img{filter:grayscale(1) brightness(.55)}
-:root .ur-photo .uc-i{top:2px;right:2px;width:16px;height:16px;font-size:11px}
-.ur-name{min-width:0;display:flex;flex-direction:column;gap:1px}
-.ur-name b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.urow.none .ur-name b{color:var(--muted);font-weight:500}
-.ur-name small{font-size:11px}
-.ur-have{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.15}
-.ur-have b{font-size:17px;color:var(--gold-hi)}
-.ur-have small{font-size:10.5px;color:var(--muted)}
-.ur-none,.ur-way{padding:2px 6px;border:1px solid var(--line-2);border-radius:3px;font-size:11px;white-space:nowrap;color:var(--muted)}
-.ur-way{color:var(--state);border-color:currentColor}
-.ur-act{display:flex;gap:6px;justify-content:flex-end;align-items:center;min-width:0}
-.ur-act small{font-size:11px;line-height:1.2;text-align:right}
+.railed{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:start}
+.railed-main{min-width:0}
+.crail{position:sticky;top:0;z-index:2;display:flex;flex-direction:column;gap:1px}
+.crail-b{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:37px;padding:2px 0;border:0;border-left:2px solid transparent;border-radius:0 3px 3px 0;background:none;color:var(--muted);font:inherit;cursor:pointer}
+.crail-b span{max-width:100%;overflow:hidden;font-size:9.5px;line-height:1.1;white-space:nowrap;text-overflow:ellipsis}
+.crail-b .pic{width:19px;height:19px}
+.crail-b[aria-pressed="true"]{border-left-color:var(--gold-hi);background:rgb(212 175 55 / .13);color:var(--gold-hi)}
+.gc-head{display:flex;align-items:baseline;gap:8px;margin:9px 0 5px;padding-top:5px;border-top:1px solid var(--line);font-size:12.5px}
+.gc-head small{min-width:0;overflow:hidden;font-size:10.5px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis}
+.gc-head span{flex:none;margin-left:auto;font-size:12.5px;font-weight:600;color:var(--gold-hi)}
+.gc-head span.none{font-size:11px;font-weight:400;color:var(--muted)}
+.gc-note{margin-top:8px;font-size:11px;line-height:1.3;color:var(--muted)}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:6px}
+.gc{display:flex;flex-direction:column;min-width:0;padding:0;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:rgb(255 255 255 / .04);color:inherit;font:inherit;text-align:center;cursor:pointer}
+.gc.have{border-color:var(--gold-hi)}
+.gc:active{border-color:var(--gold-hi);background:rgb(212 175 55 / .13)}
+.gc-pic{position:relative;display:block;aspect-ratio:2/1;background:#0A111D}
+.gc-pic img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover}
+.gc.none img{filter:grayscale(1) brightness(.6)}
+.gc.lock img{filter:grayscale(1) brightness(.35)}
+.gc-n,.gc-way{position:absolute;top:3px;padding:0 5px;border-radius:3px;background:rgb(6 10 18 / .78);font-size:12px;font-style:normal;font-weight:700;line-height:17px;color:var(--gold-hi)}
+.gc-n{left:3px}
+.gc.none .gc-n,.gc.lock .gc-n{font-weight:500;color:var(--muted)}
+.gc-way{right:3px;font-size:10px;font-weight:500;color:var(--state)}
+.gc-lock{position:absolute;right:3px;bottom:1px;font-size:12px;font-style:normal;filter:grayscale(1)}
+.gc-bar{display:flex;align-items:center;justify-content:center;gap:4px;min-height:19px;background:rgb(212 175 55 / .13);font-size:11.5px;color:var(--ink)}
+.gc-bar .pic{width:13px;height:13px}
+.gc.none .gc-bar,.gc.lock .gc-bar{background:rgb(255 255 255 / .05);color:var(--muted)}
+.gc.low .gc-bar{color:var(--bad)}
+.gc-name{display:block;padding:2px 4px 3px;overflow:hidden;font-size:12px;font-weight:600;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
+.gc.none .gc-name,.gc.lock .gc-name{font-weight:500;color:var(--muted)}
+.ui-act{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:6px 0}
+.ui-act small{font-size:11px}
+.ui-way{color:var(--state)}
+.ui-x{flex:none;width:30px;height:30px;padding:0;border:1px solid var(--line-2);border-radius:3px;background:none;color:var(--ink);font-size:14px;cursor:pointer}
 .dip-head,.dip-line{display:grid;grid-template-columns:minmax(0,1fr) 62px 150px minmax(0,190px) 10px;gap:10px;align-items:center;width:100%;box-sizing:border-box;padding:0 4px}
 .dip-head{margin-top:8px;padding-bottom:3px;font-size:11px;color:var(--muted)}
 .dip-line{min-height:38px;border:0;border-radius:0;border-top:1px dashed var(--line);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -1553,6 +1563,7 @@ use.cu{fill:#000;stroke:none}
 :root .tip-open .portrait{border-radius:50%;overflow:hidden}
 .tip-open.new::after{content:"";position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:1.5px solid #101A2A}
 @media (max-height:420px){
+  :root .army-head{padding:6px 8px} :root .army-head .bstats{gap:2px 12px;font-size:12px} :root .army-head .btns{flex-wrap:nowrap;margin-top:4px;gap:5px} :root .army-head .btn{min-height:30px;padding:3px 8px;font-size:11.5px;white-space:nowrap}
   :root .window{top:0!important;bottom:0!important;left:env(safe-area-inset-left,0px);right:env(safe-area-inset-right,0px)}
   :root .win-head{height:34px;box-sizing:border-box}
   :root .win-head h2{font-size:16px!important}
@@ -1579,7 +1590,6 @@ use.cu{fill:#000;stroke:none}
   :root .dcard b{font-size:12.5px}
   :root .dcard small{font-size:10.5px;line-height:1.15}
   :root .gov-tabs{margin-bottom:6px;padding:2px 0;top:-6px}
-  :root .armytabs{margin:6px 0;padding:2px 0;top:-6px}
   :root .army-head{gap:4px}
   .army-body{gap:6px!important}
   :root .gov-tabs .chip{padding:5px 10px;font-size:13px;gap:8px}
@@ -6206,7 +6216,7 @@ const TUT_STEPS = [
   {who:"econ", tab:"build", sel:() => S.buildCat !== "mat" ? '[data-buildcat="mat"]' : '[data-act="build"][data-arg="sawmill"]:not([disabled]), [data-act="build"]:not([disabled])', text:"Стройка. Лесопилка даёт древесину, металлургический завод — сталь: из них строится всё остальное. Заложите первый объект.", done:b => S.queue.length > b.queue || blt() > b.blt},
   {who:"econ", tab:"economy", sel:"[data-tax]", look:3, text:"Бюджет и налоги. Доходы должны быть больше расходов: дефицит копит долг, а проценты съедают казну. Осмотритесь."},
   {who:"econ", tab:"trade", sel:".trow:not(.off)", look:3, text:"Торговля: биржа, договоры и закупки. Не хватает стали — купите здесь, но своя дешевле."},
-  {who:"gen", tab:"army", sel:".hint-i, .uinfo, [data-uinfo]", look:3, text:"Армия: техника, боеприпасы, заводы. У каждой единицы есть (i) с описанием. Без снарядов техника бьёт втрое слабее."},
+  {who:"gen", tab:"army", sel:".hint-i, .uinfo, [data-uinfo]", look:3, text:"Армия: техника, боеприпасы, заводы. Нажмите на карточку: там описание и закупка. Без снарядов техника бьёт втрое слабее."},
   {who:"dipl", tab:["diplomacy", "country"], sel:() => ui.tab === "country" ? '[data-act="improve"]:not([disabled])' : "[data-ctry]", look:5, lookTab:"country", text:"Дипломатия. Откройте соседа и улучшите отношения: от +20 откроется торговый договор, от +60 — союз.", done:() => Object.values(C()).some(x => x.improveCd > 0)}
 ];
 function blt(){ return Object.values(S.buildings||{}).reduce((a, v) => a + (v||0), 0); }
@@ -6400,9 +6410,9 @@ function act(name, arg){
       ui.tab = "hq"; sfx("alarm"); break;
     }
     case "peace": { showPeace(arg); return; }
-    case "buyunit": { orderUnits(arg, KINDS[MODELS[arg].kind].batch); break; }
-    case "sellunit": { const m = MODELS[arg], n = Math.min(sellable(arg), KINDS[m.kind].batch); if (n < 1) return toast("Стартовую технику продать нельзя."); S.units[arg] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); break; }
-    case "buyammo": { orderAmmo(arg, AMMO[arg].batch); break; }
+    case "buyunit": { orderUnits(arg, KINDS[MODELS[arg].kind].batch); uiRefresh(arg); break; }
+    case "sellunit": { const m = MODELS[arg], n = Math.min(sellable(arg), KINDS[m.kind].batch); if (n < 1) return toast("Стартовую технику продать нельзя."); S.units[arg] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); uiRefresh(arg); break; }
+    case "buyammo": { orderAmmo(arg, AMMO[arg].batch); uiRefresh(arg); break; }
     case "prodset": { const [pid, id] = arg.split("|"); S.prod[pid] = S.prod[pid] === id ? null : id; S.prodAcc[pid] = 0; break; }
     case "prodexport": { S.prodExport[arg] = !S.prodExport[arg]; break; }
     case "rail": {
@@ -6612,7 +6622,7 @@ let viewMapCache = "";
 function hintify(root){
   root.querySelectorAll(".panel").forEach(panel => {
     const cand = [...panel.querySelectorAll(".label, p.muted, small.muted, .muted.small, .tip-text")].filter(el => {
-      if (el.closest(".ucard, .urow, .mrow, .lrow, .trow, .brow, .srow, .srow-note, .tr-body, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
+      if (el.closest(".ucard, .gc, .mrow, .lrow, .trow, .brow, .srow, .srow-note, .tr-body, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
       if (el.querySelector("button, input, select, .bar, .num")) return false;
       if (el.closest(".panel") !== panel) return false;
       return el.textContent.trim().length > 60;
@@ -7717,10 +7727,18 @@ const AINFO = {
 };
 const photo = id => (UINFO[id] || AINFO[id]) ? `photos/${(UINFO[id] || AINFO[id]).f}.webp` : "";
 function credit(x){ return x.lic ? `Фото: ${x.by} · ${x.lic}` : x.by; }
+// A card has no buttons, so buying and scrapping live in the sheet; refreshed in place to keep the 3D turntable running
+function uiActs(id){ const m = MODELS[id];
+  if (m){ const k = KINDS[m.kind], buy = canBuyModel(id), left = mktLeft(m.kind), bq = Math.min(k.batch, left), sell = sellable(id), way = unitWay(id);
+    return `${buy.ok ? `<button class="btn primary" data-act="buyunit" data-arg="${id}" ${S.treasury < buy.price*bq ? "disabled" : ""}>+${bq} · ${money(buy.price*bq)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}${sell >= 1 ? `<button class="btn" data-act="sellunit" data-arg="${id}">Списать ${Math.min(sell, k.batch)}</button>` : ""}${way ? `<small class="ui-way">В пути: ${way}</small>` : ""}${buy.ok ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(m.kind)}</small>` : ""}`; }
+  const a = AMMO[id], s = ammoSellers()[0], lock = id === "missile" && !tlv("am_missile");
+  return `${lock ? `<small class="down">нужно исследование «Ракеты I»</small>` : ""}<button class="btn primary" data-act="buyammo" data-arg="${id}" ${lock || !s || S.treasury < a.price*a.batch*(s?s.price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(s?s.price:1.2))}</button>`; }
+function uiRefresh(id){ const el = modalRoot.querySelector(".ui-act"); if (!el) return; el.innerHTML = uiActs(id);
+  const h = modalRoot.querySelector("[data-uhave]"); if (h) h.textContent = MODELS[id] ? (S.units[id]||0).toLocaleString("ru-RU") : `${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${AMMO[id].unit}`; }
 function showUnitInfo(id){
   const m = MODELS[id], a = AMMO[id], x = UINFO[id] || AINFO[id]; if (!x) return;
   let stats = "";
-  if (m){ const k = KINDS[m.kind], buy = canBuyModel(id), prod = canProduceModel(id), n = S.units[id] || 0;
+  if (m){ const k = KINDS[m.kind], prod = canProduceModel(id), n = S.units[id] || 0;
     stats = `<div class="ui-stats">
       <span><small>Производитель</small><b>${flag(m.origin)} ${esc(partnerName(m.origin))}</b></span>
       <span><small>Класс</small><b>${k.name}</b></span>
@@ -7731,14 +7749,15 @@ function showUnitInfo(id){
       <span><small>🛡 Защита</small><b class="num">${m.df}</b></span>
       <span><small>Цена за единицу</small><b class="num">${money(m.cost)}</b></span><span><small>Сталь на заводе</small><b class="num">${fmtQ(unitSteel(m))}</b></span>
       <span><small>Содержание</small><b class="num">${money(modelUpkeep(m)/12)}/мес</b></span>
-      <span><small>В строю</small><b class="num">${n.toLocaleString("ru-RU")}</b></span>
+      <span><small>В строю</small><b class="num" data-uhave>${n.toLocaleString("ru-RU")}</b></span>
       ${k.ammo ? `<span><small>Боеприпасы</small><b>${AMMO[k.ammo].short}</b></span>` : ""}
     </div>
-    <div class="label">${buy.ok ? `Закупка: ${money(buy.price)} за ед., доставка ${buy.days} дн.` : `Закупка: ${buy.why}`}${prod.ok ? " · можно производить у себя" : prod.why ? ` · своё производство: ${prod.why}` : ""}</div>`; }
-  else if (a){ stats = `<div class="ui-stats"><span><small>Цена партии</small><b class="num">${money(a.price*a.batch)}</b></span><span><small>Партия</small><b class="num">${a.batch.toLocaleString("ru-RU")} ${a.unit}</b></span><span><small>На складе</small><b class="num">${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${a.unit}</b></span></div>`; }
+    ${prod.ok || prod.why ? `<div class="label">${prod.ok ? "Можно производить у себя" : `Своё производство: ${prod.why}`}</div>` : ""}`; }
+  else if (a){ stats = `<div class="ui-stats"><span><small>Цена партии</small><b class="num">${money(a.price*a.batch)}</b></span><span><small>Партия</small><b class="num">${a.batch.toLocaleString("ru-RU")} ${a.unit}</b></span><span><small>На складе</small><b class="num" data-uhave>${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${a.unit}</b></span></div>`; }
   modalRoot.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(m ? m.name : a.name)}"><div class="sheet uinfo">
     <figure class="ui-photo"><img src="${photo(id)}" alt="${esc(m ? m.name : a.name)}"><figcaption>${esc(credit(x))}</figcaption>${m && SPR.idx[id] != null ? `<canvas class="ui-3d" width="192" height="192" aria-label="3D-модель: потяните, чтобы повернуть"></canvas><span class="ui-3d-l">3D</span>` : ""}</figure>
-    <div class="ui-body"><div class="row"><h2>${m ? `${flag(m.origin)} ${esc(m.name)}` : esc(a.name)}</h2>${m ? `<span class="gen g${m.gen}">${m.gen} пок.</span>` : ""}</div>
+    <div class="ui-body"><div class="row"><h2>${m ? `${flag(m.origin)} ${esc(m.name)}` : esc(a.name)}</h2>${m ? `<span class="gen g${m.gen}">${m.gen} пок.</span>` : ""}<button class="ui-x" data-close aria-label="Закрыть">✕</button></div>
+      <div class="ui-act">${uiActs(id)}</div>
       <p>${x.d}</p>${stats}
       <div class="btns"><button class="btn" data-close>Закрыть</button><button class="btn link" data-credits>Источники фото</button></div></div>
   </div></div>`;
@@ -7828,15 +7847,14 @@ function showCredits(){
 }
 
 // one machine: what the country owns must be seen at once, without opening (i) (user's request 05.11)
-function unitRow(m, k, bq){
-  const n = S.units[m.id]||0, buy = canBuyModel(m.id), sell = sellable(m.id), way = (S.shipments||[]).filter(x => x.cat === "unit" && x.dir === "in" && x.r === m.id).reduce((a, x) => a + x.qty, 0);
-  return `<div class="urow ${n ? "have" : "none"}">
-    <button class="ur-photo" data-uinfo="${m.id}" aria-label="Подробнее: ${esc(m.name)}"><img src="${photo(m.id)}" alt="" loading="lazy" draggable="false"><i class="uc-i" aria-hidden="true">i</i></button>
-    <div class="ur-name"><b>${flag(m.origin)} ${m.name}</b><small class="muted">${m.gen} пок. · мощь ${m.pw.toLocaleString("ru-RU")}</small></div>
-    <div class="ur-have">${n ? `<b class="num">${n.toLocaleString("ru-RU")}</b><small>в строю${way ? ` · +${way} в пути` : ""}</small>` : way ? `<span class="ur-way">В пути: ${way}</span>` : `<span class="ur-none">Нет в наличии</span>`}</div>
-    <div class="ur-act">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*bq ? "disabled" : ""}>+${bq} · ${money(buy.price*bq)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}${sell >= 1 ? `<button class="btn sm" data-act="sellunit" data-arg="${m.id}">Списать ${Math.min(sell, k.batch)}</button>` : ""}</div>
-  </div>`;
-}
+// Picture card and category rail (user's decision 05.11): count on the photo, one main number on the strip, the rest opens on tap
+function gcard(o){ return `<button class="gc ${o.cls||""}" ${o.attr} aria-label="Подробнее: ${esc(o.label)}">
+    <span class="gc-pic"><img src="${o.img}" alt="" loading="lazy" draggable="false"><em class="gc-n">${o.n}</em>${o.way ? `<em class="gc-way">+${o.way} в пути</em>` : ""}${o.cls === "lock" ? `<i class="gc-lock" aria-hidden="true">🔒</i>` : ""}</span>
+    <span class="gc-bar">${o.bar}</span><b class="gc-name">${o.name}</b></button>`; }
+function crail(items, on, attr){ return `<nav class="crail" aria-label="Разделы">${items.map(([id, l, p]) => `<button class="crail-b" data-${attr}="${id}" aria-pressed="${on === id}">${pic(p)}<span>${l}</span></button>`).join("")}</nav>`; }
+const unitWay = id => (S.shipments||[]).filter(x => x.cat === "unit" && x.dir === "in" && x.r === id).reduce((a, x) => a + x.qty, 0);
+function unitCard(m){ const n = S.units[m.id]||0, buy = canBuyModel(m.id);
+  return gcard({attr:`data-uinfo="${m.id}"`, cls: n ? "have" : buy.ok || buy.own ? "none" : "lock", img:photo(m.id), n:n.toLocaleString("ru-RU"), way:unitWay(m.id), bar:`${pic("milpower","sm")}<b class="num">${m.pw.toLocaleString("ru-RU")}</b>`, name:`${flag(m.origin)} ${m.name}`, label:m.name}); }
 function viewArmy(){
   const c = me(), tab = S.armyTab || "ground";
   const wars = S.wars.map(w => { const e = C()[w.enemy]; const p = (w.progress+100)/2; return `<div class="panel">
@@ -7850,27 +7868,22 @@ function viewArmy(){
       <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()||me().army>=draftCap()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button><button class="btn" data-tab="hq">${ic("army","sm")} Штаб и оккупация</button></div>
       ${garrisonTotal() ? `<div class="label">В гарнизонах: ${troops(garrisonTotal())}. На фронтах доступно: ${troops(freeArmy())}.</div>` : ""}
     </div>`;
-  const tabs = `<div class="filters armytabs">${UCLS.map(([id,l]) => `<button class="chip" data-armytab="${id}" aria-pressed="${tab===id}">${pic("cls_" + id, "sm")}${l}</button>`).join("")}</div>`;
+  const tabs = crail(UCLS.map(([id,l]) => [id, id === "prod" ? "Заводы" : l, "cls_" + id]), tab, "armytab");
   let body = "";
   if (["ground","air","ad","navy"].includes(tab)){
     if (tab === "navy" && !hasCoast()) body = `<div class="panel"><p class="muted" style="margin:0">У страны нет выхода к морю — флот недоступен. Его можно получить, присоединив прибрежную страну.</p></div>`;
-    else { const kinds = Object.entries(KINDS).filter(([,k]) => k.cls === tab), open = (ui.ukOpen||{})[tab] ?? kinds[0][0];   // one section open at a time (user's decision 05.11)
-      body = kinds.map(([kid, k]) => {
-        const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kid), rank = m => (S.units[m.id] ? 0 : canBuyModel(m.id).ok ? 1 : 2);
-        const have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0), left = mktLeft(kid), bq = Math.min(k.batch, left), on = open === kid;
-        return `<div class="panel uk-sec ${on?"open":""}"><button class="uk-head" data-ukind="${kid}" aria-expanded="${on}">${ic(k.icon)}<b>${k.name}</b>${on ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(kid)}</small>` : ""}<span class="uk-n ${have?"":"none"}">${have ? have.toLocaleString("ru-RU") + " ед." : "нет в наличии"}</span><span class="uk-go" aria-hidden="true">›</span></button>
-          ${on ? [...ms].sort((p, q) => rank(p) - rank(q)).map(m => unitRow(m, k, bq)).join("") : ""}</div>`; }).join(""); }
+    else body = Object.entries(KINDS).filter(([,k]) => k.cls === tab).map(([kid, k]) => {
+        const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kid), rank = m => (S.units[m.id] ? 0 : canBuyModel(m.id).ok ? 1 : 2), have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0);
+        return `<div class="gc-head"><b>${k.name}</b><small>рынок на ${S.year} год: ещё ${mktLeft(kid)} из ${mktLim(kid)}</small><span class="num ${have?"":"none"}">${have ? have.toLocaleString("ru-RU") : "нет в наличии"}</span></div>
+          <div class="gcards">${[...ms].sort((p, q) => rank(p) - rank(q)).map(unitCard).join("")}</div>`; }).join("");
   } else if (tab === "bases"){
     body = `<div class="panel"><div class="row"><h3>${ic("army")} Военная инфраструктура</h3><span class="num">боеготовность ${Math.round(milBaseMult()*100)}%</span></div><div class="label">Если войскам, технике или самолётам не хватает мест на базах, армия воюет слабее. Тренировочные комплексы и склады снабжения дают бонусы сверх нормы.</div></div><div class="fac-grid">${Object.keys(FAC).filter(id=>FAC[id].cat==="defense").map(facCard).join("")}</div>`;
   } else if (tab === "ammo"){
     const need = ammoNeedMonth(), sellers = ammoSellers();
-    body = `<div class="panel"><div class="row"><h3>${ic("ammo")} Склад боеприпасов</h3>${sellers[0] ? `<span class="label">Поставщик: ${flag(sellers[0].iso)} ${esc(partnerName(sellers[0].iso))}, ~${sellers[0].days} дн.</span>` : `<span class="label down">Нет поставщиков (нужны отношения от +10)</span>`}</div>
-      ${Object.entries(AMMO).map(([k,a]) => { const have = S.ammo[k]||0, months = need[k] > 0 ? have/need[k] : Infinity;
-        return `<div class="stock ammo-row"><button class="am-photo" data-uinfo="${k}" aria-label="Подробнее: ${a.name}"><img src="${photo(k)}" alt="" loading="lazy"><i class="uc-i" aria-hidden="true">i</i></button><div class="am-body"><div class="row"><b>${a.name} <small class="muted">· ${ammoTier(k)}</small></b><span class="num">${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}</span></div>
-          <div class="bar ${months<2?"low":months<5?"mid":"high"}"><i style="width:${Math.min(100, (isFinite(months)?months:12)/12*100)}%"></i></div>
-          <div class="row"><small class="muted">${isFinite(months) ? `Хватит примерно на ${months < 1 ? "меньше месяца" : Math.floor(months) + " мес."} войны` : "Сейчас не расходуется"}</small>
-          ${k === "missile" && !tlv("am_missile") ? `<small class="down">нужно исследование «Ракеты I»</small>` : ""}<button class="btn sm" data-act="buyammo" data-arg="${k}" ${(k === "missile" && !tlv("am_missile")) || !sellers[0] || S.treasury < a.price*a.batch*(sellers[0]?sellers[0].price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(sellers[0]?sellers[0].price:1.2))}</button></div></div></div>`; }).join("")}
-      <div class="label">На войне каждый бой тратит боеприпасы. Кончатся снаряды — артиллерия замолчит. Свой завод боеприпасов строится в разделе «Стройка → Военные заводы».</div></div>`;
+    body = `<div class="gc-head"><b>Склад боеприпасов</b>${sellers[0] ? `<small>Поставщик: ${flag(sellers[0].iso)} ${esc(partnerName(sellers[0].iso))}, ~${sellers[0].days} дн.</small>` : `<small class="down">Нет поставщиков (нужны отношения от +10)</small>`}</div>
+      <div class="gcards">${Object.entries(AMMO).map(([k,a]) => { const have = S.ammo[k]||0, months = need[k] > 0 ? have/need[k] : Infinity;
+        return gcard({attr:`data-uinfo="${k}"`, cls:`${have >= 1 ? "have" : "none"} ${months < 2 ? "low" : ""}`, img:photo(k), n:`${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}`, bar:isFinite(months) ? `хватит на ${months < 1 ? "меньше месяца" : Math.floor(months) + " мес."}` : "не расходуется", name:a.name, label:a.name}); }).join("")}</div>
+      <div class="gc-note">На войне каждый бой тратит боеприпасы. Кончатся снаряды — артиллерия замолчит. Свой завод боеприпасов строится в разделе «Стройка → Военные заводы».</div>`;
   } else {
     const plants = [...Object.keys(PLANT_CAP), "ammoplant"];
     body = plants.map(pid => { const n = objCount(pid), b = BUILDINGS[pid];
@@ -7886,7 +7899,7 @@ function viewArmy(){
           : `<p class="muted" style="margin:0">Нет завода. ${b.desc}. Строится в «Стройка → Военные заводы».</p>`}</div>`; }).join("")
       + `<div class="label" style="margin-top:4px">Производить можно технику своего блока, а чужую — по лицензии, при отношениях от +50 со страной-разработчиком. Новые поколения открывает наука (ветки «ВПК» и «Оборона»).</div>`;
   }
-  return `${head}${wars ? `<div class="grid2" style="margin-top:10px">${wars}</div>` : ""}${guardK() >= 0.05 ? `<div class="label">На охране страны остаётся ${Math.round(guardK()*100)}% сил: в войне участвует остальное.</div>` : ""}${tabs}<div class="army-body">${body}</div>`;
+  return `<div class="railed">${tabs}<div class="railed-main">${head}${wars ? `<div class="grid2" style="margin-top:10px">${wars}</div>` : ""}${guardK() >= 0.05 ? `<div class="label">На охране страны остаётся ${Math.round(guardK()*100)}% сил: в войне участвует остальное.</div>` : ""}<div class="army-body">${body}</div></div></div>`;
 }
 function dipRow(x){
     if (x.owner) return S.occupied && S.occupied[x.id] ? occCard(S.occupied[x.id]) : `<div class="dip-row"><div class="dip-name"><b>${flag(x.id)} ${esc(x.name)}</b><span class="muted">${x.region}</span></div><div></div><span class="pill good">Под вашим контролем</span></div>`;
@@ -9357,7 +9370,6 @@ document.addEventListener("click", e => {
   if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
   if (t.dataset.warprio){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) w.prio = +t.dataset.warprio; save(); render(); return; }
   if (t.dataset.strike){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) doStrike(w, t.dataset.strike); save(); render(); return; }
-  if (t.dataset.ukind){ const tab = S.armyTab || "ground", first = Object.keys(KINDS).find(id => KINDS[id].cls === tab); ui.ukOpen = ui.ukOpen || {}; ui.ukOpen[tab] = (ui.ukOpen[tab] ?? first) === t.dataset.ukind ? "" : t.dataset.ukind; render(); return; }
   if (t.dataset.armytab){ S.armyTab = t.dataset.armytab; save(); render(); return; }
   if (t.dataset.buildcat){ S.buildCat = t.dataset.buildcat; save(); render(); return; }
   if (t.dataset.scenario){ ui.scenario = t.dataset.scenario; renderStart(); return; }
