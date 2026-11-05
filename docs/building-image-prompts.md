@@ -3,182 +3,182 @@
 29 готовых промптов для экрана «Стройка». Общий стиль уже внутри каждого: копируй блок целиком.
 
 **Как делать**
-1. Вечерний свет, тёмные холодные тона и тёплый золотой отблеск подобраны под тёмно-синий интерфейс с золотом.
-2. Сначала сделай 2–3 разных здания и проверь, что они выглядят как один набор. Остальные делай в той же программе и с теми же настройками.
-3. Формат 16:9, ширина от 1024 px, PNG или JPG. Карточка показывает полосу 2:1 и совсем маленькая, поэтому здание должно быть крупным и по центру.
-4. Имя файла указано в заголовке: `farm.png`, `oil.png` и так далее.
-5. Если здание вышло не того масштаба или ракурса, перегенерируй: на карточках разница будет видна сразу.
+1. На карточке 146 px, поэтому на картинке не весь завод, а один главный предмет крупно. У каждого здания свой предмет и свой силуэт.
+2. Вечерний свет, тёмный фон и золотой контур держат картинки в одном наборе и под тёмно-синий интерфейс с золотом.
+3. Сначала сделай `steelworks`, `tankplant` и `chem`: они проверяют, различаются ли заводы. Остальные делай в той же программе и с теми же настройками.
+4. Формат 16:9, ширина от 1024 px, PNG или JPG. Карточка показывает полосу 2:1, поэтому главное держи по центру.
+5. Имя файла указано в заголовке: `farm.png`, `oil.png` и так далее.
 
 ### `farm` — Агрокомплекс
 
 ```
-large modern agricultural complex with grain silos, greenhouses and crop fields, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a big green combine harvester in a golden wheat field with two steel grain silos right behind it, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `oil` — Нефтегазовое месторождение
 
 ```
-oil and gas field in the steppe with pumpjacks, pipelines and a gas flare stack, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a tall gas flare stack burning with a huge orange flame above a few thick pipelines and valves, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `mine` — Рудник
 
 ```
-terraced open-pit iron ore mine with haul trucks, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a giant yellow mining haul truck on a terraced rust-red ore pit road, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `power` — Тепловая электростанция
 
 ```
-coal-fired thermal power station with tall chimneys and a coal yard, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+two massive red-and-white striped power plant chimneys with thick white steam, seen from below, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `hydro` — Гидроэлектростанция
 
 ```
-large concrete hydroelectric dam on a mountain river with an open spillway, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+front view of a curved concrete dam with white water blasting out of the spillway, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `solar` — Солнечная и ветровая станция
 
 ```
-solar panel farm with several wind turbines, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+dark blue solar panels in the foreground and one huge white wind turbine right behind them, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `sawmill` — Лесопилка
 
 ```
-sawmill at the edge of a forest with log piles and stacks of cut timber, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a big stack of fresh orange-cut logs with a yellow log loader lifting a trunk, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `steelworks` — Металлургический завод
 
 ```
-integrated steel mill with blast furnaces, conveyors and steam, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a giant ladle pouring glowing molten steel inside a dark steel mill, bright orange sparks, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `oilrig` — Нефтяная вышка
 
 ```
-single onshore oil drilling rig with a tall derrick and a drilling pad, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+one tall steel oil derrick tower on a drilling pad, lit by work lights, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `raremine` — Рудник редкоземельных металлов
 
 ```
-open-pit rare earth mine with reddish terraces, tailings ponds and a small processing plant, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+an excavator on the edge of a reddish terraced pit beside a vivid turquoise tailings pond, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `uranmine` — Урановый рудник
 
 ```
-fenced uranium mine with a headframe tower, ore stockpiles and pale yellow tailings, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a row of yellow steel drums in front of a tall black mine headframe tower, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `goldmine` — Золотая шахта
 
 ```
-gold mine in rocky hills with a headframe tower and an ore processing plant, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+an open mine cart full of shining gold ore at a timber mine tunnel entrance, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `chem` — Химический комбинат
 
 ```
-chemical plant with distillation columns, spherical tanks and pipe racks, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a cluster of big white spherical storage tanks with tall distillation columns and a web of pipes, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `auto` — Автозавод
 
 ```
-automobile factory with long assembly halls and rows of new trucks in the yard, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+orange robot arms welding a car body on an assembly line, bright welding sparks, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `chips` — Завод электроники
 
 ```
-modern semiconductor factory, large white clean-room building with cooling units on the roof, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a robot arm holding a shining silicon wafer with rainbow reflections in a clean room, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `bridge` — Мост
 
 ```
-long cable-stayed road bridge over a wide river, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+one tall cable-stayed bridge tower with a fan of white cables over dark water, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `highway` — Автомагистраль
 
 ```
-multi-lane motorway interchange with curved ramps and light traffic, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+curved motorway interchange ramps with glowing car light trails, seen from above, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `metro` — Метро
 
 ```
-modern metro train at an open-air station in a city, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+the front of a modern blue metro train arriving at an underground station platform, head-on, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `airport` — Международный аэропорт
 
 ```
-international airport terminal with airliners on the apron and a runway, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a large white airliner parked at a terminal gate, nose toward the camera, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `port` — Морской порт
 
 ```
-container seaport with gantry cranes, stacked containers and a cargo ship at the quay, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a giant blue gantry crane lifting a red shipping container above a stacked container ship, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `tankplant` — Бронетанковый завод
 
 ```
-armoured vehicle factory with long halls and a row of unmarked tanks in the yard, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+one unmarked olive battle tank rolling out of a huge factory gate, head-on, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `heliplant` — Вертолётный и дроновый завод
 
 ```
-helicopter and drone factory with hangars and unmarked military helicopters on the apron, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+one unmarked dark attack helicopter inside an open hangar with a small drone on the floor beside it, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `aviaplant` — Авиазавод
 
 ```
-aircraft factory with a huge assembly hangar, a runway and an unmarked military jet, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+one unmarked grey fighter jet nose-on inside a big assembly hangar, bright work lights, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `samplant` — Завод ПВО и ракет
 
 ```
-missile and air defence factory with low halls, earth-covered bunkers and unmarked launcher trucks, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+an unmarked military truck with four raised missile launcher tubes in front of a low factory hall, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `shipyard` — Военная верфь
 
 ```
-naval shipyard with a grey unmarked warship in a dry dock and large cranes, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+the bow of a grey unmarked warship in a dry dock, head-on, with a huge crane above it, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `institute` — НИИ и университет
 
 ```
-university and research institute campus with an observatory dome, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a white observatory dome opening at the top of a classic university building, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `enrich` — Центр обогащения урана
 
 ```
-uranium enrichment plant with long windowless halls behind a security fence, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+a long hall filled with rows of tall silver gas centrifuges, cold blue light, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `npp` — Атомная электростанция
 
 ```
-nuclear power plant with cooling towers and reactor domes, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+two huge concrete cooling towers with white steam and a reactor dome between them, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `ammoplant` — Завод боеприпасов
 
 ```
-ammunition factory with earth-bermed storage bunkers spread through a forest, photorealistic aerial photograph, three-quarter view from about 45 degrees, the whole object large in frame and centered with a clear silhouette, early dusk light, low warm golden sun from one side, deep blue-grey shadows, cool desaturated colours, dark moody atmosphere, light haze, simple dark terrain around the object, sharp detail, no people, no text, no logos, no flags, no watermark, wide 16:9 format
+rows of brass artillery shells moving on a factory conveyor, gleaming metal, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
 ```
