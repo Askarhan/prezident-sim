@@ -3,182 +3,182 @@
 29 готовых промптов для экрана «Стройка». Общий стиль уже внутри каждого: копируй блок целиком.
 
 **Как делать**
-1. На карточке 146 px, поэтому на картинке не весь завод, а один главный предмет крупно. У каждого здания свой предмет и свой силуэт.
-2. Вечерний свет, тёмный фон и золотой контур держат картинки в одном наборе и под тёмно-синий интерфейс с золотом.
-3. Сначала сделай `steelworks`, `tankplant` и `chem`: они проверяют, различаются ли заводы. Остальные делай в той же программе и с теми же настройками.
-4. Формат 16:9, ширина от 1024 px, PNG или JPG. Карточка показывает полосу 2:1, поэтому главное держи по центру.
+1. Стиль: мобильная стратегия с отдельным зданием на маленькой площадке, но с реалистичными материалами и спокойным цветокором. Своё оформление, без чужих зданий и названий игр в промпте.
+2. Тёмно-синий фон сливается с карточкой, а компактное здание читается даже на 146 px.
+3. Сначала сделай `steelworks`, `tankplant` и `chem`: они проверяют стиль и различие заводов. Остальные делай в той же программе и с теми же настройками.
+4. Формат 16:9, ширина от 1024 px, PNG или JPG. Карточка показывает полосу 2:1, поэтому верх и низ здания не упирай в край.
 5. Имя файла указано в заголовке: `farm.png`, `oil.png` и так далее.
 
 ### `farm` — Агрокомплекс
 
 ```
-a big green combine harvester in a golden wheat field with two steel grain silos right behind it, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+small agricultural complex with a red-roofed barn, two steel grain silos, a small green tractor and plots of wheat, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `oil` — Нефтегазовое месторождение
 
 ```
-a tall gas flare stack burning with a huge orange flame above a few thick pipelines and valves, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+compact gas field station with a flare stack burning an orange flame, pipes and valves, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `mine` — Рудник
 
 ```
-a giant yellow mining haul truck on a terraced rust-red ore pit road, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+compact terraced open-pit ore mine with rust-red rock and a small yellow haul truck, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `power` — Тепловая электростанция
 
 ```
-two massive red-and-white striped power plant chimneys with thick white steam, seen from below, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+compact coal power plant with two tall red-and-white striped chimneys and a coal pile, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `hydro` — Гидроэлектростанция
 
 ```
-front view of a curved concrete dam with white water blasting out of the spillway, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+small concrete dam across a river gorge with white water rushing from the spillway, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `solar` — Солнечная и ветровая станция
 
 ```
-dark blue solar panels in the foreground and one huge white wind turbine right behind them, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+small plot of dark blue solar panels with two white wind turbines, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `sawmill` — Лесопилка
 
 ```
-a big stack of fresh orange-cut logs with a yellow log loader lifting a trunk, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+wooden sawmill shed with a big circular saw, stacks of logs and cut timber, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `steelworks` — Металлургический завод
 
 ```
-a giant ladle pouring glowing molten steel inside a dark steel mill, bright orange sparks, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+compact steel mill with a blast furnace tower, a conveyor and glowing orange molten metal, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `oilrig` — Нефтяная вышка
 
 ```
-one tall steel oil derrick tower on a drilling pad, lit by work lights, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+single tall steel oil derrick on a drilling pad with a small pumpjack, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `raremine` — Рудник редкоземельных металлов
 
 ```
-an excavator on the edge of a reddish terraced pit beside a vivid turquoise tailings pond, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+small reddish terraced pit with a turquoise pond and a small excavator, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `uranmine` — Урановый рудник
 
 ```
-a row of yellow steel drums in front of a tall black mine headframe tower, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+tall black mine headframe tower behind a fence with rows of yellow steel drums, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `goldmine` — Золотая шахта
 
 ```
-an open mine cart full of shining gold ore at a timber mine tunnel entrance, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+timber mine entrance in a rocky hill with a rail cart full of shining gold ore, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `chem` — Химический комбинат
 
 ```
-a cluster of big white spherical storage tanks with tall distillation columns and a web of pipes, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+compact chemical plant with big white spherical tanks, tall distillation columns and pipes, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `auto` — Автозавод
 
 ```
-orange robot arms welding a car body on an assembly line, bright welding sparks, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+car factory hall with a saw-tooth roof and a row of small new trucks in the yard, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `chips` — Завод электроники
 
 ```
-a robot arm holding a shining silicon wafer with rainbow reflections in a clean room, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+sleek white high-tech factory with a glass front, blue light and cooling units on the roof, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `bridge` — Мост
 
 ```
-one tall cable-stayed bridge tower with a fan of white cables over dark water, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+short section of a cable-stayed bridge with one tall tower over water, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `highway` — Автомагистраль
 
 ```
-curved motorway interchange ramps with glowing car light trails, seen from above, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+small curved motorway interchange with several ramps and small cars, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `metro` — Метро
 
 ```
-the front of a modern blue metro train arriving at an underground station platform, head-on, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+metro station pavilion with a glass roof and a short blue train on an elevated track, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `airport` — Международный аэропорт
 
 ```
-a large white airliner parked at a terminal gate, nose toward the camera, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+compact airport terminal with a control tower and one white airliner, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `port` — Морской порт
 
 ```
-a giant blue gantry crane lifting a red shipping container above a stacked container ship, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+small seaport quay with a blue gantry crane, coloured containers and a cargo ship, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `tankplant` — Бронетанковый завод
 
 ```
-one unmarked olive battle tank rolling out of a huge factory gate, head-on, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+armoured vehicle factory hall with a big open gate and one unmarked olive tank rolling out, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `heliplant` — Вертолётный и дроновый завод
 
 ```
-one unmarked dark attack helicopter inside an open hangar with a small drone on the floor beside it, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+hangar with open doors, one unmarked dark helicopter on a helipad and a small drone beside it, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `aviaplant` — Авиазавод
 
 ```
-one unmarked grey fighter jet nose-on inside a big assembly hangar, bright work lights, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+large arched aircraft hangar with one unmarked grey jet in front of it, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `samplant` — Завод ПВО и ракет
 
 ```
-an unmarked military truck with four raised missile launcher tubes in front of a low factory hall, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+low factory hall with an earth-covered bunker and an unmarked truck with raised missile launcher tubes, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `shipyard` — Военная верфь
 
 ```
-the bow of a grey unmarked warship in a dry dock, head-on, with a huge crane above it, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+naval dry dock with a grey unmarked warship and a large yellow crane, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `institute` — НИИ и университет
 
 ```
-a white observatory dome opening at the top of a classic university building, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+classic university building with columns and a white observatory dome, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `enrich` — Центр обогащения урана
 
 ```
-a long hall filled with rows of tall silver gas centrifuges, cold blue light, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+long windowless silver hall behind a security fence with cooling units, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `npp` — Атомная электростанция
 
 ```
-two huge concrete cooling towers with white steam and a reactor dome between them, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+two concrete cooling towers with white steam and a reactor dome between them, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
 
 ### `ammoplant` — Завод боеприпасов
 
 ```
-rows of brass artillery shells moving on a factory conveyor, gleaming metal, close-up photorealistic photo, one iconic subject fills most of the frame, strong simple silhouette, centered, simple dark blurred background, dusk light, warm golden rim light, deep blue shadows, cinematic high contrast, not a panorama, not a wide aerial view, no people, no text, no logos, no flags, no watermark, 16:9
+earth-covered bunkers with steel doors and crates of brass shells in a forest clearing, semi-realistic 3D isometric strategy game building, single compact structure on a small square base of ground, slightly chunky proportions, clean bold silhouette, realistic materials of concrete, steel, glass and rust, high quality 3D render, muted cinematic colour grading, soft dusk light, warm golden highlights, deep blue shadows, plain dark navy background, centered, the structure fills most of the frame height, no people, no text, no logos, no flags, no watermark, 16:9
 ```
