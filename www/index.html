@@ -1437,6 +1437,25 @@ use.cu{fill:#000;stroke:none}
 .tip-float{top:46px!important}
 :root .tip-open{position:relative;overflow:visible}
 :root .uk-sec{padding:0!important;overflow:hidden}
+.uk-sec+.uk-sec{margin-top:6px}
+.army-body .uk-sec+.uk-sec{margin-top:0}
+.mrow{display:grid;grid-template-columns:40px minmax(0,1fr) 124px 112px;gap:8px;align-items:center;min-height:46px;padding:3px 10px 3px 8px;border-top:1px solid var(--line);box-shadow:inset 3px 0 0 var(--mc)}
+:root .mr-face{position:relative;width:38px;height:38px;padding:0}
+:root .mr-face .tier{font-size:9px}
+.mr-name{display:flex;align-items:center;gap:6px;min-width:0;min-height:38px;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.mr-name b{min-width:0;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow.open .mr-name .uk-go{transform:rotate(90deg)}
+.mr-lv{display:flex;align-items:center;justify-content:space-between;gap:4px}
+:root .mr-lv .mb-step{width:36px;height:36px;flex:none}
+.mr-cost{text-align:right;font-size:12.5px;white-space:nowrap}
+.mr-more{grid-column:1/-1;display:flex;flex-direction:column;gap:3px;padding:2px 0 6px 48px}
+.lrow{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr) auto;gap:10px;align-items:center;min-height:46px;padding:4px 10px;border-top:1px solid var(--line)}
+.lrow.on{background:rgb(79 191 122 / .09);box-shadow:inset 3px 0 0 var(--good)}
+.lrow .switch{grid-row:auto;grid-column:auto;flex:none}
+.lr-name{font-size:13.5px;font-weight:600;line-height:1.2}
+.lr-fx{display:flex;flex-direction:column;min-width:0;font-size:11px;line-height:1.25}
+.lr-fx .pro{color:var(--good)}
+.lr-fx .con{color:var(--bad)}
 .uk-head{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 10px;border:0;border-radius:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .uk-head b{font-weight:600;white-space:nowrap}
 .uk-head small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -6528,7 +6547,7 @@ let viewMapCache = "";
 function hintify(root){
   root.querySelectorAll(".panel").forEach(panel => {
     const cand = [...panel.querySelectorAll(".label, p.muted, small.muted, .muted.small, .tip-text")].filter(el => {
-      if (el.closest(".ucard, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
+      if (el.closest(".ucard, .urow, .mrow, .lrow, .stock, button, .choice, .dcard, .mincard, .lawcard, .fcard, .org, .cand, .news, .log, .hint-src")) return false;
       if (el.querySelector("button, input, select, .bar, .num")) return false;
       if (el.closest(".panel") !== panel) return false;
       return el.textContent.trim().length > 60;
@@ -6907,33 +6926,33 @@ function viewEnergy(){
   </div>`;
 }
 function viewMinistries(){
-  const m = mg()/12, total = ministriesCost() + scienceCost();
-  const card = M => { const p = minister(M.id), lv = minLvl(M.id), [glow] = BLOCK_COLOR[M.blk];
-    return `<div class="mincard" style="--mc:${glow}">
-      <button class="min-face" data-minpick="${M.id}" aria-label="Министр: ${esc(p.name)}">${PORTRAITS(p.look, 52)}<i class="tier t${p.tier}">${p.tier > 1 ? "★".repeat(p.tier-1) : "и.о."}</i></button>
-      <div class="min-body">
-        <div class="row"><b class="min-name">${ic(M.ic,"sm")} ${M.name}</b><span class="num down">−${money(minCostOf(M.id)/30)}/день</span></div>
-        <div class="row"><button class="min-who" data-minpick="${M.id}">${esc(p.name)} · <span class="muted">${p.tier > 1 ? TIER_NAME[p.tier] : "назначить министра"}</span></button><span class="num muted">${ic("power","sm")}−${(lv*0.25).toFixed(1).replace(".",",")}</span></div>
-        <div class="minbar" role="group" aria-label="Финансирование: ${M.name}">
-          <button class="mb-step" data-minlvl="${M.id}:${lv-1}" aria-label="Меньше" ${lv<=0?"disabled":""}>−</button>
-          ${Array.from({length:MIN_MAX}, (_, i) => `<button class="seg-i ${i < lv ? "on" : ""} ${i+1===M.def?"def":""}" data-minlvl="${M.id}:${i+1 === lv ? i : i+1}" aria-label="Уровень ${i+1}"></button>`).join("")}
-          <button class="mb-step" data-minlvl="${M.id}:${lv+1}" aria-label="Больше" ${lv>=MIN_MAX?"disabled":""}>+</button>
-          <span class="num mb-lv">${lv}/${MIN_MAX}</span>
-        </div>
+  const total = ministriesCost() + scienceCost(), open = ui.minOpen ?? MIN_BLOCKS[0][0];
+  const row = M => { const p = minister(M.id), lv = minLvl(M.id), more = ui.minRow === M.id;
+    return `<div class="mrow ${more?"open":""}" style="--mc:${BLOCK_COLOR[M.blk][0]}">
+      <button class="min-face mr-face" data-minpick="${M.id}" aria-label="Министр: ${esc(p.name)}">${PORTRAITS(p.look, 34)}<i class="tier t${p.tier}">${p.tier > 1 ? "★".repeat(p.tier-1) : "и.о."}</i></button>
+      <button class="mr-name" data-minrow="${M.id}" aria-expanded="${more}"><b>${M.name}</b><span class="uk-go" aria-hidden="true">›</span></button>
+      <div class="mr-lv" role="group" aria-label="Финансирование: ${M.name}">
+        <button class="mb-step" data-minlvl="${M.id}:${lv-1}" aria-label="Меньше" ${lv<=0?"disabled":""}>−</button>
+        <span class="num mb-lv ${lv > M.def ? "up" : lv < M.def ? "down" : ""}">${lv}/${MIN_MAX}</span>
+        <button class="mb-step" data-minlvl="${M.id}:${lv+1}" aria-label="Больше" ${lv>=MIN_MAX?"disabled":""}>+</button>
+      </div>
+      <span class="num down mr-cost">−${money(minCostOf(M.id)/30)}/день</span>
+      ${more ? `<div class="mr-more">
+        <div class="row"><button class="min-who" data-minpick="${M.id}">${esc(p.name)} · <span class="muted">${p.tier > 1 ? TIER_NAME[p.tier] : "назначить министра"}</span></button><span class="num muted">обычный уровень ${M.def} · ${ic("power","sm")}−${(lv*0.25).toFixed(1).replace(".",",")}</span></div>
         ${S.fac && FAC_CATS.some(c => c[0] === M.id) ? (() => { const cv = facCatCov(M.id); return `<button class="min-who" data-tab="${M.id==="defense"?"army":"build"}" data-facgo="${M.id}">Объекты: <b class="${cv<0.95?"down":cv>1.05?"up":""}">${Math.round(cv*100)}% нормы</b> ›</button>`; })() : ""}
         <small class="min-fx"><span class="${minDelta(M.id)>0.05?"up":minDelta(M.id)<-0.05?"down":"muted"}">${minFxNow(M.id)}</span> · <span class="muted">${M.fx}</span></small>
-      </div></div>`; };
+      </div>` : ""}
+    </div>`; };
   return `<div class="panel min-sum"><div class="row"><h3>Министерства и ведомства</h3><span class="num down">−${money(total/30)} в день</span></div>
-      <div class="label">Нажмите на деление шкалы, чтобы изменить финансирование. Отметка — обычный уровень: выше него ведомство даёт бонусы, ниже — штрафы. Нажмите на портрет, чтобы назначить министра.</div></div>
-    ${MIN_BLOCKS.map(([blk, n]) => `<h3 class="min-blk" style="--mc:${BLOCK_COLOR[blk][0]}">${n}</h3><div class="min-grid">${MINISTRIES.filter(M=>M.blk===blk).map(card).join("")}</div>`).join("")}`;
+      <div class="label">Кнопки − и + меняют финансирование. Зелёный уровень выше обычного даёт бонусы, красный ниже обычного даёт штрафы. Нажмите на название, чтобы открыть подробности, на портрет, чтобы назначить министра.</div></div>
+    ${MIN_BLOCKS.map(([blk, n]) => { const ms = MINISTRIES.filter(M=>M.blk===blk), on = open === blk; return `<div class="panel uk-sec ${on?"open":""}"><button class="uk-head" data-minblk="${blk}" aria-expanded="${on}"><b>${n}</b><span class="uk-n none">−${money(ms.reduce((a, M) => a + minCostOf(M.id), 0)/30)}/день</span><span class="uk-go" aria-hidden="true">›</span></button>${on ? ms.map(row).join("") : ""}</div>`; }).join("")}`;
 }
 const LAW_GROUPS = [["mob","Военная или мирная экономика","можно выбрать только один курс"],["trade","Внешняя торговля","только один режим"],["demo","Демография","только один курс"],["", "Государство и общество", ""]];
 function viewLaws(){
-  const card = l => `<div class="lawcard ${lawOn(l.id)?"on":""}">
-    <div class="row"><b>${l.name}</b><button class="switch" role="switch" aria-checked="${lawOn(l.id)}" aria-label="${l.name}" data-law="${l.id}"></button></div>
-    ${l.pros.map(p=>`<span class="pro">▲ ${p}</span>`).join("")}${l.cons.map(c=>`<span class="con">▼ ${c}</span>`).join("")}</div>`;
+  const open = ui.lawOpen ?? (LAW_GROUPS[0][0] || "gen");
+  const row = l => `<div class="lrow ${lawOn(l.id)?"on":""}"><b class="lr-name">${l.name}</b><div class="lr-fx">${l.pros.map(p=>`<span class="pro">▲ ${p}</span>`).join("")}${l.cons.map(c=>`<span class="con">▼ ${c}</span>`).join("")}</div><button class="switch" role="switch" aria-checked="${lawOn(l.id)}" aria-label="${l.name}" data-law="${l.id}"></button></div>`;
   return `${!majority() ? `<div class="panel"><div class="label down">У вас нет большинства в парламенте: каждый новый закон проходит через уступки коалиции (рейтинг −2).</div></div>` : ""}
-    ${LAW_GROUPS.map(([g, n, hint]) => { const ls = LAWS.filter(l => (l.grp||"") === g); return ls.length ? `<h3 class="min-blk">${n}${hint ? ` <small class="muted">· ${hint}</small>` : ""}</h3><div class="law-grid">${ls.map(card).join("")}</div>` : ""; }).join("")}`;
+    ${LAW_GROUPS.map(([g, n, hint]) => { const ls = LAWS.filter(l => (l.grp||"") === g), id = g || "gen", on = open === id, cnt = ls.filter(l => lawOn(l.id)).length; return ls.length ? `<div class="panel uk-sec ${on?"open":""}"><button class="uk-head" data-lawgrp="${id}" aria-expanded="${on}"><b>${n}</b>${hint ? `<small class="muted">${hint}</small>` : ""}<span class="uk-n ${cnt?"":"none"}">${cnt ? "включено: " + cnt : "не включено"}</span><span class="uk-go" aria-hidden="true">›</span></button>${on ? ls.map(row).join("") : ""}</div>` : ""; }).join("")}`;
 }
 function viewSociety(){
   return `<div class="grid2">
@@ -9338,6 +9357,9 @@ document.addEventListener("click", e => {
   if (t.dataset.faccat){ S.facCat = t.dataset.faccat; save(); render(); return; }
   if (t.dataset.buildmode){ S.buildMode = t.dataset.buildmode; save(); render(); return; }
   if (t.dataset.govtab){ const [k, v] = t.dataset.govtab.split(":"); S[k] = v; save(); render(); return; }
+  if (t.dataset.minblk){ ui.minOpen = (ui.minOpen ?? MIN_BLOCKS[0][0]) === t.dataset.minblk ? "" : t.dataset.minblk; ui.minRow = null; render(); return; }
+  if (t.dataset.minrow){ ui.minRow = ui.minRow === t.dataset.minrow ? null : t.dataset.minrow; render(); return; }
+  if (t.dataset.lawgrp){ ui.lawOpen = (ui.lawOpen ?? (LAW_GROUPS[0][0] || "gen")) === t.dataset.lawgrp ? "" : t.dataset.lawgrp; render(); return; }
   if (t.dataset.minlvl){ const [id, v] = t.dataset.minlvl.split(":"); minSet(id, +v); sfx("tap"); save(); render(); return; }
   if (t.dataset.minpick){ showMinisterPicker(t.dataset.minpick); return; }
   if (t.dataset.hire){ const [id, k] = t.dataset.hire.split(":"); hireMinister(id, +k); return; }
