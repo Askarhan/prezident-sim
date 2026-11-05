@@ -1430,6 +1430,18 @@ use.cu{fill:#000;stroke:none}
 :root .tip-open .portrait{width:26px!important;height:26px!important}
 .tip-float{top:46px!important}
 :root .tip-open{position:relative;overflow:visible}
+.dip-head,.dip-line{display:grid;grid-template-columns:minmax(0,1fr) 62px 150px minmax(0,190px) 10px;gap:10px;align-items:center;width:100%;box-sizing:border-box;padding:0 4px}
+.dip-head{margin-top:8px;padding-bottom:3px;font-size:11px;color:var(--muted)}
+.dip-line{min-height:38px;border:0;border-radius:0;border-top:1px dashed var(--line);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.dip-line:active{background:rgb(255 255 255 / .06)}
+.dl-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.dl-pw{text-align:right}
+.dl-rel{display:flex;align-items:center;gap:6px;min-width:0}
+.dl-rel .rel{display:block;flex:1;min-width:0}
+.dl-rel .num{width:30px;text-align:right;font-size:12px}
+.dl-tags{display:flex;gap:4px;justify-content:flex-end;overflow:hidden}
+.dl-go{color:var(--muted)}
+@media (max-width:640px){.dip-head,.dip-line{grid-template-columns:minmax(0,1fr) 100px minmax(0,120px) 10px}.dl-pw{display:none}}
 :root .tip-open .portrait{border-radius:50%;overflow:hidden}
 .tip-open.new::after{content:"";position:absolute;top:-2px;right:-2px;width:10px;height:10px;border-radius:50%;background:var(--warn);border:1.5px solid #101A2A}
 @media (max-height:420px){
@@ -1438,6 +1450,22 @@ use.cu{fill:#000;stroke:none}
   :root .win-head h2{font-size:16px!important}
   :root .win-x,:root .tip-open{width:30px!important;height:30px!important}
   :root .win-body{padding:6px 8px!important}
+  :root .cbanner{grid-template-columns:52px minmax(0,1fr)!important;gap:10px!important;padding:6px 10px!important;margin:0 0 6px!important;min-height:0!important;border-radius:3px}
+  :root .cbanner .cb-flag.r{display:none}
+  :root .cbanner .cb-flag.l{width:48px!important;height:32px!important;transform:none}
+  :root .cb-mid{text-align:left}
+  :root .cb-mid h2{font-size:16px!important;margin:0 0 2px!important}
+  :root .cb-stats{justify-content:flex-start!important;gap:2px 14px!important;font-size:12px!important}
+  :root .cb-stats span{gap:4px}
+  :root .cb-stats small{display:none}
+  :root .cb-stats .hic{width:16px!important;height:16px!important}
+  :root .cb-rel i{font-size:14px!important}
+  :root .cb-orgs span{padding:1px 6px!important;font-size:10px!important}
+  :root .cb-inf{margin-top:3px}
+  :root .cb-orgs,:root .cb-tags{display:inline-flex;justify-content:flex-start;margin:3px 6px 0 0}
+  :root .gov-tabs{margin-bottom:6px;padding:2px 0;top:-6px}
+  :root .gov-tabs .chip{padding:5px 10px;font-size:13px;gap:8px}
+  :root .gov-tabs .chip .ci,:root .gov-tabs .chip .ic{width:18px;height:18px}
   :root .win-body .panel{padding:8px 10px!important}
   .tip-float{top:38px!important}
 }
@@ -8902,13 +8930,20 @@ function viewDiplomacy(){
   return `<div class="filters gov-tabs">${[["list","Страны","diplomacy"],["orgs","Организации","users"],["un","ООН","politics"]].map(([t,l,i]) => `<button class="chip" data-dtab="${t}" aria-pressed="${tab===t}">${ic(i,"sm")}${l}</button>`).join("")}</div>`
     + (tab === "orgs" ? viewOrgs() : tab === "un" ? viewCouncil() : viewDipList());
 }
+// one short line per country; every action lives on the country page (user's decision 05.11)
+function dipLine(x){
+  const atWar = S.wars.some(w => w.enemy === x.id), tag = (t, c) => `<span class="pill ${c}">${t}</span>`;
+  const tags = x.owner ? tag("Под контролем", "good") : [x.puppet && tag("Сателлит", "state"), x.ally && !x.puppet && tag("Союз", "good"), x.trade && tag("Договор", "state"), x.sanction && tag("Санкции", "warn"), x.sanctionsUs && tag("Против нас", "bad"), atWar && tag("Война", "bad")].filter(Boolean).join("");
+  return `<button class="dip-line" data-ctry="${x.id}"><span class="dl-name">${flag(x.id)} ${esc(x.name)}</span><span class="dl-pw num">${x.owner ? "" : Math.round(aiPower(x)).toLocaleString("ru-RU")}</span><span class="dl-rel">${x.owner ? "" : `<span class="rel" title="Отношения ${Math.round(x.rel)}"><b style="left:calc(${(x.rel+100)/2}% - 1px)"></b></span><span class="num">${x.rel>0?"+":""}${Math.round(x.rel)}</span>`}</span><span class="dl-tags">${tags}</span><span class="dl-go" aria-hidden="true">›</span></button>`;
+}
 function viewDipList(){
   const list = Object.values(C()).filter(x=>x.id!==S.player).filter(x=>ui.dipRegion==="Все" || x.region===ui.dipRegion)
     .sort((a,b)=> (a.owner?1:0)-(b.owner?1:0) || b.gdp-a.gdp);
-  const row = dipRow;
-  return `<div class="panel infamy-strip"><div class="row"><span><b>Репутация агрессора</b> <small class="muted">— чем выше, тем хуже к вам относятся, ниже — чем реже вы нападаете</small></span><span class="num ${(S.infamy||0) > 50 ? "down" : (S.infamy||0) > 25 ? "warn" : "up"}">${Math.round(S.infamy||0)} / 100</span></div><div class="bar ${(S.infamy||0) > 50 ? "low" : (S.infamy||0) > 25 ? "mid" : "high"}"><i style="width:${S.infamy||0}%"></i></div></div>
-  <div class="panel" style="margin-top:14px">
+  const row = dipLine, inf = Math.round(S.infamy||0) > 0;
+  return `${inf ? `<div class="panel infamy-strip"><div class="row"><span><b>Репутация агрессора</b> <small class="muted">— чем выше, тем хуже к вам относятся, ниже — чем реже вы нападаете</small></span><span class="num ${(S.infamy||0) > 50 ? "down" : (S.infamy||0) > 25 ? "warn" : "up"}">${Math.round(S.infamy||0)} / 100</span></div><div class="bar ${(S.infamy||0) > 50 ? "low" : (S.infamy||0) > 25 ? "mid" : "high"}"><i style="width:${S.infamy||0}%"></i></div></div>` : ""}
+  <div class="panel"${inf ? ' style="margin-top:14px"' : ""}>
     <div class="filters">${["Все",...REGIONS].map(r=>`<button class="chip" data-dipregion="${r}" aria-pressed="${ui.dipRegion===r}">${r}</button>`).join("")}</div>
+    ${list.length ? `<div class="dip-head"><span>Страна</span><span class="dl-pw">Сила</span><span>Отношения</span><span></span><span></span></div>` : ""}
     ${list.map(row).join("") || `<p class="muted">В этом регионе нет других стран.</p>`}
   </div>`;
 }
