@@ -2066,8 +2066,9 @@ function militaryProduction(){
       S.stock.steel -= need; S.stock.rare = (S.stock.rare||0) - unitRare(m); S.prodAcc[pid] -= m.cost; made++;
     }
     S.prodPaid += Math.max(0, S.prodAcc[pid] + made*m.cost - was)/fast*PLANT_PAY;
-    if (made && S.prodExport[pid] && armsBuyers().length) S.prodSold += made*m.cost*0.9*(1 + 0.5*tech("armsexport"));
-    if (made && !(S.prodExport[pid] && armsBuyers().length)){ S.units[id] = (S.units[id]||0) + made; }
+    if (made){ const sold = S.prodExport[pid] ? Math.min(made, armsLeft(m.kind)) : 0, keep = made - sold;
+      if (sold){ armsUse(m.kind, sold); S.prodSold += sold*armsPrice(m); }
+      if (keep){ S.units[id] = (S.units[id]||0) + keep; S.made = S.made || {}; S.made[id] = (S.made[id]||0) + keep; } }
   });
   if (objOn("ammoplant") && !S.ammoOff){ const o = ammoPlantOut(), steel = Object.entries(ammoPlantOut(true)).reduce((a,[k,q]) => a + q*ammoSteel(k), 0);
     if ((S.stock.rare||0) < o.atgm*ammoRare("atgm")){ addLog("Завод боеприпасов: ПТУР не выпущены — не хватает редкоземельных металлов."); o.atgm = 0; } else S.stock.rare = (S.stock.rare||0) - o.atgm*ammoRare("atgm");
@@ -4618,7 +4619,7 @@ const TECH = [
   {id:"armor",br:"mil",tier:1,max:3,cost:80,days:120,name:"Современная бронетехника",fx:"бронетанковый завод; ур. 2–3 — покупка и выпуск наземной техники 2–3 поколения",v:0},
   {id:"rotor",br:"mil",tier:2,max:3,cost:150,days:160,name:"Вертолётостроение",fx:"вертолётный завод; ур. 2–3 — покупка и выпуск вертолётов 2–3 поколения",v:0},
   {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — покупка и выпуск самолётов и кораблей 2–3 поколения",v:0},
-  {id:"armsexport",br:"mil",tier:4,max:5,cost:360,days:260,name:"Экспорт вооружений",fx:"доход от экспорта техники +#%",v:50},
+  {id:"armsexport",br:"mil",tier:4,max:5,cost:360,days:260,name:"Экспорт вооружений",fx:"цена экспорта техники +#%",v:28.572},
   {id:"geo",br:"geo",tier:1,max:5,cost:60,days:90,name:"Геологоразведка",fx:"открывает нефть в странах без своих месторождений; добыча нефти ×#",v:1,lin:true},
   {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"золотые шахты: золотые монеты ×#",v:1,lin:true},
   {id:"rareearth",br:"geo",tier:2,max:3,cost:140,days:150,name:"Добыча РЗМ",fx:"рудники редкоземельных металлов; добыча ×#",v:1,lin:true},
@@ -5237,7 +5238,7 @@ function shipTick(){
     if (x.dir === "in" && x.cat === "unit"){ S.units[x.r] = (S.units[x.r]||0) + x.qty; floatText(S.player, `+${x.qty} ${MODELS[x.r].name}`, "cargo"); sfx("cargo"); flashMap(S.player, "good"); }
     else if (x.dir === "in" && x.cat === "ammo"){ S.ammo[x.r] = (S.ammo[x.r]||0) + x.qty; floatText(S.player, `+${x.qty} ${AMMO[x.r].short}`, "cargo"); sfx("cargo"); }
     else if (x.dir === "in"){ S.stock[x.r] += x.qty; floatText(S.player, `+${fmtQ(x.qty)} ${COMMOD[x.r].gen}`, "cargo"); sfx("cargo"); flashMap(S.player, "good"); }
-    else if (x.value){ S.treasury += x.value; S.commodMonth = (S.commodMonth||0) + x.value; floatText(x.to, `+${money(x.value)}`, "cash"); sfx("cash"); }
+    else if (x.value){ S.treasury += x.value; if (x.cat !== "unit") S.commodMonth = (S.commodMonth||0) + x.value; floatText(x.to, `+${money(x.value)}`, "cash"); sfx("cash"); }
   });
   // a soft whoosh when a shipment is about to arrive
   S.shipments.forEach(x => { if (!x.near && x.left > 0 && x.left <= Math.max(2, x.total*0.15)){ x.near = true; if (ui.tab === "map" && performance.now() - (ui.nearT||0) > 1200){ ui.nearT = performance.now(); sfx("approach"); } } });
@@ -5291,6 +5292,18 @@ function myPower(){ return (S.fac ? milBaseMult() : 1) * (1 + 0.015*minDelta("de
 function aiPower(c){ return c.army * 3 * techMult(c.tech); }
 
 function armsBuyers(){ return Object.values(C()).filter(x=>!x.owner && x.rel>=40 && !S.wars.some(w=>w.enemy===x.id)); }
+// Arms trade (user's decision 05.11): only what own plants built can be sold; price and yearly limit are shared by the sheet and the plant export
+const armsBonus = () => 0.5*tech("armsexport")/TECH_EFF[5];   // research level 5 gives +50% (user agreed 05.11)
+const armsPrice = m => m.cost*1.15*(1 + armsBonus());
+function armsLim(kind){ return Math.floor(mktLim(kind)*armsBuyers().length/2); }
+function armsLeft(kind){ if (!S.armsY || S.armsY.y !== S.year) S.armsY = {y:S.year}; return Math.max(0, armsLim(kind) - (S.armsY[mktKey(kind)]||0)); }
+function armsUse(kind, n){ armsLeft(kind); S.armsY[mktKey(kind)] = (S.armsY[mktKey(kind)]||0) + n; }
+const armsStock = id => Math.min((S.made||{})[id]||0, sellable(id));
+function sellArms(id, q){ const m = MODELS[id], b = [...armsBuyers()].sort((x, y) => y.rel - x.rel)[0]; if (!b) return toast("Нет покупателей: нужны отношения от +40 хотя бы с одной страной.");
+  const n = Math.floor(Math.min(q, armsStock(id), armsLeft(m.kind))); if (n < 1) return toast(armsLeft(m.kind) < 1 ? `Лимит экспорта на ${S.year} год исчерпан.` : "Продавать можно только технику со своих заводов.");
+  const days = travelDays(b.id), value = n*armsPrice(m); S.units[id] -= n; S.made[id] -= n; armsUse(m.kind, n); S.shipments = S.shipments || [];
+  S.shipments.push({id:shipId(), from:S.player, to:b.id, r:id, qty:n, left:days, total:days, dir:"out", cat:"unit", value});
+  addLog(`Продано: ${m.name} ×${n} в страну ${b.name} за ${money(value)}. Оплата при доставке, ~${days} дн.`); toast(`${m.name} ×${n} в пути, оплата ${money(value)} через ~${days} дн.`); flashMap(b.id, "info"); }
 function railIncome(id){ const x = C()[id]; if (!x || x.owner || x.rel < 0) return 0; return Math.min(mg(), x.gdp)/12*0.001; }
 const RAIL_PRICE = 3.4;   // user's decision 04.11, not tied to the economy
 function railCost(){ return RAIL_PRICE; }
@@ -6399,6 +6412,7 @@ function act(name, arg){
     case "peace": { showPeace(arg); return; }
     case "buyunit": { const [id, q] = arg.split(":"); orderUnits(id, +q || KINDS[MODELS[id].kind].batch); uiRefresh(id); break; }
     case "sellunit": { const [id, q] = arg.split(":"), m = MODELS[id], n = Math.min(sellable(id), +q || KINDS[m.kind].batch); if (n < 1) return toast("Стартовую технику продать нельзя."); S.units[id] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); uiRefresh(id); break; }
+    case "sellarms": { const [id, q] = arg.split(":"); sellArms(id, +q); uiRefresh(id); break; }
     case "buyammo": { const [k, q] = arg.split(":"); orderAmmo(k, +q || AMMO[k].batch); uiRefresh(k); break; }
     case "prodset": { const [pid, id] = arg.split("|"); S.prod[pid] = S.prod[pid] === id ? null : id; S.prodAcc[pid] = 0; break; }
     case "prodexport": { S.prodExport[arg] = !S.prodExport[arg]; break; }
@@ -7712,9 +7726,13 @@ const AINFO = {
 const photo = id => (UINFO[id] || AINFO[id]) ? `photos/${(UINFO[id] || AINFO[id]).f}.webp` : "";
 function credit(x){ return x.lic ? `Фото: ${x.by} · ${x.lic}` : x.by; }
 // A card has no buttons, so buying and scrapping live in the sheet; refreshed in place
+function armsActs(m){ const mine = armsStock(m.id), left = armsLeft(m.kind), n = Math.min(mine, left), lim = armsLim(m.kind);
+  if (mine < 1) return sellable(m.id) >= 1 ? `<small class="muted">Продать можно только технику своих заводов</small>` : "";
+  if (!armsBuyers().length) return `<small class="down">Нет покупателей: нужны отношения от +40</small>`;
+  return `${n >= 1 ? qtyRow({act:"sellarms", pre:m.id, max:n, step:1, val:KINDS[m.kind].batch, price:armsPrice(m), verb:"Продать", all:n}) : `<small class="down">Лимит экспорта на ${S.year} год исчерпан</small>`}<small class="muted">экспорт на ${S.year} год: ещё ${left} из ${lim}</small>`; }
 function uiActs(id){ const m = MODELS[id];
   if (m){ const k = KINDS[m.kind], buy = canBuyModel(id), left = mktLeft(m.kind), sell = sellable(id), way = unitWay(id), can = buy.ok ? Math.min(left, Math.floor(S.treasury/buy.price)) : 0;
-    return `${!buy.ok ? `<small class="${buy.own?"muted":"down"}">${buy.why}</small>` : can < 1 ? `<small class="down">Не хватает денег: ${money(buy.price)} за единицу</small>` : qtyRow({act:"buyunit", pre:id, main:true, max:can, step:1, val:k.batch, price:buy.price, verb:"Купить", tail:` · ${buy.days} дн.`})}${sell >= 1 ? qtyRow({act:"sellunit", pre:id, max:sell, step:1, val:k.batch, price:m.price*0.4, verb:"Списать", all:sell}) : ""}${way ? `<small class="ui-way">В пути: ${way}</small>` : ""}${buy.ok ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(m.kind)}</small>` : ""}`; }
+    return `${!buy.ok ? `<small class="${buy.own?"muted":"down"}">${buy.why}</small>` : can < 1 ? `<small class="down">Не хватает денег: ${money(buy.price)} за единицу</small>` : qtyRow({act:"buyunit", pre:id, main:true, max:can, step:1, val:k.batch, price:buy.price, verb:"Купить", tail:` · ${buy.days} дн.`})}${armsActs(m)}${sell >= 1 ? qtyRow({act:"sellunit", pre:id, max:sell, step:1, val:k.batch, price:m.price*0.4, verb:"Списать", all:sell}) : ""}${way ? `<small class="ui-way">В пути: ${way}</small>` : ""}${buy.ok ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(m.kind)}</small>` : ""}`; }
   const a = AMMO[id], s = ammoSellers()[0], lock = id === "missile" && !tlv("am_missile"), cost = a.price*(s?s.price:1.2), can = s ? Math.min(20, Math.floor(S.treasury/(cost*a.batch)))*a.batch : 0;
   return lock ? `<small class="down">нужно исследование «Ракеты I»</small>` : !s ? `<small class="down">Нет поставщиков (нужны отношения от +10)</small>` : can < a.batch ? `<small class="down">Не хватает денег: ${money(cost*a.batch)} за партию</small>` : qtyRow({act:"buyammo", pre:id, main:true, max:can, step:a.batch, val:a.batch, price:cost, verb:"Купить"}); }
 function uiRefresh(id){ const el = modalRoot.querySelector(".ui-act"); if (!el) return; el.innerHTML = uiActs(id);
@@ -7842,7 +7860,7 @@ const sheetHtml = (title, art, body) => `<div class="modal" role="dialog" aria-m
 const qtyStep = max => Math.max(1, 10**(Math.floor(Math.log10(max)) - 2));
 const qtyText = (verb, q, price, tail) => `${verb} ${q.toLocaleString("ru-RU")} · ${money(q*price)}${tail||""}`;
 function qtyRow(o){ const step = o.step || qtyStep(o.max), max = Math.floor(o.max/step)*step, v = Math.max(step, Math.min(max, Math.floor((o.val ?? max)/step)*step));
-  return `<div class="qrow" data-verb="${o.verb}" data-price="${o.price}" data-tail="${o.tail||""}">${max > step ? `<input type="range" min="${step}" max="${max}" step="${step}" value="${v}" data-qty aria-label="${o.verb}: количество">` : ""}<button class="btn ${o.main?"primary":""} sm" data-qbtn data-pre="${o.pre}" data-act="${o.act}" data-arg="${o.pre}:${v}">${qtyText(o.verb, v, o.price, o.tail)}</button>${o.all ? `<button class="btn sm" data-act="${o.act}" data-arg="${o.pre}:${o.all}">${o.allName||"Всё"}</button>` : ""}</div>`; }
+  return `<div class="qrow" data-verb="${o.verb}" data-price="${o.price}" data-tail="${o.tail||""}">${max > step ? `<input type="range" min="${step}" max="${max}" step="${step}" value="${v}" data-qty aria-label="${o.verb}: количество">` : ""}<button class="btn ${o.main?"primary":""} sm" data-qbtn data-pre="${o.pre}" data-act="${o.act}" data-arg="${o.pre}:${v}">${qtyText(o.verb, v, o.price, o.tail)}</button>${o.all && max > step ? `<button class="btn sm" data-act="${o.act}" data-arg="${o.pre}:${o.all}">${o.allName||"Всё"}</button>` : ""}</div>`; }
 function crail(items, on, attr){ return `<nav class="crail" aria-label="Разделы">${items.map(([id, l, p]) => `<button class="crail-b" data-${attr}="${id}" aria-pressed="${on === id}">${pic(p)}<span>${l}</span></button>`).join("")}</nav>`; }
 const unitWay = id => (S.shipments||[]).filter(x => x.cat === "unit" && x.dir === "in" && x.r === id).reduce((a, x) => a + x.qty, 0);
 function unitCard(m){ const n = S.units[m.id]||0, buy = canBuyModel(m.id);
@@ -7877,8 +7895,8 @@ function viewArmy(){
         return gcard({attr:`data-uinfo="${k}"`, cls:`${have >= 1 ? "have" : "none"} ${months < 2 ? "low" : ""}`, img:photo(k), n:`${Math.floor(have).toLocaleString("ru-RU")} ${a.unit}`, bar:isFinite(months) ? `хватит на ${months < 1 ? "меньше месяца" : Math.floor(months) + " мес."}` : "не расходуется", name:a.name, label:a.name}); }).join("")}</div>
       <div class="gc-note">На войне каждый бой тратит боеприпасы. Кончатся снаряды — артиллерия замолчит. Свой завод боеприпасов строится в разделе «Стройка → Военные заводы».</div>`;
   } else {
-    const plants = [...Object.keys(PLANT_CAP), "ammoplant"];
-    body = plants.map(pid => { const n = objCount(pid), b = BUILDINGS[pid];
+    const plants = [...Object.keys(PLANT_CAP), "ammoplant"], ab = armsBuyers().length;
+    body = `<div class="gc-head"><b>Экспорт техники</b><small class="${ab?"":"down"}">${ab ? `покупателей: ${ab} · цена: закупочная +${Math.round(100*armsBonus())}%` : "нет покупателей: нужны отношения от +40"}</small></div>` + plants.map(pid => { const n = objCount(pid), b = BUILDINGS[pid];
       if (pid === "ammoplant") return `<div class="panel"><div class="row"><h3>${ic("ammo")} ${b.name}</h3><span class="num">×${n}</span></div>
         ${n ? `<div class="bstats">${Object.entries(ammoPlantOut()).map(([k,q])=>`<span>${AMMO[k].short} <b class="num">+${Math.round(q).toLocaleString("ru-RU")}</b>/мес</span>`).join("")}<span>Расход <b class="down num">${S.ammoOff ? "0 $" : "до −" + money(ammoPlantCost())}</b>/мес + сталь</span></div><div class="btns"><button class="btn sm" data-act="ammotoggle">${S.ammoOff ? "Включить" : "Выключить"}</button></div>` : `<p class="muted" style="margin:0">Нет завода. Строится в «Стройка → Военные заводы».</p>`}</div>`;
       const sel = S.prod[pid], cap = n ? plantCap(pid) : 0;
@@ -7887,9 +7905,9 @@ function viewArmy(){
       return `<div class="panel"><div class="row"><h3>${ic(BUILD_ICON[pid]||"factory")} ${b.name}</h3><span class="num">×${n}</span></div>
         ${n ? `<div class="bstats"><span>Мощность <b class="num">${money(cap)}</b>/мес</span><span>Расход <b class="down num">${sel ? "до −" + money(cap*PLANT_PAY) : "0 $"}</b>/мес + сталь</span></div>
           <div class="filters">${opts}</div>
-          ${sel ? `<div class="row"><span>${S.prodExport[pid] ? "Продукция уходит на экспорт" : "Продукция идёт в свою армию"}${S.prodExport[pid] && armsBuyers().length ? ` · <span class="up num">до +${money(cap*0.9*(1+0.5*tech("armsexport")))}/мес</span>` : ""}</span><button class="btn sm" data-act="prodexport" data-arg="${pid}">${S.prodExport[pid] ? "Оставлять себе" : "Продавать на экспорт"}</button></div>` : `<div class="label">Выберите, что выпускать.</div>`}`
+          ${sel ? `<div class="row"><span>${S.prodExport[pid] ? "Продукция уходит на экспорт" : "Продукция идёт в свою армию"}${S.prodExport[pid] && armsBuyers().length ? ` · <span class="up num">до +${money(cap*1.15*(1 + armsBonus()))}/мес</span>` : ""}</span><button class="btn sm" data-act="prodexport" data-arg="${pid}">${S.prodExport[pid] ? "Оставлять себе" : "Продавать на экспорт"}</button></div>` : `<div class="label">Выберите, что выпускать.</div>`}`
           : `<p class="muted" style="margin:0">Нет завода. ${b.desc}. Строится в «Стройка → Военные заводы».</p>`}</div>`; }).join("")
-      + `<div class="label" style="margin-top:4px">Производить можно технику своего блока, а чужую — по лицензии, при отношениях от +50 со страной-разработчиком. Новые поколения открывает наука (ветки «ВПК» и «Оборона»).</div>`;
+      + `<div class="label" style="margin-top:4px">Производить можно технику своего блока, а чужую — по лицензии, при отношениях от +50 со страной-разработчиком. Новые поколения открывает наука (ветки «ВПК» и «Оборона»). Продать за рубеж можно только технику своих заводов: в её карточке или кнопкой экспорта здесь. Чем больше стран с отношениями от +40, тем выше годовой лимит.</div>`;
   }
   return `<div class="railed">${tabs}<div class="railed-main">${head}${wars ? `<div class="grid2" style="margin-top:10px">${wars}</div>` : ""}${guardK() >= 0.05 ? `<div class="label">На охране страны остаётся ${Math.round(guardK()*100)}% сил: в войне участвует остальное.</div>` : ""}<div class="army-body">${body}</div></div></div>`;
 }
