@@ -1517,6 +1517,11 @@ use.cu{fill:#000;stroke:none}
 .ui-act{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:6px 0}
 .ui-act small{font-size:11px}
 .ui-way{color:var(--state)}
+.ur-none,.ur-way{padding:2px 6px;border:1px solid var(--line-2);border-radius:3px;font-size:11px;white-space:nowrap;color:var(--muted)}
+.ur-way{color:var(--state);border-color:currentColor}
+.qrow{display:flex;align-items:center;gap:6px;width:100%;min-width:0}
+.qrow input{flex:1;min-width:60px;height:30px;margin:0;accent-color:var(--gold-hi)}
+.qrow .btn{flex:none;white-space:nowrap}
 .gc-pic.art{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 25%,#2A3B58,#101A2C)}
 .gc-pic.art img{position:static;width:54px;height:54px;object-fit:contain}
 .gc-pic.art .portrait{position:absolute;left:50%;top:3px;width:auto;height:150%;transform:translateX(-50%)}
@@ -6386,9 +6391,9 @@ function act(name, arg){
       ui.tab = "hq"; sfx("alarm"); break;
     }
     case "peace": { showPeace(arg); return; }
-    case "buyunit": { orderUnits(arg, KINDS[MODELS[arg].kind].batch); uiRefresh(arg); break; }
-    case "sellunit": { const m = MODELS[arg], n = Math.min(sellable(arg), KINDS[m.kind].batch); if (n < 1) return toast("Стартовую технику продать нельзя."); S.units[arg] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); uiRefresh(arg); break; }
-    case "buyammo": { orderAmmo(arg, AMMO[arg].batch); uiRefresh(arg); break; }
+    case "buyunit": { const [id, q] = arg.split(":"); orderUnits(id, +q || KINDS[MODELS[id].kind].batch); uiRefresh(id); break; }
+    case "sellunit": { const [id, q] = arg.split(":"), m = MODELS[id], n = Math.min(sellable(id), +q || KINDS[m.kind].batch); if (n < 1) return toast("Стартовую технику продать нельзя."); S.units[id] -= n; S.treasury += n*m.price*0.4; toast(`Списано и продано: ${m.name} ×${n}`); uiRefresh(id); break; }
+    case "buyammo": { const [k, q] = arg.split(":"); orderAmmo(k, +q || AMMO[k].batch); uiRefresh(k); break; }
     case "prodset": { const [pid, id] = arg.split("|"); S.prod[pid] = S.prod[pid] === id ? null : id; S.prodAcc[pid] = 0; break; }
     case "prodexport": { S.prodExport[arg] = !S.prodExport[arg]; break; }
     case "rail": {
@@ -6399,15 +6404,15 @@ function act(name, arg){
       addLog(`Начато строительство железной дороги в страну ${x.name}.`); break;
     }
     case "sell": {
-      const [r, frac] = arg.split(":"), want = Math.min(S.stock[r], niceQ(S.stock[r]*(+frac))), q = Math.min(want, expRoom(r));
+      const [r, n] = arg.split(":"), want = Math.min(S.stock[r], +n), q = Math.min(want, expRoom(r));
       if (want < 1) return toast("На складе почти ничего нет.");
       if (q < 1) return toast("Предел экспорта на этот месяц исчерпан.");
       const sum = q*commodPrice(r); S.stock[r] -= q; S.treasury += sum; expUse(r, sum);
       toast(`Продано: ${COMMOD[r].name.toLowerCase()} ${fmtQ(q)} за ${money(sum)}`); break;
     }
     case "buy": {
-      const best = suppliers(arg).find(x => sellerLeft(x.iso, arg) >= 1); if (!best) return toast("Сейчас никто не продаёт этот товар.");
-      orderGoods(best.iso, arg, COMMOD[arg].buy); break;
+      const [r, q] = arg.split(":"), best = suppliers(r).find(x => sellerLeft(x.iso, r) >= 1); if (!best) return toast("Сейчас никто не продаёт этот товар.");
+      orderGoods(best.iso, r, +q || COMMOD[r].buy); break;
     }
     case "autosell": S.autoSell[arg] = !S.autoSell[arg]; break;
     case "ammotoggle": S.ammoOff = !S.ammoOff; break;
@@ -6426,7 +6431,7 @@ function act(name, arg){
       if (before && !(+q)) addLog(`Закупка ${COMMOD[r].gen} у страны ${partnerName(iso)} прекращена.`);
       break;
     }
-    case "orderone": { const [iso, r] = arg.split(":"); orderGoods(iso, r, COMMOD[r].buy); break; }
+    case "orderone": { const [iso, r, q] = arg.split(":"); orderGoods(iso, r, +q || COMMOD[r].buy); break; }
     case "ordermat": { orderForBuilding(arg); break; }
     case "contract": {
       const [iso, r, q] = arg.split(":"), key = iso+":"+r, before = S.contracts[key] || 0;
@@ -7702,10 +7707,10 @@ const photo = id => (UINFO[id] || AINFO[id]) ? `photos/${(UINFO[id] || AINFO[id]
 function credit(x){ return x.lic ? `Фото: ${x.by} · ${x.lic}` : x.by; }
 // A card has no buttons, so buying and scrapping live in the sheet; refreshed in place
 function uiActs(id){ const m = MODELS[id];
-  if (m){ const k = KINDS[m.kind], buy = canBuyModel(id), left = mktLeft(m.kind), bq = Math.min(k.batch, left), sell = sellable(id), way = unitWay(id);
-    return `${buy.ok ? `<button class="btn primary" data-act="buyunit" data-arg="${id}" ${S.treasury < buy.price*bq ? "disabled" : ""}>+${bq} · ${money(buy.price*bq)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}${sell >= 1 ? `<button class="btn" data-act="sellunit" data-arg="${id}">Списать ${Math.min(sell, k.batch)}</button>` : ""}${way ? `<small class="ui-way">В пути: ${way}</small>` : ""}${buy.ok ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(m.kind)}</small>` : ""}`; }
-  const a = AMMO[id], s = ammoSellers()[0], lock = id === "missile" && !tlv("am_missile");
-  return `${lock ? `<small class="down">нужно исследование «Ракеты I»</small>` : ""}<button class="btn primary" data-act="buyammo" data-arg="${id}" ${lock || !s || S.treasury < a.price*a.batch*(s?s.price:1) ? "disabled" : ""}>+${a.batch.toLocaleString("ru-RU")} · ${money(a.price*a.batch*(s?s.price:1.2))}</button>`; }
+  if (m){ const k = KINDS[m.kind], buy = canBuyModel(id), left = mktLeft(m.kind), sell = sellable(id), way = unitWay(id), can = buy.ok ? Math.min(left, Math.floor(S.treasury/buy.price)) : 0;
+    return `${!buy.ok ? `<small class="${buy.own?"muted":"down"}">${buy.why}</small>` : can < 1 ? `<small class="down">Не хватает денег: ${money(buy.price)} за единицу</small>` : qtyRow({act:"buyunit", pre:id, main:true, max:can, step:1, val:k.batch, price:buy.price, verb:"Купить", tail:` · ${buy.days} дн.`})}${sell >= 1 ? qtyRow({act:"sellunit", pre:id, max:sell, step:1, val:k.batch, price:m.price*0.4, verb:"Списать", all:sell}) : ""}${way ? `<small class="ui-way">В пути: ${way}</small>` : ""}${buy.ok ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(m.kind)}</small>` : ""}`; }
+  const a = AMMO[id], s = ammoSellers()[0], lock = id === "missile" && !tlv("am_missile"), cost = a.price*(s?s.price:1.2), can = s ? Math.min(20, Math.floor(S.treasury/(cost*a.batch)))*a.batch : 0;
+  return lock ? `<small class="down">нужно исследование «Ракеты I»</small>` : !s ? `<small class="down">Нет поставщиков (нужны отношения от +10)</small>` : can < a.batch ? `<small class="down">Не хватает денег: ${money(cost*a.batch)} за партию</small>` : qtyRow({act:"buyammo", pre:id, main:true, max:can, step:a.batch, val:a.batch, price:cost, verb:"Купить"}); }
 function uiRefresh(id){ const el = modalRoot.querySelector(".ui-act"); if (!el) return; el.innerHTML = uiActs(id);
   const h = modalRoot.querySelector("[data-uhave]"); if (h) h.textContent = MODELS[id] ? (S.units[id]||0).toLocaleString("ru-RU") : `${Math.floor(S.ammo[id]||0).toLocaleString("ru-RU")} ${AMMO[id].unit}`; }
 function showUnitInfo(id){
@@ -7827,6 +7832,11 @@ function gcard(o){ return `<button class="gc ${o.cls||""}" ${o.attr} aria-label=
 function liveSheet(draw){ const y = modalRoot.querySelector(".sheet.live")?.scrollTop || 0; ui.live = draw; draw(); const el = modalRoot.querySelector(".sheet.live"); if (el) el.scrollTop = y; }
 function liveRefresh(){ if (ui.live && modalRoot.querySelector(".sheet.live")) liveSheet(ui.live); }
 const sheetHtml = (title, art, body) => `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet live"><div class="gs-head">${art}<h2>${title}</h2><button class="ui-x" data-close aria-label="Закрыть">✕</button></div>${body}</div></div>`;
+// Amount slider for buying and selling (user's decision 05.11): dragging rewrites the button, which carries the amount in data-arg
+const qtyStep = max => Math.max(1, 10**(Math.floor(Math.log10(max)) - 2));
+const qtyText = (verb, q, price, tail) => `${verb} ${q.toLocaleString("ru-RU")} · ${money(q*price)}${tail||""}`;
+function qtyRow(o){ const step = o.step || qtyStep(o.max), max = Math.floor(o.max/step)*step, v = Math.max(step, Math.min(max, Math.floor((o.val ?? max)/step)*step));
+  return `<div class="qrow" data-verb="${o.verb}" data-price="${o.price}" data-tail="${o.tail||""}">${max > step ? `<input type="range" min="${step}" max="${max}" step="${step}" value="${v}" data-qty aria-label="${o.verb}: количество">` : ""}<button class="btn ${o.main?"primary":""} sm" data-qbtn data-pre="${o.pre}" data-act="${o.act}" data-arg="${o.pre}:${v}">${qtyText(o.verb, v, o.price, o.tail)}</button>${o.all ? `<button class="btn sm" data-act="${o.act}" data-arg="${o.pre}:${o.all}">${o.allName||"Всё"}</button>` : ""}</div>`; }
 function crail(items, on, attr){ return `<nav class="crail" aria-label="Разделы">${items.map(([id, l, p]) => `<button class="crail-b" data-${attr}="${id}" aria-pressed="${on === id}">${pic(p)}<span>${l}</span></button>`).join("")}</nav>`; }
 const unitWay = id => (S.shipments||[]).filter(x => x.cat === "unit" && x.dir === "in" && x.r === id).reduce((a, x) => a + x.qty, 0);
 function unitCard(m){ const n = S.units[m.id]||0, buy = canBuyModel(m.id);
@@ -8679,7 +8689,7 @@ function tradeBlock(iso){
           <span class="seg" role="group" aria-label="${d.name}: продажа в месяц">${d.steps.map((st,k)=>`<button data-act="contract" data-arg="${iso}:${r}:${st}" aria-pressed="${q===st}" ${st>0 && (k>cap || !chk.ok) ? "disabled" : ""}>${fmtQ(st)}</button>`).join("")}</span></div>
         ${IMPORTABLE.includes(r) ? (canBuy ? `<div class="tside"><small class="num"><b class="warn">Покупаем</b> ${money(importPriceFrom(iso,r))} · ~${days} дн.</small>
           <span class="seg" role="group" aria-label="${d.name}: закупка в месяц">${d.steps.map(st=>`<button data-act="import" data-arg="${iso}:${r}:${st}" aria-pressed="${qi===st}" ${st>0 && !chk.ok ? "disabled" : ""}>${fmtQ(st)}</button>`).join("")}</span>
-          <button class="btn sm" data-act="orderone" data-arg="${iso}:${r}" ${!chk.ok?"disabled":""}>Разовый заказ ${fmtQ(d.buy)}</button></div>`
+          ${(() => { const p = importPriceFrom(iso, r), can = Math.min(Math.floor(sellerLeft(iso, r)), Math.floor(S.treasury/p)); return chk.ok && can >= 1 ? qtyRow({act:"orderone", pre:`${iso}:${r}`, max:can, val:d.buy, price:p, verb:"Заказать"}) : ""; })()}</div>`
           : `<div class="tside"><small class="muted">Не продаёт ${d.gen}</small></div>`) : ""}
       </div></div>`;
   }).join("");
@@ -8720,9 +8730,10 @@ function showGood(r){ liveSheet(() => { const d = COMMOD[r], art = `<span class=
       <div class="tr-chips"><small>Лучшие покупатели</small>${top.map(([i,p])=>`<button class="chip" data-mapgo="${i}">${flag(i)} ${esc(partnerName(i))} <span class="up num">+${Math.round(p*100)}%</span></button>`).join("") || `<span class="muted">нет</span>`}</div>
       <div class="tr-note">Цена покупки за единицу с доставкой, у каждого продавца лимит в месяц. Нажмите на страну, чтобы открыть её на карте и заключить контракт.</div>
     </div>`; };
-  const h = S.mhist[r], chg = h.length>1 ? h[h.length-1]/h[h.length-2]-1 : 0, way = inTransit(r), bs = d.buy ? suppliers(r).find(x => sellerLeft(x.iso, r) >= 1) : null, bq = bs ? Math.min(d.buy, Math.floor(sellerLeft(bs.iso, r))) : 0, none = S.stock[r] <= 0.0005;
+  const h = S.mhist[r], chg = h.length>1 ? h[h.length-1]/h[h.length-2]-1 : 0, way = inTransit(r), bs = d.buy ? suppliers(r).find(x => sellerLeft(x.iso, r) >= 1) : null, room = Math.floor(Math.min(S.stock[r], expRoom(r))), can = bs ? Math.min(Math.floor(sellerLeft(bs.iso, r)), Math.floor(S.treasury/bs.price)) : 0;
   modalRoot.innerHTML = sheetHtml(d.name, art, `<div class="bstats"><span>Запас <b class="num">${fmtQ(S.stock[r])}</b></span>${way ? `<span>В пути <b class="num">${fmtQ(way)}</b></span>` : ""}<span>Цена <b class="num">${money(commodPrice(r))}</b> <small class="${chg>=0?"up":"down"}">${chg>=0?"▲":"▼"} ${pct(Math.abs(chg)*100,1)}</small></span></div>
-    <div class="btns"><button class="btn sm" data-act="sell" data-arg="${r}:0.5" ${none?"disabled":""}>Продать ½</button><button class="btn sm" data-act="sell" data-arg="${r}:1" ${none?"disabled":""}>Продать всё</button>${bs ? `<button class="btn primary sm" data-act="buy" data-arg="${r}" title="${esc(partnerName(bs.iso))}, ~${bs.days} дн." ${S.treasury<bq*bs.price?"disabled":""}>Купить ${fmtQ(bq)} · ${money(bq*bs.price)}</button>` : ""}</div>
+    ${room >= 1 ? qtyRow({act:"sell", pre:r, max:room, val:Math.ceil(room/2), price:commodPrice(r), verb:"Продать", all:S.stock[r], allName:"Продать всё"}) : `<small class="muted">${S.stock[r] >= 1 ? "Предел экспорта на этот месяц исчерпан" : "На складе пусто"}</small>`}
+    ${bs ? can >= 1 ? qtyRow({act:"buy", pre:r, main:true, max:can, val:d.buy, price:bs.price, verb:"Купить", tail:` · ${bs.days} дн.`}) : `<small class="down">Не хватает денег на закупку</small>` : ""}
     ${more(r, d, chg)}`); }); }
 function viewTrade(){
   const open = ui.trOpen ?? "stock", list = allContracts(), proj = commodProjection();
@@ -9422,6 +9433,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("input", e => {
   const el = e.target;
+  if (el.dataset && el.dataset.qty !== undefined){ const r = el.closest(".qrow"), b = r.querySelector("[data-qbtn]"), q = +el.value; b.dataset.arg = `${b.dataset.pre}:${q}`; b.textContent = qtyText(r.dataset.verb, q, +r.dataset.price, r.dataset.tail); return; }
   if (el.dataset && (el.dataset.cb !== undefined || el.dataset.pens !== undefined || el.dataset.wages !== undefined)){
     const k = el.dataset.cb !== undefined ? "cb" : el.dataset.pens !== undefined ? "pens" : "wages"; S[k] = +el.value;
     const lbl = document.querySelector(`[data-${k}v]`); if (lbl) lbl.textContent = (k === "cb" ? (+el.value).toFixed(1).replace(".",",") : el.value) + "%"; return; }
