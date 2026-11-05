@@ -888,16 +888,9 @@ use.cu{fill:#000;stroke:none}
 .sat-on #map-grid path{stroke:#FFFFFF;stroke-opacity:.07}
 .sat-on #map-grid path.eq{stroke-opacity:.14}
 .sat-on #map-labels{fill:#E9EEF6;stroke:#06101F;stroke-opacity:.8;font-weight:600}
-.sat-on #map-labels text{text-transform:uppercase}
-.sat-on #map-labels .lb-game{fill:#FFFFFF;font-weight:700;letter-spacing:.2em}
-.sat-on #map-labels .lb-me{fill:#FFD27A;font-weight:800;letter-spacing:.2em}
+.sat-on #map-labels .lb-game{fill:#FFFFFF;font-weight:700;letter-spacing:.06em}
+.sat-on #map-labels .lb-me{fill:#FFD27A;font-weight:800;letter-spacing:.06em}
 .sat-on #map-labels .lb-sel{fill:#FFF1B8;font-weight:800}
-.sat-on #map-labels{letter-spacing:.2em}
-.map-wrap.th-staff{background:#0A1424!important}
-.th-staff #map-labels{fill:#D9BC85;stroke:#070E1C}
-.th-staff #map-labels .lb-game{fill:#F2CE8C}
-.th-staff #map-labels .lb-me{fill:#FFD27A}
-.th-staff #map-labels .lb-sel{fill:#FFF1B8}
 .sat-on .fx-ocean text{fill:#BFE2FF;fill-opacity:.5}
 .sat-on .fx-cap text{fill:#FFFFFF;stroke:#06101F}
 .sat-on .sw.m-player{background:#2E9BFF;border-color:#56C1FF}
@@ -6153,9 +6146,7 @@ function viewSettings(){
       <div class="slider"><label for="music-vol">Громкость музыки</label><span class="num">${settings.musicVol}%</span><input type="range" id="music-vol" min="0" max="100" value="${settings.musicVol}" data-musicvol></div>
       ${sw("sound","Звуки","Нажатия, уведомления советников, события")}${sw("vibro","Вибрация","Короткий отклик при важных новостях")}
       <div class="srow s-gfx"><span><b>Графика поля боя</b><small>${(settings.gfx || "auto") === "auto" ? `Игра сама подбирает качество. Сейчас: ${GFX_NAMES[gfxLevel()].toLowerCase()}.` : "Низкая: упрощённые модели, без теней, меньше дыма."}</small></span>
-      <div class="seg gfx-seg" role="group" aria-label="Графика поля боя">${Object.entries(GFX_NAMES).map(([k, n]) => `<button aria-pressed="${(settings.gfx || "auto") === k}" data-gfx="${k}">${n}</button>`).join("")}</div></div>
-      <div class="srow s-gfx"><span><b>Карта мира</b><small>Вид карты, на игру не влияет.</small></span>
-      <div class="seg gfx-seg" role="group" aria-label="Карта мира">${[["sat", "Спутниковая"], ["staff", "Штабная"]].map(([k, n]) => `<button aria-pressed="${mapTheme() === k}" data-maptheme="${k}">${n}</button>`).join("")}</div></div></div>
+      <div class="seg gfx-seg" role="group" aria-label="Графика поля боя">${Object.entries(GFX_NAMES).map(([k, n]) => `<button aria-pressed="${(settings.gfx || "auto") === k}" data-gfx="${k}">${n}</button>`).join("")}</div></div></div>
     <div class="panel"><h3>Игра</h3>
       ${line("Мир сопротивляется", "Слава агрессора копится быстрее, врагам шлют больше техники", `<button class="btn sm" data-worldhard aria-pressed="${!!settings.worldHard}">${settings.worldHard ? "Включено" : "Выключено"}</button>`)}
       ${line("Первые шаги", "Обучение с подсветкой кнопок", `<button class="btn sm" data-tut="restart">Пройти снова</button>`)}
@@ -8104,7 +8095,7 @@ function viewMap(){
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
   const legend = [["m-player","Вы и присоединённые земли"],["m-ally","Союзники"],["m-puppet","Сателлиты"],["m-union","Союзные государства"],["m-trade","Торговля и контракты"],["m-friend","Друзья"],["m-neutral","Нейтральные"],["m-hostile","Враждебные"],["m-war","Война"],["m-minor","Малые страны: только торговля"],["ln-trade","Торговый договор"],["ln-contract","Продажа (груз от нас)"],["ln-import","Закупка (груз к нам)"],["ln-rail","Железная дорога"],["ln-war","Линия фронта"]];
   return `<div class="map-screen ${ui.legend?"show-legend":""} ${ui.cardHidden?"card-hidden":""}">
-      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}${mapTheme() === "staff" ? " th-staff" : ""}${mgReady() ? " map-gl" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}${WORLD ? `<canvas id="battle-cv" aria-hidden="true"></canvas>` : ""}
+      <div class="map-wrap ${SAT_OK && WORLD ? "sat-on" : ""}${mgReady() ? " map-gl" : ""}" id="map-wrap">${SAT_OK && WORLD ? satHTML() : ""}${svg}${WORLD ? `<canvas id="battle-cv" aria-hidden="true"></canvas>` : ""}
         ${S && S.countries ? mapSideHTML() : ""}
         <div class="map-tools"><button data-mapzoom="in" aria-label="Приблизить">${ic("plus")}</button><button data-mapzoom="out" aria-label="Отдалить">${ic("minus")}</button><button data-mapzoom="reset" aria-label="Весь мир">${ic("home")}</button>${S.wars.length ? `<button class="hq-btn" data-tab="hq" aria-label="Штаб">${ic("army")}<span>Штаб · ${S.wars.length}</span></button>` : ""}<button class="tool-legend" data-legend aria-pressed="${!!ui.legend}" aria-label="Легенда карты">${ic("layers")}</button>${ui.cardHidden?`<button class="tool-card" data-cardshow aria-label="Показать карточку страны">${ic("diplomacy")}</button>`:""}</div>
         <div class="legend">${(ui.mapMode||"pol") === "pol" ? legend.map(([c,l])=>`<span><i class="sw ${c}"></i>${l}</span>`).join("") : modeLegend()}</div>
@@ -8217,7 +8208,7 @@ function mgReady(){
     MG.bS = mk(gl.ARRAY_BUFFER, solid); MG.nS = solid.length/7; MG.bD = mk(gl.ARRAY_BUFFER, dis); MG.nD = dis.length/7;
     MG.bO = gl.createBuffer(); maInit();
     MG.tP = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, MG.tP); mgTexParams(); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    mgImg(`${mapTheme()}/world.webp`, im => { MG.t0 = mgTex(im); mgKick(); }, satFail);
+    mgImg("sat/world.webp", im => { MG.t0 = mgTex(im); mgKick(); }, satFail);
     cv.addEventListener("webglcontextlost", e => { e.preventDefault(); MG.ok = false; MG.gl = null; ui.mapHtml = null; setTimeout(render, 0); });
     MG.ok = true;
   } catch(e){ console.error(e); MG.ok = false; MG.gl = null; }
@@ -8272,11 +8263,6 @@ function mgSync(){
   MG.strokes = strokes;
   mgKick();
 }
-function mapTheme(){ return settings.mapTheme === "staff" ? "staff" : "sat"; }
-function mapThemeSet(v){ if (v === mapTheme()) return; settings.mapTheme = v; settingsSave(); ui.mapHtml = null;
-  if (!MG.gl) return;
-  MG.tex.forEach(t => { if (t.t) MG.gl.deleteTexture(t.t); }); MG.tex.clear(); MG.q.length = 0; maReset();
-  mgImg(`${v}/world.webp`, im => { if (MG.t0) MG.gl.deleteTexture(MG.t0); MG.t0 = mgTex(im); mgKick(); }, satFail); }
 function mgTiles(){
   const wrap = document.getElementById("map-wrap"); if (!wrap || !mgLive()) return;
   const r = wrap.getBoundingClientRect(); if (!r.width) return;
@@ -8292,7 +8278,7 @@ function mgTiles(){
       const id = `${z}_${tx}_${ty}`, have = MG.tex.get(id); if (have){ have.n = MG.n; continue; }
       const ph = Math.min(SAT_TILE, LH - ty*SAT_TILE), t = {z, n:MG.n, x:tx*tu, y:ty*tu, w:tu, h:ph*w/LW, t:null};
       MG.tex.set(id, t);
-      mgImg(`${mapTheme()}/${z}/${tx}_${ty}.webp`, im => { if (MG.tex.get(id) === t){ MG.q.push([t, im]); mgKick(); } }, () => MG.tex.delete(id));
+      mgImg(`sat/${z}/${tx}_${ty}.webp`, im => { MG.q.push([t, im]); mgKick(); }, () => MG.tex.delete(id));
     }
   if (MG.tex.size > 90){ const old = [...MG.tex.entries()].filter(([, t]) => t.t && t.n < MG.n).sort((a, b) => a[1].n - b[1].n);
     old.slice(0, MG.tex.size - 90).forEach(([id, t]) => { MG.gl.deleteTexture(t.t); MG.tex.delete(id); }); }
@@ -8343,10 +8329,9 @@ function mgFrame(){
   MG.strokes.forEach(t => { if (t.glow) mgLine(MG.bO, t.first, t.count, [.16, .59, 1, .24], t.w/2 + 3, null, false);
     mgLine(MG.bO, t.first, t.count, t.c, t.w/2, t.dash ? [5, 4] : null, false); });
   mgLine(MG.bS, 0, MG.nS, [.04, .08, .15, .38], 1.3, null, merged);
-  const staff = mapTheme() === "staff", bc = staff ? [.95, .66, .23] : [1, 1, 1];
-  mgLine(MG.bS, 0, MG.nS, [bc[0], bc[1], bc[2], .85], .5, null, merged);
+  mgLine(MG.bS, 0, MG.nS, [1, 1, 1, .85], .5, null, merged);
   mgLine(MG.bD, 0, MG.nD, [.04, .08, .15, .38], 1.3, null, merged);
-  mgLine(MG.bD, 0, MG.nD, [bc[0], bc[1], bc[2], .7], .5, [3, 4], merged);
+  mgLine(MG.bD, 0, MG.nD, [1, 1, 1, .7], .5, [3, 4], merged);
   if (merged){ const B = MG.blocLine, u = B.c; mgLine(MG.bO, MG.bF, MG.bN, [u[0], u[1], u[2], .24], B.w/2 + 3, null, true); mgLine(MG.bO, MG.bF, MG.bN, u, B.w/2, null, true); }
   gl.stencilMask(255); gl.disable(gl.STENCIL_TEST);
   mgOver(a, b, c, d, w, vh, cw, ch);
@@ -8426,15 +8411,13 @@ function maIcon(name){
     return null; }
   return im ? maDraw(key, sz, sz, sz/2, sz/2, c => c.drawImage(im, 0, 0, sz, sz)) : null;
 }
-function maQuad(s, x, y, o, rot, sc){
+function maQuad(s, x, y, o, rot){
   if (!s) return;
   if (MA.n + 30 > MA.v.length){ const v = new Float32Array(MA.v.length*2); v.set(MA.v); MA.v = v; }
   const v = MA.v; let n = MA.n;
   const put = (px, py, a, b) => { v[n++] = px; v[n++] = py; v[n++] = a; v[n++] = b; v[n++] = o; };
   if (rot){ const c = Math.cos(rot), q = Math.sin(rot), P = (i, j) => [x + i*c - j*q, y + i*q + j*c], l = -s.ax, t = -s.ay, r = l + s.W, b = t + s.H, A = P(l, t), B = P(r, t), C_ = P(l, b), D = P(r, b);
     put(A[0], A[1], s.u0, s.v0); put(B[0], B[1], s.u1, s.v0); put(C_[0], C_[1], s.u0, s.v1); put(C_[0], C_[1], s.u0, s.v1); put(B[0], B[1], s.u1, s.v0); put(D[0], D[1], s.u1, s.v1); }
-  else if (sc && sc !== 1){ const l = x - s.ax*sc, t = y - s.ay*sc, r = l + s.W*sc, b = t + s.H*sc;
-    put(l, t, s.u0, s.v0); put(r, t, s.u1, s.v0); put(l, b, s.u0, s.v1); put(l, b, s.u0, s.v1); put(r, t, s.u1, s.v0); put(r, b, s.u1, s.v1); }
   else { const l = Math.round(x - s.ax), t = Math.round(y - s.ay), r = l + s.W, b = t + s.H;
     put(l, t, s.u0, s.v0); put(r, t, s.u1, s.v0); put(l, b, s.u0, s.v1); put(l, b, s.u0, s.v1); put(r, t, s.u1, s.v0); put(r, b, s.u1, s.v1); }
   MA.n = n;
@@ -8534,12 +8517,14 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   const step = MA.cargo.length ? acc/SPEED_MS[ui.speed||1] : 0;
   MA.cargo.forEach(q => { const t = q.x, u = clamp(1 - (t.left - step)/t.total, 0, 1); if (t.left <= 0) return; const p = qbez(q.g, u), x = sx(p.x), y = sy(p.y); if (!on(x, y, 20*D)) return;
     const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -12, -12, 24, 24, c => maPath(c, st, maCircle(10))), x, y, 1); maQuad(maIcon(q.icon), x, y, 1); });
-  // country names are printed on the map: fixed place, size follows the zoom up to 28 px, small ones fade in, big ones thin out
-  MA.lbl.forEach(it => { const L = it.L, px = sx(L.x)/D, py = sy(L.y)/D; const raw = (L.fs || 2)*k/upp, F = Math.min(it.pri >= 3 ? Math.max(raw, PX) : raw, 28);
-    const a = F < 7 ? 0 : F < 10 ? (F - 7)/3 : raw > 40 ? Math.max(.55, 1 - (raw - 40)/120) : 1, hw = it.text.length*F*.5; if (a <= 0 || px + hw < -6 || px - hw > cssW + 6 || py < -F || py > ch/D + F) return;
-    const B = LBL_SIZES.find(z => z >= F) || 54, s = maText(it.text.toLocaleUpperCase("ru"), maStyle(it.el), B, Math.max(2, B*.18), {mid:true}); if (!s) return;
-    maQuad(s, px*D, py*D, a, 0, F/B);
-    if (it.flag && it.pri >= 3) maQuad(maFlag(it.iso, Math.round(PX*1.25), Math.round(PX*.94)), (px - s.W/D*F/B/2 - 3)*D, py*D, a); });
+  const placed = [];
+  MA.lbl.forEach(it => { const px = sx(it.L.x)/D, py = sy(it.L.y)/D, sw = it.L.w*k/upp, st = maStyle(it.el), s = maText(it.text, st, PX, 3, {mid:true}); if (!s) return;
+    const tw = s.W/D - 8, fits = it.pri >= 3 || sw >= tw*(it.pri === 2 ? .55 : .95);
+    if (!fits || px < -40 || px > cssW + 40 || py < -10 || py > ch/D + 10) return;
+    const box = [px - tw/2 - PX*1.5, py - PX*.6, px + tw/2 + 2, py + PX*.6];
+    if (placed.some(q => box[0] < q[2] && box[2] > q[0] && box[1] < q[3] && box[3] > q[1])) return;
+    placed.push(box); maQuad(s, px*D, py*D, 1);
+    if (it.flag && (it.pri >= 2 || k >= 2.2)) maQuad(maFlag(it.iso, Math.round(PX*1.25), Math.round(PX*.94)), (px - tw/2 - 3)*D, py*D, 1); });
   if (MA.n){ bindS(); gl.bufferData(gl.ARRAY_BUFFER, MA.v.subarray(0, MA.n), gl.DYNAMIC_DRAW); gl.bindTexture(gl.TEXTURE_2D, MA.tex); gl.drawArrays(gl.TRIANGLES, 0, MA.n/5); }
 }
 /* satellite base map: one 2048 px world image plus 512 px tiles at 4096 / 8192 px, loaded for the visible area */
@@ -8547,7 +8532,7 @@ const SAT_LEVELS = [2048, 4096, 8192], SAT_TILE = 512;
 let SAT_OK = true;
 function satFail(){ if (!SAT_OK) return; SAT_OK = false; if (MG.ok){ MG.ok = false; ui.mapHtml = null; setTimeout(render, 0); } const w = document.getElementById("map-wrap"); if (w) w.classList.remove("sat-on"); const el = document.getElementById("sat"); if (el) el.remove(); }
 window.__satFail = satFail;
-function satHTML(){ if (MG.ok) return `<div id="mg-slot"></div>`; return `<div id="sat" class="sat" aria-hidden="true"><img class="sat0" src="${mapTheme()}/world.webp" alt="" draggable="false" onerror="__satFail()"></div>`; }
+function satHTML(){ if (MG.ok) return `<div id="mg-slot"></div>`; return `<div id="sat" class="sat" aria-hidden="true"><img class="sat0" src="sat/world.webp" alt="" draggable="false" onerror="__satFail()"></div>`; }
 let satT = 0;
 function satBordersAttach(){
   if (!SAT_OK || MG.ok) return;
@@ -8589,7 +8574,7 @@ function satTiles(){
         im.style.cssText = `left:${(tx*tu).toFixed(3)}px;top:${(ty*tu).toFixed(3)}px;width:${(tu*1.002).toFixed(3)}px;height:${(ph*w/LW*1.002).toFixed(3)}px;opacity:0;transition:opacity .25s`;
         im.onload = () => { im.style.opacity = 1; };
         im.onerror = () => im.remove();
-        im.src = `${mapTheme()}/${z}/${tx}_${ty}.webp`;
+        im.src = `sat/${z}/${tx}_${ty}.webp`;
         el.appendChild(im);
       }
   }
@@ -8612,8 +8597,6 @@ function mapMvEnd(){ clearTimeout(mapMvT); if (!ui.mapMv) return; ui.mapMv = nul
 
 /* country name labels: centre of each country's largest outline, shown when it fits and doesn't overlap */
 let LABELS = null, lblRaf = 0;
-const LBL_FIX = {zw:[495.0,332.2,2.31],zm:[490.2,318.8,4.63],ye:[540.0,244.5,5.0],vn:[685.5,230.2,1.94],ve:[255.2,265.5,3.56],vu:[838.8,323.2,1.1],uz:[575.8,170.2,2.8],uy:[280.5,370.0,1.87],pr:[254.2,238.5,1.1],us:[176.2,178.0,13],fk:[274.0,427.2,1.1],gb:[415.2,141.0,1.3],ae:[556.0,224.8,2.96],ua:[499.0,150.5,6.07],ug:[502.0,282.0,2.1],tm:[569.5,183.0,2.69],tr:[509.0,181.8,7.36],tn:[444.8,197.8,1.96],tt:[267.4,258.5,1.1],tg:[423.2,262.8,1.1],tl:[736.2,306.8,1.1],th:[674.0,246.5,2.84],tz:[508.0,300.5,3.3],tj:[598.8,183.2,1.61],tw:[723.8,224.2,1.1],sy:[517.2,192.5,3.13],ch:[441.5,158.2,1.17],se:[468.0,89.2,4.13],sz:[499.8,352.8,1.1],sr:[280.8,274.5,1.43],ss:[495.8,263.5,2.93],sd:[495.8,244.2,7.94],lk:[623.0,266.0,1.1],es:[413.2,173.0,4.21],kr:[741.0,189.0,1.1],za:[482.8,360.8,11.84],so:[533.2,274.8,2.65],_2:[536.8,260.0,1.52],sb:[821.9,308.9,1.1],sk:[469.5,152.2,1.69],si:[458.0,160.0,1.1],sl:[391.2,263.8,1.1],rs:[473.0,166.0,1.56],sn:[384.5,248.5,2.0],sa:[534.2,229.0,2.83],rw:[495.8,289.8,1.1],ru:[682.5,104.5,13],ro:[483.2,161.5,3.2],qa:[549.0,220.2,1.1],pt:[400.8,182.0,1.1],pl:[469.0,140.5,3.97],ph:[724.8,242.5,1.1],pe:[230.2,297.5,5.86],py:[274.8,343.2,2.34],pg:[782.0,300.8,1.18],pa:[217.5,263.2,1.4],pk:[590.5,210.8,3.8],om:[558.5,236.5,3.39],no:[474.0,75.0,2.8],kp:[739.0,177.8,2.74],ng:[442.0,257.0,4.04],ne:[441.0,245.8,6.92],ni:[207.5,252.8,1.22],nz:[844.0,408.0,1.1],nl:[434.8,141.0,1.1],np:[631.0,212.5,2.34],na:[464.0,332.5,3.74],mz:[509.8,323.8,3.13],ma:[406.2,200.8,3.13],eh:[383.8,230.2,1.1],me:[469.2,170.5,1.1],mn:[678.8,158.0,9.46],md:[492.0,155.2,1.1],mx:[152.8,213.0,5.34],mr:[395.0,233.2,2.9],ml:[416.0,241.2,7.24],my:[705.2,278.2,1.34],mw:[506.5,319.5,1.17],mg:[537.8,330.5,1.59],mk:[475.2,174.2,1.1],lu:[436.0,148.7,1.1],lt:[480.5,129.5,2.8],ly:[465.8,215.2,7.52],lr:[397.0,267.5,1.2],ls:[491.5,361.0,1.1],lb:[511.2,195.8,1.1],lv:[483.2,124.5,2.88],la:[678.2,233.8,3.04],kg:[607.5,173.2,2.57],kw:[539.8,209.5,1.1],_0:[473.0,171.2,1.1],ke:[515.5,283.8,3.83],kz:[589.5,153.5,10.62],jo:[514.0,201.8,1.23],jp:[762.0,192.8,2.74],jm:[227.2,238.8,1.1],it:[446.8,163.0,2.8],il:[508.2,204.0,1.1],ps:[509.0,202.0,1.1],ie:[400.5,136.5,1.31],iq:[529.8,199.8,5.37],ir:[556.5,195.8,10.86],id:[706.2,284.8,2.65],in:[625.0,222.5,12.24],is:[374.0,93.0,3.24],hu:[469.5,157.0,2.27],hn:[204.0,247.2,1.84],ht:[238.8,238.2,1.1],gy:[273.2,270.5,1.95],gw:[383.2,254.0,1.1],gn:[393.5,258.0,2.96],gt:[194.5,245.2,1.1],gr:[481.2,175.8,1.56],gh:[417.8,267.8,2.74],de:[446.8,144.0,2.72],ge:[529.8,172.8,2.1],gm:[381.2,250.8,1.1],ga:[450.2,286.5,2.8],fr:[426.2,155.2,4.37],nc:[835.5,339.5,1.1],tf:[595.0,419.2,1.1],fi:[486.8,101.8,2.91],fj:[866.5,330.2,1.1],et:[520.2,264.8,5.04],ee:[485.5,117.5,1.6],er:[518.0,247.0,1.6],gq:[447.0,281.5,1.1],sv:[198.2,250.2,1.1],eg:[495.8,224.2,4.83],ec:[224.5,288.5,1.97],do:[244.8,237.5,1.1],dj:[527.5,256.0,1.1],gl:[315.5,34.0,13],dk:[444.5,126.8,1.4],cz:[459.2,148.8,3.22],_1:[504.5,192.8,1.1],cy:[503.2,193.8,1.1],cu:[230.5,233.0,1.95],hr:[461.8,162.8,1.56],ci:[407.0,265.8,1.34],cr:[209.8,259.0,1.1],cd:[475.5,296.0,5.49],cg:[456.8,292.2,2.62],co:[237.8,277.0,3.59],cn:[675.2,188.2,13],cl:[236.8,410.0,2.45],td:[467.5,246.0,8.33],cf:[472.0,268.2,8.88],ca:[180.0,132.0,13],cm:[451.5,272.5,2.54],kh:[683.5,252.5,1.61],mm:[662.5,230.8,3.58],bi:[495.8,293.0,1.1],bf:[416.5,254.8,1.56],bg:[484.0,169.2,1.87],bn:[707.8,273.8,1.1],br:[286.2,306.0,11.5],bw:[480.8,341.5,2.8],ba:[465.2,164.5,1.1],bo:[260.5,328.5,4.1],bt:[647.2,214.5,1.64],bj:[426.8,258.5,1.54],bz:[198.8,241.8,1.1],be:[432.0,145.5,1.27],by:[491.0,136.0,2.83],bd:[646.8,221.8,1.25],bs:[225.5,222.0,1.1],az:[540.2,177.8,1.17],at:[454.5,156.8,2.35],au:[757.5,351.0,10.54],am:[533.2,178.2,1.1],ar:[257.2,381.5,4.57],ao:[464.8,315.8,4.87],dz:[427.2,212.0,9.76],al:[471.0,176.8,1.1],af:[586.2,194.5,3.04]};
-const LBL_SIZES = [12, 16, 22, 30, 40, 54];
 function computeLabels(){
   if (LABELS || !WORLD) return;
   const g = document.getElementById("map-g"); if (!g) return;
@@ -8630,7 +8613,6 @@ function computeLabels(){
     if (best && best.width > 0) out[code.toLowerCase()] = {x:best.x + best.width/2, y:best.y + best.height/2, w:best.width, h:best.height};
   }
   tmp.remove();
-  Object.entries(LBL_FIX).forEach(([iso, q]) => { const L = out[iso]; if (L){ L.x = q[0]; L.y = q[1]; L.fs = q[2]; } });
   if (Object.keys(out).length) LABELS = out;
 }
 function attachLabels(){
@@ -8784,12 +8766,18 @@ function updateLabels(){
   lg.setAttribute("stroke-width", (3*upp/k).toFixed(3));
   const items = [...lg.querySelectorAll("text")].map(t => {
     const iso = t.dataset.iso, L = LABELS[iso];
-    const fz = Math.min(L.fs || 2, 28*upp/k); t.setAttribute("font-size", fz.toFixed(2)); t.setAttribute("stroke-width", (fz*.18).toFixed(3));
-    return { t, iso, F:(L.fs || 2)*k/upp, sx:(L.x*k + m.x)/upp, sy:(L.y*k + m.y)/upp, sw:L.w*k/upp, sh:L.h*k/upp, tw:t.textContent.length*(L.fs || 2)*k/upp,
+    return { t, iso, sx:(L.x*k + m.x)/upp, sy:(L.y*k + m.y)/upp, sw:L.w*k/upp, sh:L.h*k/upp, tw:t.textContent.length*PX*0.56,
       pri: iso===ui.mapSel ? 4 : iso===S.player ? 3 : C()[iso] ? 2 : 1 };
   }).sort((a,b) => b.pri - a.pri || b.sw*b.sh - a.sw*a.sh);
+  const placed = [];
   items.forEach(it => {
-    const ok = (it.pri >= 3 || it.F >= 7.5) && it.sx > -it.tw && it.sx < r.width + it.tw && it.sy > -10 && it.sy < r.height + 10;
+    const fits = it.pri >= 3 || it.sw >= it.tw*(it.pri === 2 ? 0.55 : 0.95);
+    const vis = it.sx > -40 && it.sx < r.width + 40 && it.sy > -10 && it.sy < r.height + 10;
+    let ok = fits && vis;
+    if (ok){
+      const box = [it.sx - it.tw/2 - PX*1.5, it.sy - PX*0.6, it.sx + it.tw/2 + 2, it.sy + PX*0.6];
+      if (placed.some(b => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) ok = false; else placed.push(box);
+    }
     it.t.style.display = ok ? "" : "none";
     const fl = lg.querySelector(`image[data-fiso="${it.iso}"]`);
     if (fl){ const fw = PX*1.25*upp/k, fh = PX*0.94*upp/k, L = LABELS[it.iso];
@@ -8801,7 +8789,7 @@ function updateLabels(){
   const mk = document.querySelector("#bloc-mask .bloc-mk"); if (mk) mk.style.strokeWidth = (3*upp/k).toFixed(4);   // ~3 px on screen at any zoom
   document.querySelectorAll(gl ? "#map-fx .fx-mark:not(.fx-ocean):not(.fx-cap):not(.fx-city):not(.fx-cargo)" : "#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
   if (!gl) document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
-  const nameL = LABELS[S && S.player], nameW = nameL ? (partnerName(S.player).length*7 + 12)*upp/k : 0, nameH = 18*upp/k;   // a pin never covers the name of the own country, it comes back on zoom
+  const nameL = LABELS[S && S.player], nameW = nameL ? (partnerName(S.player).length*4.7 + 12)*upp/k : 0, nameH = 18*upp/k;   // a pin never covers the name of the own country, it comes back on zoom
   document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 && !(nameL && Math.abs(el.dataset.x - nameL.x) < nameW && Math.abs(el.dataset.y - nameL.y) < nameH) ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fc-name").forEach(el => { el.style.display = k >= 1.8 ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fx-ocean").forEach(el => { el.style.display = k <= 2.4 ? "" : "none"; });
@@ -9449,7 +9437,6 @@ document.addEventListener("click", e => {
   if (t.dataset.advgo){ ui.tab = t.dataset.advgo; showNextAdvice(); render(); return; }
   if (t.hasAttribute("data-advx")){ showNextAdvice(); return; }
   if (t.hasAttribute("data-worldhard")){ settings.worldHard = !settings.worldHard; settingsSave(); sfx("tap"); render(); return; }
-  if (t.dataset.maptheme){ mapThemeSet(t.dataset.maptheme); sfx("tap"); render(); return; }
   if (t.dataset.gfx){ settings.gfx = t.dataset.gfx; if (t.dataset.gfx === "auto") settings.gfxAuto = null; settingsSave(); sfx("tap"); render(); return; }
   if (t.dataset.setting){ settings[t.dataset.setting] = !settings[t.dataset.setting]; settingsSave(); sfx("tap"); if (t.dataset.setting === "music"){ if (settings.music) musicStart(); else musicStop(); } render(); return; }
   if (t.dataset.tut){ const v = t.dataset.tut; if (v === "skip"){ tutDone(); tutStop(); } else if (v === "go"){ tutDone(); tutStart(); } else if (v === "restart"){ closeModal(); tutStart(true); } return; }
