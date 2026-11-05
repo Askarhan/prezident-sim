@@ -1430,6 +1430,31 @@ use.cu{fill:#000;stroke:none}
 :root .tip-open .portrait{width:26px!important;height:26px!important}
 .tip-float{top:46px!important}
 :root .tip-open{position:relative;overflow:visible}
+:root .uk-sec{padding:0!important;overflow:hidden}
+.uk-head{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 10px;border:0;border-radius:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.uk-head b{font-weight:600;white-space:nowrap}
+.uk-head small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uk-n{margin-left:auto;font-size:13px;font-weight:600;white-space:nowrap;color:var(--gold-hi)}
+.uk-n.none{font-weight:400;color:var(--muted)}
+.uk-go{color:var(--muted);transition:transform .15s}
+.uk-sec.open .uk-go{transform:rotate(90deg)}
+.urow{display:grid;grid-template-columns:76px minmax(0,1.1fr) 104px minmax(0,1.3fr);gap:10px;align-items:center;min-height:52px;padding:4px 10px;border-top:1px solid var(--line)}
+.urow.have{background:rgb(212 175 55 / .09);box-shadow:inset 3px 0 0 var(--gold-hi)}
+.ur-photo{position:relative;width:76px;height:44px;padding:0;border:0;border-radius:3px;overflow:hidden;background:#0A111D;cursor:pointer}
+.ur-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.urow.none .ur-photo img{filter:grayscale(1) brightness(.55)}
+:root .ur-photo .uc-i{top:2px;right:2px;width:16px;height:16px;font-size:11px}
+.ur-name{min-width:0;display:flex;flex-direction:column;gap:1px}
+.ur-name b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.urow.none .ur-name b{color:var(--muted);font-weight:500}
+.ur-name small{font-size:11px}
+.ur-have{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.15}
+.ur-have b{font-size:17px;color:var(--gold-hi)}
+.ur-have small{font-size:10.5px;color:var(--muted)}
+.ur-none,.ur-way{padding:2px 6px;border:1px solid var(--line-2);border-radius:3px;font-size:11px;white-space:nowrap;color:var(--muted)}
+.ur-way{color:var(--state);border-color:currentColor}
+.ur-act{display:flex;gap:6px;justify-content:flex-end;align-items:center;min-width:0}
+.ur-act small{font-size:11px;line-height:1.2;text-align:right}
 .dip-head,.dip-line{display:grid;grid-template-columns:minmax(0,1fr) 62px 150px minmax(0,190px) 10px;gap:10px;align-items:center;width:100%;box-sizing:border-box;padding:0 4px}
 .dip-head{margin-top:8px;padding-bottom:3px;font-size:11px;color:var(--muted)}
 .dip-line{min-height:38px;border:0;border-radius:0;border-top:1px dashed var(--line);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
@@ -1464,6 +1489,9 @@ use.cu{fill:#000;stroke:none}
   :root .cb-inf{margin-top:3px}
   :root .cb-orgs,:root .cb-tags{display:inline-flex;justify-content:flex-start;margin:3px 6px 0 0}
   :root .gov-tabs{margin-bottom:6px;padding:2px 0;top:-6px}
+  :root .armytabs{margin:6px 0;padding:2px 0;top:-6px}
+  :root .army-head{gap:4px}
+  .army-body{gap:6px!important}
   :root .gov-tabs .chip{padding:5px 10px;font-size:13px;gap:8px}
   :root .gov-tabs .chip .ci,:root .gov-tabs .chip .ic{width:18px;height:18px}
   :root .win-body .panel{padding:8px 10px!important}
@@ -7726,6 +7754,16 @@ function showCredits(){
   </div></div>`;
 }
 
+// one machine: what the country owns must be seen at once, without opening (i) (user's request 05.11)
+function unitRow(m, k, bq){
+  const n = S.units[m.id]||0, buy = canBuyModel(m.id), sell = sellable(m.id), way = (S.shipments||[]).filter(x => x.cat === "unit" && x.dir === "in" && x.r === m.id).reduce((a, x) => a + x.qty, 0);
+  return `<div class="urow ${n ? "have" : "none"}">
+    <button class="ur-photo" data-uinfo="${m.id}" aria-label="Подробнее: ${esc(m.name)}"><img src="${photo(m.id)}" alt="" loading="lazy" draggable="false"><i class="uc-i" aria-hidden="true">i</i></button>
+    <div class="ur-name"><b>${flag(m.origin)} ${m.name}</b><small class="muted">${m.gen} пок. · мощь ${m.pw.toLocaleString("ru-RU")}</small></div>
+    <div class="ur-have">${n ? `<b class="num">${n.toLocaleString("ru-RU")}</b><small>в строю${way ? ` · +${way} в пути` : ""}</small>` : way ? `<span class="ur-way">В пути: ${way}</span>` : `<span class="ur-none">Нет в наличии</span>`}</div>
+    <div class="ur-act">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*bq ? "disabled" : ""}>+${bq} · ${money(buy.price*bq)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}${sell >= 1 ? `<button class="btn sm" data-act="sellunit" data-arg="${m.id}">Списать ${Math.min(sell, k.batch)}</button>` : ""}</div>
+  </div>`;
+}
 function viewArmy(){
   const c = me(), tab = S.armyTab || "ground";
   const wars = S.wars.map(w => { const e = C()[w.enemy]; const p = (w.progress+100)/2; return `<div class="panel">
@@ -7735,8 +7773,7 @@ function viewArmy(){
     <div class="row"><span class="muted">Наша сила ${Math.round(myPower())} против ${Math.round(aiPower(e))}</span>
     <div class="btns"><button class="btn primary" data-tab="hq" onclick="void 0" data-hqgo="${e.id}">${ic("army","sm")} Штаб</button><button class="btn" data-act="peace" data-arg="${e.id}">Мирные переговоры</button></div></div></div>`; }).join("");
   const head = `<div class="panel army-head">
-      <div class="row"><h3>Вооружённые силы</h3><span class="num">Мощь ${Math.round(myPower()).toLocaleString("ru-RU")}</span></div>
-      <div class="bstats"><span>Личный состав <b class="num">${troops(c.army)}</b></span><span>Техники <b class="num">${Object.values(S.units).reduce((a,b)=>a+b,0).toLocaleString("ru-RU")}</b></span><span>Содержание <b class="down num">−${money(armyUpkeepMonthly())}</b>/мес</span><span>Модернизация <b class="num">${c.tech}/5</b></span></div>
+      <div class="bstats"><span>Мощь <b class="num">${Math.round(myPower()).toLocaleString("ru-RU")}</b></span><span>Личный состав <b class="num">${troops(c.army)}</b></span><span>Техники <b class="num">${Object.values(S.units).reduce((a,b)=>a+b,0).toLocaleString("ru-RU")}</b></span><span>Содержание <b class="down num">−${money(armyUpkeepMonthly())}</b>/мес</span><span>Модернизация <b class="num">${c.tech}/5</b></span></div>
       <div class="btns"><button class="btn" data-act="recruit" ${S.treasury<recruitCost()||me().army>=draftCap()?"disabled":""}>Призыв +${troops(recruitAmount())} · ${money(recruitCost())}</button><button class="btn" data-act="tech" ${c.tech>=5||S.treasury<techCost()?"disabled":""}>${c.tech>=5?"Модернизация: максимум":`Модернизация · ${money(techCost())}`}</button><button class="btn" data-act="disband">Сократить на 5%</button><button class="btn" data-tab="hq">${ic("army","sm")} Штаб и оккупация</button></div>
       ${garrisonTotal() ? `<div class="label">В гарнизонах: ${troops(garrisonTotal())}. На фронтах доступно: ${troops(freeArmy())}.</div>` : ""}
     </div>`;
@@ -7744,19 +7781,12 @@ function viewArmy(){
   let body = "";
   if (["ground","air","ad","navy"].includes(tab)){
     if (tab === "navy" && !hasCoast()) body = `<div class="panel"><p class="muted" style="margin:0">У страны нет выхода к морю — флот недоступен. Его можно получить, присоединив прибрежную страну.</p></div>`;
-    else body = Object.entries(KINDS).filter(([,k]) => k.cls === tab).map(([kid, k]) => {
-      const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kid);
-      const have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0), left = mktLeft(kid), bq = Math.min(k.batch, left);
-      return `<div class="panel"><div class="row"><h3>${ic(k.icon)} ${k.name}</h3><span class="num">${have.toLocaleString("ru-RU")} ед.</span></div>
-        <small class="muted">Рынок на ${S.year} год: можно купить ещё ${left} из ${mktLim(kid)}</small>
-        <div class="unit-grid">${ms.map(m => { const n = S.units[m.id]||0, buy = canBuyModel(m.id), prod = canProduceModel(m.id);
-          return `<div class="ucard ${n?"have":""}">
-            <button class="uc-photo" data-uinfo="${m.id}" aria-label="Подробнее: ${esc(m.name)}"><img src="${photo(m.id)}" alt="" loading="lazy" draggable="false"><span class="gen g${m.gen}">${m.gen} пок.</span><i class="uc-i" aria-hidden="true">i</i></button>
-            <div class="uc-name"><b>${flag(m.origin)} ${m.name}</b></div>
-            <div class="row uc-meta"><span class="uc-pw">Мощь <b class="num">${m.pw.toLocaleString("ru-RU")}</b></span><span class="num ${n?"":"muted"}">В строю: <b>${n.toLocaleString("ru-RU")}</b></span></div>
-            <div class="btns">${buy.ok ? `<button class="btn primary sm" data-act="buyunit" data-arg="${m.id}" ${S.treasury < buy.price*bq ? "disabled" : ""}>+${bq} · ${money(buy.price*bq)} · ${buy.days} дн.</button>` : `<small class="${buy.own?"muted":"down"}">${buy.why}</small>`}
-              ${sellable(m.id) >= 1 ? `<button class="btn sm" data-act="sellunit" data-arg="${m.id}">Списать ${Math.min(sellable(m.id), k.batch)}</button>` : ""}</div>
-          </div>`; }).join("")}</div></div>`; }).join("");
+    else { const kinds = Object.entries(KINDS).filter(([,k]) => k.cls === tab), open = (ui.ukOpen||{})[tab] ?? kinds[0][0];   // one section open at a time (user's decision 05.11)
+      body = kinds.map(([kid, k]) => {
+        const ms = MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => m.kind === kid), rank = m => (S.units[m.id] ? 0 : canBuyModel(m.id).ok ? 1 : 2);
+        const have = ms.reduce((a,m)=>a+(S.units[m.id]||0), 0), left = mktLeft(kid), bq = Math.min(k.batch, left), on = open === kid;
+        return `<div class="panel uk-sec ${on?"open":""}"><button class="uk-head" data-ukind="${kid}" aria-expanded="${on}">${ic(k.icon)}<b>${k.name}</b>${on ? `<small class="muted">рынок на ${S.year} год: ещё ${left} из ${mktLim(kid)}</small>` : ""}<span class="uk-n ${have?"":"none"}">${have ? have.toLocaleString("ru-RU") + " ед." : "нет в наличии"}</span><span class="uk-go" aria-hidden="true">›</span></button>
+          ${on ? [...ms].sort((p, q) => rank(p) - rank(q)).map(m => unitRow(m, k, bq)).join("") : ""}</div>`; }).join(""); }
   } else if (tab === "bases"){
     body = `<div class="panel"><div class="row"><h3>${ic("army")} Военная инфраструктура</h3><span class="num">боеготовность ${Math.round(milBaseMult()*100)}%</span></div><div class="label">Если войскам, технике или самолётам не хватает мест на базах, армия воюет слабее. Тренировочные комплексы и склады снабжения дают бонусы сверх нормы.</div></div><div class="fac-grid">${Object.keys(FAC).filter(id=>FAC[id].cat==="defense").map(facCard).join("")}</div>`;
   } else if (tab === "ammo"){
@@ -9261,6 +9291,7 @@ document.addEventListener("click", e => {
   if (t.dataset.warmode){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w){ w.mode = t.dataset.warmode; warEvent(w, `Приказ: режим «${WAR_MODES[w.mode].name}».`); } save(); render(); return; }
   if (t.dataset.warprio){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) w.prio = +t.dataset.warprio; save(); render(); return; }
   if (t.dataset.strike){ const w = S.wars.find(x => x.enemy === ui.hqWar); if (w) doStrike(w, t.dataset.strike); save(); render(); return; }
+  if (t.dataset.ukind){ const tab = S.armyTab || "ground", first = Object.keys(KINDS).find(id => KINDS[id].cls === tab); ui.ukOpen = ui.ukOpen || {}; ui.ukOpen[tab] = (ui.ukOpen[tab] ?? first) === t.dataset.ukind ? "" : t.dataset.ukind; render(); return; }
   if (t.dataset.armytab){ S.armyTab = t.dataset.armytab; save(); render(); return; }
   if (t.dataset.buildcat){ S.buildCat = t.dataset.buildcat; save(); render(); return; }
   if (t.dataset.scenario){ ui.scenario = t.dataset.scenario; renderStart(); return; }
