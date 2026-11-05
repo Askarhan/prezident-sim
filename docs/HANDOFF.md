@@ -57,8 +57,7 @@ Read this first in a new session. Finished stages (aviation, strikes from the fi
 - Measured 05.11, one run each, `GATE=1`, `PAR=1`, 10 years. The bot has no oil plan, so with nothing prepared the US took 0 countries and Russia 2 (Kyrgyzstan at 3.5, Kazakhstan at 7.8), also US without the wait 0 in 8 years. With 8 rigs, 2 hydro and 1500 oil given at the start: US 4 by 8.7, Russia 4 by 8.5. So war now needs oil prepared first; teach `speedrun.js` to build rigs and to buy units before judging conquest speed.
 
 ## Next (order changed 04.11: the user dropped the phone test for now, do not wait for it or ask about it)
-1. Show him the speed measure of 05.11 (below) and let him decide whether plants or the pretext need a change. Nothing was changed in the game.
-2. Ask him which next: UI and polish, models, map, release.
+1. Ask him which next: UI and polish, models, map, release.
 «Окно исследований», stock limit and coins stay as they are (his decisions 05.11): do not ask until he brings them up. Coins buy nothing yet, no code spends them.
 
 ## Now: flat economy stage (user's decisions, 03.11.2026)
@@ -102,7 +101,7 @@ Proposed order: 2–3, then 4–6, then 7. He accepted the set in discussion and
 - US: 3 countries in 7.2 years, the 4th at 70% at year 10, debt 293. Oil ran out in the first war (fuel 0.03 at year 2), treasury stayed at 0, so it built no tank plant in 10 years.
 - Kyrgyzstan: first plant about year 5, first war 6.6, Kazakhstan taken at 8.9, 1399 tanks at year 10, debt 16.
 - Target was one country in 3 years: Russia 2.2 a country, US 2.4, both slightly faster.
-- One tank plant makes about 550 tanks a year for about 4 billion, nearly 5 yearly market limits (120). Not changed, for the user to judge.
+- One tank plant makes about 550 tanks a year for about 4 billion, nearly 5 yearly market limits (120). Plants and pretext stay as they are (user's decision 05.11, after seeing these numbers): do not ask again until he brings them up.
 - Debt is no limit yet: default is 160% of `mg()`, about 1600 for everyone. The `долг %` in the bot's result line divides by the real GDP and misleads, read the absolute number.
 - The bot is not a person: it pays no pretext penalty, has free SAM missiles, auto wars spend no ammo, it builds no rare earth mines and plants make only tanks.
 
