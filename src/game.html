@@ -370,6 +370,12 @@ table.budget tr.total td{border-top:1px solid var(--line);font-weight:600;paddin
 .m-puppet{fill:#D8C3F5}.m-union{fill:#8FE3C2}
 .sw.m-puppet{background:#D8C3F5;border-color:#9E7AD6}.sw.m-union{background:#8FE3C2;border-color:#3FB78F}
 .sheet.wide{max-width:860px!important}
+.bpic{position:relative;display:block;flex:none;width:100%;aspect-ratio:16/9;max-height:56vh;padding:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#0A111D;cursor:zoom-in}
+.bpic img{display:block;width:100%;height:100%;object-fit:cover}
+.bpic i{position:absolute;right:8px;bottom:8px;padding:3px 8px;border-radius:6px;background:rgb(0 0 0 / .6);font-style:normal;font-size:11.5px;color:#fff}
+#pv{position:fixed;inset:0;z-index:10000;background:rgb(3 7 14 / .95);overflow:hidden;touch-action:none}
+#pv img{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;user-select:none;-webkit-user-select:none}
+#pv button{position:absolute;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));width:42px;height:42px;border:1px solid var(--line);border-radius:50%;background:rgb(0 0 0 / .65);color:#fff;font-size:20px;line-height:1}
 .settle-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .choice.settle small{display:block;margin-top:2px}
 .occ{display:flex;flex-direction:column;gap:6px;padding:4px 0}
@@ -7491,6 +7497,7 @@ function showBuild(id){ liveSheet(() => {
     ].filter(Boolean);
   const tr = miss.map(r=>inTransit(r)).reduce((a,x)=>a+x,0), est = miss.reduce((a,r)=>{ const best = suppliers(r)[0]; return a + (best ? Math.max(0, Math.ceil(sh.miss[r]-inTransit(r)))*best.price : 0); }, 0), dd = Math.max(0, ...miss.map(r=>(suppliers(r)[0]||{days:0}).days));
   modalRoot.innerHTML = sheetHtml(b.name, `<span class="gs-ico">${ic(BUILD_ICON[id])}</span>`, `<div class="ts">
+    ${BLD_PICS.has(id) ? `<button class="bpic" data-bpic="${id}" aria-label="Фото крупно: ${b.name}"><img src="icons/buildings/full/${id}.webp" alt=""><i>⤢ Крупно</i></button>` : ""}
     <div class="gs-row"><span class="muted">Построено</span><b class="num">${n}${q ? ` · ещё ${q} строится` : ""}</b></div>
     <div>${b.desc}</div>
     <div class="bstats">${stats.join("")}</div>
@@ -7945,7 +7952,29 @@ function gcard(o){ return `<button class="gc ${o.cls||""}" ${o.attr} aria-label=
     <span class="gc-pic ${o.pic ? "art" : ""}">${o.pic || `<img src="${o.img}" alt="" loading="lazy" draggable="false">`}<em class="gc-n">${o.n}</em>${o.way ? `<em class="gc-way">+${o.way} в пути</em>` : o.tag ? `<em class="gc-way">${o.tag}</em>` : ""}${o.cls === "lock" ? `<i class="gc-lock" aria-hidden="true">🔒</i>` : ""}</span>
     <span class="gc-bar">${o.bar}</span><b class="gc-name ${o.two ? "two" : ""}">${o.name}</b></button>`; }
 // Sheet behind a card on screens without a photo: redrawn in place after an action, see liveRefresh
-function liveSheet(draw){ const y = modalRoot.querySelector(".sheet.live")?.scrollTop || 0; ui.live = draw; draw(); const el = modalRoot.querySelector(".sheet.live"); if (el) el.scrollTop = y; }
+function liveSheet(draw){ const y = modalRoot.querySelector(".sheet.live")?.scrollTop || 0, keep = modalRoot.querySelector(".sheet.live .bpic img"); ui.live = draw; draw(); const el = modalRoot.querySelector(".sheet.live"); if (el) el.scrollTop = y;
+  const nu = keep && modalRoot.querySelector(".sheet.live .bpic img"); if (nu && nu.getAttribute("src") === keep.getAttribute("src")) nu.replaceWith(keep); }   // the photo is not reloaded on each redraw
+// Full-screen photo (Build sheet): pinch or wheel to zoom up to 4x, drag to move, double tap to zoom in or back, ✕ or Back to close
+function photoView(src){ document.getElementById("pv")?.remove();
+  const pv = document.createElement("div"); pv.id = "pv"; pv.innerHTML = `<img src="${src}" alt="" draggable="false"><button aria-label="Закрыть">✕</button>`; document.body.appendChild(pv);
+  pv.querySelector("button").onclick = e => { e.stopPropagation(); pv.remove(); };
+  const im = pv.querySelector("img"), P = new Map(); let w = 0, h = 0, s = 1, x = 0, y = 0, pinch = 0, moved = false, last = 0;
+  const put = () => { const W = innerWidth, H = innerHeight;
+    if (s <= 1){ s = 1; x = (W - w)/2; y = (H - h)/2; }
+    else { x = w*s > W ? Math.min(0, Math.max(W - w*s, x)) : (W - w*s)/2; y = h*s > H ? Math.min(0, Math.max(H - h*s, y)) : (H - h*s)/2; }
+    im.style.transform = `translate(${x}px,${y}px) scale(${s})`; };
+  const zoom = (k, px, py) => { const n = Math.max(1, Math.min(4, s*k)); x = px - (px - x)*n/s; y = py - (py - y)*n/s; s = n; put(); };
+  const fit = () => { if (!im.naturalWidth) return; const r = Math.min(innerWidth/im.naturalWidth, innerHeight/im.naturalHeight); w = im.naturalWidth*r; h = im.naturalHeight*r; im.style.width = w + "px"; im.style.height = h + "px"; put(); };
+  im.onload = fit; if (im.complete) fit();
+  pv.addEventListener("wheel", e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.25 : 0.8, e.clientX, e.clientY); }, {passive:false});
+  pv.addEventListener("pointerdown", e => { if (e.target.tagName === "BUTTON") return; P.set(e.pointerId, [e.clientX, e.clientY]); moved = false; if (P.size === 2){ const [a, b] = [...P.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
+  pv.addEventListener("pointermove", e => { const p = P.get(e.pointerId); if (!p) return;
+    if (P.size === 2){ P.set(e.pointerId, [e.clientX, e.clientY]); const [a, b] = [...P.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoom(d/pinch, (a[0] + b[0])/2, (a[1] + b[1])/2); pinch = d; moved = true; return; }
+    const dx = e.clientX - p[0], dy = e.clientY - p[1]; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; P.set(e.pointerId, [e.clientX, e.clientY]); if (s > 1){ x += dx; y += dy; put(); } });
+  const up = e => { if (!P.has(e.pointerId)) return; P.delete(e.pointerId); pinch = 0;
+    if (!moved && !P.size){ const now = Date.now(); if (now - last < 320){ s > 1.05 ? (s = 1, put()) : zoom(2.5, e.clientX, e.clientY); last = 0; } else last = now; } };
+  pv.addEventListener("pointerup", up); pv.addEventListener("pointercancel", up);
+  addEventListener("resize", function rs(){ if (!pv.isConnected) return removeEventListener("resize", rs); fit(); }); }
 function liveRefresh(){ if (ui.live && modalRoot.querySelector(".sheet.live")) liveSheet(ui.live); }
 const sheetHtml = (title, art, body) => `<div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet live"><div class="gs-head">${art}<h2>${title}</h2><button class="ui-x" data-close aria-label="Закрыть">✕</button></div>${body}</div></div>`;
 // Amount slider for buying and selling (user's decision 05.11): dragging rewrites the button, which carries the amount in data-arg
@@ -9416,6 +9445,7 @@ document.addEventListener("click", e => { if (performance.now() < ghostUntil){ g
 document.addEventListener("click", e => {
   const t = e.target.closest("button");
   if (!t || !t.classList.contains("hint-i")) closeHint();
+  if (t && t.dataset.bpic){ photoView(`icons/buildings/full/${t.dataset.bpic}.webp`); return; }
   if (ui.more && (!t || !t.closest(".rail"))){ ui.more = false; if (!t){ render(); return; } }
   if (!t) return;
   if (!t.dataset.tab && !t.dataset.setting) sfx("tap");
@@ -9610,6 +9640,7 @@ if (NATIVE){
     NP.App.addListener("backButton", () => {
       if (document.getElementById("offline")) return;
       if (BF.open){ closeBattle(); return; }
+      const pv = document.getElementById("pv"); if (pv){ pv.remove(); return; }
       if (modalRoot.innerHTML){ const x = modalRoot.querySelector("[data-close],[data-close-offer]"); if (x) x.click(); return; }
       if (ui.more){ ui.more = false; render(); return; }
       if (S && S.countries && !S.over && ui.tab !== "map"){ ui.tab = "map"; render(); return; }
