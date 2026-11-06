@@ -7469,7 +7469,7 @@ function viewBuild(){
   return sw + (mode === "fac" ? viewFacilities() : viewBuildObj());
 }
 // Build cards (user's decision 05.11): count and price on the card, everything else in the sheet. Pictures come later: add the id to BLD_PICS, file icons/buildings/<id>.webp
-const BLD_PICS = new Set();
+const BLD_PICS = new Set(["airport", "ammoplant", "auto", "aviaplant", "bridge", "enrich", "farm", "goldmine", "heliplant", "highway", "hydro", "institute", "metro", "mine", "npp", "oil", "oilrig", "port", "power", "raremine", "samplant", "sawmill", "shipyard", "solar", "steelworks", "tankplant", "uranmine"]);
 const BLD_RAIL = [["energy","Энергия","power"],["mat","Материалы","wood"],["sci","Наука","rp"],["res","Ресурсы","food"],["ind","Промышл.","factory"],["inf","Транспорт","gdp"],["mil","Военные","milpower"]];
 function bldCard(id){ const b = BUILDINGS[id], chk = canBuild(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat), q = queued(id), off = pwOff(id), cost = buildCost(id);
   const bar = [cost ? `<b class="num ${S.treasury < cost ? "down" : ""}">${money(cost).replace(" $", "")}</b>` : "", ...Object.entries(mat).map(([r, x]) => `${ic(r,"sm")}<b class="num ${sh.miss[r] ? "down" : ""}">${fmtQ(x)}</b>`)].filter(Boolean).join(" ") || "—";
