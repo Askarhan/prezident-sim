@@ -8384,7 +8384,8 @@ function mgFrame(){
   gl.stencilMask(255); gl.disable(gl.STENCIL_TEST);
   mgOver(a, b, c, d, w, vh, cw, ch);
   if (MG.q.length) mgKick();
-  else if ((MG.pulse || MG.anim || MA.bdAnim) && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, MG.anim || MA.bdAnim ? 66 : 110);
+  else if ((MG.pulse || MG.anim || MA.bdAnim) && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, MG.anim || MA.bdAnim ? 66 : Math.min(110, trMs() || 110));
+  else if (trMs() && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, trMs());   // ships, planes, trains and smoke (batch 3)
   else if (nightMs() && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, nightMs());   // the night crawls on
 }
 /* ---- world map, stage 2: names, flags, capitals, route lines, war marks and held land are drawn by the video card too.
@@ -8465,7 +8466,7 @@ function maQuad(s, x, y, o, rot, sc){
   if (MA.n + 30 > MA.v.length){ const v = new Float32Array(MA.v.length*2); v.set(MA.v); MA.v = v; }
   const v = MA.v; let n = MA.n;
   const put = (px, py, a, b) => { v[n++] = px; v[n++] = py; v[n++] = a; v[n++] = b; v[n++] = o; };
-  if (rot){ const c = Math.cos(rot), q = Math.sin(rot), P = (i, j) => [x + i*c - j*q, y + i*q + j*c], l = -s.ax, t = -s.ay, r = l + s.W, b = t + s.H, A = P(l, t), B = P(r, t), C_ = P(l, b), D = P(r, b);
+  if (rot){ const c = Math.cos(rot), q = Math.sin(rot), P = (i, j) => [x + i*c - j*q, y + i*q + j*c], f = sc || 1, l = -s.ax*f, t = -s.ay*f, r = l + s.W*f, b = t + s.H*f, A = P(l, t), B = P(r, t), C_ = P(l, b), D = P(r, b);
     put(A[0], A[1], s.u0, s.v0); put(B[0], B[1], s.u1, s.v0); put(C_[0], C_[1], s.u0, s.v1); put(C_[0], C_[1], s.u0, s.v1); put(B[0], B[1], s.u1, s.v0); put(D[0], D[1], s.u1, s.v1); }
   else { const f = sc || 1, l = Math.round(x - s.ax*f), t = Math.round(y - s.ay*f), r = l + s.W*f, b = t + s.H*f;
     put(l, t, s.u0, s.v0); put(r, t, s.u1, s.v0); put(l, b, s.u0, s.v1); put(l, b, s.u0, s.v1); put(r, t, s.u1, s.v0); put(r, b, s.u1, s.v1); }
@@ -8489,7 +8490,8 @@ function mgFxRead(fx, lg){
   MA.marks = marks.sort((a, b) => a.n - b.n);
   MA.bd = [...fx.querySelectorAll(".fx-bd")].map(el => ({id:el.dataset.bd, x:+el.dataset.x, y:+el.dataset.y, born:+(el.dataset.born || 0)}));
   const ships = new Map((S.shipments || []).map(x => [String(x.id), x]));
-  MA.cargo = [...fx.querySelectorAll(".fx-cargo")].map(el => { const x = ships.get(el.dataset.sid), A = x && LABELS[x.from], B = x && LABELS[x.to]; return A && B ? {x, g:fxGeom(A, B), ring:el.querySelector(".fx-cg"), icon:el.dataset.ic} : null; }).filter(Boolean);
+  MA.cargo = [...fx.querySelectorAll(".fx-cargo")].map(el => { const x = ships.get(el.dataset.sid), A = x && LABELS[x.from], B = x && LABELS[x.to]; return A && B ? {x, rt:shipRoute(x), ring:el.querySelector(".fx-cg"), icon:el.dataset.ic} : null; }).filter(Boolean);
+  MA.rails = trRails(fx);
   // several shipments from one country share a line
   const paths = new Map(); fx.querySelectorAll(".fx-lines path").forEach(el => paths.set(el.getAttribute("class") + el.getAttribute("d"), el));
   const rkey = [...paths.keys()].join("|");
@@ -8498,8 +8500,10 @@ function mgFxRead(fx, lg){
   const seen = [], parts = []; let v = 0;
   const routes = [...paths.values()].map(el => {
     const q = (el.getAttribute("d").match(/-?\d+(?:\.\d+)?/g) || []).map(Number); if (q.length < 6) return null;
-    const pts = []; for (let i = 0; i <= 24; i++){ const t = i/24, u = 1 - t; pts.push(u*u*q[0] + 2*u*t*q[2] + t*t*q[4], u*u*q[1] + 2*u*t*q[3] + t*t*q[5]); }
-    const cs = getComputedStyle(el), c = mgRGB(cs.stroke), rb = mgRibbon([pts]), ds = cs.strokeDasharray === "none" ? null : cs.strokeDasharray.split(/[ ,]+/).map(parseFloat), dur = parseFloat(cs.animationDuration) || 0;
+    const dd = el.getAttribute("d"), pts = []; let rings = [pts];
+    if (dd.includes("L")) rings = dd.split("M").filter(Boolean).map(p => p.split("L").flatMap(xy => xy.split(",").map(Number)));   // a sea lane: polylines cut at the seam
+    else for (let i = 0; i <= 24; i++){ const t = i/24, u = 1 - t; pts.push(u*u*q[0] + 2*u*t*q[2] + t*t*q[4], u*u*q[1] + 2*u*t*q[3] + t*t*q[5]); }
+    const cs = getComputedStyle(el), c = mgRGB(cs.stroke), rb = mgRibbon(rings), ds = cs.strokeDasharray === "none" ? null : cs.strokeDasharray.split(/[ ,]+/).map(parseFloat), dur = parseFloat(cs.animationDuration) || 0;
     const r = {c:c ? [c[0]/255, c[1]/255, c[2]/255, (c[3] ?? 1)*parseFloat(cs.opacity)*parseFloat(cs.strokeOpacity)] : [1, 1, 1, 1], w:parseFloat(cs.strokeWidth) || 1, dash:ds, speed:cs.animationName !== "none" && ds ? 22/(dur || 1) : 0, first:v/7, count:rb.length/7};
     if (r.speed) anim = true; seen.push(q.join()); parts.push(rb); v += rb.length; return r;
   }).filter(Boolean);
@@ -8523,7 +8527,7 @@ function mgOcc(key, F, val, rgb, line, under){
 function mgOccDrop(key){ const o = MG.occ[key]; if (!o) return; MG.gl.deleteTexture(o.tex); delete MG.occ[key]; mgKick(); }
 function mgOver(a, b, c, d, w, vh, cw, ch){
   const gl = MG.gl, m = ui.map, k = m.k, my = m.y || 0, dx = cw/w, dy = ch/vh, D = MG.dpr, fx = document.getElementById("map-fx"), lg = document.getElementById("map-labels");
-  if (fx && lg && (fx.firstChild !== MG.fxSeen || lg !== MG.lgSeen)) mgFxRead(fx, lg);
+  if (S && fx && lg && (fx.firstChild !== MG.fxSeen || lg !== MG.lgSeen)) mgFxRead(fx, lg);   // S is null for a moment while a save loads
   const P = MG.pS, sx = x => (x*k + m.x)*dx, sy = y => (y*k + my)*dy, on = (x, y, pad) => x > -pad && x < cw + pad && y > -pad && y < ch + pad;
   const bindS = (P_ = P) => { gl.useProgram(P_.p); gl.uniform2f(P_.u.S, 2/cw, 2/ch); gl.uniform1i(P_.u.T, 0); gl.bindBuffer(gl.ARRAY_BUFFER, MG.bM); gl.enableVertexAttribArray(P_.la); gl.enableVertexAttribArray(P_.lo); gl.vertexAttribPointer(P_.la, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribPointer(P_.lo, 1, gl.FLOAT, false, 20, 16); };
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -8554,6 +8558,7 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   const mk = maskReady(); MA.bdAnim = false;   // own buildings first, so every mark and name lies on top of them
   if (k >= BD_K) (MA.bd || []).forEach(q => { const x = sx(q.x), y = sy(q.y), z = bdSize(k)*D*((ui.pins && ui.pins.sc) || 1); if (!on(x, y, z)) return; const s = maDecal(q.id); if (!s) return;
     const a = q.born ? clamp((now - q.born)/BD_GROW, 0, 1) : 1, e = 1 - Math.pow(1 - a, 3); if (a < 1) MA.bdAnim = true; maQuad(s, x, y, e, 0, z/s.W*(0.5 + 0.5*e)); });
+  trDraw(sx, sy, on, k, D, now);   // ships, planes, trains, smoke at fronts
   MA.marks.forEach(q => { const x = sx(q.x), y = sy(q.y); if (!on(x, y, 300*D)) return;
     if (q.kind === "ocean"){ if (k <= 2.4){ const st = maStyle(q.el); maQuad(maText(q.el.textContent, st, st.fs, 0, {mid:true}), x, y, 1); } return; }
     if (q.kind === "cap"){ const k0 = [1.2, 2, 3.2][q.tier] ?? 3.2; if (k < k0) return;
@@ -8570,8 +8575,9 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   });
   // cargo: only the texture is touched, the way along the route comes from the game's numbers
   const step = MA.cargo.length ? acc/SPEED_MS[ui.speed||1] : 0;
-  MA.cargo.forEach(q => { const t = q.x, u = clamp(1 - (t.left - step)/t.total, 0, 1); if (t.left <= 0) return; const p = qbez(q.g, u), x = sx(p.x), y = sy(p.y); if (!on(x, y, 20*D)) return;
-    const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -12, -12, 24, 24, c => maPath(c, st, maCircle(10))), x, y, 1); maQuad(maIcon(q.icon), x, y, 1); });
+  MA.cargo.forEach(q => { const t = q.x, u = clamp(1 - (t.left - step)/t.total, 0, 1); if (t.left <= 0) return; const p = routeAt(q.rt, u); if (!p) return; const x = sx(p.x), y = sy(p.y), by = y - 14*D; if (!on(x, y, 30*D)) return;
+    maQuad(trSprite(trMode(p), 1), x, y, 1, trAng(p.a, sx, sy), .95);   // the carrier: ship, plane, train or trucks, the cargo badge above it
+    const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -12, -12, 24, 24, c => maPath(c, st, maCircle(10))), x, by, 1); maQuad(maIcon(q.icon), x, by, 1); });
   const placed = [];
   MA.lbl.forEach(it => { const px = sx(it.L.x)/D, py = sy(it.L.y)/D, sw = it.L.w*k/upp, st = maStyle(it.el); let s = maText(it.text, st, PX, 3, {mid:true}); if (!s) return;
     let tw = s.W/D - 8, flag = it.flag && (it.pri >= 2 || k >= 2.2), fits = it.pri >= 4 || !mk ? it.pri >= 3 || sw >= tw*(it.pri === 2 ? .55 : .95) : false;
@@ -8793,6 +8799,175 @@ function buildingPins(){
     bdCanvas(id); const born = P.born[b] || 0, h = BD_MIN/2, src = BD.url[id];
     return `<g class="fx-mark fx-pin fx-bd fx-btn" ${xy} data-bd="${id}"${born ? ` data-born="${born.toFixed(0)}"` : ""}><circle r="${h}" class="fx-hit"/><image href="${src || `icons/buildings/${id}.webp`}" x="${-h}" y="${-h}" width="${BD_MIN}" height="${BD_MIN}" preserveAspectRatio="xMidYMid slice"${src ? "" : ` style="clip-path:circle(50%)"`}${born ? ` class="bd-new"` : ""}/><title>${BUILDINGS[id].name}</title></g>`; }).join("");
 }
+/* ---- Life on the map, batch 3 (07.11): sea lanes, carriers, trains, smoke at fronts, background ships and planes.
+   SEA is a water grid made from the country raster MK in 4 px cells (g: 0 land, 1 lake, 2 ocean; c: next to a coast); straits too narrow for it are carved (SEA_CUT).
+   pairRoute(a, b, air) gives {m:"sea"|"land"|"air", d}: by sea when the straight way (the short side round the seam) is mostly ocean, with land legs at both ends;
+   routeAt(rt, u) gives {x, y, a, m}. Drawn only with WebGL (trDraw in mgOver); trMs() sets the frames by graphics level, none on low or on pause. */
+const SEA = {g:null, mk:null, rt:new Map(), path:new Map()}, D8X = [1, -1, 0, 0, 1, 1, -1, -1], D8Y = [0, 0, 1, -1, 1, -1, 1, -1];
+const SEA_CUT = [   // [lat, lon]: Suez, Bab-el-Mandeb, Hormuz, Bosporus to Dardanelles, Gibraltar, Dover, Øresund, Great Belt, Kerch, Malacca to Singapore, Korea Strait, Panama
+  [[31.7, 32.3], [31.25, 32.31], [30.6, 32.33], [30, 32.57], [29.4, 32.75], [28.4, 33.3], [27.6, 34]], [[13.4, 42.9], [12.6, 43.4], [12.1, 44]],
+  [[25.9, 55.4], [26.55, 56.25], [26.2, 56.7], [25.5, 57.3]], [[41.5, 29.15], [41, 29], [40.85, 28.5], [40.6, 27.5], [40.35, 26.7], [40.05, 26.2], [39.8, 25.8]],
+  [[35.9, -6.6], [35.97, -5.6], [36.1, -5], [36.35, -4.3]], [[51.6, 2.1], [51.05, 1.55], [50.7, 1.1], [50.3, .4]], [[55.3, 12.8], [55.7, 12.75], [56.05, 12.65], [56.4, 12.3]],
+  [[54.8, 11], [55.3, 11], [55.7, 11], [56.1, 11.3]], [[45.7, 36.6], [45.3, 36.6], [45, 36.55], [44.7, 36.7]], [[3, 100.9], [1.6, 102.9], [1.25, 103.6], [1.2, 104.1], [1.5, 104.7]],
+  [[35.5, 129.6], [34.6, 129.25], [34.2, 129.8], [33.8, 130.3]], [[9.7, -79.95], [9.3, -79.9], [9.1, -79.7], [8.9, -79.55], [8.5, -79.4]]];
+function seaGrid(){
+  if (SEA.g && SEA.mk === MK.px) return true;
+  if (!maskReady() || !proj(0, 0)) return false;
+  const t0 = performance.now(), cs = 4, W = MK.w/cs | 0, H = Math.ceil(MK.h/cs), N = W*H, g = new Uint8Array(N), cut = new Uint8Array(N), c = new Uint8Array(N), px = MK.px, u = cs/MK.sc;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++){ let n = 0;
+    for (let y = j*cs, ye = Math.min(MK.h, y + cs); y < ye; y++){ const o = y*MK.w + i*cs; for (let x = 0; x < cs; x++) if ((px[o + x] >>> 24) < 128) n++; }
+    if (n >= 8) g[j*W + i] = 1; }
+  const ice = Math.floor(proj(72, 0).y/u); for (let j = 0; j <= ice && j < H; j++) g.fill(0, j*W, j*W + W);   // no lanes through the polar ice
+  SEA_CUT.forEach(L => { for (let k = 1; k < L.length; k++){ const a = proj(L[k-1][0], L[k-1][1]), b = proj(L[k][0], L[k][1]), n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)/u*3) + 1;
+    for (let s = 0; s <= n; s++){ const i = Math.floor((a.x + (b.x - a.x)*s/n)/u), j = Math.floor((a.y + (b.y - a.y)*s/n)/u); if (i >= 0 && i < W && j >= 0 && j < H){ g[j*W + i] = 1; cut[j*W + i] = 1; } } } });
+  const q = []; [[0, -30], [0, -150], [-20, 75]].forEach(([la, lo]) => { const p = proj(la, lo), s = Math.floor(p.y/u)*W + Math.floor(p.x/u); if (g[s] === 1){ g[s] = 2; q.push(s); } });
+  for (let h = 0; h < q.length; h++){ const i = q[h], x = i % W, y = i/W | 0;
+    for (let k = 0; k < 8; k++){ const ny = y + D8Y[k]; if (ny < 0 || ny >= H) continue; const j = ny*W + (x + D8X[k] + W) % W; if (g[j] === 1){ g[j] = 2; q.push(j); } } }
+  for (let i = 0; i < N; i++){ if (g[i] !== 2 || cut[i]) continue; const x = i % W, y = i/W | 0;
+    for (let k = 0; k < 8; k++){ const ny = y + D8Y[k]; if (ny >= 0 && ny < H && !g[ny*W + (x + D8X[k] + W) % W]){ c[i] = 1; break; } } }
+  Object.assign(SEA, {g, c, W, H, u, mk:MK.px, w:mapSize()[0], ms:Math.round(performance.now() - t0)}); SEA.rt.clear(); SEA.path.clear(); return true;
+}
+// A* over ocean cells, the grid wraps at the seam; cells next to a coast cost 2.5× so lanes keep to open water
+function seaPath(s, t){
+  const key = s + ">" + t; if (SEA.path.has(key)) return SEA.path.get(key);
+  const {g, c, W, H} = SEA, N = W*H, gs = new Float32Array(N).fill(1e9), from = new Int32Array(N).fill(-1), shut = new Uint8Array(N), tx = t % W, ty = t/W | 0, hi = [], hf = [];
+  const push = (i, f) => { let n = hi.length; hi.push(i); hf.push(f); while (n){ const p = (n - 1) >> 1; if (hf[p] <= f) break; hi[n] = hi[p]; hf[n] = hf[p]; n = p; } hi[n] = i; hf[n] = f; };
+  const pop = () => { const top = hi[0], li = hi.pop(), lf = hf.pop(), m = hi.length; if (m){ let n = 0; for (;;){ let a = 2*n + 1; if (a >= m) break; if (a + 1 < m && hf[a + 1] < hf[a]) a++; if (hf[a] >= lf) break; hi[n] = hi[a]; hf[n] = hf[a]; n = a; } hi[n] = li; hf[n] = lf; } return top; };
+  const est = i => { let dx = Math.abs(i % W - tx); if (dx > W/2) dx = W - dx; const dy = Math.abs((i/W | 0) - ty); return Math.max(dx, dy) + .4142*Math.min(dx, dy); };
+  gs[s] = 0; push(s, est(s));
+  while (hi.length){ const i = pop(); if (i === t) break; if (shut[i]) continue; shut[i] = 1; const x = i % W, y = i/W | 0;
+    for (let k = 0; k < 8; k++){ const ny = y + D8Y[k]; if (ny < 0 || ny >= H) continue; const j = ny*W + (x + D8X[k] + W) % W; if (g[j] !== 2 || shut[j]) continue;
+      const v = gs[i] + (k < 4 ? 1 : 1.4142)*(c[j] ? 2.5 : 1); if (v < gs[j]){ gs[j] = v; from[j] = i; push(j, v + est(j)); } } }
+  let out = null; if (s === t || from[t] >= 0){ out = [t]; for (let i = t; i !== s; ){ i = from[i]; out.push(i); } out.reverse(); }
+  SEA.path.set(key, out); return out;
+}
+// cells → map units with x unwrapped across the seam, pulled tight through open water, then rounded (Chaikin ×2)
+function seaPoly(cells){
+  const {g, c, W, H, u} = SEA; let px = cells[0] % W, ux = px;
+  const U = cells.map(i => { const x = i % W; let d = x - px; if (d > W/2) d -= W; else if (d < -W/2) d += W; px = x; ux += d; return [ux, i/W | 0]; });
+  const open = (x, y) => { const j = Math.floor(y); if (j < 0 || j >= H) return false; const i = j*W + ((Math.floor(x) % W) + W) % W; return g[i] === 2 && !c[i]; };
+  const los = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], n = Math.ceil(Math.hypot(dx, dy)*2); for (let s = 1; s < n; s++) if (!open(a[0] + .5 + dx*s/n, a[1] + .5 + dy*s/n)) return false; return true; };
+  const P = [U[0]]; for (let i = 0; i < U.length - 1; ){ let j = Math.min(U.length - 1, i + 48); while (j > i + 1 && !los(U[i], U[j])) j--; P.push(U[j]); i = j; }
+  let Q = P.map(p => [(p[0] + .5)*u, (p[1] + .5)*u]);
+  for (let r = 0; r < 2; r++){ const R = [Q[0]]; for (let k = 0; k + 1 < Q.length; k++){ const a = Q[k], b = Q[k + 1]; R.push([a[0]*.75 + b[0]*.25, a[1]*.75 + b[1]*.25], [a[0]*.25 + b[0]*.75, a[1]*.25 + b[1]*.75]); } R.push(Q[Q.length - 1]); Q = R; }
+  return Q;
+}
+function polyRoute(pts, m, a0, a1){
+  const cum = [0]; for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+  const len = cum[cum.length - 1]; return {m, pts, cum, len, s0:a0 == null ? 0 : cum[a0], s1:a1 == null ? len : cum[a1], w:SEA.w || mapSize()[0]};
+}
+// an svg path of a polyline, cut where it crosses the seam (several "M" parts)
+function polyD(pts, w){
+  const f = v => v.toFixed(1); let d = "", t0 = 0;
+  pts.forEach((p, k) => { const t = Math.floor(p[0]/w);
+    if (!k){ t0 = t; d = `M${f(p[0] - t*w)},${f(p[1])}`; return; }
+    if (t !== t0){ const q = pts[k - 1], bx = (t > t0 ? t0 + 1 : t0)*w, r = (bx - q[0])/((p[0] - q[0]) || 1), by = q[1] + (p[1] - q[1])*r; d += `L${f(bx - t0*w)},${f(by)}M${f(bx - t*w)},${f(by)}`; t0 = t; }
+    d += `L${f(p[0] - t*w)},${f(p[1])}`; });
+  return d;
+}
+// goods go between capitals (a big country's name may sit far from its ports), else between names
+const trEnd = iso => { const c = CAPITALS[iso], p = c && proj(c[1], c[2]); return p || (LABELS && LABELS[iso]); };
+function pairRoute(a, b, air){
+  const A = trEnd(a), B = trEnd(b); if (!A || !B) return null;
+  const key = a + ">" + b + (air ? "^" : ""), had = SEA.rt.get(key);
+  if (had && had.ax === A.x && had.ay === A.y && had.bx === B.x && had.by === B.y) return had;
+  const ok = !air && seaGrid(); let r = ok ? seaRoute(A, B) : null; if (!r) r = {m:air ? "air" : "land", g:fxGeom(A, B), d:fxCurve(A, B).d};
+  Object.assign(r, {ax:A.x, ay:A.y, bx:B.x, by:B.y}); if (ok || air) SEA.rt.set(key, r); return r;
+}
+const shipRoute = x => pairRoute(x.from, x.to, x.air);
+function seaRoute(A, B){
+  const {g, W, H, u, w} = SEA, n = 40; let bx = B.x; if (bx - A.x > w/2) bx -= w; else if (A.x - bx > w/2) bx += w;
+  const at = s => [A.x + (bx - A.x)*s/n, A.y + (B.y - A.y)*s/n], cell = p => { const j = Math.floor(p[1]/u); return j < 0 || j >= H ? -1 : j*W + ((Math.floor(p[0]/u) % W) + W) % W; };
+  let wet = 0, f = -1, l = -1;
+  for (let s = 1; s < n; s++){ const i = cell(at(s)); if (i >= 0 && g[i] === 2){ wet++; if (f < 0) f = s; l = s; } }
+  if (wet < 3) return null;   // dry, or only a strait: by road
+  const cells = seaPath(cell(at(f)), cell(at(l))); if (!cells) return null;
+  const sp = seaPoly(cells), sh = Math.round((A.x - sp[0][0])/w)*w; sp.forEach(p => p[0] += sh);
+  const e = sp[sp.length - 1], pts = [[A.x, A.y], ...sp, [B.x + Math.round((e[0] - B.x)/w)*w, B.y]], r = polyRoute(pts, "sea", 1, pts.length - 2);
+  r.d = polyD(pts, w); return r;
+}
+function routeAt(rt, u){
+  if (!rt) return null; u = clamp(u, 0, 1);
+  if (rt.g){ const g = rt.g, v = 1 - u; return {x:v*v*g.a.x + 2*v*u*g.c.x + u*u*g.b.x, y:v*v*g.a.y + 2*v*u*g.c.y + u*u*g.b.y, a:Math.atan2(v*(g.c.y - g.a.y) + u*(g.b.y - g.c.y), v*(g.c.x - g.a.x) + u*(g.b.x - g.c.x)), m:rt.m === "air" ? "air" : "land", L:Math.hypot(g.b.x - g.a.x, g.b.y - g.a.y)}; }
+  const s = u*rt.len, C = rt.cum, P = rt.pts; let lo = 0, hi = C.length - 1;
+  while (hi - lo > 1){ const mi = (lo + hi) >> 1; if (C[mi] <= s) lo = mi; else hi = mi; }
+  const a = P[lo], b = P[hi], f = (s - C[lo])/((C[hi] - C[lo]) || 1), w = rt.w, x = a[0] + (b[0] - a[0])*f;
+  return {x:((x % w) + w) % w, y:a[1] + (b[1] - a[1])*f, a:Math.atan2(b[1] - a[1], b[0] - a[0]), m:rt.m !== "sea" ? rt.m : s < rt.s0 || s > rt.s1 ? "land" : "sea", L:s < rt.s0 ? rt.s0 : rt.len - rt.s1};   // L: length of a land leg
+}
+// background traffic (his choice 07.11: on the whole map): ships between big ports, planes between big airports, [lat, lon]
+const TR = {t:0, last:0, mk:null, lanes:new Map(), ships:[], planes:[]};
+const TR_PORT = {sha:[31.2, 121.8], sin:[1.25, 103.8], rot:[51.95, 4], la:[33.7, -118.25], ny:[40.5, -74], san:[-24, -46.3], cpt:[-33.9, 18.4], dxb:[25, 55], bom:[18.9, 72.8], pus:[35, 129],
+  tyo:[35.5, 139.8], syd:[-33.9, 151.2], los:[6.4, 3.4], ham:[53.6, 9.9], pir:[37.9, 23.6], hou:[29.3, -94.8], van:[49.3, -123.1], bue:[-34.6, -58.3], jed:[21.5, 39.1], nvr:[44.7, 37.8],
+  led:[59.9, 30.2], hkg:[22.3, 114.2], alx:[31.2, 29.9], val:[-33, -71.6], per:[-32.05, 115.7], dur:[-29.9, 31], cmb:[6.95, 79.85], pan:[8.9, -79.55]};
+const TR_SEA = "sha-rot sha-rot sha-la sha-la sin-dxb rot-ny rot-ny hkg-syd pus-van tyo-hou san-rot cpt-sin bom-jed pir-nvr ham-led los-ny hou-rot bue-cpt per-sha cmb-alx val-pan dur-bom".split(" ");
+const TR_HUB = {lhr:[51.47, -.45], jfk:[40.64, -73.78], cdg:[49.01, 2.55], dxb:[25.25, 55.36], sin:[1.36, 103.99], svo:[55.97, 37.41], pek:[40.08, 116.58], fra:[50.03, 8.57], jnb:[-26.13, 28.24],
+  mad:[40.47, -3.56], gru:[-23.43, -46.47], ist:[41.26, 28.74], del:[28.56, 77.1], lax:[33.94, -118.41], syd:[-33.94, 151.18], cai:[30.12, 31.41], los:[6.58, 3.32], hnd:[35.55, 139.78], bkk:[13.69, 100.75], ala:[43.35, 77.04]};
+const TR_AIR = "lhr-jfk cdg-dxb dxb-sin svo-pek fra-jnb mad-gru ist-del lax-jfk syd-sin cai-los hnd-bkk ist-ala".split(" ");
+function trArc(a, b){
+  const r = Math.PI/180, v = p => [Math.cos(p[0]*r)*Math.cos(p[1]*r), Math.cos(p[0]*r)*Math.sin(p[1]*r), Math.sin(p[0]*r)], A = v(a), B = v(b);
+  const d = Math.acos(clamp(A[0]*B[0] + A[1]*B[1] + A[2]*B[2], -1, 1)), sd = Math.sin(d) || 1, pts = [];
+  for (let i = 0; i <= 32; i++){ const t = i/32, ka = Math.sin((1 - t)*d)/sd, kb = Math.sin(t*d)/sd, x = ka*A[0] + kb*B[0], y = ka*A[1] + kb*B[1], z = ka*A[2] + kb*B[2], p = proj(Math.atan2(z, Math.hypot(x, y))/r, Math.atan2(y, x)/r); if (!p) return null; pts.push([p.x, p.y]); }
+  return polyRoute(pts, "air");
+}
+function seaNear(ll){
+  const {g, W, H, u} = SEA, p = proj(ll[0], ll[1]); if (!p) return -1; const s = clamp(Math.floor(p.y/u), 0, H - 1)*W + ((Math.floor(p.x/u) % W) + W) % W; if (g[s] === 2) return s;
+  const seen = new Uint8Array(W*H), q = [s]; seen[s] = 1;
+  for (let h = 0; h < q.length && h < 40000; h++){ const i = q[h], x = i % W, y = i/W | 0;
+    for (let k = 0; k < 8; k++){ const ny = y + D8Y[k]; if (ny < 0 || ny >= H) continue; const j = ny*W + (x + D8X[k] + W) % W; if (seen[j]) continue; seen[j] = 1; if (g[j] === 2) return j; q.push(j); } }
+  return -1;
+}
+function trPrep(){   // one lane a frame, so entering the map does not stall
+  if (!seaGrid()) return;
+  if (TR.mk !== SEA.g){ TR.mk = SEA.g; TR.lanes = new Map(); TR.ships = TR_SEA.map((k, i) => ({k, ph:(i*.618034 % 1)*2}));
+    TR.planes = TR_AIR.map((k, i) => { const [a, b] = k.split("-"); return {r:trArc(TR_HUB[a], TR_HUB[b]), ph:(i*.381966 % 1)*2}; }); }
+  for (const s of TR.ships) if (!TR.lanes.has(s.k)){ const [a, b] = s.k.split("-"), pa = seaNear(TR_PORT[a]), pb = seaNear(TR_PORT[b]), c = pa >= 0 && pb >= 0 ? seaPath(pa, pb) : null;
+    const L = c && c.length > 1 ? polyRoute(seaPoly(c), "sea") : null; TR.lanes.set(s.k, L && L.len > 1 ? L : null); return; }
+}
+function trRails(fx){
+  return [...fx.querySelectorAll(".fx-rail:not(.wip)")].map(el => { const q = (el.getAttribute("d").match(/-?\d+(?:\.\d+)?/g) || []).map(Number); if (q.length < 6) return null;
+    const a = {x:q[0], y:q[1]}, c = {x:q[2], y:q[3]}, b = {x:q[4], y:q[5]}, len = (Math.hypot(b.x - a.x, b.y - a.y) + Math.hypot(c.x - a.x, c.y - a.y) + Math.hypot(b.x - c.x, b.y - c.y))/2;
+    return len > 1 ? {g:{a, b, c}, m:"rail", len} : null; }).filter(Boolean);
+}
+// silhouettes seen from above, nose to +x: gold for the player's own, light grey for the world's
+function trSprite(m, gold){
+  const key = "tr" + m + (gold ? 1 : 0), had = MA.map.get(key); if (had) return had;
+  const F = gold ? "#E2B04A" : "#D5DCE4", K = gold ? "#6B4E17" : "#5D6A78", O = gold ? "rgba(26,17,3,.9)" : "rgba(8,12,18,.8)";
+  const box = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); c.strokeRect(x, y, w, h); };
+  if (m === "sea") return maShape(key, -11.5, -4.5, 23, 9, c => { c.lineJoin = "round"; c.lineWidth = 1.1; c.strokeStyle = O; c.beginPath(); c.moveTo(10.5, 0); c.bezierCurveTo(8.5, -3.4, 4, -3.5, 1, -3.5); c.lineTo(-9.4, -3.5); c.lineTo(-10.4, -2.4); c.lineTo(-10.4, 2.4); c.lineTo(-9.4, 3.5); c.lineTo(1, 3.5); c.bezierCurveTo(4, 3.5, 8.5, 3.4, 10.5, 0); c.closePath(); c.fillStyle = F; c.fill(); c.stroke();
+    c.fillStyle = K; for (const x of [-5.4, -2.1, 1.2, 4.5]) c.fillRect(x, -2.1, 2.7, 4.2); c.fillStyle = "#F2F4F6"; c.fillRect(-9.2, -2.3, 2.3, 4.6); });
+  if (m === "air") return maShape(key, -10, -8.5, 20, 17, c => { c.lineJoin = "round"; c.lineWidth = 1; c.strokeStyle = O; c.beginPath(); c.moveTo(9.2, 0); c.quadraticCurveTo(8, -1.3, 5.5, -1.3); c.lineTo(1.6, -1.3); c.lineTo(-2.6, -7.6); c.lineTo(-4.4, -7.6); c.lineTo(-2.3, -1.3); c.lineTo(-6, -1.1); c.lineTo(-8.1, -4); c.lineTo(-9.3, -4); c.lineTo(-8.3, -.8); c.lineTo(-8.9, 0);
+    c.lineTo(-8.3, .8); c.lineTo(-9.3, 4); c.lineTo(-8.1, 4); c.lineTo(-6, 1.1); c.lineTo(-2.3, 1.3); c.lineTo(-4.4, 7.6); c.lineTo(-2.6, 7.6); c.lineTo(1.6, 1.3); c.lineTo(5.5, 1.3); c.quadraticCurveTo(8, 1.3, 9.2, 0); c.closePath(); c.fillStyle = F; c.fill(); c.stroke(); });
+  if (m === "rail") return maShape(key, -14, -3.5, 28, 7, c => { c.lineWidth = 1; c.strokeStyle = O; for (const x of [-13, -7.4, -1.8]) box(c, x, -2.2, 5, 4.4, K); box(c, 3.8, -2.6, 8.4, 5.2, F); c.fillStyle = O; c.fillRect(10.4, -1.5, 1.4, 3); });
+  return maShape(key, -12, -3, 24, 6, c => { c.lineWidth = 1; c.strokeStyle = O; for (const x of [-11.2, -3.6, 4]){ box(c, x, -2.1, 5, 4.2, K); box(c, x + 5.3, -1.7, 1.9, 3.4, F); } });
+}
+function trFx(kind){
+  const key = "tx" + kind, had = MA.map.get(key); if (had) return had;
+  const rg = (c, r, st) => { const g = c.createRadialGradient(0, 0, 0, 0, 0, r); st.forEach(([o, col]) => g.addColorStop(o, col)); c.fillStyle = g; c.fillRect(-r, -r, 2*r, 2*r); };
+  const lg = (c, L, a) => { const g = c.createLinearGradient(0, 0, -L, 0); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g; };
+  if (kind === "sm") return maShape(key, -11, -11, 22, 22, c => rg(c, 11, [[0, "rgba(88,84,80,.85)"], [.6, "rgba(156,150,142,.45)"], [1, "rgba(170,165,158,0)"]]));
+  if (kind === "fl") return maShape(key, -9, -9, 18, 18, c => rg(c, 9, [[0, "rgba(255,246,210,1)"], [.35, "rgba(255,168,60,.9)"], [1, "rgba(255,80,20,0)"]]));
+  if (kind === "wk") return maShape(key, -24, -5, 24, 10, c => { lg(c, 24, .5); c.beginPath(); c.moveTo(0, -1.3); c.lineTo(-24, -4.6); c.lineTo(-24, 4.6); c.lineTo(0, 1.3); c.closePath(); c.fill(); });
+  return maShape(key, -40, -1.5, 40, 3, c => { lg(c, 40, .65); c.fillRect(-40, -.8, 40, 1.6); });
+}
+const trWet = (x, y) => { const j = Math.floor(y/SEA.u); return !!SEA.g && j >= 0 && j < SEA.H && SEA.g[j*SEA.W + ((Math.floor(x/SEA.u) % SEA.W) + SEA.W) % SEA.W] > 0; };
+const trMode = p => p.m !== "land" ? p.m : trWet(p.x, p.y) ? "sea" : p.L > 60 ? "rail" : "land";   // a ferry over water, a train on a long land way
+const trAng = (a, sx, sy) => Math.atan2(Math.sin(a)*(sy(1) - sy(0)), Math.cos(a)*(sx(1) - sx(0))) || 1e-6;   // never 0: maQuad scales only rotated quads
+const trMs = () => S && ui.tab === "map" && ui.speed !== 0 && mgOn() ? ({high:66, mid:133}[gfxLevel()] || 0) : 0;
+function trDraw(sx, sy, on, k, D, now){
+  const dt = TR.last ? clamp(now - TR.last, 0, 250) : 0; TR.last = now; if (ui.speed !== 0) TR.t += dt;
+  if (gfxLevel() === "low") return;
+  const T = TR.t/1000, Z = clamp(.55 + .12*k, .7, 1.25);
+  const move = (rt, v, ph) => { const r = (T*v/rt.len + ph) % 2, back = r > 1, u = back ? 2 - r : r, p = routeAt(rt, u); p.a = trAng(p.a + (back ? Math.PI : 0), sx, sy); p.e = Math.min(1, u*rt.len/5, (1 - u)*rt.len/5); return p; };
+  const put = (p, spr, tail, tl, to, o) => { const x = sx(p.x), y = sy(p.y); if (o <= .02 || !on(x, y, 50*D)) return; if (tail){ const b = tl*D*Z; maQuad(tail, x - Math.cos(p.a)*b, y - Math.sin(p.a)*b, o*to, p.a, Z); } maQuad(spr, x, y, o, p.a, Z); };
+  (MA.rails || []).forEach((g, i) => { for (let n = 0; n < 2; n++){ const p = move(g, 2.2, n + i*.37); put(p, trSprite("rail", 1), null, 0, 0, p.e); } });
+  trPrep();
+  TR.ships.forEach(s => { const L = TR.lanes.get(s.k); if (L){ const p = move(L, .8, s.ph); put(p, trSprite("sea", 0), trFx("wk"), 9.5, .6, p.e*.85); } });
+  TR.planes.forEach(s => { if (s.r){ const p = move(s.r, 7, s.ph); put(p, trSprite("air", 0), trFx("ct"), 8, .55, p.e*.9); } });
+  MA.marks.forEach((q, i) => { if (q.kind !== "battle" || q.still) return; const x = sx(q.x), y = sy(q.y); if (!on(x, y, 60*D)) return;
+    for (let n = 0; n < 4; n++){ const ph = (T/2.8 + n/4 + i*.13) % 1, ox = ((n*7 + i*5) % 9 - 4)*2.2*D; maQuad(trFx("sm"), x + ox + 8*ph*D*Z, y - 28*ph*D*Z, .85*(1 - ph)*Math.min(1, ph*4), 1e-6, (.6 + 1.4*ph)*Z); }
+    const v = T/.85 + i*.37, f = v % 1, h = Math.abs(Math.sin(Math.floor(v)*12.9898 + i*78.233)*43758.5453) % 1;
+    if (h < .5 && f < .3){ const an = h*12.566, r = (15 + 6*((h*91) % 1))*D*Z; maQuad(trFx("fl"), x + Math.cos(an)*r, y + Math.sin(an)*r*.7, 1 - f/.3, 1e-6, Z*(.5 + .6*h)); } });   // flashes round the mark, not on it
+}
 function fxGeom(a, b){ const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1, off = Math.min(70, len*0.22); return {a, b, c:{x: mx - dy/len*off, y: my + dx/len*off}}; }
 function qbez(g, t){ const u = 1 - t; return {x: u*u*g.a.x + 2*u*t*g.c.x + t*t*g.b.x, y: u*u*g.a.y + 2*u*t*g.c.y + t*t*g.b.y}; }
 function moveCargo(){
@@ -8801,8 +8976,8 @@ function moveCargo(){
   const s = ui.fxScale || 1;
   document.querySelectorAll("#map-fx .fx-cargo").forEach(el => {
     const x = S.shipments.find(q => q.id == el.dataset.sid); if (!x){ el.remove(); return; }
-    const A = LABELS[x.from], B = LABELS[x.to]; if (!A || !B) return;
-    const pt = qbez(fxGeom(A, B), clamp(1 - (x.left - acc/SPEED_MS[ui.speed||1])/x.total, 0, 1));
+    const rt = shipRoute(x); if (!rt) return;
+    const pt = routeAt(rt, clamp(1 - (x.left - acc/SPEED_MS[ui.speed||1])/x.total, 0, 1));
     el.dataset.x = pt.x.toFixed(1); el.dataset.y = pt.y.toFixed(1);
     el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})`);
   });
@@ -8827,12 +9002,12 @@ function fxMarkup(){
     else if (S.rails[x.id]) lines += `<path class="fx-rail ${S.rails[x.id].done?"":"wip"}" d="${cv.d}"/>`;
     else if (x.trade) lines += `<path class="fx-trade" d="${cv.d}"/>`;
   });
-  contractIsos.forEach(iso => { const L = LABELS[iso]; if (!L || S.wars.some(w=>w.enemy===iso)) return; lines += `<path class="fx-contract" d="${fxCurve(home, L).d}"/>`; });
-  [...new Set(allImports().map(c=>c.iso))].forEach(iso => { const L = LABELS[iso]; if (L) lines += `<path class="fx-import" d="${fxCurve(L, home).d}"/>`; });
+  contractIsos.forEach(iso => { const L = LABELS[iso]; if (!L || S.wars.some(w=>w.enemy===iso)) return; lines += `<path class="fx-contract" d="${pairRoute(S.player, iso).d}"/>`; });
+  [...new Set(allImports().map(c=>c.iso))].forEach(iso => { const L = LABELS[iso]; if (L) lines += `<path class="fx-import" d="${pairRoute(iso, S.player).d}"/>`; });
   (S.shipments||[]).forEach(x => {
-    const A = LABELS[x.from], B = LABELS[x.to]; if (!A || !B) return;
-    const g = fxGeom(A, B), t = 1 - x.left/x.total, pt = qbez(g, t);
-    if (x.dir === "in" && (x.cat || !importQty(x.from, x.r))) lines += `<path class="fx-import faint" d="${fxCurve(A, B).d}"/>`;
+    const rt = shipRoute(x); if (!rt) return;
+    const t = 1 - x.left/x.total, pt = routeAt(rt, t);
+    if (x.dir === "in" && (x.cat || !importQty(x.from, x.r))) lines += `<path class="fx-import faint" d="${rt.d}"/>`;
     const cn = cargoIcon(x), cp = cargoPic(cn);
     marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-ic="${cn}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="10" class="fx-cg"/>${cp ? `<image href="icons/${cp}.webp" x="-8" y="-8" width="16" height="16"/>` : `<use href="#${iref(cn)}" x="-6" y="-6" width="12" height="12" class="cu"/>`}</g>`;
   });
