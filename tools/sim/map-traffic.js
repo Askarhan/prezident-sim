@@ -1,4 +1,4 @@
-// Headless check of life on the WebGL map, batch 3: sea lanes, carriers, trains, smoke at a front, background ships and planes. Shots e.png (world) and f.png (closer).
+// Headless check of the moving layer #map-tr over the WebGL map: sea routes, carriers, trains, smoke at a front. Shots e.png (world) and f.png (closer).
 // Run: node tools/sim/map-traffic.js [shot dir|-] [country=ru] [foe=kz]
 const { chromium } = require("playwright"), http = require("http"), fs = require("fs"), path = require("path");
 const WWW = path.resolve(__dirname, "../../www"), OUT = process.argv[2] && process.argv[2] !== "-" ? process.argv[2] : "/tmp/kab-shots"; fs.mkdirSync(OUT, {recursive:true});
@@ -19,9 +19,8 @@ const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split
     const c = await pg.evaluate(iso => { const r = document.querySelector(`#worldmap path[data-iso="${iso}"]`).getBoundingClientRect(); return {x:r.x + r.width/2, y:r.y + r.height/2}; }, iso);
     await pg.mouse.move(Math.max(5, Math.min(839, c.x)), Math.max(5, Math.min(385, c.y))); await pg.mouse.wheel(0, out ? 300 : -240); await wait(140); } };
   await zoom(me, 1.05, true); await wait(2500);
-  const info = await ev(`(() => { const t0 = performance.now(); SEA.path.clear(); TR.mk = null; let n = 0; do { trPrep(); n++; } while (TR.lanes.size < new Set(TR_SEA).size && n < 60);
-    return JSON.stringify({k:+ui.map.k.toFixed(2), gl:mgOn(), grid:[SEA.W, SEA.H, SEA.ms], lanes:[...TR.lanes.values()].filter(Boolean).length + "/" + TR.lanes.size, laneMs:Math.round(performance.now() - t0),
-      dead:[...TR.lanes].filter(e => !e[1]).map(e => e[0]), planes:TR.planes.filter(p => p.r).length, rails:(MA.rails||[]).length, cargo:MA.cargo.map(q => { const r = q.rt, p = routeAt(r, 1 - q.x.left/q.x.total); return q.x.from + ":" + r.m + ":" + (r.len|0) + "/" + (r.s0|0) + "-" + (r.s1|0) + "@" + p.m + "(" + (p.x|0) + "," + (p.y|0) + ")"; }).join(" "), ms:trMs(), gfx:gfxLevel(), speed:ui.speed}); })()`);
+  const info = await ev(`JSON.stringify({k:+ui.map.k.toFixed(2), gl:mgOn(), grid:[SEA.W, SEA.H, SEA.ms], layer:!!document.getElementById("map-tr"), rails:(MA.rails||[]).length, busy:trBusy(), ms:trMs(), gfx:gfxLevel(),
+    cargo:MA.cargo.map(q => { const r = q.rt, p = routeAt(r, 1 - q.x.left/q.x.total); return q.x.from + ":" + r.m + "@" + trMode(p); }).join(" ")})`);
   await wait(800); await pg.screenshot({path: OUT + "/e.png"});
   await zoom(foe, 2.4); await wait(3000); await pg.screenshot({path: OUT + "/f.png"});
   console.log(info); console.log("errors " + errs.size + (errs.size ? "\n" + [...errs].slice(0, 4).join("\n") : ""));
