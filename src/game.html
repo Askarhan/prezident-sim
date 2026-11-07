@@ -8700,8 +8700,8 @@ function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flas
 const PIN_ICON = {hydro:"power",solar:"power",institute:"science",enrich:"power",npp:"power",shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
 // Own buildings on the land: his pictures as medallions with a gold rim (07.11, his choice after soft decals looked bad). With WebGL they are drawn in mgOver under every mark and name
 // (his wish: country names stay on top); the SVG keeps the tap target, which opens the building sheet. A new one grows in.
-const BD_K = 2.6, BD_MIN = 20, BD_MAX = 44, BD_A = 44, BD_P = 160, BD_GROW = 700, BD = {cv:{}, im:{}, url:{}, t:0};
-const bdSize = k => clamp(BD_MIN*k/BD_K, BD_MIN, BD_MAX);   // css px on screen, grows with the zoom
+const BD_K = 9, BD_MIN = 36, BD_MAX = 44, BD_A = 44, BD_P = 160, BD_GROW = 700, BD = {cv:{}, im:{}, url:{}, t:0};
+const bdSize = k => clamp(BD_MIN*k/BD_K, BD_MIN, BD_MAX);   // css px on screen; pictures show only near the maximum zoom 10 (his wish 07.11)
 function bdCanvas(id){
   if (BD.cv[id] || BD.im[id] || !BLD_PICS.has(id)) return BD.cv[id] || null;
   const im = BD.im[id] = new Image();
