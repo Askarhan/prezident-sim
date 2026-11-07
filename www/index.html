@@ -2072,11 +2072,11 @@ function orderAmmo(type, qty){
 }
 function milMult(){ return Math.max(0.2, 1 + lawSum("mil")); }
 function plantOne(pid){ return (mg()*BUILDINGS[pid].cost/(1 - MAT_SHARE))*0.025; }
-function plantCap(pid){ return plantOne(pid)*objOn(pid)*(1 + 0.5*tech("automation"))*milMult(); }
+function plantCap(pid){ return plantOne(pid)*objOn(pid)*(1 + techV("automation")/100*tech("automation"))*milMult(); }
 function prodChoices(pid){ return MODEL_ROWS.map(r=>MODELS[r[0]]).filter(m => KINDS[m.kind].plant === pid); }
 function prodSpendMonthly(){ return S.prodPaid||0; }   // plants are paid for what they really made last month
 const BONUS_MAX = 5, bonusN = id => Math.min(BONUS_MAX, builtOn(id)), fasterK = id => 1/(1 - 0.04*bonusN(id)), PLANT_FASTER = {tankplant:"auto", aviaplant:"chips", heliplant:"chips", samplant:"chips"}, plantFaster = pid => PLANT_FASTER[pid] ? fasterK(PLANT_FASTER[pid]) : 1;   // industry gives a bonus only: no penalty without it, the first 5 count; each cuts production time by 4%
-function ammoPlantOut(paid){ const n = objOn("ammoplant")*(1 + 0.5*tech("automation"))*milMult()*plantOne("ammoplant")/0.0712/AMMO_COST*(paid ? 1 : fasterK("chem")); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
+function ammoPlantOut(paid){ const n = objOn("ammoplant")*(1 + techV("automation")/100*tech("automation"))*milMult()*plantOne("ammoplant")/0.0712/AMMO_COST*(paid ? 1 : fasterK("chem")); return {shell:8*n, rocket:300*n, atgm:60*n, bomb:200*n}; }
 function ammoPlantCost(){ const o = ammoPlantOut(true); return Object.entries(o).reduce((a,[k,q]) => a + q*AMMO[k].price*0.5, 0); }
 function armsExportIncome(){ return armsBuyers().length ? (S.prodSold||0) : 0; }
 function unitSteel(m){ return m.cost*PLANT_STEEL/COMMOD_WORLD.steel; }
@@ -2138,7 +2138,7 @@ function forceStats(units, ammo, share, foe){
     else if (k.cls === "ad"){ if (m.kind === "ew") st.ew += m.aa*n; else st.ad += m.aa*n*amm; }
     else if (k.cls === "navy"){ st.navy += (m.ga + m.aa)*n; }
   }
-  if (!foe){ st.g *= 1 + 0.08*tlv("am_warhead"); st.navy *= 1 + 0.1*tech("carriers"); }
+  if (!foe){ st.g *= 1 + techV("am_warhead")/100*tlv("am_warhead"); st.navy *= 1 + 0.1*tech("carriers"); }
   return st;
 }
 function ammoNeedFor(units){
@@ -2555,9 +2555,9 @@ function takeLossesW(w, rate, airRate){
 function hitFront(w, i, rate, tally){ depInit(w); const d = w.dep[i] || {}; Object.keys(d).forEach(id => { const m = MODELS[id]; if (m && GROUND_K.has(m.kind)){ const l = depTake(w, id, Math.floor(d[id]*rate*armourK(m)), i); if (tally && l) tally[id] = (tally[id]||0) + l; } }); }
 // a direction's weight in the battle comes from the machines sent there; the personnel is split evenly
 // research in a fight (user's decision 05.11): the same numbers in the daily war, commanded battles and the shown power
-const fightTech = () => 1 + 0.1*tech("comms") + 0.2*tech("drones") + 0.1*tech("cyber"), foeCyber = () => 1 - 0.1*tech("cyber");
-function depPowerOurs(d){ const wh = 1 + 0.08*tlv("am_warhead"); let s = 0; for (const id in d||{}){ const m = MODELS[id]; if (!m || d[id] <= 0) continue; const a = KINDS[m.kind].ammo, k = a && (S.ammo[a]||0) > 0 ? ammoMult(a) : 1; s += (m.ga*k*(GROUND_K.has(m.kind) ? wh : 1) + m.df*0.6 + m.aa*0.3*k)*d[id]; } return s; }
-const cbMyP = (w, f, g, ig, type) => (depPowerOurs(g) + cbInfPower(ig)*(1 + 0.1*tlv("am_small")))*fightTech()*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(type) ? DEF_K : 1);
+const fightTech = () => 1 + (techV("comms")*tech("comms") + techV("drones")*tech("drones") + techV("cyber")*tech("cyber"))/100, foeCyber = () => 1 - techV("cyber", 1)*tech("cyber")/100;
+function depPowerOurs(d){ const wh = 1 + techV("am_warhead")/100*tlv("am_warhead"); let s = 0; for (const id in d||{}){ const m = MODELS[id]; if (!m || d[id] <= 0) continue; const a = KINDS[m.kind].ammo, k = a && (S.ammo[a]||0) > 0 ? ammoMult(a) : 1; s += (m.ga*k*(GROUND_K.has(m.kind) ? wh : 1) + m.df*0.6 + m.aa*0.3*k)*d[id]; } return s; }
+const cbMyP = (w, f, g, ig, type) => (depPowerOurs(g) + cbInfPower(ig)*(1 + techV("am_small")/100*tlv("am_small")))*fightTech()*supplyK(f)*(w.fuel ?? 1)*(cbDefUs(type) ? DEF_K : 1);
 const cbEnP = (e, ie, type) => (depPower(e) + cbInfPower(ie))*foeCyber()*(cbDefThem(type) ? DEF_K : 1);
 function depPower(d){ let s = 0; for (const id in d||{}){ const m = MODELS[id]; if (m && d[id] > 0) s += (m.ga + m.df*0.6 + m.aa*0.3)*d[id]; } return s; }
 function depShares(w){
@@ -2840,7 +2840,7 @@ function warDay(w){
   fuelDay(w); enemyFuelDay(w); roadDay(w); eroadDay(w);
   if (w.men == null) w.men = freeArmy()*share;
   const WU = warFight(w), my = forceStats(WU, S.ammo, 1), th = forceStats(w.eu, w.ea, 1, C()[w.enemy]);
-  const myTroops = (w.men||0)*(1 + 0.1*tlv("am_small")), thTroops = e.army*Math.min(1, w.emen ?? 1);
+  const myTroops = (w.men||0)*(1 + techV("am_small")/100*tlv("am_small")), thTroops = e.army*Math.min(1, w.emen ?? 1);
   const allies = Object.values(C()).filter(x => (x.ally || (w.joined||[]).includes(x.id)) && !x.owner && x.id !== e.id).reduce((a,x) => a + aiPower(x)*((w.joined||[]).includes(x.id) ? 1.6 : 0.6), 0);
   // 1. the sky: a distant war needs carriers to bring the air force in range
   const far = farWar(e.id), carriers = unitsOf(["carrier"]); w.far = far; w.carriers = carriers;
@@ -4641,20 +4641,20 @@ LAWS.forEach(l => { l.desc = [...l.pros, ...l.cons].join(", "); });
 const TECH_EFF = [0, 0.5, 0.85, 1.15, 1.45, 1.75];
 const TECH = [
   {id:"egov",br:"econ",tier:1,max:5,cost:60,days:90,name:"Цифровые госуслуги",fx:"сбор налогов +#%",v:2.5},
-  {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"военные заводы быстрее на #%; автозавод и завод электроники",v:50},
+  {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"военные заводы быстрее на #%; автозавод и завод электроники",v:31.4286},
   {id:"fintech",br:"econ",tier:3,max:5,cost:220,days:200,name:"Финтех и электронные платежи",fx:"закупки на бирже дешевле на #%",v:8},
   {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост экономики +#% в год",v:0.6},
   {id:"smartgrid",br:"res",tier:1,max:5,cost:60,days:90,name:"Умные энергосети",fx:"построенные здания потребляют на #% меньше энергии",v:8},
   {id:"deep",br:"res",tier:2,max:5,cost:140,days:150,name:"Глубокая добыча",fx:"вышки и рудники истощаются медленнее на #1%, покрытие топлива и руды +#2%",v:[20,20]},
   {id:"fusion",br:"res",tier:3,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"энергия +#1 ед., рост экономики +#2% в год",v:[16,0.2],req:{nuc_reactor:2}},
-  {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"потребность «Здоровье» +#1%, рейтинг +#2",v:[6,1]},
-  {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,1]},
-  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"«Здоровье» +#1%, рейтинг +#2, рост экономики +#3% в год",v:[6,1.5,0.1]},
-  {id:"longevity",br:"soc",tier:4,max:5,cost:380,days:280,name:"Продление жизни",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,2.5]},
-  {id:"comms",br:"def",tier:1,max:5,cost:70,days:100,name:"Цифровая связь войск",fx:"боевая мощь +#%",v:10},
-  {id:"drones",br:"def",tier:2,max:3,cost:140,days:150,name:"Беспилотники",fx:"мощь +#%; ур. 2–3 — покупка и выпуск дронов 2–3 поколения",v:20},
+  {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"потребность «Здоровье» +#1%, рейтинг +#2",v:[4.2857,1]},
+  {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[4.2857,1]},
+  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"«Здоровье» +#1%, рейтинг +#2, рост экономики +#3% в год",v:[4.2857,1.5,0.1]},
+  {id:"longevity",br:"soc",tier:4,max:5,cost:380,days:280,name:"Продление жизни",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[4.2857,2.5]},
+  {id:"comms",br:"def",tier:1,max:5,cost:70,days:100,name:"Цифровая связь войск",fx:"боевая мощь +#%",v:5},
+  {id:"drones",br:"def",tier:2,max:3,cost:140,days:150,name:"Беспилотники",fx:"мощь +#%; ур. 2–3 — покупка и выпуск дронов 2–3 поколения",v:10},
   {id:"missile",br:"def",tier:3,max:3,cost:240,days:220,name:"Ракетостроение и ПРО",fx:"вражеские ракеты сбиваются чаще на #%; ур. 2–3 — покупка и выпуск ПВО 2–3 поколения",v:20},
-  {id:"cyber",br:"def",tier:4,max:5,cost:400,days:280,name:"Кибервойска",fx:"мощь +#1%, сила врага −#2%, успех спецопераций +#3%",v:[10,10,10]},
+  {id:"cyber",br:"def",tier:4,max:5,cost:400,days:280,name:"Кибервойска",fx:"мощь +#1%, сила врага −#2%, успех спецопераций +#3%",v:[5,5,10]},
   {id:"armor",br:"mil",tier:1,max:3,cost:80,days:120,name:"Современная бронетехника",fx:"бронетанковый завод; ур. 2–3 — покупка и выпуск наземной техники 2–3 поколения",v:0},
   {id:"rotor",br:"mil",tier:2,max:3,cost:150,days:160,name:"Вертолётостроение",fx:"вертолётный завод; ур. 2–3 — покупка и выпуск вертолётов 2–3 поколения",v:0},
   {id:"aviation",br:"mil",tier:3,max:3,cost:260,days:240,name:"Авиастроение",fx:"авиазавод; ур. 2–3 — покупка и выпуск самолётов 2–3 поколения",v:0},
@@ -4663,8 +4663,8 @@ const TECH = [
   {id:"gold",br:"geo",tier:2,max:5,cost:110,days:130,name:"Золотодобыча",fx:"золотые шахты: золотые монеты ×#",v:1,lin:true},
   {id:"rareearth",br:"geo",tier:2,max:3,cost:140,days:150,name:"Добыча РЗМ",fx:"рудники редкоземельных металлов; добыча ×#",v:1,lin:true},
   {id:"uranium",br:"geo",tier:3,max:3,cost:180,days:170,name:"Добыча урана",fx:"урановые рудники; добыча ×#",v:1,lin:true,req:{rareearth:1}},
-  {id:"refining",br:"geo",tier:3,max:5,cost:200,days:190,name:"Нефтепереработка",fx:"нефть дороже на #%",v:35,req:{geo:2}},
-  {id:"exchange",br:"geo",tier:4,max:5,cost:320,days:250,name:"Сырьевая биржа",fx:"всё сырьё дороже на #%",v:15},
+  {id:"refining",br:"geo",tier:3,max:5,cost:200,days:190,name:"Нефтепереработка",fx:"нефть дороже на #%",v:20,req:{geo:2}},
+  {id:"exchange",br:"geo",tier:4,max:5,cost:320,days:250,name:"Сырьевая биржа",fx:"всё сырьё дороже на #%",v:8.5714},
   // the fleet has its own line, ships left «Авиастроение» (user's decision 05.11)
   {id:"shipbuild",br:"nav",tier:1,max:3,cost:80,days:120,name:"Судостроение",fx:"военная верфь; ур. 2–3 — покупка и выпуск кораблей 2–3 поколения",v:0},
   {id:"marines",br:"nav",tier:2,max:3,cost:140,days:150,name:"Морская пехота",fx:"для десанта нужно на #% меньше флота",v:6,lin:true},
@@ -4676,13 +4676,13 @@ const TECH = [
   {id:"echelons",br:"log",tier:3,max:5,cost:230,days:210,name:"Воинские эшелоны",fx:"техника доезжает до фронта на #% быстрее",v:10},
   {id:"freight",br:"log",tier:4,max:5,cost:360,days:260,name:"Глобальные перевозки",fx:"поставки с биржи и по договорам приходят на #% быстрее",v:10},
   // ammunition & missiles: each level unlocks a stronger type
-  {id:"am_small",br:"ammo",tier:1,max:2,cost:50,days:80,name:"Патроны",tiers:["стандартные","бронебойные","нового поколения"],fx:"пехота +#%",v:10,lin:true,ammo:true},
-  {id:"am_shell",br:"ammo",tier:1,max:3,cost:70,days:100,name:"Артиллерийские снаряды",tiers:["122 мм","152/155 мм","активно-реактивные","высокоточные «Краснополь» / Excalibur"],fx:"артиллерия и танки +#%",v:18,lin:true,ammo:true},
-  {id:"am_atgm",br:"ammo",tier:2,max:2,cost:120,days:140,name:"Противотанковые ракеты",tiers:["2-го поколения","3-го поколения «выстрелил и забыл»","тандемные"],fx:"БМП и вертолёты +#%",v:20,lin:true,ammo:true,req:{am_small:1}},
-  {id:"am_rocket",br:"ammo",tier:2,max:2,cost:120,days:140,name:"Ракеты для РСЗО",tiers:["стандартные","дальнобойные","управляемые GMLRS"],fx:"РСЗО +#%",v:20,lin:true,ammo:true,req:{am_shell:1}},
-  {id:"am_bomb",br:"ammo",tier:2,max:2,cost:130,days:150,name:"Авиабомбы",tiers:["свободнопадающие","планирующие УПАБ","высокоточные JDAM"],fx:"ударная авиация и дроны +#%",v:20,lin:true,ammo:true,req:{am_shell:1}},
-  {id:"am_sam",br:"ammo",tier:3,max:2,cost:200,days:200,name:"Зенитные ракеты",tiers:["стандартные","нового поколения","перехватчики"],fx:"ПВО +#%",v:15,lin:true,ammo:true,req:{am_rocket:1}},
-  {id:"am_warhead",br:"ammo",tier:3,max:3,cost:220,days:220,name:"Боевые части",tiers:["фугасные","кассетные","термобарические","проникающие"],fx:"удар по земле +#%; ур. 1–2 портят репутацию при ударах",v:8,lin:true,ammo:true,req:{am_shell:2}},
+  {id:"am_small",br:"ammo",tier:1,max:2,cost:50,days:80,name:"Патроны",tiers:["стандартные","бронебойные","нового поколения"],fx:"пехота +#%",v:5,lin:true,ammo:true},
+  {id:"am_shell",br:"ammo",tier:1,max:3,cost:70,days:100,name:"Артиллерийские снаряды",tiers:["122 мм","152/155 мм","активно-реактивные","высокоточные «Краснополь» / Excalibur"],fx:"артиллерия и танки +#%",v:9,lin:true,ammo:true},
+  {id:"am_atgm",br:"ammo",tier:2,max:2,cost:120,days:140,name:"Противотанковые ракеты",tiers:["2-го поколения","3-го поколения «выстрелил и забыл»","тандемные"],fx:"БМП и вертолёты +#%",v:10,lin:true,ammo:true,req:{am_small:1}},
+  {id:"am_rocket",br:"ammo",tier:2,max:2,cost:120,days:140,name:"Ракеты для РСЗО",tiers:["стандартные","дальнобойные","управляемые GMLRS"],fx:"РСЗО +#%",v:10,lin:true,ammo:true,req:{am_shell:1}},
+  {id:"am_bomb",br:"ammo",tier:2,max:2,cost:130,days:150,name:"Авиабомбы",tiers:["свободнопадающие","планирующие УПАБ","высокоточные JDAM"],fx:"ударная авиация и дроны +#%",v:10,lin:true,ammo:true,req:{am_shell:1}},
+  {id:"am_sam",br:"ammo",tier:3,max:2,cost:200,days:200,name:"Зенитные ракеты",tiers:["стандартные","нового поколения","перехватчики"],fx:"ПВО +#%",v:7.5,lin:true,ammo:true,req:{am_rocket:1}},
+  {id:"am_warhead",br:"ammo",tier:3,max:3,cost:220,days:220,name:"Боевые части",tiers:["фугасные","кассетные","термобарические","проникающие"],fx:"удар по земле +#%; ур. 1–2 портят репутацию при ударах",v:4,lin:true,ammo:true,req:{am_shell:2}},
   {id:"am_missile",br:"ammo",tier:4,max:3,cost:300,days:260,name:"Ракеты",tiers:["нет","крылатые «Калибр» / Tomahawk","баллистические «Искандер»","гиперзвуковые «Кинжал»"],fx:"ракеты: закупка и производство, сбивают реже на #%",v:15,lin:true,ammo:true,req:{am_rocket:2}},
   // nuclear programme
   {id:"nuc_enrich",br:"nuc",tier:1,max:3,cost:350,days:300,name:"Обогащение урана",fx:"ур. 1 — центр обогащения; ур. 3 — оружейный уран",v:0,lvReq:{2:{bld:"enrich"}},nuke:true},
@@ -4771,8 +4771,8 @@ function adPoints(){
 // ammunition quality multipliers for combat
 function ammoMult(kind, foe){
   if (foe) return 1 + 0.08*((foe.tech||1) - 1);
-  const L = id => tlv(id);
-  return {shell:1 + 0.18*L("am_shell"), rocket:1 + 0.2*L("am_rocket"), atgm:1 + 0.2*L("am_atgm"), bomb:1 + 0.2*L("am_bomb"), sam:1 + 0.15*L("am_sam"), missile:1}[kind] || 1;
+  const L = id => techV(id)/100*tlv(id);
+  return {shell:1 + L("am_shell"), rocket:1 + L("am_rocket"), atgm:1 + L("am_atgm"), bomb:1 + L("am_bomb"), sam:1 + L("am_sam"), missile:1}[kind] || 1;
 }
 // nuclear arsenal
 function nukeTurn(){
@@ -5184,7 +5184,7 @@ function oilCiv(){ const b = baseOut("oil")*(1 + lawSum("res")); if (b <= 0) ret
 function oilSpotMax(){ const n = armyOil(); if (n <= 0 || me().worldSanctions > 0) return 0; const k = Object.values(C()).some(x => x.sanctionsUs) ? 0.7 : 1;   // single sanctions make the market thinner, world sanctions close it
   const own = prodOf("oil")/30/n, base = Math.max(OIL_SPOT, OIL_BOTH - own), ramp = clamp(Math.max(0, ...S.wars.map(w => w.days||0))/OIL_RAMP, 0, 1);   // suppliers catch up in a long war: oil limits the start, not the whole war
   return (base + Math.max(0, 1 - own - base)*ramp)*n*k; }
-function priceMult(r){ return 1 + 0.15*tech("exchange") + (r==="oil" ? 0.35*tech("refining") + (inOrg("opec") ? 0.12 : 0) : 0); }
+function priceMult(r){ return 1 + techV("exchange")/100*tech("exchange") + (r==="oil" ? techV("refining")/100*tech("refining") + (inOrg("opec") ? 0.12 : 0) : 0); }
 function sellAdj(){ return 1 + lawSum("sell") + 0.01*minDelta("trade"); }
 function buyAdj(){ return Math.max(0.5, 1 + lawSum("buy") - 0.01*minDelta("trade"))*(1 - 0.08*tech("fintech")); }
 function commodPrice(r){ return COMMOD[r].world*S.market[r]*priceMult(r)*sellAdj(); }
@@ -7194,7 +7194,7 @@ const POP_BASE = 0.0006, POP_GDP_K = 0.25, DRAFT_K = 20;
 function needNorm(pc){ return 0.55 + 0.45*Math.min(2, pc/30); }
 function wealthK(){ const n = needNorm(gdppc()); if (!S.norm0) S.norm0 = n; return n/S.norm0; }
 function facNorm(id){ return ((S.facBase && S.facBase[id]) || 1)*wealthK(); }
-function needCov(key){ const cats = NEEDS.find(n => n[0] === key)[2], ids = Object.keys(FAC).filter(id => cats.includes(FAC[id].cat)); return ids.reduce((a,id) => a + Math.min(1.5, facCov(id)/facNorm(id)), 0)/ids.length + (key === "roads" ? 0.05*bonusN("metro") : 0) + (key === "health" ? 0.06*(tech("telemed") + tech("vaccines") + tech("gene") + tech("longevity")) : 0); }
+function needCov(key){ const cats = NEEDS.find(n => n[0] === key)[2], ids = Object.keys(FAC).filter(id => cats.includes(FAC[id].cat)); return ids.reduce((a,id) => a + Math.min(1.5, facCov(id)/facNorm(id)), 0)/ids.length + (key === "roads" ? 0.05*bonusN("metro") : 0) + (key === "health" ? (techV("telemed")*tech("telemed") + techV("vaccines")*tech("vaccines") + techV("gene")*tech("gene") + techV("longevity")*tech("longevity"))/100 : 0); }
 function popRate(){ return LAWS.some(l=>l.popFix && lawOn(l.id)) ? 1 + Math.min(0, lawSum("pop")) : 1.0006 + (S.capital.health-33)*0.00001 + 0.0001*tech("vaccines") + 0.0002*tech("longevity") + 0.000004*minDelta("sport") + lawSum("pop") + facFx("pop"); }
 function popGdp(){ const d = popRate() - 1 - POP_BASE; return POP_GDP_K*d*(d > 0 ? Math.min(1, needCov("edu"))*(S.unemp > baseUnemp() + 4 ? 0.5 : 1) : 1); }
 function popJobs(){ const pc = gdppc(); if (!S.jobs0) S.jobs0 = pc; return clamp(8*(S.jobs0/pc - 1), 0, 6); }
@@ -7485,7 +7485,7 @@ function showBuild(id){ liveSheet(() => {
   const b = BUILDINGS[id], chk = canBuild(id), up = objUpkeep(id), n = objCount(id), mat = b.mat || {}, sh = matShort(mat), q = queued(id);
   const outR = b.out ? Object.keys(b.out)[0] : null, outQ = outR ? objOut(id) : 0;
   const inc = outR ? (commodOpen(outR) ? outQ*commodPrice(outR) : 0) : objIncome(id)*upK(id);
-  const milOut = PLANT_CAP[id] !== undefined || id === "ammoplant" ? plantOne(id)*(1 + 0.5*tech("automation"))*milMult()*(id === "ammoplant" ? fasterK("chem") : plantFaster(id)) : 0, start = (S.mills0||{})[id]||0, off = pwOff(id), note = nextNote(id);
+  const milOut = PLANT_CAP[id] !== undefined || id === "ammoplant" ? plantOne(id)*(1 + techV("automation")/100*tech("automation"))*milMult()*(id === "ammoplant" ? fasterK("chem") : plantFaster(id)) : 0, start = (S.mills0||{})[id]||0, off = pwOff(id), note = nextNote(id);
   const resPct = b.cat === "res" ? 4/demandK() : 0, miss = Object.keys(sh.miss);
     const stats = [
           `${outR ? `<span>Выпуск <b class="num">+${fmtQ(outQ)}</b>/мес</span>` : ""}`,
