@@ -6032,7 +6032,7 @@ function advHead(who, mood, size){ const a = ADVISORS[who]; return `<div class="
 
 /* settings (per device) */
 const SETTINGS_KEY = "president-settings-v1", TUT_KEY = "president-tut-v1";
-let settings = (() => { const d = {sound:true, vibro:true, music:true, musicVol:55}; try { return Object.assign(d, JSON.parse(localStorage.getItem(SETTINGS_KEY))||{}); } catch(e){ return d; } })();
+let settings = (() => { const d = {sound:true, vibro:true, music:true, musicVol:55, night:true}; try { return Object.assign(d, JSON.parse(localStorage.getItem(SETTINGS_KEY))||{}); } catch(e){ return d; } })();
 // battlefield graphics: "auto" starts from the level the last fields settled on and steps down when the phone struggles
 const GFX_NAMES = {auto:"Авто", high:"Высокая", mid:"Средняя", low:"Низкая"};
 function gfxLevel(){ const g = settings.gfx || "auto"; return g === "auto" ? (settings.gfxAuto || "high") : g; }
@@ -6153,7 +6153,7 @@ function viewSettings(){
   return `<div class="grid2">
     <div class="panel"><h3>Звук и графика</h3>${sw("music","Музыка","Спокойная фоновая музыка")}
       <div class="slider"><label for="music-vol">Громкость музыки</label><span class="num">${settings.musicVol}%</span><input type="range" id="music-vol" min="0" max="100" value="${settings.musicVol}" data-musicvol></div>
-      ${sw("sound","Звуки","Нажатия, уведомления советников, события")}${sw("vibro","Вибрация","Короткий отклик при важных новостях")}
+      ${sw("sound","Звуки","Нажатия, уведомления советников, события")}${sw("vibro","Вибрация","Короткий отклик при важных новостях")}${sw("night","Ночь на карте","Тень ночи и огни городов медленно идут по карте")}
       <div class="srow s-gfx"><span><b>Графика поля боя</b><small>${(settings.gfx || "auto") === "auto" ? `Игра сама подбирает качество. Сейчас: ${GFX_NAMES[gfxLevel()].toLowerCase()}.` : "Низкая: упрощённые модели, без теней, меньше дыма."}</small></span>
       <div class="seg gfx-seg" role="group" aria-label="Графика поля боя">${Object.entries(GFX_NAMES).map(([k, n]) => `<button aria-pressed="${(settings.gfx || "auto") === k}" data-gfx="${k}">${n}</button>`).join("")}</div></div></div>
     <div class="panel"><h3>Игра</h3>
@@ -8155,6 +8155,14 @@ function mapClamp(){
 const MG = {ok:null, req:false, cv:null, gl:null, raf:0, tex:new Map(), q:[], z:0, n:0, pal:new Uint8Array(1024*2), sig:"", pulse:false, strokes:[], bloc:[]};
 const MG_VS_T = `attribute vec2 p;uniform vec4 R,V;varying vec2 t;void main(){t=p;vec2 u=R.xy+p*R.zw;gl_Position=vec4(u.x*V.x+V.y,u.y*V.z+V.w,0.,1.);}`;
 const MG_FS_T = `precision mediump float;uniform sampler2D T;varying vec2 t;void main(){gl_FragColor=vec4(texture2D(T,t).rgb,1.);}`;
+// Night (07.11, his plan): NASA Black Marble over the day photo where the sun is down. The sun goes round in NIGHT_TURN ms of real time, its height follows the game date.
+// Map units (900 wide, Miller) give longitude and latitude in the shader, as in tools/sat/build_sat.py. Low graphics: the night stands still; mid: 2 frames a second; high: 5.
+const NIGHT_TURN = 180000, NG = (() => { const R = 6381372, d = 180/Math.PI; return {A:(11.5 - 20004297.151525836/R*d).toFixed(6), B:((20026572.39474939 + 20004297.151525836)/900/R*d).toFixed(7), C:(-12671671.123330014/R).toFixed(7), E:((6930392.025135122 + 12671671.123330014)/440.70631074413296/R).toFixed(8)}; })();
+const MG_VS_N = `attribute vec2 p;uniform vec4 R,V;varying vec2 t,m;void main(){t=p;vec2 u=R.xy+p*R.zw;m=u;gl_Position=vec4(u.x*V.x+V.y,u.y*V.z+V.w,0.,1.);}`;
+const MG_FS_N = `#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\nuniform sampler2D T;uniform vec3 N;varying vec2 t,m;void main(){float lo=radians(${NG.A}+m.x*${NG.B}-N.z),la=radians((degrees(atan(exp(-.8*(${NG.C}+m.y*${NG.E}))))-45.)/.4);float cz=sin(la)*N.x+cos(la)*N.y*cos(lo);gl_FragColor=vec4(texture2D(T,t).rgb*1.15,1.-smoothstep(-.12,.1,cz));}`;
+function nightSun(){ if (!settings.night || !S || !MG.pN) return null; const t = gfxLevel() === "low" ? (MG.nT0 = MG.nT0 || performance.now()) : performance.now();
+  const dec = 23.44*Math.sin(2*Math.PI*((S.month||0)*30.4 + (S.day||1) - 80)/365)*Math.PI/180; return [Math.sin(dec), Math.cos(dec), 180 - (t/NIGHT_TURN*360) % 360]; }
+const nightMs = () => nightSun() ? ({high:200, mid:500}[gfxLevel()] || 0) : 0;
 const MG_VS_F = `attribute vec2 p;attribute float i;uniform vec4 V;varying float vI;varying vec2 vU;void main(){vI=i;vU=p;gl_Position=vec4(p.x*V.x+V.y,p.y*V.z+V.w,0.,1.);}`;
 const MG_HP = `#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -8225,7 +8233,7 @@ function mgReady(){
     const gl = cv.getContext("webgl", {alpha:false, antialias:true, stencil:true, depth:false, powerPreference:"high-performance"});
     if (!gl) return false;
     MG.cv = cv; MG.gl = gl;
-    MG.pT = mgProg(MG_VS_T, MG_FS_T); MG.pF = mgProg(MG_VS_F, MG_FS_F); MG.pL = mgProg(MG_VS_L, MG_FS_L); MG.pL.la = MG.pL.a("a"); MG.pL.lb = MG.pL.a("b");
+    MG.pT = mgProg(MG_VS_T, MG_FS_T); try { MG.pN = mgProg(MG_VS_N, MG_FS_N); } catch(e){ MG.pN = null; } MG.pF = mgProg(MG_VS_F, MG_FS_F); MG.pL = mgProg(MG_VS_L, MG_FS_L); MG.pL.la = MG.pL.a("a"); MG.pL.lb = MG.pL.a("b");
     const F = window.SAT_FILL, rings = {}, pos = new Float32Array(F.v*2), ids = new Float32Array(F.v); let v = 0;
     F.k.forEach((code, i) => { const rs = rings[code.toLowerCase()] = mgParse(WORLD.paths[code].path);
       rs.forEach(r => { for (let j = 0; j < r.length; j += 2){ pos[v*2] = r[j]; pos[v*2+1] = r[j+1]; ids[v++] = i; } }); });
@@ -8240,7 +8248,7 @@ function mgReady(){
     MG.bS = mk(gl.ARRAY_BUFFER, solid); MG.nS = solid.length/7; MG.bD = mk(gl.ARRAY_BUFFER, dis); MG.nD = dis.length/7;
     MG.bO = gl.createBuffer(); maInit();
     MG.tP = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, MG.tP); mgTexParams(); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    mgImg("sat/world.webp", im => { MG.t0 = mgTex(im); mgKick(); }, satFail);
+    mgImg("sat/world.webp", im => { MG.t0 = mgTex(im); mgKick(); }, satFail); mgImg("sat/night/world.webp", im => { MG.n0 = mgTex(im); mgKick(); }, () => {});
     cv.addEventListener("webglcontextlost", e => { e.preventDefault(); MG.ok = false; MG.gl = null; ui.mapHtml = null; setTimeout(render, 0); });
     MG.ok = true;
   } catch(e){ console.error(e); MG.ok = false; MG.gl = null; }
@@ -8304,16 +8312,17 @@ function mgTiles(){
   MG.z = z; if (!z) return;
   const u0 = -m.x/m.k, u1 = (w - m.x)/m.k, v0 = -(m.y||0)/m.k, v1 = (vh - (m.y||0))/m.k;
   MG.n++;
-  const add = (z, tx, ty) => { const id = `${z}_${tx}_${ty}`, have = MG.tex.get(id); if (have){ have.n = MG.n; return; }
-    const LW = SAT_LEVELS[z], LH = Math.ceil(LW*h/w), tu = SAT_TILE*w/LW, ph = Math.min(SAT_TILE, LH - ty*SAT_TILE), t = {z, n:MG.n, x:tx*tu, y:ty*tu, w:tu, h:ph*w/LW, t:null};
+  const add = (z, tx, ty, nt) => { const id = (nt ? "n" : "") + `${z}_${tx}_${ty}`, have = MG.tex.get(id); if (have){ have.n = MG.n; return; }
+    const LW = SAT_LEVELS[z], LH = Math.ceil(LW*h/w), tu = SAT_TILE*w/LW, ph = Math.min(SAT_TILE, LH - ty*SAT_TILE), t = {z, n:MG.n, x:tx*tu, y:ty*tu, w:tu, h:ph*w/LW, t:null, night:!!nt};
     MG.tex.set(id, t);
-    mgImg(`sat/${z}/${tx}_${ty}.webp`, im => { MG.q.push([t, im]); mgKick(); }, () => MG.tex.delete(id)); };
-  const cover = (z, f) => { const LW = SAT_LEVELS[z], LH = Math.ceil(LW*h/w), tu = SAT_TILE*w/LW, nx = LW/SAT_TILE, ny = Math.ceil(LH/SAT_TILE);
+    mgImg(`sat/${nt ? "night/" : ""}${z}/${tx}_${ty}.webp`, im => { MG.q.push([t, im]); mgKick(); }, () => MG.tex.delete(id)); };
+  const cover = (z, f, nt) => { const LW = SAT_LEVELS[z], LH = Math.ceil(LW*h/w), tu = SAT_TILE*w/LW, nx = LW/SAT_TILE, ny = Math.ceil(LH/SAT_TILE);
     for (let ty = Math.max(0, Math.floor(v0/tu)); ty <= Math.min(ny-1, Math.floor(v1/tu)); ty++)
-      for (let tx = Math.max(0, Math.floor(u0/tu)); tx <= Math.min(nx-1, Math.floor(u1/tu)); tx++) if (!f || f(tx, ty)) add(z, tx, ty); };
+      for (let tx = Math.max(0, Math.floor(u0/tu)); tx <= Math.min(nx-1, Math.floor(u1/tu)); tx++) if (!f || f(tx, ty)) add(z, tx, ty, nt); };
   if (z === 3){ cover(2); cover(3, (tx, ty) => SAT_Z3.has(`${tx}_${ty}`)); } else cover(z);   // level 3 (full photo) has land only, level 2 lies under it
-  if (MG.tex.size > 90){ const old = [...MG.tex.entries()].filter(([, t]) => t.t && t.n < MG.n).sort((a, b) => a[1].n - b[1].n);
-    old.slice(0, MG.tex.size - 90).forEach(([id, t]) => { MG.gl.deleteTexture(t.t); MG.tex.delete(id); }); }
+  if (nightSun()) cover(Math.min(z, 2), null, true);   // night tiles: level 2 at most, Black Marble is 13500 px
+  if (MG.tex.size > 130){ const old = [...MG.tex.entries()].filter(([, t]) => t.t && t.n < MG.n).sort((a, b) => a[1].n - b[1].n);
+    old.slice(0, MG.tex.size - 130).forEach(([id, t]) => { MG.gl.deleteTexture(t.t); MG.tex.delete(id); }); }
 }
 function mgBind(buf){ const gl = MG.gl, L = MG.pL; MG.lb = buf; gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(L.la); gl.enableVertexAttribArray(L.lb); gl.vertexAttribPointer(L.la, 4, gl.FLOAT, false, 28, 0); gl.vertexAttribPointer(L.lb, 3, gl.FLOAT, false, 28, 16); }
 function mgLine(buf, first, n, c, w, dash, masked){
@@ -8338,8 +8347,15 @@ function mgFrame(){
   gl.uniform4f(T.u.V, a, b, c, d); gl.uniform1i(T.u.T, 0);
   gl.bindTexture(gl.TEXTURE_2D, MG.t0); gl.uniform4f(T.u.R, 0, 0, mw, mh); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   const u0 = -m.x/m.k, u1 = (w - m.x)/m.k, v0 = -(m.y||0)/m.k, v1 = (vh - (m.y||0))/m.k;
-  for (let z = 1; z <= MG.z; z++) MG.tex.forEach(t => { if (t.z !== z || !t.t || t.x > u1 || t.x + t.w < u0 || t.y > v1 || t.y + t.h < v0) return;
+  for (let z = 1; z <= MG.z; z++) MG.tex.forEach(t => { if (t.night || t.z !== z || !t.t || t.x > u1 || t.x + t.w < u0 || t.y > v1 || t.y + t.h < v0) return;
     gl.bindTexture(gl.TEXTURE_2D, t.t); gl.uniform4f(T.u.R, t.x, t.y, t.w, t.h); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });
+  // night: Black Marble where the sun is down, the day photo stays where it is up
+  const ns = nightSun();
+  if (ns && MG.n0){ const N = MG.pN, nP = N.a("p"); gl.useProgram(N.p); gl.enableVertexAttribArray(nP); gl.vertexAttribPointer(nP, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform4f(N.u.V, a, b, c, d); gl.uniform1i(N.u.T, 0); gl.uniform3f(N.u.N, ns[0], ns[1], ns[2]); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindTexture(gl.TEXTURE_2D, MG.n0); gl.uniform4f(N.u.R, 0, 0, mw, mh); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    for (let z = 1; z <= Math.min(2, MG.z); z++) MG.tex.forEach(t => { if (!t.night || t.z !== z || !t.t || t.x > u1 || t.x + t.w < u0 || t.y > v1 || t.y + t.h < v0) return;
+      gl.bindTexture(gl.TEXTURE_2D, t.t); gl.uniform4f(N.u.R, t.x, t.y, t.w, t.h); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }); }
   // country fills, then the bloc as a stencil mask
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   const F = MG.pF, fp = F.a("p"), fi = F.a("i"); gl.useProgram(F.p);
@@ -8369,6 +8385,7 @@ function mgFrame(){
   mgOver(a, b, c, d, w, vh, cw, ch);
   if (MG.q.length) mgKick();
   else if ((MG.pulse || MG.anim || MA.bdAnim) && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, MG.anim || MA.bdAnim ? 66 : 110);
+  else if (nightMs() && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, nightMs());   // the night crawls on
 }
 /* ---- world map, stage 2: names, flags, capitals, route lines, war marks and held land are drawn by the video card too.
    The SVG keeps them hidden as the source of text, class and colour (and of the battle tap targets), so nothing here
