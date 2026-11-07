@@ -8464,7 +8464,7 @@ function mgFxRead(fx, lg){
   fx.querySelectorAll(".fx-ocean,.fx-cap,.fx-city,.fx-battle,.fx-arrow").forEach(el => {
     const g = el.closest(".fx-mark"); if (!g) return; const [x, y] = num(g), c = el.classList;
     if (c.contains("fx-ocean")) marks.push({kind:"ocean", x, y, el:el.querySelector("text"), n:0});
-    else if (c.contains("fx-cap")) marks.push({kind:"cap", x, y, el:el.querySelector("text"), star:el.querySelector(".cap-star"), tier:+el.dataset.tier, id:c.contains("me") ? "me" : "", n:1});
+    else if (c.contains("fx-cap")) marks.push({kind:"cap", x, y, el:el.querySelector("text"), star:el.querySelector(".cap-star"), tier:+el.dataset.tier, id:c.contains("me") ? "me" : "", iso:el.dataset.iso, n:1});
     else if (c.contains("fx-city")) marks.push({kind:"city", x, y, dot:el.querySelector("circle"), el:el.querySelector("text"), n:2});
     else if (c.contains("fx-battle")){ const f = el.querySelector(".fx-front"); marks.push({kind:"battle", x, y, f, sw:el.querySelector(".fx-swords"), still:getComputedStyle(f).animationName === "none", n:4}); anim = true; }
     else marks.push({kind:"arrow", x, y, el, rot:(+g.dataset.r || 0)*Math.PI/180, n:3});
@@ -8534,13 +8534,15 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   // marks and names, in the order of the old layers
   MA.n = 0;
   const cssW = cw/D, upp = w/cssW, PX = cssW < 520 ? 9.5 : 11.5, now = performance.now();
-  MA.bdAnim = false;   // own buildings first, so every mark and name lies on top of them
-  if (k >= BD_K) (MA.bd || []).forEach(q => { const x = sx(q.x), y = sy(q.y), z = bdSize(k)*D; if (!on(x, y, z)) return; const s = maDecal(q.id); if (!s) return;
+  const mk = maskReady(); MA.bdAnim = false;   // own buildings first, so every mark and name lies on top of them
+  if (k >= BD_K) (MA.bd || []).forEach(q => { const x = sx(q.x), y = sy(q.y), z = bdSize(k)*D*((ui.pins && ui.pins.sc) || 1); if (!on(x, y, z)) return; const s = maDecal(q.id); if (!s) return;
     const a = q.born ? clamp((now - q.born)/BD_GROW, 0, 1) : 1, e = 1 - Math.pow(1 - a, 3); if (a < 1) MA.bdAnim = true; maQuad(s, x, y, e, 0, z/s.W*(0.5 + 0.5*e)); });
   MA.marks.forEach(q => { const x = sx(q.x), y = sy(q.y); if (!on(x, y, 300*D)) return;
     if (q.kind === "ocean"){ if (k <= 2.4){ const st = maStyle(q.el); maQuad(maText(q.el.textContent, st, st.fs, 0, {mid:true}), x, y, 1); } return; }
-    if (q.kind === "cap"){ if (!((q.tier === 0 && k >= 1.2) || (q.tier === 1 && k >= 2) || (q.tier === 2 && k >= 3.2))) return;
-      const st = maStyle(q.el), ss = maStyle(q.star), star = q.star.getAttribute("d");
+    if (q.kind === "cap"){ const k0 = [1.2, 2, 3.2][q.tier] ?? 3.2; if (k < k0) return;
+      const st = maStyle(q.el), ss = maStyle(q.star), star = q.star.getAttribute("d"), text = q.el.textContent, side = mk && q.iso ? capSide(q, text, st, k, k0, upp) : "r";
+      if (side !== "r"){ maQuad(maShape("cs" + ss.k, -6, -6, 12, 12, c => maPath(c, ss, new Path2D(star))), x, y, 1);   // the name does not fit on the right: star, name on the left or none
+        if (side === "l") maQuad(maText(text, st, st.fs, st.sw, {origin:maTextW(text, st, st.fs, st.sw) + 5, id:"L" + q.tier + q.id}), x, y, 1); return; }
       maQuad(maText(q.el.textContent, st, st.fs, st.sw, {left:6, origin:6, id:q.tier + q.id, pre:(c, h) => { c.save(); c.translate(6, h/2); maPath(c, ss, new Path2D(star)); c.restore(); maPaintStyle(c, st, st.fs); }}), x, y, 1); return; }
     if (q.kind === "city"){ const ds = maStyle(q.dot), r = +q.dot.getAttribute("r"); maQuad(maShape("c" + ds.k + r, -r - 2, -r - 2, r*2 + 4, r*2 + 4, c => maPath(c, ds, maCircle(r))), x, y, 1);
       if (q.el && k >= 1.8){ const st = maStyle(q.el); maQuad(maText(q.el.textContent, st, st.fs, st.sw, {dx:7}), x, y, 1); } return; }
@@ -8554,13 +8556,15 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   MA.cargo.forEach(q => { const t = q.x, u = clamp(1 - (t.left - step)/t.total, 0, 1); if (t.left <= 0) return; const p = qbez(q.g, u), x = sx(p.x), y = sy(p.y); if (!on(x, y, 20*D)) return;
     const st = maStyle(q.ring); maQuad(maShape("g" + st.k, -12, -12, 24, 24, c => maPath(c, st, maCircle(10))), x, y, 1); maQuad(maIcon(q.icon), x, y, 1); });
   const placed = [];
-  MA.lbl.forEach(it => { const px = sx(it.L.x)/D, py = sy(it.L.y)/D, sw = it.L.w*k/upp, st = maStyle(it.el), s = maText(it.text, st, PX, 3, {mid:true}); if (!s) return;
-    const tw = s.W/D - 8, fits = it.pri >= 3 || sw >= tw*(it.pri === 2 ? .55 : .95);
+  MA.lbl.forEach(it => { const px = sx(it.L.x)/D, py = sy(it.L.y)/D, sw = it.L.w*k/upp, st = maStyle(it.el); let s = maText(it.text, st, PX, 3, {mid:true}); if (!s) return;
+    let tw = s.W/D - 8, flag = it.flag && (it.pri >= 2 || k >= 2.2), fits = it.pri >= 4 || !mk ? it.pri >= 3 || sw >= tw*(it.pri === 2 ? .55 : .95) : false;
+    if (it.pri < 4 && mk){ const v = nameFit(it, tw, PX, upp, k);   // a name shows only inside its borders: with the flag, without it, smaller, or not yet
+      if (v){ fits = true; if (v > 1) flag = false; if (v === 3){ s = maText(it.text, st, Math.round(PX*.8), 3, {mid:true}); tw = s.W/D - 8; } } }
     if (!fits || px < -40 || px > cssW + 40 || py < -10 || py > ch/D + 10) return;
-    const box = [px - tw/2 - PX*1.5, py - PX*.6, px + tw/2 + 2, py + PX*.6];
+    const box = [px - tw/2 - (flag ? PX*1.5 : 2), py - PX*.6, px + tw/2 + 2, py + PX*.6];
     if (placed.some(q => box[0] < q[2] && box[2] > q[0] && box[1] < q[3] && box[3] > q[1])) return;
     placed.push(box); maQuad(s, px*D, py*D, 1);
-    if (it.flag && (it.pri >= 2 || k >= 2.2)) maQuad(maFlag(it.iso, Math.round(PX*1.25), Math.round(PX*.94)), (px - tw/2 - 3)*D, py*D, 1); });
+    if (flag) maQuad(maFlag(it.iso, Math.round(PX*1.25), Math.round(PX*.94)), (px - tw/2 - 3)*D, py*D, 1); });
   if (MA.n){ bindS(); gl.bufferData(gl.ARRAY_BUFFER, MA.v.subarray(0, MA.n), gl.DYNAMIC_DRAW); gl.bindTexture(gl.TEXTURE_2D, MA.tex); gl.drawArrays(gl.TRIANGLES, 0, MA.n/5); }
 }
 /* satellite base map: one 2048 px world image plus 512 px tiles at 4096 / 8192 px, loaded for the visible area */
@@ -8700,21 +8704,47 @@ function floatText(iso, text, kind){
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
 const PIN_ICON = {hydro:"power",solar:"power",institute:"science",enrich:"power",npp:"power",shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
-// Own buildings on the land: his pictures as soft round decals (07.11). With WebGL they are drawn in mgOver under every mark and name
+// Own buildings on the land: his pictures as medallions with a gold rim (07.11, his choice after soft decals looked bad). With WebGL they are drawn in mgOver under every mark and name
 // (his wish: country names stay on top); the SVG keeps the tap target, which opens the building sheet. A new one grows in.
-const BD_K = 2.6, BD_MIN = 20, BD_MAX = 56, BD_A = 48, BD_P = 160, BD_GROW = 700, BD = {cv:{}, im:{}, url:{}, t:0};
+const BD_K = 2.6, BD_MIN = 20, BD_MAX = 44, BD_A = 44, BD_P = 160, BD_GROW = 700, BD = {cv:{}, im:{}, url:{}, t:0};
 const bdSize = k => clamp(BD_MIN*k/BD_K, BD_MIN, BD_MAX);   // css px on screen, grows with the zoom
 function bdCanvas(id){
   if (BD.cv[id] || BD.im[id] || !BLD_PICS.has(id)) return BD.cv[id] || null;
   const im = BD.im[id] = new Image();
   im.onload = () => { const c = document.createElement("canvas"); c.width = c.height = BD_P; const x = c.getContext("2d"), s = Math.min(im.width, im.height);
-    x.filter = "saturate(.78) brightness(.93)"; x.drawImage(im, (im.width - s)/2, (im.height - s)/2, s, s, 0, 0, BD_P, BD_P); x.filter = "none";
-    const g = x.createRadialGradient(BD_P/2, BD_P/2, BD_P*0.27, BD_P/2, BD_P/2, BD_P/2); g.addColorStop(0, "#000"); g.addColorStop(1, "rgba(0,0,0,0)");
-    x.globalCompositeOperation = "destination-in"; x.fillStyle = g; x.fillRect(0, 0, BD_P, BD_P);
+    const h = BD_P/2, r = h - BD_P*0.03, ring = BD_P*0.055;
+    x.save(); x.beginPath(); x.arc(h, h, r, 0, Math.PI*2); x.clip(); x.drawImage(im, (im.width - s)/2, (im.height - s)/2, s, s, h - r, h - r, r*2, r*2); x.restore();
+    x.lineWidth = ring; x.strokeStyle = "#F2A93B"; x.beginPath(); x.arc(h, h, r - ring/2, 0, Math.PI*2); x.stroke();   // gold rim of the staff theme
+    x.lineWidth = BD_P*0.022; x.strokeStyle = "rgba(6,14,30,.85)"; x.beginPath(); x.arc(h, h, r + BD_P*0.008, 0, Math.PI*2); x.stroke();
     BD.cv[id] = c; try { BD.url[id] = c.toDataURL(); } catch(e){}
     if (mgOn()) mgKick(); else { clearTimeout(BD.t); BD.t = setTimeout(() => { const fx = document.getElementById("map-fx"); if (fx && S){ fx.innerHTML = fxMarkup(); updateLabels(); } }, 250); } };
   im.src = `icons/buildings/${id}.webp`; return null;
 }
+// Countries painted once into an id raster (07.11): names, capitals and medallions are drawn only where they lie inside their own country
+const MK = {g:null, n:0, w:0, h:0, sc:1, px:null, id:{}, fit:new Map()};
+function maskReady(){
+  const g = document.getElementById("countries-g"); if (!g) return false;
+  const ps = g.querySelectorAll("path[data-iso]"); if (!ps.length) return false;
+  if (MK.g === g && MK.n === ps.length && MK.px) return true;
+  const [w, h] = mapSize(), W = 2048, sc = W/w, H = Math.ceil(h*sc), cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const c = cv.getContext("2d", {willReadFrequently:true}); c.setTransform(sc, 0, 0, sc, 0, 0); MK.id = {}; let n = 0;
+  ps.forEach(p => { const iso = p.dataset.iso; if (!MK.id[iso]) MK.id[iso] = ++n; const v = MK.id[iso]; c.fillStyle = `rgb(${v & 255},${v >> 8},1)`; c.fill(new Path2D(p.getAttribute("d"))); });
+  MK.px = new Uint32Array(c.getImageData(0, 0, W, H).data.buffer); Object.assign(MK, {g, n:ps.length, w:W, h:H, sc, fit:new Map()}); return true;
+}
+function inCtry(iso, x, y, sea){ const v = MK.id[iso]; if (!v) return true; const i = Math.floor(x*MK.sc), j = Math.floor(y*MK.sc); if (i < 0 || j < 0 || i >= MK.w || j >= MK.h) return !!sea;
+  const p = MK.px[j*MK.w + i]; if ((p >>> 24) !== 255) return !!sea; return (p & 255) === (v & 255) && ((p >> 8) & 255) === (v >> 8); }   // with sea: water is fine too, another country never (blended border pixels count as another country)
+const fitBox = (iso, x0, y0, x1, y1, sea) => [[0,0],[.5,0],[1,0],[0,1],[.5,1],[1,1],[0,.5],[1,.5]].every(([a, b]) => inCtry(iso, x0 + (x1 - x0)*a, y0 + (y1 - y0)*b, sea));
+function fitK(k0, test){ if (test(k0)) return k0; if (!test(10)) return Infinity; let lo = k0, hi = 10; for (let i = 0; i < 7; i++){ const m = (lo + hi)/2; if (test(m)) hi = m; else lo = m; } return hi; }   // smallest zoom where it fits
+function maTextW(text, st, size, sw){ maPaintStyle(MA.cx, st, size); return Math.ceil(MA.cx.measureText(text).width) + 1 + 2*(Math.ceil(sw/2) + 1); }
+function nameFit(it, tw, PX, upp, k){ const key = "n" + it.iso + "|" + Math.round(tw) + "|" + upp.toFixed(3); let f = MK.fit.get(key);
+  if (!f){ const L = it.L, t = (left, half, hh, sea) => kk => { const u = upp/kk; return fitBox(it.iso, L.x - (half + left)*u, L.y - hh*u, L.x + (half + 2)*u, L.y + hh*u, sea); };
+    const v = sea => [fitK(1, t(PX*1.4, tw/2, PX*.55, sea)), fitK(1, t(2, tw/2, PX*.55, sea)), fitK(1, t(2, tw*.4, PX*.45, sea))];
+    f = v(false); if (f.every(x => x === Infinity)) f = v(true); MK.fit.set(key, f); }   // islands: over the sea, never over a neighbour
+  return k >= f[0] ? 1 : k >= f[1] ? 2 : k >= f[2] ? 3 : 0; }   // 1 with the flag, 2 without it, 3 smaller, 0 not yet
+function capSide(q, text, st, k, k0, upp){ const key = "c" + q.iso + "|" + q.tier + "|" + upp.toFixed(3); let f = MK.fit.get(key);
+  if (!f){ const tw = maTextW(text, st, st.fs, st.sw), hh = st.fs*0.6, box = (kk, a, b) => { const u = upp/kk; return fitBox(q.iso, q.x + a*u, q.y - hh*u, q.x + b*u, q.y + hh*u, true); };   // a capital name may hang over the sea, never over a neighbour
+    f = {r:fitK(k0, kk => box(kk, 3, tw + 4)), l:fitK(k0, kk => box(kk, -(tw + 6), -3))}; MK.fit.set(key, f); }
+  return k >= f.r ? "r" : k >= f.l ? "l" : ""; }   // the name goes right, else left, else only the star until zoomed in
 function maDecal(id){ const cv = bdCanvas(id); return cv ? maShape("bd" + id, -BD_A/2, -BD_A/2, BD_A, BD_A, c => c.drawImage(cv, -BD_A/2, -BD_A/2, BD_A, BD_A)) : null; }
 function buildingPins(){
   const list = []; Object.keys(BUILDINGS).forEach(id => { for (let i = 0; i < Math.min(objCount(id), 4); i++) list.push(id + "#" + i); });
@@ -8722,14 +8752,20 @@ function buildingPins(){
   const L = LABELS[S.player], svg = document.getElementById("worldmap"), sw = svg ? Math.round(svg.getBoundingClientRect().width) : 0, key = L ? [S.player, L.x.toFixed(0), L.y.toFixed(0), L.w.toFixed(0), sw].join(":") : S.player;
   if (!ui.pins || ui.pins.key !== key){
     const path = document.querySelector(`#worldmap path[data-iso="${S.player}"]`); if (!path || !L) return "";
-    const pts = [], gap = Math.max(Math.min(L.w, L.h)*0.07, sw ? 0.8*BD_MIN*mapSize()[0]/sw/BD_K : 0); let seed = 7;   // pictures do not pile up: at least 0.8 of their size apart
-    const rnd1 = () => { seed = (seed*9301 + 49297) % 233280; return seed/233280; };
-    for (let tries = 0; tries < 900 && pts.length < 28; tries++){
-      const x = L.x - L.w/2 + rnd1()*L.w, y = L.y - L.h/2 + rnd1()*L.h;
-      let inside = false; try { inside = path.isPointInFill(new DOMPoint(x, y)); } catch(e){ inside = true; }
-      if (inside && Math.hypot(x - L.x, y - L.y) > Math.min(L.w, L.h)*0.06 && pts.every(q => Math.hypot(q.x-x, q.y-y) > gap)) pts.push({x, y});
+    const mk = maskReady(), R0 = (BD_MIN/2 + 1)*(sw ? mapSize()[0]/sw : 1)/BD_K;   // a medallion's radius in map units
+    const inside = (x, y, r) => { if (!mk){ try { return path.isPointInFill(new DOMPoint(x, y)); } catch(e){ return true; } }
+      for (let a = -1; a < 8; a++) if (!inCtry(S.player, a < 0 ? x : x + r*Math.cos(a*Math.PI/4), a < 0 ? y : y + r*Math.sin(a*Math.PI/4))) return false; return true; };
+    let pts = [], f = 1;
+    for (f of [1, .75, .55, .4]){   // the whole medallion stays inside the border; a small country gets smaller ones
+      pts = []; let seed = 7; const r = R0*f*1.05, gap = Math.max(Math.min(L.w, L.h)*0.07, 2.15*R0*f);
+      const rnd1 = () => { seed = (seed*9301 + 49297) % 233280; return seed/233280; };
+      for (let tries = 0; tries < 900 && pts.length < 28; tries++){
+        const x = L.x - L.w/2 + rnd1()*L.w, y = L.y - L.h/2 + rnd1()*L.h;
+        if (inside(x, y, r) && Math.hypot(x - L.x, y - L.y) > Math.min(L.w, L.h)*0.06 && pts.every(q => Math.hypot(q.x-x, q.y-y) > gap)) pts.push({x, y});
+      }
+      if (pts.length >= 4) break;
     }
-    ui.pins = {key, pts, at:{}, born:{}, first:true};
+    ui.pins = {key, pts, sc:f, at:{}, born:{}, first:true};
   }
   const P = ui.pins, at = {}, used = new Set(), now = performance.now();
   list.forEach(b => { const i = P.at[b]; if (i !== undefined){ at[b] = i; used.add(i); } });   // a building keeps its place
@@ -8802,7 +8838,7 @@ function fxMarkup(){
   // capitals
   Object.entries(CAPITALS).forEach(([iso, [n, la, lo]]) => { if (!LABELS[iso]) return; const q = proj(la, lo); if (!q) return;
     const tier = iso === S.player ? 0 : C()[iso] ? 1 : 2;
-    under += `<g class="fx-mark fx-cap t${tier} ${iso===S.player?"me":""}" data-x="${q.x.toFixed(1)}" data-y="${q.y.toFixed(1)}" data-tier="${tier}"><path d="M0,-4.2L1.2,-1.3L4.2,-1.3L1.8,0.6L2.7,3.6L0,1.8L-2.7,3.6L-1.8,0.6L-4.2,-1.3L-1.2,-1.3Z" class="cap-star"/><text x="6" y="3.5">${n}</text></g>`; });
+    under += `<g class="fx-mark fx-cap t${tier} ${iso===S.player?"me":""}" data-x="${q.x.toFixed(1)}" data-y="${q.y.toFixed(1)}" data-tier="${tier}" data-iso="${iso}"><path d="M0,-4.2L1.2,-1.3L4.2,-1.3L1.8,0.6L2.7,3.6L0,1.8L-2.7,3.6L-1.8,0.6L-4.2,-1.3L-1.2,-1.3Z" class="cap-star"/><text x="6" y="3.5">${n}</text></g>`; });
   // deposits in the resource map mode
   if ((ui.mapMode||"pol") === "res"){
     const r = ui.resMode || "oil";
@@ -8851,7 +8887,7 @@ function updateLabels(){
   if (!gl) document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
   const nameL = LABELS[S && S.player], nameW = nameL ? (partnerName(S.player).length*4.7 + 12)*upp/k : 0, nameH = 18*upp/k;   // a pin never covers the name of the own country, it comes back on zoom
   document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= BD_K && (el.classList.contains("fx-bd") || !(nameL && Math.abs(el.dataset.x - nameL.x) < nameW && Math.abs(el.dataset.y - nameL.y) < nameH)) ? "" : "none"; });   // pictures lie under the names
-  const bs = (upp/k*bdSize(k)/BD_MIN).toFixed(4); document.querySelectorAll("#map-fx .fx-bd").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${bs})`));
+  const bs = (upp/k*bdSize(k)/BD_MIN*((ui.pins && ui.pins.sc) || 1)).toFixed(4); document.querySelectorAll("#map-fx .fx-bd").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${bs})`));
   if (!gl) document.querySelectorAll("#map-fx .fc-name").forEach(el => { el.style.display = k >= 1.8 ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fx-ocean").forEach(el => { el.style.display = k <= 2.4 ? "" : "none"; });
 }
