@@ -8121,7 +8121,7 @@ function viewMap(){
   if (!sel) card = null;
   else if (!x) card = null;
   else if (x.id === S.player) card = `<div class="panel"><div class="row"><h3>${flag(x.id)} ${esc(x.name)} — ваша страна</h3></div>
-      <div class="bstats"><span>Экономика <b class="num">${money(x.gdp/365)}/день</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span><span>Под контролем <b class="num">${controlled().length} стран</b></span></div>
+      <div class="bstats"><span>Доход <b class="num">${money(budget().income/30)}/день</b></span><span>Население <b class="num">${people(x.pop)}</b></span><span>Мощь <b class="num">${Math.round(myPower())}</b></span>${(n => n ? `<span>Под контролем <b class="num">${n} ${plural(n, "страна", "страны", "стран")}</b></span>` : "")(controlled().filter(c => c.id !== S.player).length)}</div>
       <p class="muted" style="margin:0">Значки над страной — ваши постройки: нажмите, чтобы открыть нужный раздел. «+» — новая стройка.</p></div>`;
   else if (!x.owner) card = null;
   else card = `<div class="panel"><div class="row"><h3>${ic("diplomacy","sm")} ${x.owner ? "Оккупированная территория" : "Выбранная страна"}</h3></div>${dipRow(x)}${x.owner ? "" : tradeBlock(x.id)}</div>`;
@@ -9012,15 +9012,13 @@ function fxMarkup(){
     marks += `<g class="fx-mark fx-cargo ${x.dir}" data-sid="${x.id}" data-ic="${cn}" data-x="${pt.x.toFixed(1)}" data-y="${pt.y.toFixed(1)}"><circle r="10" class="fx-cg"/>${cp ? `<image href="icons/${cp}.webp" x="-8" y="-8" width="16" height="16"/>` : `<use href="#${iref(cn)}" x="-6" y="-6" width="12" height="12" class="cu"/>`}</g>`;
   });
   Object.values(S.partners||{}).length && Object.entries(S.partners).forEach(([iso,p]) => { const L = LABELS[iso]; if (p.trade && L && !C()[iso] && !contractIsos.includes(iso)) lines += `<path class="fx-trade" d="${fxCurve(home, L).d}"/>`; });
-  // own buildings: badges under the capital label
-  const groups = [["wood",["sawmill"]],["steel",["steelworks"]],["oil",["oilrig","oil"]],["gold",["goldmine"]],["factory",["chem","auto","chips"]],["bridge",["bridge","highway","metro","airport","port"]],["tank",["tankplant","heliplant","aviaplant","samplant"]]]
-    .map(([icn, ids]) => [icn, ids.reduce((a,id)=>a+objCount(id),0)]).filter(([,n])=>n>0);
+  // own buildings: badges above the own name, his building pictures (07.11, the old resource icons looked wrong), the most numerous 5 types; a tap opens the building, "+" the Build tab
   if (ui.mapSel === S.player && !ui.cardHidden){
-    const go = {wood:"build:mat", steel:"build:mat", oil:"build:mat", gold:"build:mat", factory:"build:ind", bridge:"build:inf", tank:"army"};
-    const all = [...groups, ["plus", 0]];
-    all.forEach(([icn, n], i) => {
-      const dx = (i - (all.length-1)/2) * 30;
-      marks += mark(home.x, home.y, `<g class="fx-btn" data-go="${icn==="plus" ? "build" : go[icn]}" transform="translate(${dx} -26)"><circle r="12.5" class="fx-bld ${icn==="plus"?"add":""}"/><use href="#${iref(icn)}" x="-7.5" y="-7.5" width="15" height="15" class="${COLOR_IC.has(icn)?"cu":"fx-bld-ic"}"/>${n>1?`<text x="10" y="-8" class="fx-n">${n}</text>`:""}</g>`, "fx-pop");
+    const own = Object.entries(S.buildings || {}).filter(([id, n]) => n > 0 && BUILDINGS[id]).sort((a, b) => b[1] - a[1]).slice(0, 5), all = [...own, ["plus", 0]];
+    all.forEach(([id, n], i) => {
+      const dx = (i - (all.length - 1)/2)*32, pic = id !== "plus" && BLD_PICS.has(id), icn = id === "plus" ? "plus" : PIN_ICON[id] || "factory";
+      const face = pic ? `<image href="icons/buildings/${id}.webp" x="-12" y="-12" width="24" height="24" preserveAspectRatio="xMidYMid slice" style="clip-path:circle(50%)"/>` : `<use href="#${iref(icn)}" x="-7.5" y="-7.5" width="15" height="15" class="${COLOR_IC.has(icn) ? "cu" : "fx-bld-ic"}"/>`;
+      marks += mark(home.x, home.y, `<g class="fx-btn" ${id === "plus" ? `data-go="build"` : `data-bd="${id}"`} transform="translate(${dx} -30)"><circle r="13.5" class="fx-bld ${id === "plus" ? "add" : ""}"/>${face}${n > 1 ? `<text y="23" text-anchor="middle" class="fx-n">${n}</text>` : ""}${id === "plus" ? "" : `<title>${BUILDINGS[id].name}</title>`}</g>`, "fx-pop");
     });
   }
   // ripples for fresh events

@@ -46,7 +46,7 @@ jobs:
           sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="sensorLandscape"/' android/app/src/main/AndroidManifest.xml
           grep -n "screenOrientation" android/app/src/main/AndroidManifest.xml
 
-      - name: Highest screen refresh rate
+      - name: Highest screen refresh rate, full screen
         run: |
           cat > android/app/src/main/java/com/askarhan/kabinet/MainActivity.java <<'JAVA'
           package com.askarhan.kabinet;
@@ -55,6 +55,9 @@ jobs:
           import android.os.Bundle;
           import android.view.Display;
           import android.view.WindowManager;
+          import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsCompat;
+          import androidx.core.view.WindowInsetsControllerCompat;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
@@ -70,6 +73,23 @@ jobs:
                 a.preferredDisplayModeId = best.getModeId();
                 getWindow().setAttributes(a);
               }
+              hideBars();
+            }
+            // full screen: bars pulled out by a swipe from the edge hide again by themselves (07.11: the status bar stayed after a swipe)
+            private void hideBars() {
+              WindowInsetsControllerCompat c = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+              c.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+              c.hide(WindowInsetsCompat.Type.systemBars());
+            }
+            @Override
+            public void onWindowFocusChanged(boolean hasFocus) {
+              super.onWindowFocusChanged(hasFocus);
+              if (hasFocus) hideBars();
+            }
+            @Override
+            public void onResume() {
+              super.onResume();
+              hideBars();
             }
           }
           JAVA
