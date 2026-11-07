@@ -869,6 +869,8 @@ use.cu{fill:#000;stroke:none}
 .map-wrap.sat-on #worldmap{position:relative}
 .sat-on #countries-g{filter:none}
 #map-gl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#map-fx .fx-bd .fx-hit{fill:transparent;stroke:none} .map-gl #map-fx .fx-bd image{display:none}
+#map-fx .fx-bd image.bd-new{transform-box:fill-box;transform-origin:center;animation:bdGrow .7s cubic-bezier(.2,.8,.3,1)} @keyframes bdGrow{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
 .map-gl #worldmap{transform-origin:0 0;will-change:transform}
 .map-gl #countries-g{visibility:hidden}
 .map-gl #worldmap #countries-g path{pointer-events:fill;animation:none;transition:none;filter:none}
@@ -8366,7 +8368,7 @@ function mgFrame(){
   gl.stencilMask(255); gl.disable(gl.STENCIL_TEST);
   mgOver(a, b, c, d, w, vh, cw, ch);
   if (MG.q.length) mgKick();
-  else if ((MG.pulse || MG.anim) && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, MG.anim ? 66 : 110);
+  else if ((MG.pulse || MG.anim || MA.bdAnim) && ui.tab === "map" && !MG.pt) MG.pt = setTimeout(() => { MG.pt = 0; mgKick(); }, MG.anim || MA.bdAnim ? 66 : 110);
 }
 /* ---- world map, stage 2: names, flags, capitals, route lines, war marks and held land are drawn by the video card too.
    The SVG keeps them hidden as the source of text, class and colour (and of the battle tap targets), so nothing here
@@ -8441,14 +8443,14 @@ function maIcon(name){
     return null; }
   return im ? maDraw(key, sz, sz, sz/2, sz/2, c => c.drawImage(im, 0, 0, sz, sz)) : null;
 }
-function maQuad(s, x, y, o, rot){
+function maQuad(s, x, y, o, rot, sc){
   if (!s) return;
   if (MA.n + 30 > MA.v.length){ const v = new Float32Array(MA.v.length*2); v.set(MA.v); MA.v = v; }
   const v = MA.v; let n = MA.n;
   const put = (px, py, a, b) => { v[n++] = px; v[n++] = py; v[n++] = a; v[n++] = b; v[n++] = o; };
   if (rot){ const c = Math.cos(rot), q = Math.sin(rot), P = (i, j) => [x + i*c - j*q, y + i*q + j*c], l = -s.ax, t = -s.ay, r = l + s.W, b = t + s.H, A = P(l, t), B = P(r, t), C_ = P(l, b), D = P(r, b);
     put(A[0], A[1], s.u0, s.v0); put(B[0], B[1], s.u1, s.v0); put(C_[0], C_[1], s.u0, s.v1); put(C_[0], C_[1], s.u0, s.v1); put(B[0], B[1], s.u1, s.v0); put(D[0], D[1], s.u1, s.v1); }
-  else { const l = Math.round(x - s.ax), t = Math.round(y - s.ay), r = l + s.W, b = t + s.H;
+  else { const f = sc || 1, l = Math.round(x - s.ax*f), t = Math.round(y - s.ay*f), r = l + s.W*f, b = t + s.H*f;
     put(l, t, s.u0, s.v0); put(r, t, s.u1, s.v0); put(l, b, s.u0, s.v1); put(l, b, s.u0, s.v1); put(r, t, s.u1, s.v0); put(r, b, s.u1, s.v1); }
   MA.n = n;
 }
@@ -8468,6 +8470,7 @@ function mgFxRead(fx, lg){
     else marks.push({kind:"arrow", x, y, el, rot:(+g.dataset.r || 0)*Math.PI/180, n:3});
   });
   MA.marks = marks.sort((a, b) => a.n - b.n);
+  MA.bd = [...fx.querySelectorAll(".fx-bd")].map(el => ({id:el.dataset.bd, x:+el.dataset.x, y:+el.dataset.y, born:+(el.dataset.born || 0)}));
   const ships = new Map((S.shipments || []).map(x => [String(x.id), x]));
   MA.cargo = [...fx.querySelectorAll(".fx-cargo")].map(el => { const x = ships.get(el.dataset.sid), A = x && LABELS[x.from], B = x && LABELS[x.to]; return A && B ? {x, g:fxGeom(A, B), ring:el.querySelector(".fx-cg"), icon:el.dataset.ic} : null; }).filter(Boolean);
   // several shipments from one country share a line
@@ -8531,6 +8534,9 @@ function mgOver(a, b, c, d, w, vh, cw, ch){
   // marks and names, in the order of the old layers
   MA.n = 0;
   const cssW = cw/D, upp = w/cssW, PX = cssW < 520 ? 9.5 : 11.5, now = performance.now();
+  MA.bdAnim = false;   // own buildings first, so every mark and name lies on top of them
+  if (k >= BD_K) (MA.bd || []).forEach(q => { const x = sx(q.x), y = sy(q.y), z = bdSize(k)*D; if (!on(x, y, z)) return; const s = maDecal(q.id); if (!s) return;
+    const a = q.born ? clamp((now - q.born)/BD_GROW, 0, 1) : 1, e = 1 - Math.pow(1 - a, 3); if (a < 1) MA.bdAnim = true; maQuad(s, x, y, e, 0, z/s.W*(0.5 + 0.5*e)); });
   MA.marks.forEach(q => { const x = sx(q.x), y = sy(q.y); if (!on(x, y, 300*D)) return;
     if (q.kind === "ocean"){ if (k <= 2.4){ const st = maStyle(q.el); maQuad(maText(q.el.textContent, st, st.fs, 0, {mid:true}), x, y, 1); } return; }
     if (q.kind === "cap"){ if (!((q.tier === 0 && k >= 1.2) || (q.tier === 1 && k >= 2) || (q.tier === 2 && k >= 3.2))) return;
@@ -8694,22 +8700,45 @@ function floatText(iso, text, kind){
 const FLASH_MS = 4200;
 function flashMap(iso, kind){ if (!iso) return; clearTimeout(ui.flashT); ui.flashT = setTimeout(() => { if (S && S.countries && !S.over){ const fx = document.getElementById("map-fx"); if (fx){ fx.innerHTML = fxMarkup(); updateLabels(); } } }, FLASH_MS + 100); ui.flashes = (ui.flashes||[]).filter(f => performance.now() - f.t < FLASH_MS); ui.flashes.push({iso, kind:kind||"info", t:performance.now()}); }
 const PIN_ICON = {hydro:"power",solar:"power",institute:"science",enrich:"power",npp:"power",shipyard:"ship",ammoplant:"ammo",sawmill:"wood",steelworks:"steel",oilrig:"oil",goldmine:"gold",farm:"food",oil:"oil",mine:"metal",power:"power",factory:"factory",chem:"factory",auto:"factory",chips:"factory",bridge:"bridge",highway:"road",metro:"metro",airport:"plane",port:"port",tankplant:"tank",heliplant:"heli",aviaplant:"jet",samplant:"sam"};
+// Own buildings on the land: his pictures as soft round decals (07.11). With WebGL they are drawn in mgOver under every mark and name
+// (his wish: country names stay on top); the SVG keeps the tap target, which opens the building sheet. A new one grows in.
+const BD_K = 2.6, BD_MIN = 20, BD_MAX = 56, BD_A = 48, BD_P = 160, BD_GROW = 700, BD = {cv:{}, im:{}, url:{}, t:0};
+const bdSize = k => clamp(BD_MIN*k/BD_K, BD_MIN, BD_MAX);   // css px on screen, grows with the zoom
+function bdCanvas(id){
+  if (BD.cv[id] || BD.im[id] || !BLD_PICS.has(id)) return BD.cv[id] || null;
+  const im = BD.im[id] = new Image();
+  im.onload = () => { const c = document.createElement("canvas"); c.width = c.height = BD_P; const x = c.getContext("2d"), s = Math.min(im.width, im.height);
+    x.filter = "saturate(.78) brightness(.93)"; x.drawImage(im, (im.width - s)/2, (im.height - s)/2, s, s, 0, 0, BD_P, BD_P); x.filter = "none";
+    const g = x.createRadialGradient(BD_P/2, BD_P/2, BD_P*0.27, BD_P/2, BD_P/2, BD_P/2); g.addColorStop(0, "#000"); g.addColorStop(1, "rgba(0,0,0,0)");
+    x.globalCompositeOperation = "destination-in"; x.fillStyle = g; x.fillRect(0, 0, BD_P, BD_P);
+    BD.cv[id] = c; try { BD.url[id] = c.toDataURL(); } catch(e){}
+    if (mgOn()) mgKick(); else { clearTimeout(BD.t); BD.t = setTimeout(() => { const fx = document.getElementById("map-fx"); if (fx && S){ fx.innerHTML = fxMarkup(); updateLabels(); } }, 250); } };
+  im.src = `icons/buildings/${id}.webp`; return null;
+}
+function maDecal(id){ const cv = bdCanvas(id); return cv ? maShape("bd" + id, -BD_A/2, -BD_A/2, BD_A, BD_A, c => c.drawImage(cv, -BD_A/2, -BD_A/2, BD_A, BD_A)) : null; }
 function buildingPins(){
-  const list = []; Object.keys(BUILDINGS).forEach(id => { for (let i = 0; i < Math.min(objCount(id), 4); i++) list.push(id); });
+  const list = []; Object.keys(BUILDINGS).forEach(id => { for (let i = 0; i < Math.min(objCount(id), 4); i++) list.push(id + "#" + i); });
   if (!list.length) return "";
-  const key = S.player + ":" + list.length;
+  const L = LABELS[S.player], svg = document.getElementById("worldmap"), sw = svg ? Math.round(svg.getBoundingClientRect().width) : 0, key = L ? [S.player, L.x.toFixed(0), L.y.toFixed(0), L.w.toFixed(0), sw].join(":") : S.player;
   if (!ui.pins || ui.pins.key !== key){
-    const path = document.querySelector(`#worldmap path[data-iso="${S.player}"]`), L = LABELS[S.player]; if (!path || !L) return "";
-    const pts = []; let seed = 7;
+    const path = document.querySelector(`#worldmap path[data-iso="${S.player}"]`); if (!path || !L) return "";
+    const pts = [], gap = Math.max(Math.min(L.w, L.h)*0.07, sw ? 0.8*BD_MIN*mapSize()[0]/sw/BD_K : 0); let seed = 7;   // pictures do not pile up: at least 0.8 of their size apart
     const rnd1 = () => { seed = (seed*9301 + 49297) % 233280; return seed/233280; };
     for (let tries = 0; tries < 900 && pts.length < 28; tries++){
       const x = L.x - L.w/2 + rnd1()*L.w, y = L.y - L.h/2 + rnd1()*L.h;
       let inside = false; try { inside = path.isPointInFill(new DOMPoint(x, y)); } catch(e){ inside = true; }
-      if (inside && Math.hypot(x - L.x, y - L.y) > Math.min(L.w, L.h)*0.12 && pts.every(q => Math.hypot(q.x-x, q.y-y) > Math.min(L.w, L.h)*0.07)) pts.push({x, y});
+      if (inside && Math.hypot(x - L.x, y - L.y) > Math.min(L.w, L.h)*0.06 && pts.every(q => Math.hypot(q.x-x, q.y-y) > gap)) pts.push({x, y});
     }
-    ui.pins = {key, pts};
+    ui.pins = {key, pts, at:{}, born:{}, first:true};
   }
-  return list.slice(0, ui.pins.pts.length).map((id, i) => { const q = ui.pins.pts[i]; return `<g class="fx-mark fx-pin" data-x="${q.x.toFixed(2)}" data-y="${q.y.toFixed(2)}"><rect x="-7" y="-7" width="14" height="14" rx="4"/><use href="#${iref(PIN_ICON[id]||"factory")}" x="-6" y="-6" width="12" height="12" class="cu"/><title>${BUILDINGS[id].name}</title></g>`; }).join("");
+  const P = ui.pins, at = {}, used = new Set(), now = performance.now();
+  list.forEach(b => { const i = P.at[b]; if (i !== undefined){ at[b] = i; used.add(i); } });   // a building keeps its place
+  list.forEach(b => { if (at[b] !== undefined) return; const i = P.pts.findIndex((q, j) => !used.has(j)); if (i < 0) return; at[b] = i; used.add(i); if (!P.first) P.born[b] = now; });
+  P.at = at; P.first = false; for (const b in P.born) if (now - P.born[b] > BD_GROW) delete P.born[b];
+  return Object.entries(at).map(([b, i]) => { const id = b.split("#")[0], q = P.pts[i], xy = `data-x="${q.x.toFixed(2)}" data-y="${q.y.toFixed(2)}"`;
+    if (!BLD_PICS.has(id)) return `<g class="fx-mark fx-pin" ${xy}><rect x="-7" y="-7" width="14" height="14" rx="4"/><use href="#${iref(PIN_ICON[id]||"factory")}" x="-6" y="-6" width="12" height="12" class="cu"/><title>${BUILDINGS[id].name}</title></g>`;
+    bdCanvas(id); const born = P.born[b] || 0, h = BD_MIN/2, src = BD.url[id];
+    return `<g class="fx-mark fx-pin fx-bd fx-btn" ${xy} data-bd="${id}"${born ? ` data-born="${born.toFixed(0)}"` : ""}><circle r="${h}" class="fx-hit"/><image href="${src || `icons/buildings/${id}.webp`}" x="${-h}" y="${-h}" width="${BD_MIN}" height="${BD_MIN}" preserveAspectRatio="xMidYMid slice"${src ? "" : ` style="clip-path:circle(50%)"`}${born ? ` class="bd-new"` : ""}/><title>${BUILDINGS[id].name}</title></g>`; }).join("");
 }
 function fxGeom(a, b){ const mx = (a.x+b.x)/2, my = (a.y+b.y)/2, dx = b.x-a.x, dy = b.y-a.y, len = Math.hypot(dx,dy) || 1, off = Math.min(70, len*0.22); return {a, b, c:{x: mx - dy/len*off, y: my + dx/len*off}}; }
 function qbez(g, t){ const u = 1 - t; return {x: u*u*g.a.x + 2*u*t*g.c.x + t*t*g.b.x, y: u*u*g.a.y + 2*u*t*g.c.y + t*t*g.b.y}; }
@@ -8821,7 +8850,8 @@ function updateLabels(){
   document.querySelectorAll(gl ? "#map-fx .fx-mark:not(.fx-ocean):not(.fx-cap):not(.fx-city):not(.fx-cargo)" : "#map-fx .fx-mark").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${s})${el.dataset.r ? ` rotate(${el.dataset.r})` : ""}`));
   if (!gl) document.querySelectorAll("#map-fx .fx-cap").forEach(el => { const t = +el.dataset.tier; el.style.display = (t === 0 && k >= 1.2) || (t === 1 && k >= 2) || (t === 2 && k >= 3.2) ? "" : "none"; });
   const nameL = LABELS[S && S.player], nameW = nameL ? (partnerName(S.player).length*4.7 + 12)*upp/k : 0, nameH = 18*upp/k;   // a pin never covers the name of the own country, it comes back on zoom
-  document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= 2.6 && !(nameL && Math.abs(el.dataset.x - nameL.x) < nameW && Math.abs(el.dataset.y - nameL.y) < nameH) ? "" : "none"; });
+  document.querySelectorAll("#map-fx .fx-pin").forEach(el => { el.style.display = k >= BD_K && (el.classList.contains("fx-bd") || !(nameL && Math.abs(el.dataset.x - nameL.x) < nameW && Math.abs(el.dataset.y - nameL.y) < nameH)) ? "" : "none"; });   // pictures lie under the names
+  const bs = (upp/k*bdSize(k)/BD_MIN).toFixed(4); document.querySelectorAll("#map-fx .fx-bd").forEach(el => el.setAttribute("transform", `translate(${el.dataset.x} ${el.dataset.y}) scale(${bs})`));
   if (!gl) document.querySelectorAll("#map-fx .fc-name").forEach(el => { el.style.display = k >= 1.8 ? "" : "none"; });
   if (!gl) document.querySelectorAll("#map-fx .fx-ocean").forEach(el => { el.style.display = k <= 2.4 ? "" : "none"; });
 }
@@ -8948,6 +8978,7 @@ function attachMap(){
   const end = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null;
     if (!moved && e.type==="pointerup"){ const el = document.elementFromPoint(e.clientX, e.clientY);
       const btn = el && el.closest(".fx-btn");
+      if (btn && btn.dataset.bd){ ghostUntil = performance.now() + 450; sfx("tap"); showBuild(btn.dataset.bd); return; }
       if (btn && btn.dataset.battle){ ghostUntil = performance.now() + 450; const [be, bi] = btn.dataset.battle.split(":"); openBattle(be, +bi); return; }
       if (btn){ ghostUntil = performance.now() + 450; const [tab, cat] = btn.dataset.go.split(":"); if (cat) S.buildCat = cat; ui.tab = tab; sfx("tap"); render(); return; }
       const p = el && el.closest("path[data-iso]");
