@@ -4643,14 +4643,14 @@ const TECH = [
   {id:"egov",br:"econ",tier:1,max:5,cost:60,days:90,name:"Цифровые госуслуги",fx:"сбор налогов +#%",v:2.5},
   {id:"automation",br:"econ",tier:2,max:5,cost:120,days:140,name:"Автоматизация производства",fx:"военные заводы быстрее на #%; автозавод и завод электроники",v:50},
   {id:"fintech",br:"econ",tier:3,max:5,cost:220,days:200,name:"Финтех и электронные платежи",fx:"закупки на бирже дешевле на #%",v:8},
-  {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост экономики +#% в год",v:1.5},
+  {id:"ai",br:"econ",tier:4,max:5,cost:380,days:280,name:"Искусственный интеллект",fx:"рост экономики +#% в год",v:0.6},
   {id:"smartgrid",br:"res",tier:1,max:5,cost:60,days:90,name:"Умные энергосети",fx:"построенные здания потребляют на #% меньше энергии",v:8},
   {id:"deep",br:"res",tier:2,max:5,cost:140,days:150,name:"Глубокая добыча",fx:"вышки и рудники истощаются медленнее на #1%, покрытие топлива и руды +#2%",v:[20,20]},
-  {id:"fusion",br:"res",tier:3,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"энергия +#1 ед., рост экономики +#2% в год",v:[40,0.5],req:{nuc_reactor:2}},
-  {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"потребность «Здоровье» +#1%, рейтинг +#2",v:[6,2]},
-  {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,2]},
-  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"«Здоровье» +#1%, рейтинг +#2, рост экономики +#3% в год",v:[6,3,0.3]},
-  {id:"longevity",br:"soc",tier:4,max:5,cost:380,days:280,name:"Продление жизни",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,5]},
+  {id:"fusion",br:"res",tier:3,max:5,cost:420,days:320,name:"Термоядерный синтез",fx:"энергия +#1 ед., рост экономики +#2% в год",v:[16,0.2],req:{nuc_reactor:2}},
+  {id:"telemed",br:"soc",tier:1,max:5,cost:60,days:90,name:"Телемедицина",fx:"потребность «Здоровье» +#1%, рейтинг +#2",v:[6,1]},
+  {id:"vaccines",br:"soc",tier:2,max:5,cost:120,days:140,name:"Вакцины нового поколения",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,1]},
+  {id:"gene",br:"soc",tier:3,max:5,cost:220,days:200,name:"Генная терапия",fx:"«Здоровье» +#1%, рейтинг +#2, рост экономики +#3% в год",v:[6,1.5,0.1]},
+  {id:"longevity",br:"soc",tier:4,max:5,cost:380,days:280,name:"Продление жизни",fx:"«Здоровье» +#1%, рейтинг +#2, прирост населения",v:[6,2.5]},
   {id:"comms",br:"def",tier:1,max:5,cost:70,days:100,name:"Цифровая связь войск",fx:"боевая мощь +#%",v:10},
   {id:"drones",br:"def",tier:2,max:3,cost:140,days:150,name:"Беспилотники",fx:"мощь +#%; ур. 2–3 — покупка и выпуск дронов 2–3 поколения",v:20},
   {id:"missile",br:"def",tier:3,max:3,cost:240,days:220,name:"Ракетостроение и ПРО",fx:"вражеские ракеты сбиваются чаще на #%; ур. 2–3 — покупка и выпуск ПВО 2–3 поколения",v:20},
@@ -4696,6 +4696,7 @@ const UP_OUT = {wood:"sawmill", steel:"steelworks", oil:"oilrig", rare:"raremine
   TECH.push({id:"up_"+id, br:"up", tier:1, max:99, cost:100, days:60, up:1, lin:true, v:2, name, fx:(BUILDINGS[id].roi ? "доход" : "выработка")+" построенных зданий +#%"}));
 const upK = id => 1 + UP_STEP*tlv("up_"+id);
 const TECH_BY = Object.fromEntries(TECH.map(t => [t.id, t]));
+const techV = (id, i = 0) => { const v = TECH_BY[id].v; return Array.isArray(v) ? v[i] : v; };   // effect size from the TECH list, so the card text and the game use one number
 function tlv(id){ return (S && S.rlv && S.rlv[id]) || 0; }
 function tech(id){ return TECH_EFF[Math.min(5, tlv(id))]; }
 function techCostLv(t, lv){ if (t.up) return t.cost + 20*(lv-1); return Math.round(t.cost*Math.pow(1.5, lv-1)); }
@@ -5403,7 +5404,7 @@ function growthMonthly(){
   const K = S.capital;
   g += (K.edu-33)*0.00005 + (K.infra-33)*0.00005 + (K.health-33)*0.00002;
   g -= 0.00025*Math.max(0, taxBurden()-15.8);
-  g += 0.00125*tech("ai") + 0.0004*tech("fusion") + 0.00025*tech("gene");
+  g += (techV("ai")*tech("ai") + techV("fusion", 1)*tech("fusion") + techV("gene", 2)*tech("gene"))/1200;   // v is % a year
   g += ideo("tech") ? 0.00033 : ideo("soc") ? -0.00033 : 0;
   if (S.climatePact) g -= 0.0002;
   if (me().worldSanctions > 0) g -= 0.0015;
@@ -5422,7 +5423,7 @@ function approvalTarget(){
   t += (K.health-33)*0.12 + (K.edu-33)*0.03 + (K.infra-33)*0.03 + (S.sectors.health-1)*1.5 - (S.sectors.police-1)*1;
   t -= S.wars.length*(ideo("nat")?5:10) + deficits()*3 + (S.weary||0)*0.15;
   t += ideo("dem")?5 : ideo("tech")?-3 : ideo("soc")?6 : ideo("auth")?-8 : 0;
-  t += lawSum("appr") + modSum("approval") + objOn("metro") + 2*tech("telemed") + 2*tech("vaccines") + 3*tech("gene") + 5*tech("longevity");
+  t += lawSum("appr") + modSum("approval") + objOn("metro") + techV("telemed", 1)*tech("telemed") + techV("vaccines", 1)*tech("vaccines") + techV("gene", 1)*tech("gene") + techV("longevity", 1)*tech("longevity");
   if (S.debt > mg()*0.9) t -= 5;
   return clamp(t, 0, 100);
 }
@@ -6795,7 +6796,7 @@ function powerSupply(){
   const h = objCount("hydro")*8; if (h) out.push(["hpp","ГЭС ×"+objCount("hydro"), h]);
   const s = objCount("solar")*2*(1 + 0.05*minEff("ecology")); if (s) out.push(["solar","Солнце и ветер ×"+objCount("solar"), s]);
   const n = S.uranOk === false ? 0 : objCount("npp")*(12 + 2*tlv("nuc_reactor")); if (n) out.push(["npp","Атомные станции ×"+objCount("npp"), n]);
-  const bonus = (lawOn("green") ? 15 : 0) + 40*tech("fusion") + 1.5*minDelta("energy") + modSum("power");
+  const bonus = (lawOn("green") ? 15 : 0) + techV("fusion")*tech("fusion") + 1.5*minDelta("energy") + modSum("power");
   if (Math.abs(bonus) > 0.05) out.push(["bonus","Технологии, законы, Минэнерго", bonus]);
   return out;
 }
